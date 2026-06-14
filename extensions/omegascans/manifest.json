@@ -1,0 +1,9 @@
+{
+  "name": "OmegaScans",
+  "package": "io.prismhub.omegascans",
+  "version": "1.0.0",
+  "author": "PrismHub",
+  "type": "manga",
+  "icon": "https://omegascans.org/icon.png",
+  "description": "Manga en inglés (manhwa / manhua) vía API de OmegaScans"
+}

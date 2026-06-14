@@ -1,6 +1,29 @@
-// ─── Tipos del contrato público de extensiones Prism+ ───────────────────────
-// Estos tipos definen exactamente qué debe retornar cada función.
-// PrismHub (Dart) parsea estos campos en MediaItem, MediaDetail y WatchData.
+// ─── Prism+ SDK — Tipos públicos ─────────────────────────────────────────────
+// Contrato entre extensiones y apps cliente (PrismHub u otras).
+// Todos los campos opcionales tienen compatibilidad hacia atrás garantizada.
+
+/**
+ * Categoría del contenido de la extensión.
+ * El cliente usa este valor para mostrar el icono/sección correcta y
+ * para filtrar búsquedas por tipo de media.
+ */
+export type MediaType =
+  | 'anime'        // Animación japonesa / donghua
+  | 'manga'        // Cómics japoneses, manhwa, manhua, webtoon
+  | 'novel'        // Light novels, web novels, libros de texto
+  | 'movie'        // Películas
+  | 'series'       // Series de TV, dramas, doramas
+  | 'documentary'  // Documentales
+  | 'live'         // Canales de TV en vivo, IPTV
+  | 'video'        // Contenido de vídeo general (YouTube, etc.)
+  | 'music'        // Vídeos musicales, MVs
+  | 'podcast'      // Podcasts con vídeo o audio
+  | 'other';       // Cualquier otro tipo no listado
+
+/** Estado de publicación del contenido */
+export type ContentStatus = 'ongoing' | 'completed' | 'upcoming' | 'hiatus';
+
+// ─── Listas ──────────────────────────────────────────────────────────────────
 
 /** Ítem de lista — retornado por latest() y search() */
 export interface PrismItem {
@@ -9,12 +32,37 @@ export interface PrismItem {
   cover?: string;
   description?: string;
   tags?: string[];
+  /** Año de estreno */
+  year?: number;
+  /** Puntuación de 0 a 10 */
+  rating?: number;
+  /** Tipo de media del ítem (sobreescribe el tipo de la extensión si es mixto) */
+  type?: MediaType;
 }
 
-/** Episodio o capítulo dentro de un detalle */
+// ─── Detalle ─────────────────────────────────────────────────────────────────
+
+/** Episodio, capítulo, película o track */
 export interface PrismEpisode {
   title: string;
   url: string;
+  /** Miniatura del episodio */
+  thumbnail?: string;
+  /** Duración en segundos */
+  duration?: number;
+  /** Fecha de estreno — ISO 8601 (YYYY-MM-DD) */
+  airDate?: string;
+  /** Número de episodio dentro de la temporada */
+  number?: number;
+}
+
+/** Temporada o grupo de episodios dentro de un detalle */
+export interface PrismSeason {
+  title: string;
+  episodes: PrismEpisode[];
+  /** Año de la temporada */
+  year?: number;
+  cover?: string;
 }
 
 /** Resultado completo de detail() */
@@ -22,28 +70,49 @@ export interface PrismDetail {
   title: string;
   cover?: string;
   description?: string;
+  /** Lista plana de episodios (para contenido sin temporadas) */
   episodes: PrismEpisode[];
-  /** Pares clave-valor para metadata extra: Estado, Año, Estudio, etc. */
+  /** Temporadas — para series con múltiples temporadas */
+  seasons?: PrismSeason[];
+  /** Géneros del contenido */
+  genres?: string[];
+  /** Estado de publicación */
+  status?: ContentStatus;
+  /** Año de estreno */
+  year?: number;
+  /** Puntuación de 0 a 10 */
+  rating?: number;
+  /** Metadatos adicionales clave-valor (Estado, Estudio, Director, etc.) */
   extra?: Record<string, string>;
 }
 
-/** Stream de video o URL de imagen de página */
+// ─── Reproducción ─────────────────────────────────────────────────────────────
+
+/** Stream de vídeo, página de imagen o torrent */
 export interface PrismStream {
   url: string;
+  /** Etiqueta de calidad (1080p, 720p, Page 1, etc.) */
   quality?: string;
-  /** Headers HTTP necesarios para reproducir/cargar (ej. Referer, Cookie) */
+  /** Nombre para mostrar en el selector de fuente */
+  label?: string;
+  /** Headers HTTP necesarios (Referer, Cookie, Authorization, etc.) */
   headers?: Record<string, string>;
+  /** MIME type del stream (application/x-mpegURL, video/mp4, etc.) */
+  mimeType?: string;
 }
 
 /** Pista de subtítulos */
 export interface PrismSubtitle {
   label: string;
   url: string;
+  /** Código de idioma BCP-47 (es, en, ja, etc.) */
   lang?: string;
 }
 
-/** Resultado de watch() — streams de video o páginas de imagen */
+/** Resultado de watch() — streams de vídeo o páginas de imagen */
 export interface PrismWatch {
   streams: PrismStream[];
   subtitles?: PrismSubtitle[];
+  /** Headers globales aplicados a todos los streams */
+  headers?: Record<string, string>;
 }

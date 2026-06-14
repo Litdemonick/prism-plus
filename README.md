@@ -1,209 +1,428 @@
 # Prism+
 
-**Repositorio oficial de extensiones para [PrismHub](https://github.com/Litdemonick/Prism_Hub)**
+**Universal open-source extension core for streaming media.**
 
-Prism+ es el catálogo de extensiones de PrismHub — la app para ver anime, leer manga, cómics y novelas desde múltiples fuentes en un solo lugar. Cada extensión es un bundle TypeScript compilado que sabe cómo hablar con un sitio web específico.
+Prism+ is the extension layer that powers [PrismHub](https://github.com/Litdemonick/Prism_Hub) and any compatible media client. Each extension is a TypeScript module that knows how to talk to one source — an anime site, a manga API, a movie platform, a video feed — and exposes a unified interface your app can call.
 
----
-
-## Extensiones disponibles
-
-| Nombre | Tipo | Idioma | Descripción |
-|--------|------|--------|-------------|
-| 🎌 **Jikan Anime** | Anime | 🌐 Multi | Catálogo completo de MyAnimeList vía Jikan API |
-| 🦊 **AnimeFLV** | Anime | 🇪🇸 Español | Anime con subs y doblaje latino en AnimeFLV |
-| 🐾 **TioAnime** | Anime | 🇪🇸 Español | Anime en español latino desde TioAnime |
+> **Scope:** anime, manga, manhwa, movies, series, documentaries, live TV, novels, podcasts, YouTube-compatible video feeds, and more. If there's a public web source, there can be a Prism+ extension for it.
 
 ---
 
-## Agregar este repo a PrismHub
+## Table of Contents
 
-1. Abre **PrismHub**
-2. Ve a la pestaña **Extensiones**
-3. Pulsa el botón **＋** (añadir repositorio)
-4. Pega esta URL:
-
-```
-https://raw.githubusercontent.com/Litdemonick/prism-plus/main/index.json
-```
-
-5. Pulsa **Añadir** → aparecerán todas las extensiones en la pestaña **Explorar**
-6. Instala las que quieras con el botón de descarga
+- [Architecture](#architecture)
+- [SDK Reference](#sdk-reference)
+- [Writing an Extension](#writing-an-extension)
+- [Extension Catalog](#extension-catalog)
+- [Integrating Prism+ into Your App](#integrating-prism-into-your-app)
+- [Building](#building)
+- [Contributing](#contributing)
 
 ---
 
-## Cómo funciona
-
-```
-Prism+ (este repo)              PrismHub (la app)
-────────────────────            ─────────────────
-index.json ──────────────────→  Lista de extensiones disponibles
-dist/animeflv.js ────────────→  Se descarga e instala
-  │
-  └─ latest(page)   ──────────→  Pantalla de inicio
-  └─ search(kw, page) ────────→  Búsqueda
-  └─ detail(url)    ──────────→  Página de detalle
-  └─ watch(url)     ──────────→  Reproductor / Lector
-```
-
-Cada extensión es un archivo `.js` autocontenido (bundle IIFE) que corre en QuickJS dentro de PrismHub. Usa el `fetch()` inyectado por la app para hacer peticiones HTTP.
-
----
-
-## Crear una extensión
-
-### 1. Crea la carpeta
-
-```
-extensions/
-└── mi-sitio/
-    ├── index.ts       ← código de la extensión
-    └── manifest.json  ← metadata
-```
-
-### 2. Escribe el `manifest.json`
-
-```json
-{
-  "name": "Mi Sitio",
-  "package": "io.prismhub.misitio",
-  "version": "1.0.0",
-  "author": "Tu nombre",
-  "type": "anime",
-  "icon": "https://misitio.com/favicon.ico",
-  "description": "Descripción corta de la fuente"
-}
-```
-
-**Tipos válidos:** `anime` · `manga` · `comic` · `novel`
-
-### 3. Escribe el `index.ts`
-
-```typescript
-import { get, getJson } from '../../sdk/http';
-import { matchFirst, matchAll, between, stripTags } from '../../sdk/html';
-import type { PrismItem, PrismDetail, PrismWatch } from '../../sdk/types';
-
-const BASE = 'https://misitio.com';
-
-/** Últimos contenidos — se muestra en la pantalla de inicio */
-export async function latest(page: number): Promise<PrismItem[]> {
-  const html = await get(`${BASE}/nuevos?p=${page}`);
-  // parsear y retornar lista
-  return [];
-}
-
-/** Búsqueda por palabra clave */
-export async function search(keyword: string, page: number): Promise<PrismItem[]> {
-  const html = await get(`${BASE}/buscar?q=${encodeURIComponent(keyword)}&p=${page}`);
-  return [];
-}
-
-/** Detalle: portada, descripción, lista de episodios/capítulos */
-export async function detail(url: string): Promise<PrismDetail> {
-  const html = await get(`${BASE}/anime/${url}`);
-  return {
-    title: matchFirst(html, /<h1[^>]*>([^<]+)<\/h1>/i),
-    description: stripTags(between(html, '<div class="sinopsis">', '</div>')),
-    episodes: [],
-  };
-}
-
-/** Reproducción: streams de video o URLs de imágenes */
-export async function watch(url: string): Promise<PrismWatch> {
-  return { streams: [] };
-}
-```
-
-### 4. Compila y sube
-
-```bash
-npm run build        # compila todas las extensiones + genera index.json
-git add .
-git commit -m "feat: añadir mi-sitio"
-git push             # GitHub Actions recompila automáticamente
-```
-
----
-
-## SDK
-
-El SDK está en `sdk/` y se bundlea dentro de cada extensión automáticamente.
-
-### `sdk/http.ts` — Cliente HTTP
-
-```typescript
-get(url, headers?)          → Promise<string>       // HTML / texto
-getJson<T>(url, headers?)   → Promise<T>            // JSON parseado
-post(url, body, headers?)   → Promise<string>       // POST texto
-postJson<T>(url, data, headers?) → Promise<T>       // POST JSON
-```
-
-Incluye **reintentos automáticos** (2 reintentos con backoff exponencial) y **User-Agent** de Chrome por defecto.
-
-### `sdk/html.ts` — Parseo HTML con regex
-
-```typescript
-matchFirst(html, pattern)          → string        // primer grupo 1
-matchAll(html, pattern)            → string[]      // todos los grupos 1
-matchGroups(html, pattern)         → string[][]    // múltiples grupos
-between(html, start, end)          → string        // texto entre delimitadores
-attr(html, tag, attribute)         → string        // valor de atributo
-stripTags(html)                    → string        // elimina etiquetas HTML
-decodeEntities(html)               → string        // decodifica &amp; &lt; etc.
-```
-
-### `sdk/types.ts` — Contratos de datos
-
-```typescript
-PrismItem    // { title, url, cover?, description?, tags? }
-PrismEpisode // { title, url }
-PrismDetail  // { title, cover?, description?, episodes[], extra? }
-PrismStream  // { url, quality?, headers? }
-PrismSubtitle// { label, url, lang? }
-PrismWatch   // { streams[], subtitles? }
-```
-
----
-
-## Estructura del proyecto
+## Architecture
 
 ```
 prism-plus/
-├── sdk/                  # TypeScript SDK (se bundlea en cada extensión)
-│   ├── types.ts          # Contratos de datos
-│   ├── http.ts           # Cliente HTTP con reintentos
-│   ├── html.ts           # Helpers de parseo HTML
-│   └── index.ts          # Barrel export
-├── extensions/           # Una carpeta por extensión
-│   ├── jikan-anime/
-│   ├── animeflv/
-│   └── tioanime/
-├── dist/                 # Bundles compilados (auto-generados)
+├── sdk/
+│   ├── types.ts      ← Public contracts (PrismItem, PrismDetail, PrismWatch, …)
+│   ├── http.ts       ← HTTP client with retries and default headers
+│   └── html.ts       ← Regex-based HTML parser (no DOM required)
+├── extensions/
+│   └── <name>/
+│       ├── index.ts      ← Extension logic (latest, search, detail, watch)
+│       └── manifest.json ← Metadata (name, package id, type, icon, …)
 ├── scripts/
-│   └── build.mjs         # Build con esbuild + genera index.json
-├── index.json            # Índice del repo (auto-generado)
-├── package.json
-└── tsconfig.json
+│   └── build.mjs     ← esbuild compiler → dist/<name>.js + index.json
+└── dist/             ← Generated by CI — do not commit manually
+```
+
+Each extension is compiled to a **self-contained IIFE bundle** (no external dependencies at runtime). The final `index.json` is the catalog your app fetches to discover available extensions.
+
+**Runtime assumptions:**
+- `fetch()` is available as a global (provided by the host app, e.g. QuickJS in PrismHub)
+- No DOM, no Node.js built-ins, no file system
+- ES2020 syntax is safe
+
+---
+
+## SDK Reference
+
+### `sdk/types.ts`
+
+#### `MediaType`
+```typescript
+type MediaType =
+  | 'anime' | 'manga' | 'novel'
+  | 'movie' | 'series' | 'documentary'
+  | 'live'  | 'video'  | 'music'
+  | 'podcast' | 'other';
+```
+
+#### `PrismItem` — returned by `latest()` and `search()`
+```typescript
+interface PrismItem {
+  title:        string;
+  url:          string;     // opaque id or full URL passed to detail()
+  cover?:       string;
+  description?: string;
+  tags?:        string[];
+  year?:        number;
+  rating?:      number;     // 0–10
+  type?:        MediaType;
+}
+```
+
+#### `PrismDetail` — returned by `detail()`
+```typescript
+interface PrismDetail {
+  title:        string;
+  cover?:       string;
+  description?: string;
+  episodes:     PrismEpisode[];  // flat list (use when no seasons)
+  seasons?:     PrismSeason[];   // grouped list (optional)
+  genres?:      string[];
+  status?:      'ongoing' | 'completed' | 'upcoming' | 'hiatus';
+  year?:        number;
+  rating?:      number;
+  extra?:       Record<string, string>;  // Studio, Director, Country, etc.
+}
+
+interface PrismEpisode {
+  title:      string;
+  url:        string;     // opaque id or full URL passed to watch()
+  thumbnail?: string;
+  duration?:  number;     // seconds
+  airDate?:   string;     // ISO 8601 — YYYY-MM-DD
+  number?:    number;
+}
+
+interface PrismSeason {
+  title:    string;
+  episodes: PrismEpisode[];
+  year?:    number;
+  cover?:   string;
+}
+```
+
+#### `PrismWatch` — returned by `watch()`
+```typescript
+interface PrismWatch {
+  streams:    PrismStream[];
+  subtitles?: PrismSubtitle[];
+  headers?:   Record<string, string>;  // global headers for all streams
+}
+
+interface PrismStream {
+  url:       string;
+  quality?:  string;    // "1080p", "720p", "Page 1", …
+  label?:    string;    // display name for the source selector
+  headers?:  Record<string, string>;
+  mimeType?: string;    // "application/x-mpegURL", "video/mp4", …
+}
+
+interface PrismSubtitle {
+  label: string;
+  url:   string;
+  lang?: string;        // BCP-47: "es", "en", "ja", …
+}
+```
+
+### `sdk/http.ts`
+
+```typescript
+// GET → string (HTML or text)
+get(url: string, headers?: Record<string, string>): Promise<string>
+
+// GET → parsed JSON
+getJson<T>(url: string, headers?: Record<string, string>): Promise<T>
+
+// POST with body → string
+post(url: string, body: string, headers?: Record<string, string>): Promise<string>
+
+// POST with body → parsed JSON
+postJson<T>(url: string, body: string, headers?: Record<string, string>): Promise<T>
+
+// Raw fetch with full control
+request(url: string, init?: RequestInit): Promise<Response>
+```
+
+All functions retry up to 3 times with exponential backoff and send a realistic Chrome `User-Agent` by default.
+
+### `sdk/html.ts`
+
+Regex-based parser — works without a DOM. Useful for HTML-scraping extensions.
+
+```typescript
+// First match of group 1
+matchFirst(html: string, re: RegExp): string
+
+// All matches of group 1
+matchAll(html: string, re: RegExp): string[]
+
+// All matches as [group1, group2, …] tuples
+matchGroups(html: string, re: RegExp): string[][]
+
+// Content between two string delimiters (first occurrence)
+between(html: string, start: string, end: string): string
+
+// Value of an HTML attribute
+attr(html: string, attr: string): string
+
+// Strip HTML tags
+stripTags(html: string): string
+
+// Decode HTML entities (&amp; → &, &lt; → <, …)
+decodeEntities(str: string): string
 ```
 
 ---
 
-## Desarrollo local
+## Writing an Extension
+
+### 1. Create the folder
+
+```
+extensions/
+└── mysource/
+    ├── index.ts
+    └── manifest.json
+```
+
+### 2. Write the manifest
+
+```json
+{
+  "name": "My Source",
+  "package": "io.prismhub.mysource",
+  "version": "1.0.0",
+  "author": "your-github-username",
+  "type": "anime",
+  "icon": "https://mysource.com/favicon.png",
+  "description": "Short description of the source"
+}
+```
+
+Valid `type` values: `anime` · `manga` · `novel` · `movie` · `series` · `documentary` · `live` · `video` · `music` · `podcast` · `other`
+
+### 3. Implement `index.ts`
+
+Every extension exports exactly four async functions:
+
+```typescript
+import { getJson } from '../../sdk/http';
+import type { PrismItem, PrismDetail, PrismWatch } from '../../sdk/types';
+
+const API = 'https://api.mysource.com/v1';
+
+// Home / recently updated feed
+export async function latest(page: number): Promise<PrismItem[]> {
+  const data = await getJson<{ results: any[] }>(`${API}/latest?page=${page}`);
+  return data.results.map(item => ({
+    title: item.title,
+    url:   item.id,
+    cover: item.poster,
+  }));
+}
+
+// Search
+export async function search(keyword: string, page: number): Promise<PrismItem[]> {
+  const data = await getJson<{ results: any[] }>(
+    `${API}/search?q=${encodeURIComponent(keyword)}&page=${page}`,
+  );
+  return data.results.map(item => ({
+    title: item.title,
+    url:   item.id,
+    cover: item.poster,
+  }));
+}
+
+// Detail page — receives url returned by latest() or search()
+export async function detail(url: string): Promise<PrismDetail> {
+  const data = await getJson<any>(`${API}/info/${url}`);
+  return {
+    title:       data.title,
+    cover:       data.poster,
+    description: data.synopsis,
+    genres:      data.genres,
+    status:      data.status === 'Completed' ? 'completed' : 'ongoing',
+    episodes:    data.episodes.map((ep: any) => ({
+      title: `Episode ${ep.number}`,
+      url:   ep.id,
+    })),
+  };
+}
+
+// Playback — receives url returned by an episode
+export async function watch(url: string): Promise<PrismWatch> {
+  const data = await getJson<any>(`${API}/watch/${url}`);
+  return {
+    streams: data.sources.map((s: any) => ({
+      url:     s.url,
+      quality: s.quality,
+    })),
+  };
+}
+```
+
+**Rules:**
+- Use `getJson<T>()` for JSON APIs, `get()` for HTML scraping
+- Use `sdk/html.ts` helpers instead of DOM methods
+- Do not import Node.js built-ins (`fs`, `path`, `crypto`, etc.)
+- All fields except `title` and `url` are optional — only return what you have
+- If `watch()` can't extract a playable URL, return `{ streams: [] }`
+
+### 4. Build and test
 
 ```bash
-# Instalar dependencias
-npm install
-
-# Compilar todas las extensiones
 npm run build
-
-# Verificar tipos TypeScript
-npm run typecheck
+# Outputs dist/mysource.js and updates index.json
 ```
 
 ---
 
-## Licencia
+## Extension Catalog
 
-MIT — libre para usar, modificar y distribuir.
+16 extensions across 5 media categories.
+
+### Anime (8)
+
+| Extension | Language | Source | Notes |
+|-----------|----------|--------|-------|
+| **GoGoAnime** | EN | gogoanime via Consumet API | HLS streams |
+| **AniGoGo** | EN | amvstr.me + AniList | HLS streams |
+| **Animepahe** | EN | animepahe.ru | `watch()` returns empty — kwik.si requires JS eval |
+| **Enime** | EN | api.enime.moe | Open API, HLS |
+| **MonosChinos** | ES | monoschinos.net | HTML scrape + m3u8 |
+| **TioAnime** | ES | tioanime.com | HTML scrape |
+| **AnimeFLV** | ES | animeflv.net | HTML scrape |
+| **Jikan Anime** | All | MyAnimeList via Jikan | Metadata catalog, no streams |
+
+### Manga / Comics (4)
+
+| Extension | Language | Source | Notes |
+|-----------|----------|--------|-------|
+| **MangaDex** | Multi | api.mangadex.org | Official API, parallel fetches |
+| **Comick** | Multi | comick.fun | Groups chapters by language |
+| **MangaBat** | EN | h.mangabat.com | HTML scrape |
+| **OmegaScans** | EN | omegascans.org | Manhwa / manhua focus |
+
+### Movies (2)
+
+| Extension | Language | Source | Notes |
+|-----------|----------|--------|-------|
+| **FlixHQ** | EN | flixhq.vip via Consumet | Movies + series |
+| **YTS** | EN | yts.mx | Torrent magnet links |
+
+### Series / Dramas (1)
+
+| Extension | Language | Source | Notes |
+|-----------|----------|--------|-------|
+| **Kisskh** | Multi | kisskh.co | Asian dramas, parallel subtitle fetch |
+
+### Video (1)
+
+| Extension | Language | Source | Notes |
+|-----------|----------|--------|-------|
+| **Invidious** | Any | cal1.iv.ggtyler.dev | YouTube-compatible, no tracking |
+
+---
+
+## Integrating Prism+ into Your App
+
+### Step 1 — Fetch the catalog
+
+```
+GET https://raw.githubusercontent.com/Litdemonick/prism-plus/main/index.json
+```
+
+Response:
+```json
+{
+  "name": "Prism+",
+  "extensions": [
+    {
+      "name": "GoGoAnime",
+      "package": "io.prismhub.gogoanime",
+      "version": "1.0.0",
+      "type": "anime",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/gogoanime.js"
+    }
+  ]
+}
+```
+
+### Step 2 — Load the extension script
+
+Each `script` URL points to a self-contained IIFE bundle. Load it in your JS runtime and call the exported functions. The IIFE global name is the `package` id with non-alphanumeric characters replaced by `_`:
+
+```
+io.prismhub.gogoanime  →  io_prismhub_gogoanime
+```
+
+### Step 3 — Call the extension
+
+```javascript
+// After loading the IIFE:
+const ext = io_prismhub_gogoanime;
+
+const items  = await ext.latest(1);
+const detail = await ext.detail(items[0].url);
+const play   = await ext.watch(detail.episodes[0].url);
+
+// play.streams[0].url is the playable URL
+```
+
+### Self-hosting
+
+Fork this repo and set the `REPO_OWNER` environment variable in your CI:
+
+```yaml
+env:
+  REPO_OWNER: your-github-username
+  REPO_NAME: prism-plus
+  BRANCH: main
+```
+
+The build script uses these to construct the raw GitHub URLs in `index.json`. No other changes needed.
+
+---
+
+## Building
+
+```bash
+npm install
+npm run build       # compile all extensions → dist/ + index.json
+npm run typecheck   # type-check without emitting
+```
+
+Environment variables accepted by `scripts/build.mjs`:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `REPO_OWNER` | `Litdemonick` | GitHub username for raw URLs |
+| `REPO_NAME` | `prism-plus` | Repository name |
+| `BRANCH` | `main` | Branch for raw URLs |
+
+CI is handled by `.github/workflows/build.yml` — it builds on every push to `main` that touches `extensions/`, `sdk/`, or `scripts/`, then commits `dist/` and `index.json` back to the repository.
+
+---
+
+## Contributing
+
+1. Fork the repo
+2. Add your extension under `extensions/<name>/`
+3. Run `npm run build` and fix any TypeScript errors
+4. Open a pull request
+
+**Guidelines:**
+- TypeScript only — no plain JavaScript
+- Write original implementations; do not copy code from other extension repositories
+- Use the SDK helpers; do not import Node.js built-ins
+- If a source requires client-side JS execution (eval, crypto), document it and return `{ streams: [] }` rather than breaking the build
+
+---
+
+## License
+
+MIT

@@ -1,0 +1,9 @@
+{
+  "name": "MangaDex",
+  "package": "io.prismhub.mangadex",
+  "version": "1.0.0",
+  "author": "PrismHub",
+  "type": "manga",
+  "icon": "https://mangadex.org/img/avatar.png",
+  "description": "Manga multi-idioma vía API oficial de MangaDex"
+}

@@ -1,8 +1,23 @@
 {
   "name": "prism-plus",
   "version": "1.0.0",
-  "description": "Repositorio oficial de extensiones para PrismHub",
+  "description": "Universal open-source extension core for streaming media — anime, manga, movies, series, live TV, novels, and more",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Litdemonick/prism-plus"
+  },
+  "keywords": [
+    "prismhub",
+    "extensions",
+    "anime",
+    "manga",
+    "movies",
+    "streaming",
+    "typescript",
+    "open-source"
+  ],
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit"

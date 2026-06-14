@@ -1,0 +1,9 @@
+{
+  "name": "Invidious",
+  "package": "io.prismhub.invidious",
+  "version": "1.0.0",
+  "author": "PrismHub",
+  "type": "video",
+  "icon": "https://invidious.io/apple-touch-icon.png",
+  "description": "Videos de YouTube vía frontend Invidious (sin tracking)"
+}

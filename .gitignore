@@ -1,1 +1,7 @@
 node_modules/
+
+# Artefactos de build — generados por CI, no se versionan manualmente
+dist/
+
+# Archivos temporales
+jiru_index.json

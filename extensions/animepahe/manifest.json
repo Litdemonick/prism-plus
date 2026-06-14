@@ -1,0 +1,9 @@
+{
+  "name": "Animepahe",
+  "package": "io.prismhub.animepahe",
+  "version": "1.0.0",
+  "author": "PrismHub",
+  "type": "anime",
+  "icon": "https://animepahe.ru/web-app-manifest-512x512.png",
+  "description": "Anime en inglés desde Animepahe"
+}

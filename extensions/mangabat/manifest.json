@@ -1,0 +1,9 @@
+{
+  "name": "MangaBat",
+  "package": "io.prismhub.mangabat",
+  "version": "1.0.0",
+  "author": "PrismHub",
+  "type": "manga",
+  "icon": "https://h.mangabat.com/favicon-96x96.png",
+  "description": "Manga en inglés desde MangaBat"
+}

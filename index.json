@@ -1,8 +1,19 @@
 {
   "name": "Prism+",
-  "description": "Repositorio oficial de extensiones para PrismHub",
+  "description": "Repositorio oficial de extensiones para PrismHub y plataformas compatibles",
   "version": "1.0.0",
+  "website": "https://github.com/Litdemonick/prism-plus",
   "extensions": [
+    {
+      "name": "AniGoGo",
+      "package": "io.prismhub.anigogo",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "anime",
+      "icon": "https://anilist.co/img/icons/apple-touch-icon.png",
+      "description": "Anime en inglés vía AniList + Amvstrm (con streams HLS)",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/anigogo.js"
+    },
     {
       "name": "AnimeFLV",
       "package": "io.prismhub.animeflv",
@@ -12,6 +23,66 @@
       "icon": "https://animeflv.net/favicon.ico",
       "description": "Anime con subtítulos y doblaje en español desde AnimeFLV",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animeflv.js"
+    },
+    {
+      "name": "Animepahe",
+      "package": "io.prismhub.animepahe",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "anime",
+      "icon": "https://animepahe.ru/web-app-manifest-512x512.png",
+      "description": "Anime en inglés desde Animepahe",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animepahe.js"
+    },
+    {
+      "name": "Comick",
+      "package": "io.prismhub.comick",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "manga",
+      "icon": "https://comick.app/static/icons/unicorn-256_maskable.png",
+      "description": "Manga multi-idioma vía API de Comick",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/comick.js"
+    },
+    {
+      "name": "Enime",
+      "package": "io.prismhub.enime",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "anime",
+      "icon": "https://avatars.githubusercontent.com/u/74993083?s=200&v=4",
+      "description": "Anime con streams HLS vía API abierta de Enime",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/enime.js"
+    },
+    {
+      "name": "FlixHQ",
+      "package": "io.prismhub.flixhq",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "movie",
+      "icon": "https://flixhq.vip/wp-content/uploads/2024/04/flixhq-logo-2.png",
+      "description": "Películas y series en inglés vía FlixHQ (Consumet API)",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/flixhq.js"
+    },
+    {
+      "name": "GoGoAnime",
+      "package": "io.prismhub.gogoanime",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "anime",
+      "icon": "https://ww9.gogoanimes.fi/img/icon/logo.png",
+      "description": "Anime en inglés vía GoGoAnime (Consumet API)",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/gogoanime.js"
+    },
+    {
+      "name": "Invidious",
+      "package": "io.prismhub.invidious",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "video",
+      "icon": "https://invidious.io/apple-touch-icon.png",
+      "description": "Videos de YouTube vía frontend Invidious (sin tracking)",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/invidious.js"
     },
     {
       "name": "Jikan Anime",
@@ -24,6 +95,56 @@
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jikan-anime.js"
     },
     {
+      "name": "Kisskh",
+      "package": "io.prismhub.kisskh",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "series",
+      "icon": "https://kisskh.co/assets/icons/icon-192x192.png",
+      "description": "Dramas asiáticos multi-idioma con subtítulos vía Kisskh",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/kisskh.js"
+    },
+    {
+      "name": "MangaBat",
+      "package": "io.prismhub.mangabat",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "manga",
+      "icon": "https://h.mangabat.com/favicon-96x96.png",
+      "description": "Manga en inglés desde MangaBat",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/mangabat.js"
+    },
+    {
+      "name": "MangaDex",
+      "package": "io.prismhub.mangadex",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "manga",
+      "icon": "https://mangadex.org/img/avatar.png",
+      "description": "Manga multi-idioma vía API oficial de MangaDex",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/mangadex.js"
+    },
+    {
+      "name": "MonosChinos",
+      "package": "io.prismhub.monoschinos",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "anime",
+      "icon": "https://monoschinos.st/img/2web.jpg",
+      "description": "Anime en español latino desde MonosChinos",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/monoschinos.js"
+    },
+    {
+      "name": "OmegaScans",
+      "package": "io.prismhub.omegascans",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "manga",
+      "icon": "https://omegascans.org/icon.png",
+      "description": "Manga en inglés (manhwa / manhua) vía API de OmegaScans",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/omegascans.js"
+    },
+    {
       "name": "TioAnime",
       "package": "io.prismhub.tioanime",
       "version": "1.0.0",
@@ -32,6 +153,16 @@
       "icon": "https://tioanime.com/favicon.ico",
       "description": "Anime en español latino desde TioAnime",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js"
+    },
+    {
+      "name": "YTS",
+      "package": "io.prismhub.yts",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "movie",
+      "icon": "https://yts.mx/assets/images/website/apple-touch-icon-144x144.png",
+      "description": "Películas en alta calidad vía YTS.mx (torrent links)",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/yts.js"
     }
   ]
 }

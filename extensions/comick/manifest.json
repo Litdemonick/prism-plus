@@ -1,0 +1,9 @@
+{
+  "name": "Comick",
+  "package": "io.prismhub.comick",
+  "version": "1.0.0",
+  "author": "PrismHub",
+  "type": "manga",
+  "icon": "https://comick.app/static/icons/unicorn-256_maskable.png",
+  "description": "Manga multi-idioma vía API de Comick"
+}
