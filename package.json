@@ -1,0 +1,14 @@
+{
+  "name": "prism-plus",
+  "version": "1.0.0",
+  "description": "Repositorio oficial de extensiones para PrismHub",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "Prism+",
+  "description": "Repositorio oficial de extensiones para PrismHub",
+  "version": "1.0.0",
+  "extensions": [
+    {
+      "name": "Jikan Anime",
+      "package": "io.prismhub.jikan",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "anime",
+      "icon": "https://cdn.myanimelist.net/img/sp/icon/apple-touch-icon-256.png",
+      "description": "Catálogo de anime desde MyAnimeList vía Jikan API pública (sin autenticación)",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jikan-anime.js"
+    }
+  ]
+}
