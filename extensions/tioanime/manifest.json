@@ -1,0 +1,9 @@
+{
+  "name": "TioAnime",
+  "package": "io.prismhub.tioanime",
+  "version": "1.0.0",
+  "author": "PrismHub",
+  "type": "anime",
+  "icon": "https://tioanime.com/favicon.ico",
+  "description": "Anime en español latino desde TioAnime"
+}

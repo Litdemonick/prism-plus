@@ -4,6 +4,16 @@
   "version": "1.0.0",
   "extensions": [
     {
+      "name": "AnimeFLV",
+      "package": "io.prismhub.animeflv",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "anime",
+      "icon": "https://animeflv.net/favicon.ico",
+      "description": "Anime con subtítulos y doblaje en español desde AnimeFLV",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animeflv.js"
+    },
+    {
       "name": "Jikan Anime",
       "package": "io.prismhub.jikan",
       "version": "1.0.0",
@@ -12,6 +22,16 @@
       "icon": "https://cdn.myanimelist.net/img/sp/icon/apple-touch-icon-256.png",
       "description": "Catálogo de anime desde MyAnimeList vía Jikan API pública (sin autenticación)",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jikan-anime.js"
+    },
+    {
+      "name": "TioAnime",
+      "package": "io.prismhub.tioanime",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "anime",
+      "icon": "https://tioanime.com/favicon.ico",
+      "description": "Anime en español latino desde TioAnime",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js"
     }
   ]
 }

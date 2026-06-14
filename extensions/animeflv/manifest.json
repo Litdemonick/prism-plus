@@ -1,0 +1,9 @@
+{
+  "name": "AnimeFLV",
+  "package": "io.prismhub.animeflv",
+  "version": "1.0.0",
+  "author": "PrismHub",
+  "type": "anime",
+  "icon": "https://animeflv.net/favicon.ico",
+  "description": "Anime con subtítulos y doblaje en español desde AnimeFLV"
+}
