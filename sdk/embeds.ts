@@ -82,14 +82,18 @@ export async function resolveVoe(
   if (jsonScript) {
     const decoded = _voeDecode(jsonScript[1]);
     if (decoded) {
-      const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(decoded);
-      if (mp4) return { url: _unescapeUrl(mp4[1]) };
-      const src = /"source"\s*:\s*"([^"]+)"/.exec(decoded);
+      // Preferir el m3u8 (`source`): es streaming-optimizado y media_kit lo
+      // reproduce nativo. El `direct_access_url` es un mp4 de DESCARGA (moov al
+      // final, sin soporte de rangos) → no reproduce progresivamente en el player.
+      const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(decoded);
       if (src) return { url: _unescapeUrl(src[1]) };
       const anyM3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(
         decoded.replace(/\\\//g, '/'),
       );
       if (anyM3u8) return { url: anyM3u8[1] };
+      // Fallback: mp4 directo (solo si no hay m3u8).
+      const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(decoded);
+      if (mp4) return { url: _unescapeUrl(mp4[1]) };
     }
   }
 

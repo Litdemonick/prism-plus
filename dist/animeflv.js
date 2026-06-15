@@ -153,14 +153,14 @@ var io_prismhub_animeflv = (() => {
     if (jsonScript) {
       const decoded = _voeDecode(jsonScript[1]);
       if (decoded) {
-        const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(decoded);
-        if (mp4) return { url: _unescapeUrl(mp4[1]) };
-        const src = /"source"\s*:\s*"([^"]+)"/.exec(decoded);
+        const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(decoded);
         if (src) return { url: _unescapeUrl(src[1]) };
         const anyM3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(
           decoded.replace(/\\\//g, "/")
         );
         if (anyM3u8) return { url: anyM3u8[1] };
+        const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(decoded);
+        if (mp4) return { url: _unescapeUrl(mp4[1]) };
       }
     }
     let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
