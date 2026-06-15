@@ -1,7 +1,7 @@
 import { get } from '../../sdk/http';
 import { matchFirst, between, stripTags } from '../../sdk/html';
 import { resolveEmbed, b64decode } from '../../sdk/embeds';
-import type { PrismDetail, PrismItem, PrismWatch } from '../../sdk/types';
+import type { PrismDetail, PrismItem, PrismStream, PrismWatch } from '../../sdk/types';
 
 // ─── MonosChinos ──────────────────────────────────────────────────────────────
 // Fuente: https://monoschinos.st
@@ -77,49 +77,35 @@ export async function detail(url: string): Promise<PrismDetail> {
 export async function watch(url: string): Promise<PrismWatch> {
   const html = await get(url, { Referer: `${BASE}/` });
 
-  // Cada server está en: <... data-player="BASE64">NombreServer<...>
-  // El BASE64 decodifica a una URL de embed (voe.sx, streamtape.com, etc.)
+  // 1. Descargas directas (sección "Descargas"): pixeldrain es un mp4 directo,
+  //    sin ofuscación ni token atado a IP → el server MÁS fiable. Va primero.
+  const direct: PrismStream[] = [];
+  const pdRe = /pixeldrain\.com\/u\/([A-Za-z0-9]+)/g;
+  const seenPd = new Set<string>();
+  for (const m of html.matchAll(pdRe)) {
+    if (seenPd.has(m[1])) continue;
+    seenPd.add(m[1]);
+    direct.push({
+      url: `https://pixeldrain.com/api/file/${m[1]}`,
+      quality: 'Pixeldrain',
+      headers: { Referer: 'https://pixeldrain.com/' },
+    });
+  }
+
+  // 2. Servers embed: <... data-player="BASE64">NombreServer<...>
+  //    El BASE64 decodifica a una URL de embed (voe.sx, mixdrop, etc.)
   const playerRe = /data-player="([A-Za-z0-9+/=]{10,})"[^>]*>([^<]{1,30})</g;
   const candidates: Array<{ server: string; embedUrl: string }> = [];
-
   for (const m of html.matchAll(playerRe)) {
-    const b64 = m[1];
-    const serverLabel = m[2].trim();
     try {
-      const embedUrl = b64decode(b64);
+      const embedUrl = b64decode(m[1]);
       if (embedUrl.startsWith('http')) {
-        candidates.push({ server: serverLabel || _guessServer(embedUrl), embedUrl });
+        candidates.push({ server: m[2].trim() || _guessServer(embedUrl), embedUrl });
       }
     } catch { /* ignorar */ }
   }
 
-  // Fallback si no hay data-player: buscar pixeldrain o m3u8 directo
-  if (candidates.length === 0) {
-    const pdMatch = /pixeldrain\.com\/u\/([A-Za-z0-9]+)/.exec(html);
-    if (pdMatch) {
-      return {
-        streams: [{
-          url: `https://pixeldrain.com/api/file/${pdMatch[1]}?download`,
-          headers: { Referer: 'https://pixeldrain.com/' },
-        }],
-      };
-    }
-    const m3u8Match = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
-    if (m3u8Match) return { streams: [{ url: m3u8Match[1] }] };
-
-    // Último recurso: buscar iframes con src embed
-    const iframeSrc = /[^-]src="(https?:\/\/(?:voe\.sx|streamtape\.[a-z]+)[^"]+)"/.exec(html);
-    if (iframeSrc) {
-      const embedUrl = iframeSrc[1];
-      const server = _guessServer(embedUrl);
-      const resolved = await resolveEmbed(server, embedUrl, `${BASE}/`);
-      if (resolved) return { streams: [{ url: resolved.url, headers: resolved.headers }] };
-      return { streams: [{ url: embedUrl, quality: server }] };
-    }
-
-    return { streams: [] };
-  }
-
+  // Resolver todos los embeds en paralelo.
   const results = await Promise.all(
     candidates.map(async ({ server, embedUrl }) => {
       const resolved = await resolveEmbed(server, embedUrl, `${BASE}/`);
@@ -134,7 +120,17 @@ export async function watch(url: string): Promise<PrismWatch> {
     .filter(r => r.resolved === null)
     .map(r => ({ url: r.embedUrl, quality: r.server }));
 
-  return { streams: [...resolved, ...fallback] };
+  // Orden: descargas directas (más fiables) → embeds resueltos → embeds crudos.
+  // PrismHub reproduce el primero y, si falla, hace auto-fallback al siguiente.
+  const streams = [...direct, ...resolved, ...fallback];
+
+  // Último recurso: m3u8 suelto en el HTML.
+  if (streams.length === 0) {
+    const m3u8Match = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
+    if (m3u8Match) streams.push({ url: m3u8Match[1], quality: 'Directo' });
+  }
+
+  return { streams };
 }
 
 function _guessServer(url: string): string {

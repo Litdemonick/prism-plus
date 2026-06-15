@@ -366,40 +366,28 @@ ${u}`;
   }
   async function watch(url) {
     const html = await get(url, { Referer: `${BASE}/` });
+    const direct = [];
+    const pdRe = /pixeldrain\.com\/u\/([A-Za-z0-9]+)/g;
+    const seenPd = /* @__PURE__ */ new Set();
+    for (const m of html.matchAll(pdRe)) {
+      if (seenPd.has(m[1])) continue;
+      seenPd.add(m[1]);
+      direct.push({
+        url: `https://pixeldrain.com/api/file/${m[1]}`,
+        quality: "Pixeldrain",
+        headers: { Referer: "https://pixeldrain.com/" }
+      });
+    }
     const playerRe = /data-player="([A-Za-z0-9+/=]{10,})"[^>]*>([^<]{1,30})</g;
     const candidates = [];
     for (const m of html.matchAll(playerRe)) {
-      const b64 = m[1];
-      const serverLabel = m[2].trim();
       try {
-        const embedUrl = b64decode(b64);
+        const embedUrl = b64decode(m[1]);
         if (embedUrl.startsWith("http")) {
-          candidates.push({ server: serverLabel || _guessServer(embedUrl), embedUrl });
+          candidates.push({ server: m[2].trim() || _guessServer(embedUrl), embedUrl });
         }
       } catch {
       }
-    }
-    if (candidates.length === 0) {
-      const pdMatch = /pixeldrain\.com\/u\/([A-Za-z0-9]+)/.exec(html);
-      if (pdMatch) {
-        return {
-          streams: [{
-            url: `https://pixeldrain.com/api/file/${pdMatch[1]}?download`,
-            headers: { Referer: "https://pixeldrain.com/" }
-          }]
-        };
-      }
-      const m3u8Match = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
-      if (m3u8Match) return { streams: [{ url: m3u8Match[1] }] };
-      const iframeSrc = /[^-]src="(https?:\/\/(?:voe\.sx|streamtape\.[a-z]+)[^"]+)"/.exec(html);
-      if (iframeSrc) {
-        const embedUrl = iframeSrc[1];
-        const server = _guessServer(embedUrl);
-        const resolved2 = await resolveEmbed(server, embedUrl, `${BASE}/`);
-        if (resolved2) return { streams: [{ url: resolved2.url, headers: resolved2.headers }] };
-        return { streams: [{ url: embedUrl, quality: server }] };
-      }
-      return { streams: [] };
     }
     const results = await Promise.all(
       candidates.map(async ({ server, embedUrl }) => {
@@ -409,7 +397,12 @@ ${u}`;
     );
     const resolved = results.filter((r) => r.resolved !== null).map((r) => ({ url: r.resolved.url, quality: r.server, headers: r.resolved.headers }));
     const fallback = results.filter((r) => r.resolved === null).map((r) => ({ url: r.embedUrl, quality: r.server }));
-    return { streams: [...resolved, ...fallback] };
+    const streams = [...direct, ...resolved, ...fallback];
+    if (streams.length === 0) {
+      const m3u8Match = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
+      if (m3u8Match) streams.push({ url: m3u8Match[1], quality: "Directo" });
+    }
+    return { streams };
   }
   function _guessServer(url) {
     if (url.includes("voe")) return "Voe";
