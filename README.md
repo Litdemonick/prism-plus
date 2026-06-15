@@ -83,34 +83,73 @@ El SDK usa las siguientes APIs globales. El host debe proveerlas si el entorno n
 
 #### Ejemplo de polyfills mínimos para QuickJS (Dart/Flutter)
 
+> ⚠️ **Crítico — bridge síncrono para `fetch`:** En motores embebidos como QuickJS (flutter_js), `sendMessage` llama al handler de Dart de forma **completamente síncrona** y devuelve el valor de retorno inmediatamente. Un handler `async` no funciona — QuickJS recibiría el objeto `Future` sin resolver, no la respuesta HTTP.
+>
+> El patrón correcto es: `sendMessage('fetch', req)` devuelve un `reqId` String síncrono → Dart inicia el HTTP en background → al completar inyecta el resultado con `rt.evaluate('__fetchDone(reqId, json)')` → la Promise de `fetch()` se resuelve dentro de esa llamada a `evaluate()`.
+
 ```dart
-// Inyectar antes de evaluar cualquier bundle de Prism+
-rt.evaluate('''
-// AbortController
+// 1. Handler síncrono: devuelve reqId inmediatamente (DEBE ser String, no int)
+rt.onMessage('hostFetch', (dynamic args) {
+  final reqId = (++_counter).toString();
+  _startFetch(reqId, args.toString()); // fire-and-forget async
+  return reqId; // síncrono — QuickJS recibe el reqId en la misma llamada
+});
+
+// 2. HTTP async: al terminar, inyecta el resultado en QuickJS
+void _startFetch(String reqId, String reqJson) async {
+  try {
+    final req = jsonDecode(reqJson);
+    final res = await http.get(Uri.parse(req['url']));
+    final payload = jsonEncode({'status': res.statusCode, 'body': res.body, ...});
+    rt.evaluate('__fetchDone("$reqId", ${jsonEncode(payload)})');
+  } catch (e) {
+    rt.evaluate('__fetchErr("$reqId", ${jsonEncode(e.toString())})');
+  }
+}
+
+// 3. Polyfill JS: fetch() crea Promise, __fetchDone() la resuelve
+rt.evaluate(r'''
+var __fetchCbs = {};
+globalThis.fetch = function(input, init) {
+  var reqId = sendMessage('hostFetch', JSON.stringify({
+    url: typeof input === 'string' ? input : input.url,
+    method: (init && init.method || 'GET').toUpperCase(),
+    headers: (init && init.headers) || {},
+  }));
+  return new Promise(function(resolve, reject) {
+    __fetchCbs[reqId] = { ok: resolve, err: reject };
+  });
+};
+globalThis.__fetchDone = function(id, json) {
+  var cb = __fetchCbs[id]; if (!cb) return; delete __fetchCbs[id];
+  var d = JSON.parse(json);
+  cb.ok({ ok: d.status >= 200 && d.status < 300, status: d.status,
+    text: function() { return Promise.resolve(d.body); },
+    json: function() { return Promise.resolve(JSON.parse(d.body)); } });
+};
+globalThis.__fetchErr = function(id, msg) {
+  var cb = __fetchCbs[id]; if (!cb) return; delete __fetchCbs[id];
+  cb.err(new Error(msg));
+};
+
+// AbortController (stub mínimo — el timeout de 15s del SDK lo usa)
 (function() {
-  function AbortSignal() { this.aborted = false; this._listeners = []; }
-  AbortSignal.prototype.addEventListener = function(t, fn) {
-    if (t === 'abort') this._listeners.push(fn);
-  };
+  function AbortSignal() { this.aborted = false; this._l = []; }
+  AbortSignal.prototype.addEventListener = function(t, fn) { if (t==='abort') this._l.push(fn); };
   AbortSignal.prototype._abort = function() {
-    this.aborted = true;
-    this._listeners.forEach(function(fn) { try { fn({type:'abort'}); } catch(_){} });
+    this.aborted = true; this._l.forEach(function(f){try{f({type:'abort'});}catch(_){}});
   };
   function AbortController() { this.signal = new AbortSignal(); }
   AbortController.prototype.abort = function() { this.signal._abort(); };
   globalThis.AbortController = AbortController;
   globalThis.AbortSignal = AbortSignal;
 })();
-
-// fetch → puente al HTTP nativo del host
-globalThis.fetch = function(input, init) { /* implementación del host */ };
-
-// btoa / atob → implementación pura JS
-// console → redirigir a logger del host
 ''');
 ```
 
-> PrismHub implementa todos estos polyfills en `lib/data/services/extension/extension_service.dart`.
+> PrismHub implementa todos estos polyfills en [`lib/data/services/extension/extension_service.dart`](https://github.com/Litdemonick/Prism_Hub/blob/develop/lib/data/services/extension/extension_service.dart).
+>
+> **Nota adicional:** Si cargas múltiples extensiones en instancias de runtime independientes, usa nombres de canal únicos por instancia (ej: `'hostFetch_io_prismhub_jikan'`) para evitar que los handlers de diferentes runtimes se sobreescriban entre sí.
 
 ---
 
