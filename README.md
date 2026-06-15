@@ -63,7 +63,7 @@ prism-plus/
 │   ├── build.mjs     ← Compilador esbuild → dist/ + index.json + footer de sanitización
 │   ├── validate.mjs  ← Validador pre-build de estructura
 │   └── test.mjs      ← Smoke tests de bundles compilados
-└── dist/             ← Generado por CI — no hacer commit manualmente
+└── dist/             ← Generado por CI y commiteado automáticamente — no editar a mano
 ```
 
 Cada extensión se compila como un **bundle IIFE autocontenido** (el SDK queda embebido, sin dependencias externas en runtime). El `index.json` es el catálogo que tu app descarga para descubrir extensiones.
@@ -529,6 +529,8 @@ export async function watch(url: string): Promise<PrismWatch> {
 | `{ streams: [], reason: 'premium_required' }` si no hay stream | Lanzar errores no controlados |
 | `url` siempre string no vacío en PrismEpisode / PrismItem | Retornar IDs numéricos directamente |
 | Construir el slug completo si la fuente usa números (`${animeSlug}-${n}`) | Esperar que el cliente lo construya |
+| `watch()` retorna URLs directas reproducibles (m3u8, mp4) | Retornar URLs de páginas embed (vidmoly, streamtape, etc.) — el reproductor no puede abrirlas |
+| Encodear `[]` en query strings como `%5B%5D` — ej: `order%5Brating%5D=desc` | Usar `[]` literales en URLs — Dart/Dio puede codificarlos y causar rechazo de la API |
 
 ### Cómo manejar URLs de episodio construidas desde HTML
 
