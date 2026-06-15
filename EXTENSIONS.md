@@ -91,6 +91,49 @@ const resolved = await resolveEmbed(serverName, embedUrl, `${BASE}/`);
 
 `resolveEmbed` soporta: `voe`, `streamtape`. Para agregar un nuevo servidor, añádelo a `sdk/embeds.ts` — **no** dupliques el código en la extensión.
 
+---
+
+## Capacidades del runtime PrismHub
+
+El runtime de PrismHub provee estas capacidades nativas. Aprovecharlas evita reimplementar lógica frágil en cada extensión.
+
+### CryptoJS (cifrado) — global automático
+
+Algunos sitios cifran las URLs de vídeo (AES, MD5). PrismHub inyecta **CryptoJS v4.x** como global, pero **solo** si tu bundle referencia el identificador `CryptoJS` (optimización de rendimiento: ahorra ~60 KB de parseo en las extensiones que no lo usan).
+
+```typescript
+// No se importa nada en runtime; importa solo los TIPOS:
+import '../../sdk/crypto'; // registra el global tipado `CryptoJS`
+
+// Dentro de watch():
+const decrypted = CryptoJS.AES.decrypt(ciphertext, CryptoJS.enc.Utf8.parse(key), {
+  iv: CryptoJS.enc.Hex.parse(iv),
+});
+const realUrl = decrypted.toString(CryptoJS.enc.Utf8);
+```
+
+### Cookies de sesión — persistentes y automáticas
+
+Cada extensión tiene su **propio cookie jar persistente** (sobrevive reinicios). Las cookies que devuelva un `Set-Cookie` se reenvían solas en los siguientes `get()` de esa misma extensión. No hay que gestionarlas a mano.
+
+Esto habilita sitios que firman la sesión antes de servir el vídeo (p. ej. Animepahe): basta con hacer el `get()` previo que establece la cookie, y el `get()` del episodio ya la lleva.
+
+### Streaming HLS con cabeceras — proxy transparente
+
+Cuando `watch()` devuelve un stream `.m3u8` **con `headers`** (p. ej. `Referer`), PrismHub lo enruta por un proxy local que **garantiza** que esas cabeceras lleguen a *cada* segmento, sub-playlist y clave de cifrado. Esto elimina los `403` del CDN que causan buffering infinito.
+
+No requiere nada especial en la extensión: **solo devuelve los `headers` correctos en el stream** y el motor se encarga.
+
+```typescript
+return {
+  streams: [{
+    url: 'https://cdn.example.com/master.m3u8',
+    quality: 'Voe',
+    headers: { Referer: 'https://voe.sx/' }, // ← el proxy las propaga a los segmentos
+  }],
+};
+```
+
 ### Patrón estándar para watch() con embeds
 
 ```typescript
