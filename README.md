@@ -52,20 +52,37 @@ prism-plus/
 │   ├── http.ts       ← Cliente HTTP — timeout, reintentos, errores tipados
 │   ├── html.ts       ← Parser HTML basado en regex (sin DOM)
 │   ├── unpack.ts     ← Desobfuscador P.A.C.K.E.R. (kwik.si y similares)
-│   ├── validate.ts   ← Guards de tipos en runtime
+│   ├── validate.ts   ← Guards de tipos en runtime (lanzan error)
+│   ├── sanitize.ts   ← Sanitización defensiva en runtime (coerción, no lanza)
 │   └── cache.ts      ← Caché en memoria con TTL
 ├── extensions/
 │   └── <nombre>/
 │       ├── index.ts      ← latest(), search(), detail(), watch()
 │       └── manifest.json ← name, package, version, type, icon, description
 ├── scripts/
-│   ├── build.mjs     ← Compilador esbuild → dist/ + index.json
+│   ├── build.mjs     ← Compilador esbuild → dist/ + index.json + footer de sanitización
 │   ├── validate.mjs  ← Validador pre-build de estructura
 │   └── test.mjs      ← Smoke tests de bundles compilados
 └── dist/             ← Generado por CI — no hacer commit manualmente
 ```
 
 Cada extensión se compila como un **bundle IIFE autocontenido** (el SDK queda embebido, sin dependencias externas en runtime). El `index.json` es el catálogo que tu app descarga para descubrir extensiones.
+
+### 🔄 Flujo de datos
+
+```
+latest(page) ──► Fuente web ──► JSON/HTML ──► PrismItem[]
+                                                    │
+                                          [sanitize automático]
+                                                    │
+search(kw)   ──────────────────────────────────► cliente
+
+detail(url)  ──► Fuente web ──► PrismDetail ──► [sanitize] ──► cliente
+
+watch(url)   ──► Fuente web ──► PrismWatch  ──────────────────► cliente
+```
+
+El build script **inyecta automáticamente** un footer de sanitización en cada bundle. El cliente siempre recibe campos `url` como strings no vacíos — los episodios con URL inválida son descartados silenciosamente.
 
 ### 💡 Supuestos de runtime
 
@@ -196,7 +213,37 @@ Reintentar: errores de red, `429`, `5xx`. No reintentar: `TimeoutError`, `4xx`.
 const res = await request(url, { timeout: 8_000 });
 ```
 
-### Validación de tipos en runtime
+### Sanitización automática de retornos
+
+El build script inyecta un wrapper invisible al final de cada bundle que sanitiza automáticamente los retornos de `latest()`, `search()` y `detail()` antes de que lleguen al cliente:
+
+- **`url` numérico → string**: si una fuente devuelve `episodes = [1, 2, 3]` en vez de slugs, el `url` queda `"1"`, `"2"`, `"3"`. El wrapper lo deja como está — es responsabilidad de `detail()` construir la URL correcta desde el slug del anime (ver patrón en tioanime).
+- **Episodios con `url` vacío o null** → descartados del array.
+- **Ítems de lista con `url` vacío** → descartados.
+- **`title` null/undefined** → se sustituye por `url`.
+
+```typescript
+// Ejemplo: la fuente devuelve números en el array de episodios
+// ❌ antes: watch() recibía "1" → 404
+function _parseEpisodes(html: string, animeSlug: string) {
+  const raw = JSON.parse(match[1]); // [1, 2, 3, ...]
+  return raw.map((ep, i) => {
+    // ✅ construir slug completo cuando ep es número
+    const slug = typeof ep === 'number' ? `${animeSlug}-${ep}` : String(ep);
+    return { title: `Episodio ${i + 1}`, url: slug };
+  });
+}
+```
+
+También puedes usar las funciones de sanitización manualmente si tu extensión necesita lógica especial:
+
+```typescript
+import { sanitizeDetail, sanitizeItems, sanitizeEpisode } from '../../sdk';
+
+const result = sanitizeDetail(await fetchDetail(url));
+```
+
+### Validación estricta (opcional)
 
 ```typescript
 import { guardItem, guardDetail, isValidWatch } from '../../sdk';
@@ -371,6 +418,19 @@ isValidWatch(x)           // boolean, no lanza
 
 ---
 
+### `sanitize.ts` — Sanitización de runtime
+
+```typescript
+sanitizeEpisode(ep)   // PrismEpisode | null — null si url está vacío
+sanitizeDetail(d)     // PrismDetail — filtra episodios con url inválido
+sanitizeItems(items)  // PrismItem[] — filtra ítems con url inválido
+sanitizeWatch(w)      // PrismWatch  — filtra streams con url inválido
+```
+
+> Estas funciones son aplicadas **automáticamente** por el build script a cada extensión vía footer de esbuild. No es necesario llamarlas manualmente salvo en lógica personalizada.
+
+---
+
 ### `cache.ts` — Caché TTL
 
 ```typescript
@@ -467,11 +527,54 @@ export async function watch(url: string): Promise<PrismWatch> {
 | Usar `guardDetail()` para validar en runtime | Usar `document`, `window` |
 | Caché con `createCache()` + `TTL.*` | `eval()` o código dinámico |
 | `{ streams: [], reason: 'premium_required' }` si no hay stream | Lanzar errores no controlados |
+| `url` siempre string no vacío en PrismEpisode / PrismItem | Retornar IDs numéricos directamente |
+| Construir el slug completo si la fuente usa números (`${animeSlug}-${n}`) | Esperar que el cliente lo construya |
 
-### Paso 4 — Build
+### Cómo manejar URLs de episodio construidas desde HTML
+
+Cuando una fuente codifica los episodios como identificadores numéricos o slugs parciales en el HTML, `detail()` debe construir la URL completa que `watch()` necesita:
+
+```typescript
+// Patrón: la fuente tiene var episodes = [1, 2, 3] (números)
+// watch() espera: "naruto-shippuden-1", "naruto-shippuden-2"…
+
+export async function detail(url: string): Promise<PrismDetail> {
+  const html = await get(`${BASE}/anime/${url}`);
+  // url = slug del anime, ej: "naruto-shippuden"
+  return {
+    ...,
+    episodes: _parseEpisodes(html, url),
+  };
+}
+
+function _parseEpisodes(html: string, animeSlug: string) {
+  const raw = JSON.parse(/* extraer array del HTML */);
+  return raw.map((ep: string | number, i: number) => {
+    const slug = typeof ep === 'number' ? `${animeSlug}-${ep}` : ep;
+    return { title: `Episodio ${i + 1}`, url: slug };
+  });
+}
+
+export async function watch(url: string): Promise<PrismWatch> {
+  // url = "naruto-shippuden-1" — URL válida directa
+  const html = await get(`${BASE}/ver/${url}`);
+  ...
+}
+```
+
+### Paso 4 — Versionar y publicar
+
+Cada vez que modifiques el código de una extensión, incrementa el `version` en su `manifest.json`:
+
+```json
+{ "version": "1.0.1" }
+```
+
+El cliente compara la versión del índice remoto con la versión local — si difieren, reinstala automáticamente. Sin bump de versión, los usuarios existentes no reciben el fix.
 
 ```bash
 npm run build   # validate + typecheck + esbuild + test
+# luego hacer commit de: index.ts, manifest.json, dist/<nombre>.js, index.json
 ```
 
 ---

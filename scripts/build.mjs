@@ -32,6 +32,45 @@ const REPO_OWNER = process.env.REPO_OWNER ?? 'Litdemonick';
 const REPO_NAME  = process.env.REPO_NAME  ?? 'prism-plus';
 const BRANCH     = process.env.BRANCH     ?? 'main';
 
+// ─── Sanitize footer ─────────────────────────────────────────────────────────
+// Inyectado al final de cada bundle IIFE para garantizar que los retornos
+// de detail/latest/search tengan siempre urls string no vacías.
+// Esto es independiente del código de la extensión — cero cambios requeridos.
+
+function makeSanitizeFooter(globalName) {
+  return `;(function(){
+  function _s(v){return v==null?'':String(v);}
+  function _ep(ep){
+    if(!ep||typeof ep!=='object')return null;
+    var u=_s(ep.url);if(!u)return null;
+    return{title:_s(ep.title)||u,url:u,thumbnail:ep.thumbnail!=null?_s(ep.thumbnail):void 0,
+      duration:typeof ep.duration==='number'?ep.duration:void 0,
+      airDate:ep.airDate!=null?_s(ep.airDate):void 0,
+      number:typeof ep.number==='number'?ep.number:void 0};
+  }
+  function _detail(d){
+    if(!d||typeof d!=='object')return{title:'',episodes:[]};
+    var eps=(Array.isArray(d.episodes)?d.episodes:[]).map(_ep).filter(Boolean);
+    return Object.assign({},d,{episodes:eps});
+  }
+  function _items(a){
+    if(!Array.isArray(a))return[];
+    return a.map(function(it){
+      if(!it||typeof it!=='object')return null;
+      var u=_s(it.url);if(!u)return null;
+      return Object.assign({},it,{title:_s(it.title)||u,url:u});
+    }).filter(Boolean);
+  }
+  var _m=typeof ${globalName}!=='undefined'?${globalName}:null;
+  if(_m&&typeof _m==='object'){
+    var _d=_m.detail,_l=_m.latest,_ss=_m.search;
+    if(typeof _d==='function')_m.detail=function(){return _d.apply(_m,arguments).then(_detail);};
+    if(typeof _l==='function')_m.latest=function(){return _l.apply(_m,arguments).then(_items);};
+    if(typeof _ss==='function')_m.search=function(){return _ss.apply(_m,arguments).then(_items);};
+  }
+})();`;
+}
+
 // ─── Build ────────────────────────────────────────────────────────────────────
 
 if (!existsSync(DIST_DIR)) mkdirSync(DIST_DIR, { recursive: true });
@@ -66,6 +105,7 @@ for (const name of entries) {
   }
 
   const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
+  const globalName = manifest.package.replace(/[^a-zA-Z0-9_$]/g, '_');
 
   try {
     await build({
@@ -76,14 +116,11 @@ for (const name of entries) {
       platform: 'neutral',
       target: 'es2020',
       minify: false,
-      globalName: manifest.package.replace(/[^a-zA-Z0-9_$]/g, '_'),
+      globalName,
+      footer: { js: makeSanitizeFooter(globalName) },
     });
 
-    builtManifests.push({
-      ...manifest,
-      script: rawUrl(name),
-    });
-
+    builtManifests.push({ ...manifest, script: rawUrl(name) });
     console.log(`  ✓  ${name}.js  (${manifest.name}  v${manifest.version})`);
   } catch (err) {
     errors.push(name);

@@ -55,10 +55,15 @@ function mapItem(item: MDManga): PrismItem | null {
   };
 }
 
+// MangaDex v5 requiere contentRating[] en todas las queries de manga.
+// Sin él la API retorna HTTP 400 aunque el resto de params sean válidos.
+const RATINGS = 'contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica';
+const INCLUDES = 'includes[]=cover_art';
+
 export async function latest(page: number): Promise<PrismItem[]> {
   const offset = (page - 1) * 30;
   const data = await getJson<{ data: MDManga[] }>(
-    `${API}/manga?order[rating]=desc&limit=30&offset=${offset}&includes[]=cover_art`,
+    `${API}/manga?order[rating]=desc&limit=30&offset=${offset}&${INCLUDES}&${RATINGS}`,
   );
   return data.data.flatMap(item => {
     const mapped = mapItem(item);
@@ -69,7 +74,7 @@ export async function latest(page: number): Promise<PrismItem[]> {
 export async function search(keyword: string, page: number): Promise<PrismItem[]> {
   const offset = (page - 1) * 30;
   const data = await getJson<{ data: MDManga[] }>(
-    `${API}/manga?title=${encodeURIComponent(keyword)}&limit=30&offset=${offset}&includes[]=cover_art`,
+    `${API}/manga?title=${encodeURIComponent(keyword)}&limit=30&offset=${offset}&${INCLUDES}&${RATINGS}`,
   );
   return data.data.flatMap(item => {
     const mapped = mapItem(item);
@@ -79,9 +84,9 @@ export async function search(keyword: string, page: number): Promise<PrismItem[]
 
 export async function detail(mangaId: string): Promise<PrismDetail> {
   const [mangaRes, chapRes] = await Promise.all([
-    getJson<{ data: MDManga }>(`${API}/manga/${mangaId}?includes[]=cover_art`),
+    getJson<{ data: MDManga }>(`${API}/manga/${mangaId}?${INCLUDES}&${RATINGS}`),
     getJson<{ data: MDChapter[] }>(
-      `${API}/manga/${mangaId}/feed?order[volume]=asc&order[chapter]=asc&limit=500&translatedLanguage[]=en`,
+      `${API}/manga/${mangaId}/feed?order[volume]=asc&order[chapter]=asc&limit=500&translatedLanguage[]=en&${RATINGS}`,
     ),
   ]);
 

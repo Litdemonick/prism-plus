@@ -29,7 +29,7 @@ interface OmegaDetail {
 
 interface OmegaChapterData {
   chapter: {
-    chapter_data: { images: string[] };
+    chapter_data?: { images?: string[] };
   };
 }
 
@@ -75,8 +75,9 @@ export async function detail(slug: string): Promise<PrismDetail> {
 
 export async function watch(url: string): Promise<PrismWatch> {
   const data = await getJson<OmegaChapterData>(`${API}/chapter/${url}`);
+  const images = data.chapter?.chapter_data?.images ?? [];
   return {
-    streams: data.chapter.chapter_data.images.map((imgUrl, i) => ({
+    streams: images.map((imgUrl, i) => ({
       url: imgUrl,
       quality: `Page ${i + 1}`,
     })),

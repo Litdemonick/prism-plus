@@ -7,4 +7,5 @@ export * from './http';
 export * from './html';
 export * from './unpack';
 export * from './validate';
+export * from './sanitize';
 export * from './cache';
