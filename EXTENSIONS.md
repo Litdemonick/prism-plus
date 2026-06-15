@@ -189,16 +189,17 @@ El fallback de embeds crudos es importante: evita "Sin streams disponibles" cuan
 
 | Servidor | Estado | Método de resolución |
 |----------|--------|----------------------|
-| voe.sx | ✅ Activo | Sigue el redirect al espejo + descifra el JSON ofuscado 2024 → mp4/m3u8 |
-| streamtape.com | ✅ Activo | `resolveStreamtape` — patrones de `get_video` |
+| voe.sx | ✅ Activo | Redirect al espejo + descifra el JSON ofuscado 2024 → mp4/m3u8 (timeout 14s + 1 retry) |
+| streamtape.com | ✅ Activo | `resolveStreamtape` — div `ideoolink`/`botlink` → `get_video` (token atado a IP) |
 | mixdrop | ✅ Activo | Desempaqueta el `eval` → `MDCore.wurl` → mp4 |
 | mp4upload | ✅ Activo | mp4 directo de la página del embed |
-| luluvdo / streamwish (familia) | ✅ Activo | `resolveGeneric` — desempaqueta el `eval` → m3u8 |
-| pixeldrain | ✅ Activo | URL directa: `https://pixeldrain.com/api/file/{id}?download` |
+| luluvdo (streamwish familia) | ✅ Activo | `resolveGeneric` — desempaqueta el `eval` → m3u8 |
+| netu / hqq | ✅ A veces | El genérico extrae el m3u8 si está en claro |
+| pixeldrain | ✅ Activo | URL directa: `https://pixeldrain.com/api/file/{id}` |
+| streamwish.to | ⚠️ Pendiente | Loader JS (`main.js` ofuscado, anti-bot) — requiere browser |
 | filemoon / bysekoze | ⚠️ Parcial | A veces 403/challenge; el genérico lo intenta |
 | savefiles / doodstream | ⚠️ 403 | Cloudflare/cookies — pendiente |
 | mega.nz | ❌ No | Cifrado client-side (clave en el fragment) — inviable sin browser |
-| hqq.tv | ❌ No | Requiere ejecución JS (Cloudflare) |
 
 **Resolver genérico:** `resolveEmbed` cae en `resolveGeneric` para cualquier host
 desconocido — desempaqueta `eval(p,a,c,k,e,d)` (Dean Edwards) y busca m3u8 firmado,

@@ -73,7 +73,14 @@ export async function watch(url: string): Promise<PrismWatch> {
   const videosMatch = /var\s+videos\s*=\s*(\{[\s\S]*?\});/.exec(html);
   if (!videosMatch) return { streams: [] };
 
-  type VideoEntry = { server: string; url: string; ads: number; allow_mobile: boolean };
+  // Formato actual: la URL del embed viene en `code` (antes era `url`). Algunas
+  // entradas traen ambos; se prioriza `code`.
+  type VideoEntry = {
+    server: string;
+    title?: string;
+    url?: string;
+    code?: string;
+  };
   let videos: Record<string, VideoEntry[]>;
   try {
     videos = JSON.parse(videosMatch[1]);
@@ -83,15 +90,16 @@ export async function watch(url: string): Promise<PrismWatch> {
 
   // Prioridad: LAT (doblaje) → SUB (subtítulos)
   const all = [...(videos['LAT'] ?? []), ...(videos['SUB'] ?? [])]
-    .filter(v => v.url.startsWith('http'));
+    .map(v => ({ server: v.server || v.title || '', embed: v.code ?? v.url ?? '' }))
+    .filter(v => v.embed.startsWith('http'));
 
   if (all.length === 0) return { streams: [] };
 
   // Intentar resolver cada embed en paralelo
   const results = await Promise.all(
     all.map(async v => {
-      const resolved = await resolveEmbed(v.server, v.url, `${BASE}/`);
-      return { server: v.server, embedUrl: v.url, resolved };
+      const resolved = await resolveEmbed(v.server, v.embed, `${BASE}/`);
+      return { server: v.server, embedUrl: v.embed, resolved };
     }),
   );
 

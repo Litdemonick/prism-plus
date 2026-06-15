@@ -131,13 +131,14 @@ var io_prismhub_monoschinos = (() => {
     return resolveGeneric(embedUrl, referer);
   }
   async function resolveVoe(url, referer) {
-    let html = await fetchEmbed(url, referer);
+    const voeOpts = { timeout: 14e3, retries: 1 };
+    let html = await fetchEmbed(url, referer, voeOpts);
     if (!html) return null;
     const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(
       html
     );
     if (redir) {
-      const mirror = await fetchEmbed(redir[1], "https://voe.sx/");
+      const mirror = await fetchEmbed(redir[1], "https://voe.sx/", voeOpts);
       if (mirror) html = mirror;
     }
     const jsonScript = /<script[^>]*type=["']application\/json["'][^>]*>\s*\[\s*"([^"]+)"\s*\]\s*<\/script>/.exec(
@@ -202,15 +203,20 @@ var io_prismhub_monoschinos = (() => {
   async function resolveStreamtape(url, referer) {
     const html = await fetchEmbed(url, referer);
     if (!html) return null;
-    let m = /(https?:\/\/streamtape\.[a-z]+\/get_video[^"'\s<>&]+)/.exec(html);
-    if (m) return { url: m[1] };
-    m = /(\/\/streamtape\.[a-z]+\/get_video[^"'\s<>&]+)/.exec(html);
-    if (m) return { url: `https:${m[1]}` };
-    m = /robotlink[^)]*\)\s*\.innerHTML\s*=\s*["']([^"']+)["']\s*\+\s*["']([^"']*)["']/.exec(html);
-    if (m) {
-      const full = m[1] + m[2];
-      return { url: full.startsWith("http") ? full : `https:${full}` };
+    const div = /id=["'](?:ideoolink|botlink|robotlink)["'][^>]*>\s*(\/\/?[^<]*get_video[^<]*)</.exec(
+      html
+    );
+    if (div) {
+      let path = div[1].trim();
+      if (path.startsWith("//")) path = `https:${path}`;
+      else if (path.startsWith("/")) path = `https:/${path}`;
+      if (!/[?&]stream=/.test(path)) path += "&stream=1";
+      return { url: path, headers: { Referer: "https://streamtape.com/" } };
     }
+    let m = /(https?:\/\/streamtape\.[a-z]+\/get_video[^"'\s<>]+)/.exec(html);
+    if (m) return { url: m[1], headers: { Referer: "https://streamtape.com/" } };
+    m = /(\/\/streamtape\.[a-z]+\/get_video[^"'\s<>]+)/.exec(html);
+    if (m) return { url: `https:${m[1]}`, headers: { Referer: "https://streamtape.com/" } };
     return null;
   }
   async function resolveMixdrop(url, referer) {
@@ -282,12 +288,12 @@ ${u}`;
     const m = /^https?:\/\/([^/]+)/.exec(url);
     return m ? m[1] : null;
   }
-  async function fetchEmbed(url, referer) {
+  async function fetchEmbed(url, referer, opts = {}) {
     try {
       const res = await request(url, {
         headers: { Referer: referer },
-        timeout: 8e3,
-        retries: 0
+        timeout: opts.timeout ?? 8e3,
+        retries: opts.retries ?? 0
       });
       return res.text();
     } catch {

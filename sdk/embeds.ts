@@ -60,7 +60,10 @@ export async function resolveVoe(
   url: string,
   referer: string,
 ): Promise<ResolvedEmbed | null> {
-  let html = await fetchEmbed(url, referer);
+  // voe encadena 2 fetches (redirect + espejo); le damos más margen y 1 reintento
+  // para reducir fallos intermitentes bajo carga paralela.
+  const voeOpts = { timeout: 14000, retries: 1 };
+  let html = await fetchEmbed(url, referer, voeOpts);
   if (!html) return null;
 
   // 1. Seguir la redirección JS al dominio espejo, si la hay.
@@ -68,7 +71,7 @@ export async function resolveVoe(
     html,
   );
   if (redir) {
-    const mirror = await fetchEmbed(redir[1], 'https://voe.sx/');
+    const mirror = await fetchEmbed(redir[1], 'https://voe.sx/', voeOpts);
     if (mirror) html = mirror;
   }
 
@@ -143,7 +146,15 @@ function _voeDecode(raw: string): string | null {
   }
 }
 
-/** streamtape.com — múltiples patrones de obfuscación */
+/**
+ * streamtape.com — formato 2024.
+ *
+ * El link del vídeo está en un div oculto `id="ideoolink"` o `id="botlink"`:
+ *   <div id="ideoolink">/streamtape.com/get_video?id=...&expires=...&token=...</div>
+ * Se le antepone `https:` y se agrega `&stream=1`. El token va atado a la IP que
+ * cargó el embed, así que se reproduce desde la misma máquina (PrismHub).
+ * Conserva patrones viejos (get_video directo, robotlink concat) como fallback.
+ */
 export async function resolveStreamtape(
   url: string,
   referer: string,
@@ -151,17 +162,25 @@ export async function resolveStreamtape(
   const html = await fetchEmbed(url, referer);
   if (!html) return null;
 
-  let m = /(https?:\/\/streamtape\.[a-z]+\/get_video[^"'\s<>&]+)/.exec(html);
-  if (m) return { url: m[1] };
-
-  m = /(\/\/streamtape\.[a-z]+\/get_video[^"'\s<>&]+)/.exec(html);
-  if (m) return { url: `https:${m[1]}` };
-
-  m = /robotlink[^)]*\)\s*\.innerHTML\s*=\s*["']([^"']+)["']\s*\+\s*["']([^"']*)["']/.exec(html);
-  if (m) {
-    const full = m[1] + m[2];
-    return { url: full.startsWith('http') ? full : `https:${full}` };
+  // Formato 2024: div oculto con la URL get_video.
+  const div =
+    /id=["'](?:ideoolink|botlink|robotlink)["'][^>]*>\s*(\/\/?[^<]*get_video[^<]*)</.exec(
+      html,
+    );
+  if (div) {
+    let path = div[1].trim();
+    if (path.startsWith('//')) path = `https:${path}`;
+    else if (path.startsWith('/')) path = `https:/${path}`;
+    if (!/[?&]stream=/.test(path)) path += '&stream=1';
+    return { url: path, headers: { Referer: 'https://streamtape.com/' } };
   }
+
+  // Fallbacks (formatos antiguos).
+  let m = /(https?:\/\/streamtape\.[a-z]+\/get_video[^"'\s<>]+)/.exec(html);
+  if (m) return { url: m[1], headers: { Referer: 'https://streamtape.com/' } };
+
+  m = /(\/\/streamtape\.[a-z]+\/get_video[^"'\s<>]+)/.exec(html);
+  if (m) return { url: `https:${m[1]}`, headers: { Referer: 'https://streamtape.com/' } };
 
   return null;
 }
@@ -274,13 +293,17 @@ function _hostOf(url: string): string | null {
   return m ? m[1] : null;
 }
 
-/** Fetch con timeout corto y sin reintentos — para páginas embed externas */
-export async function fetchEmbed(url: string, referer: string): Promise<string | null> {
+/** Fetch para páginas embed externas. Acepta timeout/retries para hosts lentos. */
+export async function fetchEmbed(
+  url: string,
+  referer: string,
+  opts: { timeout?: number; retries?: number } = {},
+): Promise<string | null> {
   try {
     const res = await request(url, {
       headers: { Referer: referer },
-      timeout: 8000,
-      retries: 0,
+      timeout: opts.timeout ?? 8000,
+      retries: opts.retries ?? 0,
     });
     return res.text();
   } catch {
