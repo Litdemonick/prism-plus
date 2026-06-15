@@ -21,7 +21,8 @@
   "scripts": {
     "validate": "node scripts/validate.mjs",
     "build": "npm run validate && node scripts/build.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/test.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",

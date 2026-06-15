@@ -35,6 +35,9 @@ jobs:
       - name: Compilar extensiones
         run: npm run build
 
+      - name: Smoke tests
+        run: npm test
+
       - name: Commit dist/ e index.json
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"

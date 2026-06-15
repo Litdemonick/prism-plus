@@ -45,6 +45,16 @@ export function between(html: string, start: string, end: string): string {
 }
 
 /**
+ * Como matchFirst pero retorna `fallback` si no hay match,
+ * en lugar de string vacío — distingue "campo vacío" de "parseo fallido".
+ * @example matchFirstOr(html, /href="([^"]+)"/i, null)
+ */
+export function matchFirstOr<T>(html: string, pattern: RegExp, fallback: T): string | T {
+  const m = pattern.exec(html);
+  return m?.[1]?.trim() ?? fallback;
+}
+
+/**
  * Valor de un atributo HTML.
  * @example attr(html, 'img', 'src')
  */
