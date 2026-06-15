@@ -53,7 +53,7 @@ export function sanitizeDetail(d: unknown): PrismDetail {
     .map(sanitizeEpisode)
     .filter((e): e is PrismEpisode => e !== null);
 
-  return { ...(o as PrismDetail), episodes };
+  return { ...(o as unknown as PrismDetail), episodes };
 }
 
 // ─── Lista ───────────────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ export function sanitizeItems(items: unknown): PrismItem[] {
       const o = it as Record<string, unknown>;
       const url = _str(o['url']);
       if (!url) return null;
-      return { ...(o as PrismItem), title: _str(o['title']) || url, url };
+      return { ...(o as unknown as PrismItem), title: _str(o['title']) || url, url };
     })
     .filter((it): it is PrismItem => it !== null);
 }
@@ -86,5 +86,5 @@ export function sanitizeWatch(w: unknown): PrismWatch {
     (s): s is PrismWatch['streams'][number] =>
       s != null && typeof s === 'object' && typeof (s as Record<string, unknown>)['url'] === 'string' && !!( s as Record<string, unknown>)['url'],
   );
-  return { ...(o as PrismWatch), streams };
+  return { ...(o as unknown as PrismWatch), streams };
 }
