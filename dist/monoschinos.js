@@ -122,13 +122,23 @@ var io_prismhub_monoschinos = (() => {
   // sdk/embeds.ts
   async function resolveEmbed(server, embedUrl, referer) {
     const s = `${server} ${embedUrl}`.toLowerCase();
-    if (s.includes("voe")) return resolveVoe(embedUrl, referer);
-    if (s.includes("streamtape") || s.includes("stape") || s.includes("strtape"))
-      return resolveStreamtape(embedUrl, referer);
-    if (s.includes("mixdrop") || s.includes("mxdrop") || s.includes("mdrop"))
-      return resolveMixdrop(embedUrl, referer);
-    if (s.includes("mp4upload")) return resolveMp4upload(embedUrl, referer);
-    return resolveGeneric(embedUrl, referer);
+    let result;
+    try {
+      if (s.includes("voe")) result = await resolveVoe(embedUrl, referer);
+      else if (s.includes("streamtape") || s.includes("stape") || s.includes("strtape"))
+        result = await resolveStreamtape(embedUrl, referer);
+      else if (s.includes("mixdrop") || s.includes("mxdrop") || s.includes("mdrop"))
+        result = await resolveMixdrop(embedUrl, referer);
+      else if (s.includes("mp4upload")) result = await resolveMp4upload(embedUrl, referer);
+      else result = await resolveGeneric(embedUrl, referer);
+    } catch (e) {
+      console.log(`[resolveEmbed] ${server} THREW: ${e?.message ?? e}`);
+      return null;
+    }
+    console.log(
+      `[resolveEmbed] ${server} -> ${result ? result.url.slice(0, 60) : "NULL"}`
+    );
+    return result;
   }
   async function resolveVoe(url, referer) {
     const voeOpts = { timeout: 14e3, retries: 1 };
@@ -296,7 +306,8 @@ ${u}`;
         retries: opts.retries ?? 0
       });
       return res.text();
-    } catch {
+    } catch (e) {
+      console.log(`[fetchEmbed] FAIL ${url.slice(0, 45)} :: ${e?.message ?? e}`);
       return null;
     }
   }
