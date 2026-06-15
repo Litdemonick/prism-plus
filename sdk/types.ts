@@ -23,6 +23,21 @@ export type MediaType =
 /** Estado de publicación del contenido */
 export type ContentStatus = 'ongoing' | 'completed' | 'upcoming' | 'hiatus';
 
+// ─── Paginación ──────────────────────────────────────────────────────────────
+
+/**
+ * Resultado paginado — versión enriquecida para latest() y search().
+ * Permite al cliente saber si hay más páginas sin hacer un fetch extra.
+ * Retrocompatible: las extensiones pueden seguir retornando PrismItem[] directamente.
+ */
+export interface PrismPage<T = PrismItem> {
+  items:   T[];
+  /** false = no hay más páginas, true = puede haber más */
+  hasMore: boolean;
+  /** Total de resultados si la API lo provee */
+  total?:  number;
+}
+
 // ─── Listas ──────────────────────────────────────────────────────────────────
 
 /** Ítem de lista — retornado por latest() y search() */
@@ -115,4 +130,10 @@ export interface PrismWatch {
   subtitles?: PrismSubtitle[];
   /** Headers globales aplicados a todos los streams */
   headers?: Record<string, string>;
+  /**
+   * Razón por la que streams[] está vacío — ayuda al cliente a mostrar
+   * un mensaje útil en vez de un error genérico.
+   * Ejemplos: "region_blocked", "premium_required", "js_eval_required"
+   */
+  reason?: string;
 }
