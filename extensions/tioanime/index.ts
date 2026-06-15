@@ -1,4 +1,4 @@
-import { get } from '../../sdk/http';
+import { get, request } from '../../sdk/http';
 import { matchFirst, matchGroups, stripTags, between } from '../../sdk/html';
 import type { PrismDetail, PrismItem, PrismWatch } from '../../sdk/types';
 
@@ -38,8 +38,6 @@ export async function detail(url: string): Promise<PrismDetail> {
     between(html, '<p class="sinopsis">', '</p>'),
   );
 
-  // TioAnime lista episodios como enteros o slugs completos.
-  // Se pasa el slug del anime para construir la URL cuando son enteros.
   const episodes = _parseEpisodes(html, url);
 
   const status = matchFirst(html, /Estado:\s*<\/span>\s*<span[^>]*>([^<]+)<\/span>/i);
@@ -60,7 +58,7 @@ export async function detail(url: string): Promise<PrismDetail> {
   };
 }
 
-/** Streams de video del episodio */
+/** Streams de video del episodio — resuelve embeds a URLs directas en paralelo */
 export async function watch(url: string): Promise<PrismWatch> {
   const html = await get(`${BASE}/ver/${url}`);
 
@@ -68,24 +66,102 @@ export async function watch(url: string): Promise<PrismWatch> {
   const match = /var\s+videos\s*=\s*(\[\[[\s\S]*?\]\])/.exec(html);
   if (!match) return { streams: [] };
 
+  let raw: [string, string][];
   try {
-    const raw = JSON.parse(match[1]) as [string, string][];
-    const streams = raw
-      .filter(([, url]) => url.startsWith('http'))
-      .map(([server, url]) => ({ url, quality: server }));
-    return { streams };
+    raw = JSON.parse(match[1]) as [string, string][];
   } catch {
     return { streams: [] };
+  }
+
+  const candidates = raw.filter(([, u]) => u.startsWith('http'));
+
+  // Resolver embeds a URLs directas en paralelo (timeout corto por servidor)
+  const results = await Promise.all(
+    candidates.map(async ([server, embedUrl]) => {
+      const resolved = await _resolveEmbed(server, embedUrl);
+      if (!resolved) return null;
+      return { url: resolved.url, quality: server, headers: resolved.headers };
+    }),
+  );
+
+  return {
+    streams: results.filter((s): s is NonNullable<typeof s> => s !== null),
+  };
+}
+
+// ─── Embed resolvers ──────────────────────────────────────────────────────────
+
+interface _Resolved { url: string; headers?: Record<string, string>; }
+
+/** Despacha al resolver correcto según nombre del servidor */
+async function _resolveEmbed(server: string, url: string): Promise<_Resolved | null> {
+  const s = server.toLowerCase();
+  if (s.includes('voe'))                          return _resolveVoe(url);
+  if (s.includes('streamtape') || s.includes('tape')) return _resolveStreamtape(url);
+  // mega, hqq, doodstream, filemoon → no resolvibles sin JS complejo
+  return null;
+}
+
+/** voe.sx → extrae URL m3u8 de la página del embed */
+async function _resolveVoe(url: string): Promise<_Resolved | null> {
+  const html = await _fetchEmbed(url);
+  if (!html) return null;
+
+  // Pattern 1: hls: "https://..." o hls: 'https://...'
+  let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
+  if (m) return { url: m[1] };
+
+  // Pattern 2: 'hls': 'url' (con comillas externas)
+  m = /'hls'\s*:\s*'([^']+)'/.exec(html);
+  if (m) return { url: m[1] };
+
+  // Pattern 3: URL m3u8 directa en el HTML
+  m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
+  if (m) return { url: m[0] };
+
+  return null;
+}
+
+/** streamtape → extrae URL directa del video */
+async function _resolveStreamtape(url: string): Promise<_Resolved | null> {
+  const html = await _fetchEmbed(url);
+  if (!html) return null;
+
+  // Streamtape concatena dos strings: innerHTML = 'part1' + 'part2'
+  let m = /robotlink['"]\)[^=]*=\s*["']([^"']+)["']\s*\+\s*["']([^"']*)["']/.exec(html);
+  if (m) {
+    const full = m[1] + m[2];
+    return { url: full.startsWith('http') ? full : `https:${full}` };
+  }
+
+  // Fallback: URL de get_video directa en el HTML
+  m = /(https?:\/\/streamtape\.[^/]+\/get_video[^"'\s<>]+)/.exec(html);
+  if (m) return { url: m[1] };
+
+  // Fallback 2: URL relativa //streamtape...
+  m = /(\/\/streamtape\.[^/]+\/get_video[^"'\s<>]+)/.exec(html);
+  if (m) return { url: `https:${m[1]}` };
+
+  return null;
+}
+
+/** Fetch de página embed con timeout corto y sin reintentos */
+async function _fetchEmbed(url: string): Promise<string | null> {
+  try {
+    const res = await request(url, {
+      headers: { Referer: `${BASE}/` },
+      timeout: 8000,
+      retries: 0,
+    });
+    return res.text();
+  } catch {
+    return null;
   }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function _parseCards(html: string): PrismItem[] {
-  // <article class="anime ...">
-  //   <a href="/anime/SLUG"><img src="COVER"></a>
-  //   <h3 class="title"><a href="...">TÍTULO</a></h3>
-  // </article>
   const pattern =
     /<article[^>]*class="[^"]*anime[^"]*"[\s\S]*?<a[^>]*href="\/anime\/([^"]+)"[^>]*>[\s\S]*?<img[^>]*src="([^"]+)"[\s\S]*?class="[^"]*title[^"]*"[^>]*>[\s\S]*?>([^<]+)<\/a>/gi;
 
@@ -101,15 +177,12 @@ function _parseCards(html: string): PrismItem[] {
 }
 
 function _parseEpisodes(html: string, animeSlug: string): Array<{ title: string; url: string }> {
-  // var episodes = ["slug-ep-1","slug-ep-2",...] o [1,2,3,...] (números enteros)
   const match = /var\s+episodes\s*=\s*(\[[\s\S]*?\])/.exec(html);
   if (!match) return [];
 
   try {
     const raw = JSON.parse(match[1]) as (string | number)[];
     return raw.reverse().map((ep, i) => {
-      // Si el sitio devuelve enteros en lugar de slugs completos,
-      // construir la URL como "{anime-slug}-{numero-episodio}"
       const slug =
         typeof ep === 'number' || /^\d+$/.test(String(ep))
           ? `${animeSlug}-${ep}`

@@ -169,12 +169,65 @@ var io_prismhub_tioanime = (() => {
     const html = await get(`${BASE}/ver/${url}`);
     const match = /var\s+videos\s*=\s*(\[\[[\s\S]*?\]\])/.exec(html);
     if (!match) return { streams: [] };
+    let raw;
     try {
-      const raw = JSON.parse(match[1]);
-      const streams = raw.filter(([, url2]) => url2.startsWith("http")).map(([server, url2]) => ({ url: url2, quality: server }));
-      return { streams };
+      raw = JSON.parse(match[1]);
     } catch {
       return { streams: [] };
+    }
+    const candidates = raw.filter(([, u]) => u.startsWith("http"));
+    const results = await Promise.all(
+      candidates.map(async ([server, embedUrl]) => {
+        const resolved = await _resolveEmbed(server, embedUrl);
+        if (!resolved) return null;
+        return { url: resolved.url, quality: server, headers: resolved.headers };
+      })
+    );
+    return {
+      streams: results.filter((s) => s !== null)
+    };
+  }
+  async function _resolveEmbed(server, url) {
+    const s = server.toLowerCase();
+    if (s.includes("voe")) return _resolveVoe(url);
+    if (s.includes("streamtape") || s.includes("tape")) return _resolveStreamtape(url);
+    return null;
+  }
+  async function _resolveVoe(url) {
+    const html = await _fetchEmbed(url);
+    if (!html) return null;
+    let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
+    if (m) return { url: m[1] };
+    m = /'hls'\s*:\s*'([^']+)'/.exec(html);
+    if (m) return { url: m[1] };
+    m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
+    if (m) return { url: m[0] };
+    return null;
+  }
+  async function _resolveStreamtape(url) {
+    const html = await _fetchEmbed(url);
+    if (!html) return null;
+    let m = /robotlink['"]\)[^=]*=\s*["']([^"']+)["']\s*\+\s*["']([^"']*)["']/.exec(html);
+    if (m) {
+      const full = m[1] + m[2];
+      return { url: full.startsWith("http") ? full : `https:${full}` };
+    }
+    m = /(https?:\/\/streamtape\.[^/]+\/get_video[^"'\s<>]+)/.exec(html);
+    if (m) return { url: m[1] };
+    m = /(\/\/streamtape\.[^/]+\/get_video[^"'\s<>]+)/.exec(html);
+    if (m) return { url: `https:${m[1]}` };
+    return null;
+  }
+  async function _fetchEmbed(url) {
+    try {
+      const res = await request(url, {
+        headers: { Referer: `${BASE}/` },
+        timeout: 8e3,
+        retries: 0
+      });
+      return res.text();
+    } catch {
+      return null;
     }
   }
   function _parseCards(html) {
