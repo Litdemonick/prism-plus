@@ -402,7 +402,9 @@ npm run build   # validate + typecheck + esbuild + test
 
 ## 📚 Catálogo de extensiones
 
-**16 extensiones · 5 categorías**
+> 📦 Las siguientes extensiones vienen **incluidas por defecto** en Prism+. Son el punto de partida — cualquier desarrollador puede agregar nuevas extensiones en cualquier momento siguiendo la [guía de contribución](#contribuir).
+
+**16 extensiones por defecto · 5 categorías**
 
 ### 🎌 Anime — 8
 
