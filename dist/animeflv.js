@@ -134,17 +134,38 @@ var io_prismhub_animeflv = (() => {
     return null;
   }
   async function resolveVoe(url, referer) {
-    const html = await fetchEmbed(url, referer);
+    let html = await fetchEmbed(url, referer);
     if (!html) return null;
+    const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(
+      html
+    );
+    if (redir) {
+      const mirror = await fetchEmbed(redir[1], "https://voe.sx/");
+      if (mirror) html = mirror;
+    }
+    const jsonScript = /<script[^>]*type=["']application\/json["'][^>]*>\s*\[\s*"([^"]+)"\s*\]\s*<\/script>/.exec(
+      html
+    );
+    if (jsonScript) {
+      const decoded = _voeDecode(jsonScript[1]);
+      if (decoded) {
+        const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(decoded);
+        if (mp4) return { url: _unescapeUrl(mp4[1]) };
+        const src = /"source"\s*:\s*"([^"]+)"/.exec(decoded);
+        if (src) return { url: _unescapeUrl(src[1]) };
+        const anyM3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(
+          decoded.replace(/\\\//g, "/")
+        );
+        if (anyM3u8) return { url: anyM3u8[1] };
+      }
+    }
     let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
-    if (m) return { url: m[1] };
-    m = /"hls"\s*:\s*"([^"]+)"/.exec(html);
     if (m) return { url: m[1] };
     const atobMatch = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
     if (atobMatch) {
       try {
         const decoded = b64decode(atobMatch[1]);
-        const hls = /"hls"\s*:\s*"([^"]+)"/.exec(decoded) ?? /'hls'\s*:\s*'([^']+)'/.exec(decoded) ?? /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(decoded);
+        const hls = /['"]hls['"]\s*:\s*['"]([^'"]+)['"]/.exec(decoded);
         if (hls) return { url: hls[1] };
         const direct = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/.exec(decoded);
         if (direct) return { url: direct[1] };
@@ -154,6 +175,32 @@ var io_prismhub_animeflv = (() => {
     m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
     if (m) return { url: m[0] };
     return null;
+  }
+  function _rot13(s) {
+    return s.replace(/[a-zA-Z]/g, (c) => {
+      const base = c <= "Z" ? 65 : 97;
+      return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
+    });
+  }
+  function _unescapeUrl(s) {
+    return s.replace(/\\\//g, "/");
+  }
+  function _voeDecode(raw) {
+    try {
+      let r = _rot13(raw);
+      for (const p of ["@$", "^^", "#&", "~@", "%?", "*~", "!!", "`"]) {
+        r = r.split(p).join("");
+      }
+      const step3 = b64decode(r);
+      let shifted = "";
+      for (let i = 0; i < step3.length; i++) {
+        shifted += String.fromCharCode(step3.charCodeAt(i) - 3);
+      }
+      const reversed = shifted.split("").reverse().join("");
+      return b64decode(reversed);
+    } catch {
+      return null;
+    }
   }
   async function resolveStreamtape(url, referer) {
     const html = await fetchEmbed(url, referer);

@@ -28,39 +28,109 @@ export async function resolveEmbed(
   return null;
 }
 
-/** voe.sx — soporta hls directo y ofuscación base64 (atob) */
+/**
+ * voe.sx — formato 2024+.
+ *
+ * El embed `voe.sx/e/xxx` ahora es una página de redirección JS hacia un dominio
+ * espejo rotativo (p. ej. `juliewomanwish.com/e/xxx`). El espejo embebe los datos
+ * cifrados en `<script type="application/json">["..."]</script>`.
+ *
+ * Algoritmo de descifrado (ingeniería inversa, voe 2024):
+ *   1. ROT13
+ *   2. eliminar los marcadores de relleno: @$ ^^ #& ~@ %? *~ !! `
+ *   3. base64 decode
+ *   4. desplazar cada char −3
+ *   5. invertir la cadena
+ *   6. base64 decode → JSON con `source` (m3u8) y `direct_access_url` (mp4)
+ *
+ * Se prefiere el mp4 directo (más simple para el reproductor); si no, el m3u8.
+ * Mantiene fallbacks para páginas voe antiguas (hls directo / atob).
+ */
 export async function resolveVoe(
   url: string,
   referer: string,
 ): Promise<ResolvedEmbed | null> {
-  const html = await fetchEmbed(url, referer);
+  let html = await fetchEmbed(url, referer);
   if (!html) return null;
 
+  // 1. Seguir la redirección JS al dominio espejo, si la hay.
+  const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(
+    html,
+  );
+  if (redir) {
+    const mirror = await fetchEmbed(redir[1], 'https://voe.sx/');
+    if (mirror) html = mirror;
+  }
+
+  // 2. Formato 2024: JSON cifrado en <script type="application/json">["..."]</script>
+  const jsonScript = /<script[^>]*type=["']application\/json["'][^>]*>\s*\[\s*"([^"]+)"\s*\]\s*<\/script>/.exec(
+    html,
+  );
+  if (jsonScript) {
+    const decoded = _voeDecode(jsonScript[1]);
+    if (decoded) {
+      const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(decoded);
+      if (mp4) return { url: _unescapeUrl(mp4[1]) };
+      const src = /"source"\s*:\s*"([^"]+)"/.exec(decoded);
+      if (src) return { url: _unescapeUrl(src[1]) };
+      const anyM3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(
+        decoded.replace(/\\\//g, '/'),
+      );
+      if (anyM3u8) return { url: anyM3u8[1] };
+    }
+  }
+
+  // 3. Fallbacks para páginas voe antiguas.
   let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
   if (m) return { url: m[1] };
 
-  m = /"hls"\s*:\s*"([^"]+)"/.exec(html);
-  if (m) return { url: m[1] };
-
-  // Ofuscación atob: var wjs = atob('base64...')
   const atobMatch = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
   if (atobMatch) {
     try {
       const decoded = b64decode(atobMatch[1]);
-      const hls =
-        /"hls"\s*:\s*"([^"]+)"/.exec(decoded) ??
-        /'hls'\s*:\s*'([^']+)'/.exec(decoded) ??
-        /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(decoded);
+      const hls = /['"]hls['"]\s*:\s*['"]([^'"]+)['"]/.exec(decoded);
       if (hls) return { url: hls[1] };
       const direct = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/.exec(decoded);
       if (direct) return { url: direct[1] };
-    } catch { /* ignorar error de decodificación */ }
+    } catch { /* ignorar */ }
   }
 
   m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
   if (m) return { url: m[0] };
 
   return null;
+}
+
+/** ROT13 sobre letras ASCII. */
+function _rot13(s: string): string {
+  return s.replace(/[a-zA-Z]/g, (c) => {
+    const base = c <= 'Z' ? 65 : 97;
+    return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
+  });
+}
+
+/** Convierte las barras escapadas de JSON (`\/` → `/`). */
+function _unescapeUrl(s: string): string {
+  return s.replace(/\\\//g, '/');
+}
+
+/** Descifrado de la cadena ofuscada de voe 2024. Retorna JSON crudo o null. */
+function _voeDecode(raw: string): string | null {
+  try {
+    let r = _rot13(raw);
+    for (const p of ['@$', '^^', '#&', '~@', '%?', '*~', '!!', '`']) {
+      r = r.split(p).join('');
+    }
+    const step3 = b64decode(r);
+    let shifted = '';
+    for (let i = 0; i < step3.length; i++) {
+      shifted += String.fromCharCode(step3.charCodeAt(i) - 3);
+    }
+    const reversed = shifted.split('').reverse().join('');
+    return b64decode(reversed);
+  } catch {
+    return null;
+  }
 }
 
 /** streamtape.com — múltiples patrones de obfuscación */
