@@ -17,6 +17,7 @@ import {
   writeFileSync,
   existsSync,
   mkdirSync,
+  rmSync,
 } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
@@ -92,7 +93,23 @@ if (entries.length === 0) {
   process.exit(1);
 }
 
-console.log(`\n🔨  Compilando ${entries.length} extensión(es)...\n`);
+// ─── Prune: borrar bundles huérfanos en dist/ ─────────────────────────────────
+// Si una extensión se elimina, su dist/<name>.js queda obsoleto y rompe los
+// smoke tests (manifest no encontrado). Lo limpiamos automáticamente para que
+// dist/ siempre refleje exactamente las extensiones presentes.
+
+const validNames = new Set(entries);
+let pruned = 0;
+for (const file of readdirSync(DIST_DIR).filter(f => f.endsWith('.js'))) {
+  if (!validNames.has(file.replace(/\.js$/, ''))) {
+    rmSync(join(DIST_DIR, file));
+    console.log(`  🗑  ${file} — bundle huérfano eliminado`);
+    pruned++;
+  }
+}
+if (pruned > 0) console.log('');
+
+console.log(`🔨  Compilando ${entries.length} extensión(es)...\n`);
 
 const builtManifests = [];
 const errors = [];
