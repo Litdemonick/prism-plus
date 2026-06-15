@@ -148,7 +148,7 @@ var io_prismhub_tioanime = (() => {
     const description = stripTags(
       between(html, '<p class="sinopsis">', "</p>")
     );
-    const episodes = _parseEpisodes(html);
+    const episodes = _parseEpisodes(html, url);
     const status = matchFirst(html, /Estado:\s*<\/span>\s*<span[^>]*>([^<]+)<\/span>/i);
     const genres = matchGroups(
       html,
@@ -189,15 +189,15 @@ var io_prismhub_tioanime = (() => {
     }
     return items;
   }
-  function _parseEpisodes(html) {
+  function _parseEpisodes(html, animeSlug) {
     const match = /var\s+episodes\s*=\s*(\[[\s\S]*?\])/.exec(html);
     if (!match) return [];
     try {
       const raw = JSON.parse(match[1]);
-      return raw.reverse().map((slug, i) => ({
-        title: `Episodio ${raw.length - i}`,
-        url: slug
-      }));
+      return raw.reverse().map((ep, i) => {
+        const slug = typeof ep === "number" || /^\d+$/.test(String(ep)) ? `${animeSlug}-${ep}` : String(ep);
+        return { title: `Episodio ${raw.length - i}`, url: slug };
+      });
     } catch {
       return [];
     }

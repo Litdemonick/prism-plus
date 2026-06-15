@@ -38,8 +38,9 @@ export async function detail(url: string): Promise<PrismDetail> {
     between(html, '<p class="sinopsis">', '</p>'),
   );
 
-  // TioAnime lista episodios en un array JS: var episodes = ["slug-1","slug-2",...]
-  const episodes = _parseEpisodes(html);
+  // TioAnime lista episodios como enteros o slugs completos.
+  // Se pasa el slug del anime para construir la URL cuando son enteros.
+  const episodes = _parseEpisodes(html, url);
 
   const status = matchFirst(html, /Estado:\s*<\/span>\s*<span[^>]*>([^<]+)<\/span>/i);
   const genres = matchGroups(
@@ -99,17 +100,22 @@ function _parseCards(html: string): PrismItem[] {
   return items;
 }
 
-function _parseEpisodes(html: string): Array<{ title: string; url: string }> {
-  // var episodes = ["slug-episodio-1", "slug-episodio-2", ...]
+function _parseEpisodes(html: string, animeSlug: string): Array<{ title: string; url: string }> {
+  // var episodes = ["slug-ep-1","slug-ep-2",...] o [1,2,3,...] (números enteros)
   const match = /var\s+episodes\s*=\s*(\[[\s\S]*?\])/.exec(html);
   if (!match) return [];
 
   try {
-    const raw = JSON.parse(match[1]) as string[];
-    return raw.reverse().map((slug, i) => ({
-      title: `Episodio ${raw.length - i}`,
-      url: slug,
-    }));
+    const raw = JSON.parse(match[1]) as (string | number)[];
+    return raw.reverse().map((ep, i) => {
+      // Si el sitio devuelve enteros en lugar de slugs completos,
+      // construir la URL como "{anime-slug}-{numero-episodio}"
+      const slug =
+        typeof ep === 'number' || /^\d+$/.test(String(ep))
+          ? `${animeSlug}-${ep}`
+          : String(ep);
+      return { title: `Episodio ${raw.length - i}`, url: slug };
+    });
   } catch {
     return [];
   }
