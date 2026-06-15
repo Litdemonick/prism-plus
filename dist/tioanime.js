@@ -127,11 +127,14 @@ var io_prismhub_tioanime = (() => {
 
   // sdk/embeds.ts
   async function resolveEmbed(server, embedUrl, referer) {
-    const s = server.toLowerCase();
+    const s = `${server} ${embedUrl}`.toLowerCase();
     if (s.includes("voe")) return resolveVoe(embedUrl, referer);
-    if (s.includes("streamtape") || s.includes("stape") || s.includes("tape"))
+    if (s.includes("streamtape") || s.includes("stape") || s.includes("strtape"))
       return resolveStreamtape(embedUrl, referer);
-    return null;
+    if (s.includes("mixdrop") || s.includes("mxdrop") || s.includes("mdrop"))
+      return resolveMixdrop(embedUrl, referer);
+    if (s.includes("mp4upload")) return resolveMp4upload(embedUrl, referer);
+    return resolveGeneric(embedUrl, referer);
   }
   async function resolveVoe(url, referer) {
     let html = await fetchEmbed(url, referer);
@@ -215,6 +218,75 @@ var io_prismhub_tioanime = (() => {
       return { url: full.startsWith("http") ? full : `https:${full}` };
     }
     return null;
+  }
+  async function resolveMixdrop(url, referer) {
+    const html = await fetchEmbed(url, referer);
+    if (!html) return null;
+    const unpacked = _unpackAll(html);
+    const wurl = /MDCore\.wurl\s*=\s*["']([^"']+)["']/.exec(unpacked);
+    let target = wurl?.[1];
+    if (!target) {
+      const mp4 = /(\/\/[^"'\s]+\.mp4[^"'\s]*)/.exec(unpacked);
+      target = mp4?.[1];
+    }
+    if (!target) return null;
+    const full = target.startsWith("http") ? target : `https:${target}`;
+    return { url: full, headers: { Referer: "https://mixdrop.top/" } };
+  }
+  async function resolveMp4upload(url, referer) {
+    const html = await fetchEmbed(url, referer);
+    if (!html) return null;
+    const candidates = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g) ?? [];
+    const real = candidates.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
+    if (!real) return null;
+    return { url: real, headers: { Referer: "https://www.mp4upload.com/" } };
+  }
+  async function resolveGeneric(url, referer) {
+    const html = await fetchEmbed(url, referer);
+    if (!html) return null;
+    const host = _hostOf(url);
+    const headers = host ? { Referer: `https://${host}/` } : void 0;
+    const haystack = `${html}
+${_unpackAll(html)}`;
+    const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(haystack.replace(/\\\//g, "/"));
+    if (m3u8) return { url: m3u8[1], headers };
+    const file = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/.exec(
+      haystack
+    );
+    if (file) return { url: file[1], headers };
+    const mp4s = haystack.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g) ?? [];
+    const real = mp4s.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
+    if (real) return { url: real.replace(/\\\//g, "/"), headers };
+    return null;
+  }
+  function _unpackAll(html) {
+    let out = "";
+    const re = /eval\(function\(p,a,c,k,e,[dr]\)\{[\s\S]*?\.split\('\|'\)[^)]*\)\)/g;
+    for (const m of html.matchAll(re)) {
+      const u = _unpack(m[0]);
+      if (u) out += `
+${u}`;
+    }
+    return out;
+  }
+  function _unpack(src) {
+    const m = /\}\s*\(\s*'(.*?)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*'(.*?)'\.split\('\|'\)/s.exec(
+      src
+    );
+    if (!m) return "";
+    let payload = m[1];
+    const radix = parseInt(m[2], 10);
+    const count = parseInt(m[3], 10);
+    const words = m[4].split("|");
+    payload = payload.split("\\'").join("'");
+    const enc = (n) => (n < radix ? "" : enc(Math.floor(n / radix))) + ((n = n % radix) > 35 ? String.fromCharCode(n + 29) : n.toString(36));
+    const dict = {};
+    for (let i = count - 1; i >= 0; i--) dict[enc(i)] = words[i] || enc(i);
+    return payload.replace(/\b\w+\b/g, (w) => dict[w] ?? w);
+  }
+  function _hostOf(url) {
+    const m = /^https?:\/\/([^/]+)/.exec(url);
+    return m ? m[1] : null;
   }
   async function fetchEmbed(url, referer) {
     try {

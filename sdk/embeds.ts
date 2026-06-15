@@ -14,18 +14,28 @@ export interface ResolvedEmbed {
 
 /**
  * Detecta el servidor a partir del nombre o URL y delega al resolver correcto.
- * Retorna null si el servidor no está soportado o la resolución falla.
+ * Si el servidor no es conocido, intenta un resolver genérico (desempaqueta
+ * `eval(p,a,c,k,e,d)` y busca m3u8/mp4) — así muchos hosts de la familia
+ * streamwish/filemoon funcionan sin código específico.
+ * Retorna null si la resolución falla por completo.
  */
 export async function resolveEmbed(
   server: string,
   embedUrl: string,
   referer: string,
 ): Promise<ResolvedEmbed | null> {
-  const s = server.toLowerCase();
+  const s = `${server} ${embedUrl}`.toLowerCase();
+
   if (s.includes('voe')) return resolveVoe(embedUrl, referer);
-  if (s.includes('streamtape') || s.includes('stape') || s.includes('tape'))
+  if (s.includes('streamtape') || s.includes('stape') || s.includes('strtape'))
     return resolveStreamtape(embedUrl, referer);
-  return null;
+  if (s.includes('mixdrop') || s.includes('mxdrop') || s.includes('mdrop'))
+    return resolveMixdrop(embedUrl, referer);
+  if (s.includes('mp4upload')) return resolveMp4upload(embedUrl, referer);
+
+  // Familia streamwish/filemoon/luluvdo/etc.: el resolver genérico cubre la
+  // mayoría (desempaqueta el eval y extrae el m3u8/mp4).
+  return resolveGeneric(embedUrl, referer);
 }
 
 /**
@@ -154,6 +164,114 @@ export async function resolveStreamtape(
   }
 
   return null;
+}
+
+/** mixdrop — `MDCore.wurl` dentro del eval empaquetado → mp4 directo */
+export async function resolveMixdrop(
+  url: string,
+  referer: string,
+): Promise<ResolvedEmbed | null> {
+  const html = await fetchEmbed(url, referer);
+  if (!html) return null;
+  const unpacked = _unpackAll(html);
+  const wurl = /MDCore\.wurl\s*=\s*["']([^"']+)["']/.exec(unpacked);
+  let target = wurl?.[1];
+  if (!target) {
+    const mp4 = /(\/\/[^"'\s]+\.mp4[^"'\s]*)/.exec(unpacked);
+    target = mp4?.[1];
+  }
+  if (!target) return null;
+  const full = target.startsWith('http') ? target : `https:${target}`;
+  return { url: full, headers: { Referer: 'https://mixdrop.top/' } };
+}
+
+/** mp4upload — mp4 directo en la página del embed */
+export async function resolveMp4upload(
+  url: string,
+  referer: string,
+): Promise<ResolvedEmbed | null> {
+  const html = await fetchEmbed(url, referer);
+  if (!html) return null;
+  const candidates = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g) ?? [];
+  const real = candidates.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
+  if (!real) return null;
+  return { url: real, headers: { Referer: 'https://www.mp4upload.com/' } };
+}
+
+/**
+ * Resolver genérico: descarga el embed, desempaqueta cualquier `eval(p,a,c,k,e,d)`
+ * y busca el stream (m3u8 firmado, `file:`/`source:`/`src:` de jwplayer, o mp4).
+ * Cubre luluvdo y buena parte de la familia streamwish/filemoon sin código
+ * específico por host.
+ */
+export async function resolveGeneric(
+  url: string,
+  referer: string,
+): Promise<ResolvedEmbed | null> {
+  const html = await fetchEmbed(url, referer);
+  if (!html) return null;
+
+  const host = _hostOf(url);
+  const headers = host ? { Referer: `https://${host}/` } : undefined;
+  const haystack = `${html}\n${_unpackAll(html)}`;
+
+  // m3u8 (preferido: streams adaptativos firmados)
+  const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(haystack.replace(/\\\//g, '/'));
+  if (m3u8) return { url: m3u8[1], headers };
+
+  // jwplayer: file/source/src
+  const file = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/.exec(
+    haystack,
+  );
+  if (file) return { url: file[1], headers };
+
+  // mp4 suelto (descartando assets)
+  const mp4s = haystack.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g) ?? [];
+  const real = mp4s.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
+  if (real) return { url: real.replace(/\\\//g, '/'), headers };
+
+  return null;
+}
+
+// ─── Desempaquetador de eval(p,a,c,k,e,d) (Dean Edwards) ──────────────────────
+
+/** Desempaqueta TODOS los bloques `eval(function(p,a,c,k,e,d){…})` del HTML. */
+function _unpackAll(html: string): string {
+  let out = '';
+  const re = /eval\(function\(p,a,c,k,e,[dr]\)\{[\s\S]*?\.split\('\|'\)[^)]*\)\)/g;
+  for (const m of html.matchAll(re)) {
+    const u = _unpack(m[0]);
+    if (u) out += `\n${u}`;
+  }
+  return out;
+}
+
+/** Desempaqueta un único bloque empaquetado. Retorna '' si no matchea. */
+function _unpack(src: string): string {
+  const m = /\}\s*\(\s*'(.*?)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*'(.*?)'\.split\('\|'\)/s.exec(
+    src,
+  );
+  if (!m) return '';
+  let payload = m[1];
+  const radix = parseInt(m[2], 10);
+  const count = parseInt(m[3], 10);
+  const words = m[4].split('|');
+  payload = payload.split("\\'").join("'");
+
+  const enc = (n: number): string =>
+    (n < radix ? '' : enc(Math.floor(n / radix))) +
+    ((n = n % radix) > 35 ? String.fromCharCode(n + 29) : n.toString(36));
+
+  const dict: Record<string, string> = {};
+  for (let i = count - 1; i >= 0; i--) dict[enc(i)] = words[i] || enc(i);
+
+  return payload.replace(/\b\w+\b/g, (w) => dict[w] ?? w);
+}
+
+/** Extrae el host de una URL sin usar la API URL (no disponible en QuickJS). */
+function _hostOf(url: string): string | null {
+  const m = /^https?:\/\/([^/]+)/.exec(url);
+  return m ? m[1] : null;
 }
 
 /** Fetch con timeout corto y sin reintentos — para páginas embed externas */
