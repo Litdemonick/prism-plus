@@ -170,8 +170,15 @@ var io_prismhub_yts = (() => {
   var _m=typeof io_prismhub_yts!=='undefined'?io_prismhub_yts:null;
   if(_m&&typeof _m==='object'){
     var _d=_m.detail,_l=_m.latest,_ss=_m.search;
-    if(typeof _d==='function')_m.detail=function(){return _d.apply(_m,arguments).then(_detail);};
-    if(typeof _l==='function')_m.latest=function(){return _l.apply(_m,arguments).then(_items);};
-    if(typeof _ss==='function')_m.search=function(){return _ss.apply(_m,arguments).then(_items);};
+    if(typeof _d==='function'||typeof _l==='function'||typeof _ss==='function'){
+      // esbuild define exports como getters no-configurables (Object.defineProperty sin set).
+      // En strict mode asignar directo falla. Copiamos LEYENDO los getters a un objeto plano.
+      var _w={};
+      for(var _k in _m){try{_w[_k]=_m[_k];}catch(_e){}}
+      if(typeof _d==='function')_w.detail=async function(){return _detail(await _d.apply(_m,arguments));};
+      if(typeof _l==='function')_w.latest=async function(){return _items(await _l.apply(_m,arguments));};
+      if(typeof _ss==='function')_w.search=async function(){return _items(await _ss.apply(_m,arguments));};
+      io_prismhub_yts=_w;
+    }
   }
 })();
