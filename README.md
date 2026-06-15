@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="https://raw.githubusercontent.com/Litdemonick/prism-plus/main/assets/logo_prismplus.png" alt="Prism+" width="200" />
+
 # ✨ Prism+
 
 **El núcleo de extensiones universal y open-source para medios de streaming.**
