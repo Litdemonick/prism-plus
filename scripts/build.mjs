@@ -95,6 +95,7 @@ for (const name of entries) {
 
 const index = {
   name: 'Prism+',
+  protocolVersion: '1',
   description: 'Repositorio oficial de extensiones para PrismHub y plataformas compatibles',
   version: '1.0.0',
   website: `https://github.com/${REPO_OWNER}/${REPO_NAME}`,

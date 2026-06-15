@@ -28,24 +28,77 @@ var io_prismhub_jikan = (() => {
   });
 
   // sdk/http.ts
+  var NetworkError = class extends Error {
+    constructor(cause, url) {
+      super(`Error de red en ${url}: ${cause?.message ?? cause}`);
+      this.name = "NetworkError";
+    }
+  };
+  var HttpError = class extends Error {
+    constructor(status, statusText, url) {
+      super(`HTTP ${status} ${statusText} \u2014 ${url}`);
+      this.status = status;
+      this.statusText = statusText;
+      this.url = url;
+      this.name = "HttpError";
+    }
+  };
+  var TimeoutError = class extends Error {
+    constructor(ms, url) {
+      super(`Timeout de ${ms}ms superado \u2014 ${url}`);
+      this.name = "TimeoutError";
+    }
+  };
   var DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+  var DEFAULT_TIMEOUT = 15e3;
+  var DEFAULT_RETRIES = 2;
+  function isRetryable(status) {
+    return status === 429 || status >= 500 && status < 600;
+  }
   async function request(url, options = {}) {
-    const { method = "GET", headers = {}, body, retries = 2 } = options;
+    const {
+      method = "GET",
+      headers = {},
+      body,
+      retries = DEFAULT_RETRIES,
+      timeout = DEFAULT_TIMEOUT
+    } = options;
     const merged = { "User-Agent": DEFAULT_UA, ...headers };
     let lastError;
     for (let attempt = 0; attempt <= retries; attempt++) {
+      const controller = new AbortController();
       try {
-        return await fetch(url, { method, headers: merged, body });
+        const res = await Promise.race([
+          fetch(url, { method, headers: merged, body, signal: controller.signal }),
+          new Promise(
+            (_, reject) => setTimeout(() => {
+              controller.abort();
+              reject(new TimeoutError(timeout, url));
+            }, timeout)
+          )
+        ]);
+        if (!res.ok) {
+          const err = new HttpError(res.status, res.statusText, url);
+          if (isRetryable(res.status) && attempt < retries) {
+            lastError = err;
+          } else {
+            throw err;
+          }
+        } else {
+          controller.abort();
+          return res;
+        }
       } catch (err) {
-        lastError = err;
-        if (attempt < retries) await _sleep(300 * 2 ** attempt);
+        if (err instanceof TimeoutError) throw err;
+        if (err instanceof HttpError) throw err;
+        lastError = new NetworkError(err, url);
       }
+      if (attempt < retries) await _sleep(300 * 2 ** attempt);
     }
     throw lastError;
   }
   async function getJson(url, headers) {
-    const res = await request(url, { headers });
-    return res.json();
+    return (await request(url, { headers })).json();
   }
   function _sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));

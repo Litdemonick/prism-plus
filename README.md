@@ -13,6 +13,7 @@ Prism+ es la capa de extensiones que impulsa [PrismHub](https://github.com/Litde
 ## 📋 Tabla de Contenidos
 
 - [🏗️ Arquitectura](#arquitectura)
+- [🛡️ Calidad y robustez](#calidad-y-robustez)
 - [📦 Referencia del SDK](#referencia-del-sdk)
 - [🔧 Cómo escribir una extensión](#cómo-escribir-una-extensión)
 - [📚 Catálogo de extensiones](#catálogo-de-extensiones)
@@ -45,6 +46,122 @@ Cada extensión se compila como un **bundle IIFE autocontenido** (sin dependenci
 - `fetch()` disponible como global (provisto por la app host, ej: QuickJS en PrismHub)
 - Sin DOM, sin Node.js built-ins, sin sistema de archivos
 - Sintaxis ES2020 garantizada
+
+---
+
+## 🛡️ Calidad y robustez
+
+Prism+ está diseñado para ser confiable en producción, no solo en demos. Estas garantías están implementadas en el SDK y en el pipeline de CI.
+
+---
+
+### Manejo de errores — errores tipados y distinguibles
+
+El SDK lanza tres tipos de error claramente diferenciados para que la app cliente pueda reaccionar de forma precisa:
+
+| Error | Cuándo se lanza | ¿Se reintenta? |
+|-------|-----------------|----------------|
+| `HttpError` | El servidor respondió con 4xx / 5xx | Solo 429 y 5xx |
+| `NetworkError` | No hubo respuesta (red caída, DNS, etc.) | Siempre |
+| `TimeoutError` | El servidor tardó más de 15 segundos | No |
+
+```typescript
+import { getJson, HttpError, TimeoutError } from '../../sdk/http';
+
+try {
+  const data = await getJson('/api/...');
+} catch (err) {
+  if (err instanceof HttpError)   console.error(`Error ${err.status} en ${err.url}`);
+  if (err instanceof TimeoutError) console.error('La fuente tardó demasiado');
+  // NetworkError: error de red, reintentado automáticamente
+}
+```
+
+Antes de esta versión, un error 503 silenciosamente intentaba parsear HTML como JSON y lanzaba un `SyntaxError: Unexpected token '<'` sin contexto. **Eso ya no existe.**
+
+---
+
+### Reintentos inteligentes con backoff exponencial
+
+`request()` reintenta automáticamente sin que la extensión haga nada:
+
+```
+Intento 1 → falla con error de red
+  espera 300ms
+Intento 2 → falla con HTTP 503
+  espera 600ms
+Intento 3 → éxito ✅
+```
+
+- **Reintentar:** errores de red, `429 Too Many Requests`, `5xx Server Error`
+- **No reintentar:** `TimeoutError`, `4xx` (404, 401, 403…) — son definitivos
+
+---
+
+### Timeout por petición — sin fetches colgados
+
+Cada `fetch()` tiene un timeout de **15 segundos** por defecto usando `Promise.race + AbortController`. Funciona aunque el runtime no soporte `AbortSignal` nativamente.
+
+```typescript
+// Configurar timeout personalizado por extensión
+const res = await request(url, { timeout: 8_000 }); // 8 segundos
+```
+
+---
+
+### Validación pre-build — `npm run validate`
+
+Antes de compilar, el script de validación verifica cada extensión:
+
+- ✅ `manifest.json` existe y tiene todos los campos obligatorios
+- ✅ El `type` del manifest es un valor válido de `MediaType`
+- ✅ El `package` sigue el formato `io.prismhub.<nombre>`
+- ✅ La `version` es semver válida (`1.0.0`)
+- ✅ `index.ts` exporta las 4 funciones obligatorias (`latest`, `search`, `detail`, `watch`)
+- ✅ No importa módulos de Node.js (`fs`, `path`, `crypto`) — incompatibles con QuickJS
+- ✅ No usa `window` ni `document` — sin DOM en QuickJS
+
+```
+🔍  Validando 16 extensión(es)...
+
+  ✓  gogoanime
+  ✓  mangadex
+  ✗  mi-extension
+       ↳ manifest: campo 'icon' vacío o ausente
+       ↳ index.ts: falta 'export async function watch('
+
+❌  2 problema(s) encontrado(s) — corrige antes de compilar
+```
+
+---
+
+### CI robusto — 3 pasos en orden
+
+El pipeline de GitHub Actions ejecuta los pasos en secuencia y falla rápido:
+
+```
+1. npm run validate   ← estructura y campos del manifest
+2. npm run typecheck  ← errores TypeScript (tsc --noEmit)
+3. npm run build      ← compilación con esbuild
+```
+
+Si el paso 1 falla, el paso 2 y 3 no se ejecutan. El `dist/` del catálogo nunca se actualiza con código roto.
+
+---
+
+### Versionado de protocolo — `protocolVersion`
+
+El `index.json` incluye un campo `protocolVersion` para que las apps cliente puedan detectar cambios de formato incompatibles:
+
+```json
+{
+  "name": "Prism+",
+  "protocolVersion": "1",
+  "extensions": [...]
+}
+```
+
+Si en el futuro se cambia el formato del catálogo de forma breaking, la versión sube a `"2"` y las apps antiguas saben que necesitan actualizarse.
 
 ---
 
@@ -141,7 +258,7 @@ interface PrismSubtitle {
 
 ### 🌐 `sdk/http.ts`
 
-Cliente HTTP integrado con **reintentos automáticos** y **User-Agent realista** de Chrome.
+Cliente HTTP con **timeout**, **reintentos inteligentes**, **errores tipados** y **User-Agent realista** de Chrome.
 
 ```typescript
 // GET → string (HTML o texto)
@@ -154,14 +271,17 @@ getJson<T>(url: string, headers?: Record<string, string>): Promise<T>
 post(url: string, body: string, headers?: Record<string, string>): Promise<string>
 
 // POST con body → JSON parseado
-postJson<T>(url: string, body: string, headers?: Record<string, string>): Promise<T>
+postJson<T>(url: string, data: unknown, headers?: Record<string, string>): Promise<T>
 
-// Fetch raw con control total
-request(url: string, init?: RequestInit): Promise<Response>
+// Fetch base con control total (timeout, retries, headers)
+request(url: string, options?: RequestOptions): Promise<Response>
 ```
 
-✅ Hasta **3 reintentos** con backoff exponencial  
+✅ **Timeout de 15s** por petición — sin fetches colgados  
+✅ Hasta **3 reintentos** con backoff exponencial (300ms → 600ms)  
+✅ **Errores tipados**: `HttpError`, `NetworkError`, `TimeoutError`  
 ✅ **User-Agent de Chrome** por defecto (evita bloqueos básicos)  
+✅ Verifica `res.ok` — nunca parsea HTML de error como JSON  
 ✅ Compatible con cualquier runtime que provea `fetch()` global
 
 ---
@@ -402,8 +522,9 @@ El script de build usa estas variables para construir las URLs raw de GitHub en 
 
 ```bash
 npm install
-npm run build       # compila todas las extensiones → dist/ + index.json
-npm run typecheck   # chequeo de tipos sin emitir
+npm run validate    # valida estructura de todas las extensiones
+npm run typecheck   # chequeo de tipos TypeScript (sin emitir)
+npm run build       # validate + compila → dist/ + index.json
 ```
 
 Variables de entorno aceptadas por `scripts/build.mjs`:

@@ -1,83 +1,173 @@
-// ─── Cliente HTTP del SDK Prism+ ────────────────────────────────────────────
+// ─── Cliente HTTP del SDK Prism+ ─────────────────────────────────────────────
 // Envuelve el fetch() inyectado por PrismHub en el runtime QuickJS.
-// Añade reintentos, User-Agent por defecto y helpers tipados.
+// Añade timeout, reintentos inteligentes, User-Agent y manejo de errores HTTP.
+
+// ─── Errores tipados ──────────────────────────────────────────────────────────
+
+/** Error de red o de fetch — el servidor no llegó a responder */
+export class NetworkError extends Error {
+  constructor(cause: unknown, url: string) {
+    super(`Error de red en ${url}: ${(cause as Error)?.message ?? cause}`);
+    this.name = 'NetworkError';
+  }
+}
+
+/** El servidor respondió pero con un código HTTP de error */
+export class HttpError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly statusText: string,
+    public readonly url: string,
+  ) {
+    super(`HTTP ${status} ${statusText} — ${url}`);
+    this.name = 'HttpError';
+  }
+}
+
+/** El servidor no respondió dentro del tiempo límite */
+export class TimeoutError extends Error {
+  constructor(ms: number, url: string) {
+    super(`Timeout de ${ms}ms superado — ${url}`);
+    this.name = 'TimeoutError';
+  }
+}
+
+// ─── Opciones ─────────────────────────────────────────────────────────────────
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?:  'GET' | 'POST' | 'PUT' | 'DELETE';
   headers?: Record<string, string>;
-  body?: string;
-  /** Intentos adicionales ante error de red (default: 2) */
+  body?:    string;
+  /** Intentos adicionales ante error de red o 5xx (default: 2) */
   retries?: number;
+  /** Tiempo límite por intento en ms (default: 15 000) */
+  timeout?: number;
 }
+
+// ─── Constantes ───────────────────────────────────────────────────────────────
 
 const DEFAULT_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
+const DEFAULT_TIMEOUT = 15_000;
+const DEFAULT_RETRIES = 2;
+
+/** Códigos HTTP que merece la pena reintentar */
+function isRetryable(status: number): boolean {
+  return status === 429 || (status >= 500 && status < 600);
+}
+
+// ─── Core ─────────────────────────────────────────────────────────────────────
+
 /**
- * Petición HTTP con User-Agent automático y reintentos exponenciales.
- * Usa el fetch() que PrismHub inyecta en el runtime QuickJS.
+ * Petición HTTP base con:
+ *  - Timeout por intento (Promise.race + AbortController)
+ *  - Reintentos con backoff exponencial para errores de red y 5xx/429
+ *  - Verificación de res.ok — lanza HttpError ante cualquier 4xx/5xx
+ *  - Errores tipados: NetworkError, HttpError, TimeoutError
  */
 export async function request(
   url: string,
   options: RequestOptions = {},
 ): Promise<Response> {
-  const { method = 'GET', headers = {}, body, retries = 2 } = options;
-  const merged = { 'User-Agent': DEFAULT_UA, ...headers };
+  const {
+    method  = 'GET',
+    headers = {},
+    body,
+    retries = DEFAULT_RETRIES,
+    timeout = DEFAULT_TIMEOUT,
+  } = options;
 
+  const merged = { 'User-Agent': DEFAULT_UA, ...headers };
   let lastError: unknown;
+
   for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+
     try {
-      return await fetch(url, { method, headers: merged, body });
+      // Promise.race garantiza timeout aunque el runtime no soporte AbortSignal
+      const res = await Promise.race([
+        fetch(url, { method, headers: merged, body, signal: controller.signal }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => {
+            controller.abort();
+            reject(new TimeoutError(timeout, url));
+          }, timeout),
+        ),
+      ]);
+
+      // Verificar código HTTP — errores 4xx/5xx lanzan HttpError
+      if (!res.ok) {
+        const err = new HttpError(res.status, res.statusText, url);
+        // Reintentar solo si es retryable Y quedan intentos
+        if (isRetryable(res.status) && attempt < retries) {
+          lastError = err;
+        } else {
+          throw err;
+        }
+      } else {
+        controller.abort(); // cancelar el timer de timeout
+        return res;
+      }
     } catch (err) {
-      lastError = err;
-      if (attempt < retries) await _sleep(300 * 2 ** attempt);
+      // Timeout — no reintentar
+      if (err instanceof TimeoutError) throw err;
+      // HttpError no-retryable — ya fue lanzado arriba, dejar pasar
+      if (err instanceof HttpError) throw err;
+      // Error de red — reintentar
+      lastError = new NetworkError(err, url);
     }
+
+    if (attempt < retries) await _sleep(300 * 2 ** attempt); // 300ms, 600ms
   }
+
   throw lastError;
 }
+
+// ─── Helpers públicos ─────────────────────────────────────────────────────────
 
 /** GET → string (HTML o texto plano) */
 export async function get(
   url: string,
   headers?: Record<string, string>,
 ): Promise<string> {
-  const res = await request(url, { headers });
-  return res.text();
+  return (await request(url, { headers })).text();
 }
 
-/** GET → JSON parseado */
+/** GET → JSON parseado y tipado */
 export async function getJson<T = unknown>(
   url: string,
   headers?: Record<string, string>,
 ): Promise<T> {
-  const res = await request(url, { headers });
-  return res.json() as Promise<T>;
+  return (await request(url, { headers })).json() as Promise<T>;
 }
 
-/** POST con body de texto y cabeceras opcionales → string */
+/** POST con body de texto → string */
 export async function post(
   url: string,
   body: string,
   headers?: Record<string, string>,
 ): Promise<string> {
-  const res = await request(url, { method: 'POST', body, headers });
-  return res.text();
+  return (await request(url, { method: 'POST', body, headers })).text();
 }
 
-/** POST JSON → objeto parseado */
+/** POST con objeto → JSON parseado */
 export async function postJson<T = unknown>(
   url: string,
   data: unknown,
   headers?: Record<string, string>,
 ): Promise<T> {
-  const res = await request(url, {
-    method: 'POST',
-    body: JSON.stringify(data),
-    headers: { 'Content-Type': 'application/json', ...headers },
-  });
-  return res.json() as Promise<T>;
+  return (
+    await request(url, {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json', ...headers },
+    })
+  ).json() as Promise<T>;
 }
+
+// ─── Interno ──────────────────────────────────────────────────────────────────
 
 function _sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));

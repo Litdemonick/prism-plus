@@ -26,6 +26,12 @@ jobs:
       - name: Instalar dependencias
         run: npm ci
 
+      - name: Validar estructura de extensiones
+        run: npm run validate
+
+      - name: Verificar tipos TypeScript
+        run: npm run typecheck
+
       - name: Compilar extensiones
         run: npm run build
 

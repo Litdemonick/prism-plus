@@ -19,7 +19,8 @@
     "open-source"
   ],
   "scripts": {
-    "build": "node scripts/build.mjs",
+    "validate": "node scripts/validate.mjs",
+    "build": "npm run validate && node scripts/build.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
