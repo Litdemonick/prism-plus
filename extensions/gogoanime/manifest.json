@@ -1,9 +1,0 @@
-{
-  "name": "GoGoAnime",
-  "package": "io.prismhub.gogoanime",
-  "version": "1.0.0",
-  "author": "PrismHub",
-  "type": "anime",
-  "icon": "https://ww9.gogoanimes.fi/img/icon/logo.png",
-  "description": "Anime en inglés vía GoGoAnime (Consumet API)"
-}

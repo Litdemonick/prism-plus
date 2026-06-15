@@ -1,9 +1,0 @@
-{
-  "name": "FlixHQ",
-  "package": "io.prismhub.flixhq",
-  "version": "1.0.0",
-  "author": "PrismHub",
-  "type": "movie",
-  "icon": "https://flixhq.vip/wp-content/uploads/2024/04/flixhq-logo-2.png",
-  "description": "Películas y series en inglés vía FlixHQ (Consumet API)"
-}

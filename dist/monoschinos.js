@@ -119,6 +119,79 @@ var io_prismhub_monoschinos = (() => {
     return html.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
   }
 
+  // sdk/embeds.ts
+  async function resolveEmbed(server, embedUrl, referer) {
+    const s = server.toLowerCase();
+    if (s.includes("voe")) return resolveVoe(embedUrl, referer);
+    if (s.includes("streamtape") || s.includes("stape") || s.includes("tape"))
+      return resolveStreamtape(embedUrl, referer);
+    return null;
+  }
+  async function resolveVoe(url, referer) {
+    const html = await fetchEmbed(url, referer);
+    if (!html) return null;
+    let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
+    if (m) return { url: m[1] };
+    m = /"hls"\s*:\s*"([^"]+)"/.exec(html);
+    if (m) return { url: m[1] };
+    const atobMatch = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
+    if (atobMatch) {
+      try {
+        const decoded = b64decode(atobMatch[1]);
+        const hls = /"hls"\s*:\s*"([^"]+)"/.exec(decoded) ?? /'hls'\s*:\s*'([^']+)'/.exec(decoded) ?? /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(decoded);
+        if (hls) return { url: hls[1] };
+        const direct = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/.exec(decoded);
+        if (direct) return { url: direct[1] };
+      } catch {
+      }
+    }
+    m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
+    if (m) return { url: m[0] };
+    return null;
+  }
+  async function resolveStreamtape(url, referer) {
+    const html = await fetchEmbed(url, referer);
+    if (!html) return null;
+    let m = /(https?:\/\/streamtape\.[a-z]+\/get_video[^"'\s<>&]+)/.exec(html);
+    if (m) return { url: m[1] };
+    m = /(\/\/streamtape\.[a-z]+\/get_video[^"'\s<>&]+)/.exec(html);
+    if (m) return { url: `https:${m[1]}` };
+    m = /robotlink[^)]*\)\s*\.innerHTML\s*=\s*["']([^"']+)["']\s*\+\s*["']([^"']*)["']/.exec(html);
+    if (m) {
+      const full = m[1] + m[2];
+      return { url: full.startsWith("http") ? full : `https:${full}` };
+    }
+    return null;
+  }
+  async function fetchEmbed(url, referer) {
+    try {
+      const res = await request(url, {
+        headers: { Referer: referer },
+        timeout: 8e3,
+        retries: 0
+      });
+      return res.text();
+    } catch {
+      return null;
+    }
+  }
+  function b64decode(s) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const clean = s.replace(/[^A-Za-z0-9+/]/g, "");
+    let result = "";
+    let i = 0;
+    while (i < clean.length) {
+      const b1 = chars.indexOf(clean[i++]);
+      const b2 = chars.indexOf(clean[i++]);
+      const b3 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
+      const b4 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
+      result += String.fromCharCode(b1 << 2 | b2 >> 4);
+      if (b3 !== -1) result += String.fromCharCode((b2 & 15) << 4 | b3 >> 2);
+      if (b4 !== -1) result += String.fromCharCode((b3 & 3) << 6 | b4);
+    }
+    return result;
+  }
+
   // extensions/monoschinos/index.ts
   var BASE = "https://monoschinos.st";
   function parseItems(html) {
@@ -152,7 +225,9 @@ var io_prismhub_monoschinos = (() => {
     const cover = matchFirst(html, /class="[^"]*lazy[^"]*"[^>]*data-src="([^"]+)"/i) || matchFirst(html, /data-src="([^"]+)"[^>]*class="[^"]*lazy[^"]*"/i);
     const descBlock = between(html, '<div class="mb-3">', "</div>");
     const description = stripTags(between(descBlock, "<p>", "</p>"));
-    const ep1Match = /href="https?:\/\/monoschinos\.st\/ver\/([^"]+)-episodio-1"/.exec(html);
+    const ep1Match = new RegExp(
+      `href="https?://monoschinos\\.st/ver/([^"]+)-episodio-1"`
+    ).exec(html);
     if (!ep1Match) {
       return { title: title || url, cover: cover || void 0, description, episodes: [] };
     }
@@ -172,20 +247,56 @@ var io_prismhub_monoschinos = (() => {
   }
   async function watch(url) {
     const html = await get(url, { Referer: `${BASE}/` });
-    const pdMatch = /pixeldrain\.com\/u\/([A-Za-z0-9]+)/.exec(html);
-    if (pdMatch) {
-      return {
-        streams: [{
-          url: `https://pixeldrain.com/api/file/${pdMatch[1]}?download`,
-          headers: { Referer: "https://pixeldrain.com/" }
-        }]
-      };
+    const playerRe = /data-player="([A-Za-z0-9+/=]{10,})"[^>]*>([^<]{1,30})</g;
+    const candidates = [];
+    for (const m of html.matchAll(playerRe)) {
+      const b64 = m[1];
+      const serverLabel = m[2].trim();
+      try {
+        const embedUrl = b64decode(b64);
+        if (embedUrl.startsWith("http")) {
+          candidates.push({ server: serverLabel || _guessServer(embedUrl), embedUrl });
+        }
+      } catch {
+      }
     }
-    const m3u8Match = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
-    if (m3u8Match) {
-      return { streams: [{ url: m3u8Match[1] }] };
+    if (candidates.length === 0) {
+      const pdMatch = /pixeldrain\.com\/u\/([A-Za-z0-9]+)/.exec(html);
+      if (pdMatch) {
+        return {
+          streams: [{
+            url: `https://pixeldrain.com/api/file/${pdMatch[1]}?download`,
+            headers: { Referer: "https://pixeldrain.com/" }
+          }]
+        };
+      }
+      const m3u8Match = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
+      if (m3u8Match) return { streams: [{ url: m3u8Match[1] }] };
+      const iframeSrc = /[^-]src="(https?:\/\/(?:voe\.sx|streamtape\.[a-z]+)[^"]+)"/.exec(html);
+      if (iframeSrc) {
+        const embedUrl = iframeSrc[1];
+        const server = _guessServer(embedUrl);
+        const resolved2 = await resolveEmbed(server, embedUrl, `${BASE}/`);
+        if (resolved2) return { streams: [{ url: resolved2.url, headers: resolved2.headers }] };
+        return { streams: [{ url: embedUrl, quality: server }] };
+      }
+      return { streams: [] };
     }
-    return { streams: [] };
+    const results = await Promise.all(
+      candidates.map(async ({ server, embedUrl }) => {
+        const resolved2 = await resolveEmbed(server, embedUrl, `${BASE}/`);
+        return { server, embedUrl, resolved: resolved2 };
+      })
+    );
+    const resolved = results.filter((r) => r.resolved !== null).map((r) => ({ url: r.resolved.url, quality: r.server, headers: r.resolved.headers }));
+    const fallback = results.filter((r) => r.resolved === null).map((r) => ({ url: r.embedUrl, quality: r.server }));
+    return { streams: [...resolved, ...fallback] };
+  }
+  function _guessServer(url) {
+    if (url.includes("voe")) return "Voe";
+    if (url.includes("streamtape")) return "Streamtape";
+    if (url.includes("pixeldrain")) return "Pixeldrain";
+    return "Embed";
   }
   return __toCommonJS(index_exports);
 })();

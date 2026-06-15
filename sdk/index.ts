@@ -5,6 +5,7 @@
 export * from './types';
 export * from './http';
 export * from './html';
+export * from './embeds';
 export * from './unpack';
 export * from './validate';
 export * from './sanitize';

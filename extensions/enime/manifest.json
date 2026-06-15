@@ -1,9 +1,0 @@
-{
-  "name": "Enime",
-  "package": "io.prismhub.enime",
-  "version": "1.0.0",
-  "author": "PrismHub",
-  "type": "anime",
-  "icon": "https://avatars.githubusercontent.com/u/74993083?s=200&v=4",
-  "description": "Anime con streams HLS vía API abierta de Enime"
-}

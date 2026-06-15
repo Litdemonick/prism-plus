@@ -125,6 +125,79 @@ var io_prismhub_animeflv = (() => {
     return html.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
   }
 
+  // sdk/embeds.ts
+  async function resolveEmbed(server, embedUrl, referer) {
+    const s = server.toLowerCase();
+    if (s.includes("voe")) return resolveVoe(embedUrl, referer);
+    if (s.includes("streamtape") || s.includes("stape") || s.includes("tape"))
+      return resolveStreamtape(embedUrl, referer);
+    return null;
+  }
+  async function resolveVoe(url, referer) {
+    const html = await fetchEmbed(url, referer);
+    if (!html) return null;
+    let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
+    if (m) return { url: m[1] };
+    m = /"hls"\s*:\s*"([^"]+)"/.exec(html);
+    if (m) return { url: m[1] };
+    const atobMatch = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
+    if (atobMatch) {
+      try {
+        const decoded = b64decode(atobMatch[1]);
+        const hls = /"hls"\s*:\s*"([^"]+)"/.exec(decoded) ?? /'hls'\s*:\s*'([^']+)'/.exec(decoded) ?? /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(decoded);
+        if (hls) return { url: hls[1] };
+        const direct = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/.exec(decoded);
+        if (direct) return { url: direct[1] };
+      } catch {
+      }
+    }
+    m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
+    if (m) return { url: m[0] };
+    return null;
+  }
+  async function resolveStreamtape(url, referer) {
+    const html = await fetchEmbed(url, referer);
+    if (!html) return null;
+    let m = /(https?:\/\/streamtape\.[a-z]+\/get_video[^"'\s<>&]+)/.exec(html);
+    if (m) return { url: m[1] };
+    m = /(\/\/streamtape\.[a-z]+\/get_video[^"'\s<>&]+)/.exec(html);
+    if (m) return { url: `https:${m[1]}` };
+    m = /robotlink[^)]*\)\s*\.innerHTML\s*=\s*["']([^"']+)["']\s*\+\s*["']([^"']*)["']/.exec(html);
+    if (m) {
+      const full = m[1] + m[2];
+      return { url: full.startsWith("http") ? full : `https:${full}` };
+    }
+    return null;
+  }
+  async function fetchEmbed(url, referer) {
+    try {
+      const res = await request(url, {
+        headers: { Referer: referer },
+        timeout: 8e3,
+        retries: 0
+      });
+      return res.text();
+    } catch {
+      return null;
+    }
+  }
+  function b64decode(s) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const clean = s.replace(/[^A-Za-z0-9+/]/g, "");
+    let result = "";
+    let i = 0;
+    while (i < clean.length) {
+      const b1 = chars.indexOf(clean[i++]);
+      const b2 = chars.indexOf(clean[i++]);
+      const b3 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
+      const b4 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
+      result += String.fromCharCode(b1 << 2 | b2 >> 4);
+      if (b3 !== -1) result += String.fromCharCode((b2 & 15) << 4 | b3 >> 2);
+      if (b4 !== -1) result += String.fromCharCode((b3 & 3) << 6 | b4);
+    }
+    return result;
+  }
+
   // extensions/animeflv/index.ts
   var BASE = "https://animeflv.net";
   async function latest(page) {
@@ -185,84 +258,13 @@ var io_prismhub_animeflv = (() => {
     if (all.length === 0) return { streams: [] };
     const results = await Promise.all(
       all.map(async (v) => {
-        const resolved2 = await _resolveEmbed(v.server, v.url);
+        const resolved2 = await resolveEmbed(v.server, v.url, `${BASE}/`);
         return { server: v.server, embedUrl: v.url, resolved: resolved2 };
       })
     );
     const resolved = results.filter((r) => r.resolved !== null).map((r) => ({ url: r.resolved.url, quality: r.server, headers: r.resolved.headers }));
     const fallback = results.filter((r) => r.resolved === null).map((r) => ({ url: r.embedUrl, quality: r.server }));
     return { streams: [...resolved, ...fallback] };
-  }
-  async function _resolveEmbed(server, url) {
-    const s = server.toLowerCase();
-    if (s.includes("voe")) return _resolveVoe(url);
-    if (s.includes("streamtape") || s.includes("stape") || s.includes("tape"))
-      return _resolveStreamtape(url);
-    return null;
-  }
-  async function _resolveVoe(url) {
-    const html = await _fetchEmbed(url);
-    if (!html) return null;
-    let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
-    if (m) return { url: m[1] };
-    m = /"hls"\s*:\s*"([^"]+)"/.exec(html);
-    if (m) return { url: m[1] };
-    const atobMatch = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
-    if (atobMatch) {
-      try {
-        const decoded = _b64decode(atobMatch[1]);
-        const hls = /"hls"\s*:\s*"([^"]+)"/.exec(decoded) ?? /'hls'\s*:\s*'([^']+)'/.exec(decoded) ?? /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(decoded);
-        if (hls) return { url: hls[1] };
-        const direct = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/.exec(decoded);
-        if (direct) return { url: direct[1] };
-      } catch {
-      }
-    }
-    m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
-    if (m) return { url: m[0] };
-    return null;
-  }
-  async function _resolveStreamtape(url) {
-    const html = await _fetchEmbed(url);
-    if (!html) return null;
-    let m = /(https?:\/\/streamtape\.[a-z]+\/get_video[^"'\s<>&]+)/.exec(html);
-    if (m) return { url: m[1] };
-    m = /(\/\/streamtape\.[a-z]+\/get_video[^"'\s<>&]+)/.exec(html);
-    if (m) return { url: `https:${m[1]}` };
-    m = /robotlink[^)]*\)\s*\.innerHTML\s*=\s*["']([^"']+)["']\s*\+\s*["']([^"']*)["']/.exec(html);
-    if (m) {
-      const full = m[1] + m[2];
-      return { url: full.startsWith("http") ? full : `https:${full}` };
-    }
-    return null;
-  }
-  async function _fetchEmbed(url) {
-    try {
-      const res = await request(url, {
-        headers: { Referer: `${BASE}/` },
-        timeout: 8e3,
-        retries: 0
-      });
-      return res.text();
-    } catch {
-      return null;
-    }
-  }
-  function _b64decode(s) {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    const clean = s.replace(/[^A-Za-z0-9+/]/g, "");
-    let result = "";
-    let i = 0;
-    while (i < clean.length) {
-      const b1 = chars.indexOf(clean[i++]);
-      const b2 = chars.indexOf(clean[i++]);
-      const b3 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
-      const b4 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
-      result += String.fromCharCode(b1 << 2 | b2 >> 4);
-      if (b3 !== -1) result += String.fromCharCode((b2 & 15) << 4 | b3 >> 2);
-      if (b4 !== -1) result += String.fromCharCode((b3 & 3) << 6 | b4);
-    }
-    return result;
   }
   function _parseCards(html) {
     const pattern = /<article[^>]*class="[^"]*Anime[^"]*"[\s\S]*?<a[^>]*href="\/anime\/([^"]+)"[\s\S]*?<img[^>]*src="([^"]+)"[\s\S]*?<h3[^>]*class="[^"]*Title[^"]*"[^>]*>([^<]+)<\/h3>/gi;

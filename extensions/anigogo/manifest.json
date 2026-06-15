@@ -1,9 +1,0 @@
-{
-  "name": "AniGoGo",
-  "package": "io.prismhub.anigogo",
-  "version": "1.0.0",
-  "author": "PrismHub",
-  "type": "anime",
-  "icon": "https://anilist.co/img/icons/apple-touch-icon.png",
-  "description": "Anime en inglés vía AniList + Amvstrm (con streams HLS)"
-}
