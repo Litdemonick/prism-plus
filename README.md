@@ -69,9 +69,48 @@ Cada extensión se compila como un **bundle IIFE autocontenido** (el SDK queda e
 
 ### 💡 Supuestos de runtime
 
-- `fetch()` disponible como global (provisto por el host, ej: QuickJS en PrismHub)
-- Sin DOM, sin Node.js built-ins, sin sistema de archivos
-- Sintaxis ES2020 garantizada
+El SDK usa las siguientes APIs globales. El host debe proveerlas si el entorno no las incluye de forma nativa (ej: QuickJS, JavaScriptCore, Hermes).
+
+| Global | Usado en | Notas |
+|--------|----------|-------|
+| `fetch(input, init?)` | `sdk/http.ts` — todas las peticiones HTTP | Obligatorio. Debe retornar una `Promise<Response>` compatible |
+| `AbortController` / `AbortSignal` | `sdk/http.ts` — timeout por petición vía `Promise.race` | Obligatorio. Sin él, cada llamada a `request()` lanza `ReferenceError` |
+| `btoa(str)` / `atob(str)` | Extensiones que encodifican en Base64 | Obligatorio si alguna extensión los usa |
+| `console.log/warn/error` | Logs de debug en extensiones | Opcional. Sin él, los `console.*` lanzan error silencioso |
+| `setTimeout` / `clearTimeout` | Backoff de reintentos en `sdk/http.ts` | Obligatorio si se usan reintentos con delay |
+
+**Sin DOM, sin Node.js built-ins, sin sistema de archivos. Sintaxis ES2020 garantizada.**
+
+#### Ejemplo de polyfills mínimos para QuickJS (Dart/Flutter)
+
+```dart
+// Inyectar antes de evaluar cualquier bundle de Prism+
+rt.evaluate('''
+// AbortController
+(function() {
+  function AbortSignal() { this.aborted = false; this._listeners = []; }
+  AbortSignal.prototype.addEventListener = function(t, fn) {
+    if (t === 'abort') this._listeners.push(fn);
+  };
+  AbortSignal.prototype._abort = function() {
+    this.aborted = true;
+    this._listeners.forEach(function(fn) { try { fn({type:'abort'}); } catch(_){} });
+  };
+  function AbortController() { this.signal = new AbortSignal(); }
+  AbortController.prototype.abort = function() { this.signal._abort(); };
+  globalThis.AbortController = AbortController;
+  globalThis.AbortSignal = AbortSignal;
+})();
+
+// fetch → puente al HTTP nativo del host
+globalThis.fetch = function(input, init) { /* implementación del host */ };
+
+// btoa / atob → implementación pura JS
+// console → redirigir a logger del host
+''');
+```
+
+> PrismHub implementa todos estos polyfills en `lib/data/services/extension/extension_service.dart`.
 
 ---
 
