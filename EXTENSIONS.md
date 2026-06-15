@@ -189,9 +189,21 @@ El fallback de embeds crudos es importante: evita "Sin streams disponibles" cuan
 
 | Servidor | Estado | Método de resolución |
 |----------|--------|----------------------|
-| voe.sx | Activo | `resolveEmbed('Voe', url, referer)` — soporta atob base64 |
-| streamtape.com | Activo | `resolveEmbed('Streamtape', url, referer)` |
-| hqq.tv | Sin soporte | Requiere ejecución JS (Cloudflare) — no resoluble sin browser |
-| pixeldrain | Activo | URL directa: `https://pixeldrain.com/api/file/{id}?download` |
+| voe.sx | ✅ Activo | Sigue el redirect al espejo + descifra el JSON ofuscado 2024 → mp4/m3u8 |
+| streamtape.com | ✅ Activo | `resolveStreamtape` — patrones de `get_video` |
+| mixdrop | ✅ Activo | Desempaqueta el `eval` → `MDCore.wurl` → mp4 |
+| mp4upload | ✅ Activo | mp4 directo de la página del embed |
+| luluvdo / streamwish (familia) | ✅ Activo | `resolveGeneric` — desempaqueta el `eval` → m3u8 |
+| pixeldrain | ✅ Activo | URL directa: `https://pixeldrain.com/api/file/{id}?download` |
+| filemoon / bysekoze | ⚠️ Parcial | A veces 403/challenge; el genérico lo intenta |
+| savefiles / doodstream | ⚠️ 403 | Cloudflare/cookies — pendiente |
+| mega.nz | ❌ No | Cifrado client-side (clave en el fragment) — inviable sin browser |
+| hqq.tv | ❌ No | Requiere ejecución JS (Cloudflare) |
 
-Para agregar soporte a un nuevo servidor de embed, implementa `resolveXxx()` en `sdk/embeds.ts` y agrégalo al switch de `resolveEmbed()`.
+**Resolver genérico:** `resolveEmbed` cae en `resolveGeneric` para cualquier host
+desconocido — desempaqueta `eval(p,a,c,k,e,d)` (Dean Edwards) y busca m3u8 firmado,
+`file:`/`source:` de jwplayer o mp4. Así muchos hosts de la familia streamwish/filemoon
+funcionan **sin código específico**.
+
+Para agregar soporte explícito a un servidor, implementa `resolveXxx()` en
+`sdk/embeds.ts` y agrégalo al dispatcher de `resolveEmbed()` (antes del fallback genérico).
