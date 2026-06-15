@@ -123,12 +123,12 @@ var io_prismhub_mangadex = (() => {
       cover: coverUrl(item.id, rel.attributes.fileName)
     };
   }
-  var RATINGS = "contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica";
-  var INCLUDES = "includes[]=cover_art";
+  var RATINGS = "contentRating%5B%5D=safe&contentRating%5B%5D=suggestive&contentRating%5B%5D=erotica";
+  var INCLUDES = "includes%5B%5D=cover_art";
   async function latest(page) {
     const offset = (page - 1) * 30;
     const data = await getJson(
-      `${API}/manga?order[rating]=desc&limit=30&offset=${offset}&${INCLUDES}&${RATINGS}`
+      `${API}/manga?order%5BlatestUploadedChapter%5D=desc&limit=30&offset=${offset}&${INCLUDES}&${RATINGS}`
     );
     return data.data.flatMap((item) => {
       const mapped = mapItem(item);
@@ -138,7 +138,7 @@ var io_prismhub_mangadex = (() => {
   async function search(keyword, page) {
     const offset = (page - 1) * 30;
     const data = await getJson(
-      `${API}/manga?title=${encodeURIComponent(keyword)}&limit=30&offset=${offset}&${INCLUDES}&${RATINGS}`
+      `${API}/manga?title=${encodeURIComponent(keyword)}&limit=30&offset=${offset}&${INCLUDES}&${RATINGS}&order%5Brelevance%5D=desc`
     );
     return data.data.flatMap((item) => {
       const mapped = mapItem(item);
@@ -149,7 +149,7 @@ var io_prismhub_mangadex = (() => {
     const [mangaRes, chapRes] = await Promise.all([
       getJson(`${API}/manga/${mangaId}?${INCLUDES}&${RATINGS}`),
       getJson(
-        `${API}/manga/${mangaId}/feed?order[volume]=asc&order[chapter]=asc&limit=500&translatedLanguage[]=en&${RATINGS}`
+        `${API}/manga/${mangaId}/feed?order%5Bvolume%5D=asc&order%5Bchapter%5D=asc&limit=500&translatedLanguage%5B%5D=en&${RATINGS}`
       )
     ]);
     const manga = mangaRes.data;
