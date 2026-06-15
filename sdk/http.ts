@@ -42,6 +42,8 @@ export interface RequestOptions {
   retries?: number;
   /** Tiempo límite por intento en ms (default: 15 000) */
   timeout?: number;
+  /** Si true, no lanza HttpError ante 4xx/5xx: devuelve la respuesta igual. */
+  acceptStatus?: boolean;
 }
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -77,6 +79,7 @@ export async function request(
     body,
     retries = DEFAULT_RETRIES,
     timeout = DEFAULT_TIMEOUT,
+    acceptStatus = false,
   } = options;
 
   const merged = { 'User-Agent': DEFAULT_UA, ...headers };
@@ -97,8 +100,13 @@ export async function request(
         ),
       ]);
 
-      // Verificar código HTTP — errores 4xx/5xx lanzan HttpError
-      if (!res.ok) {
+      // acceptStatus: devolver la respuesta sea cual sea el código (para
+      // resolución de embeds — muchos hosts traen el contenido útil en páginas
+      // 403/404). Si no, errores 4xx/5xx lanzan HttpError.
+      if (acceptStatus || res.ok) {
+        controller.abort(); // cancelar el timer de timeout
+        return res;
+      } else {
         const err = new HttpError(res.status, res.statusText, url);
         // Reintentar solo si es retryable Y quedan intentos
         if (isRetryable(res.status) && attempt < retries) {
@@ -106,9 +114,6 @@ export async function request(
         } else {
           throw err;
         }
-      } else {
-        controller.abort(); // cancelar el timer de timeout
-        return res;
       }
     } catch (err) {
       // Timeout — no reintentar

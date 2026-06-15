@@ -317,6 +317,7 @@ export async function fetchEmbed(
       headers: { Referer: referer },
       timeout: opts.timeout ?? 8000,
       retries: opts.retries ?? 0,
+      acceptStatus: true, // muchos embeds traen el contenido útil en 403/404
     });
     return res.text();
   } catch (e) {

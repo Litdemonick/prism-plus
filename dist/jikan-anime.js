@@ -61,7 +61,8 @@ var io_prismhub_jikan = (() => {
       headers = {},
       body,
       retries = DEFAULT_RETRIES,
-      timeout = DEFAULT_TIMEOUT
+      timeout = DEFAULT_TIMEOUT,
+      acceptStatus = false
     } = options;
     const merged = { "User-Agent": DEFAULT_UA, ...headers };
     let lastError;
@@ -77,16 +78,16 @@ var io_prismhub_jikan = (() => {
             }, timeout)
           )
         ]);
-        if (!res.ok) {
+        if (acceptStatus || res.ok) {
+          controller.abort();
+          return res;
+        } else {
           const err = new HttpError(res.status, res.statusText, url);
           if (isRetryable(res.status) && attempt < retries) {
             lastError = err;
           } else {
             throw err;
           }
-        } else {
-          controller.abort();
-          return res;
         }
       } catch (err) {
         if (err instanceof TimeoutError) throw err;
