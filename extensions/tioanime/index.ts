@@ -58,11 +58,10 @@ export async function detail(url: string): Promise<PrismDetail> {
   };
 }
 
-/** Streams de video del episodio — resuelve embeds a URLs directas en paralelo */
+/** Streams de video — resuelve embeds en paralelo; fallback a URL cruda si no */
 export async function watch(url: string): Promise<PrismWatch> {
   const html = await get(`${BASE}/ver/${url}`);
 
-  // TioAnime embebe los videos en: var videos = [["server","url"],...]
   const match = /var\s+videos\s*=\s*(\[\[[\s\S]*?\]\])/.exec(html);
   if (!match) return { streams: [] };
 
@@ -75,72 +74,95 @@ export async function watch(url: string): Promise<PrismWatch> {
 
   const candidates = raw.filter(([, u]) => u.startsWith('http'));
 
-  // Resolver embeds a URLs directas en paralelo (timeout corto por servidor)
+  // Intentar resolver cada embed en paralelo (timeout 8 s, sin reintentos)
   const results = await Promise.all(
     candidates.map(async ([server, embedUrl]) => {
       const resolved = await _resolveEmbed(server, embedUrl);
-      if (!resolved) return null;
-      return { url: resolved.url, quality: server, headers: resolved.headers };
+      return { server, embedUrl, resolved };
     }),
   );
 
-  return {
-    streams: results.filter((s): s is NonNullable<typeof s> => s !== null),
-  };
+  // Streams resueltos primero (URLs directas), luego embeds crudos como fallback
+  const resolved = results
+    .filter(r => r.resolved !== null)
+    .map(r => ({ url: r.resolved!.url, quality: r.server, headers: r.resolved!.headers }));
+
+  const fallback = results
+    .filter(r => r.resolved === null)
+    .map(r => ({ url: r.embedUrl, quality: r.server }));
+
+  return { streams: [...resolved, ...fallback] };
 }
 
 // ─── Embed resolvers ──────────────────────────────────────────────────────────
 
 interface _Resolved { url: string; headers?: Record<string, string>; }
 
-/** Despacha al resolver correcto según nombre del servidor */
 async function _resolveEmbed(server: string, url: string): Promise<_Resolved | null> {
   const s = server.toLowerCase();
-  if (s.includes('voe'))                          return _resolveVoe(url);
-  if (s.includes('streamtape') || s.includes('tape')) return _resolveStreamtape(url);
-  // mega, hqq, doodstream, filemoon → no resolvibles sin JS complejo
+  if (s.includes('voe'))                               return _resolveVoe(url);
+  if (s.includes('streamtape') || s.includes('tape'))  return _resolveStreamtape(url);
   return null;
 }
 
-/** voe.sx → extrae URL m3u8 de la página del embed */
+/** voe.sx — soporta formato directo y ofuscación base64 (atob) */
 async function _resolveVoe(url: string): Promise<_Resolved | null> {
   const html = await _fetchEmbed(url);
   if (!html) return null;
 
-  // Pattern 1: hls: "https://..." o hls: 'https://...'
+  // Patrón 1: hls:"url" o hls:'url' o hls: "url"
   let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
   if (m) return { url: m[1] };
 
-  // Pattern 2: 'hls': 'url' (con comillas externas)
-  m = /'hls'\s*:\s*'([^']+)'/.exec(html);
+  // Patrón 2: "hls":"url" (JSON estricto con comillas dobles)
+  m = /"hls"\s*:\s*"([^"]+)"/.exec(html);
   if (m) return { url: m[1] };
 
-  // Pattern 3: URL m3u8 directa en el HTML
+  // Patrón 3: ofuscación atob — var wjs = atob('base64...')
+  // VOE codifica el objeto de fuentes en base64 desde ~2024
+  const atobMatch = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
+  if (atobMatch) {
+    try {
+      const decoded = _b64decode(atobMatch[1]);
+      // Buscar la URL m3u8 en el JSON decodificado
+      let hls = /"hls"\s*:\s*"([^"]+)"/.exec(decoded)
+             ?? /'hls'\s*:\s*'([^']+)'/.exec(decoded)
+             ?? /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(decoded);
+      if (hls) return { url: hls[1] };
+      // Fallback: cualquier URL m3u8 en el string decodificado
+      const direct = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/.exec(decoded);
+      if (direct) return { url: direct[1] };
+    } catch {
+      // ignorar error de decodificación
+    }
+  }
+
+  // Patrón 4: cualquier URL m3u8 visible en el HTML sin ofuscación
   m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
   if (m) return { url: m[0] };
 
   return null;
 }
 
-/** streamtape → extrae URL directa del video */
+/** streamtape.com — múltiples patrones de obfuscación */
 async function _resolveStreamtape(url: string): Promise<_Resolved | null> {
   const html = await _fetchEmbed(url);
   if (!html) return null;
 
-  // Streamtape concatena dos strings: innerHTML = 'part1' + 'part2'
-  let m = /robotlink['"]\)[^=]*=\s*["']([^"']+)["']\s*\+\s*["']([^"']*)["']/.exec(html);
+  // Patrón 1: URL completa get_video directa en el HTML
+  let m = /(https?:\/\/streamtape\.[a-z]+\/get_video[^"'\s<>&]+)/.exec(html);
+  if (m) return { url: m[1] };
+
+  // Patrón 2: URL relativa //streamtape...
+  m = /(\/\/streamtape\.[a-z]+\/get_video[^"'\s<>&]+)/.exec(html);
+  if (m) return { url: `https:${m[1]}` };
+
+  // Patrón 3: concatenación clásica innerHTML = 'part1' + 'part2'
+  m = /robotlink[^)]*\)\s*\.innerHTML\s*=\s*["']([^"']+)["']\s*\+\s*["']([^"']*)["']/.exec(html);
   if (m) {
     const full = m[1] + m[2];
     return { url: full.startsWith('http') ? full : `https:${full}` };
   }
-
-  // Fallback: URL de get_video directa en el HTML
-  m = /(https?:\/\/streamtape\.[^/]+\/get_video[^"'\s<>]+)/.exec(html);
-  if (m) return { url: m[1] };
-
-  // Fallback 2: URL relativa //streamtape...
-  m = /(\/\/streamtape\.[^/]+\/get_video[^"'\s<>]+)/.exec(html);
-  if (m) return { url: `https:${m[1]}` };
 
   return null;
 }
@@ -157,6 +179,24 @@ async function _fetchEmbed(url: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** Decodificador base64 puro JS (sin depender de atob del entorno) */
+function _b64decode(s: string): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const clean = s.replace(/[^A-Za-z0-9+/]/g, '');
+  let result = '';
+  let i = 0;
+  while (i < clean.length) {
+    const b1 = chars.indexOf(clean[i++]);
+    const b2 = chars.indexOf(clean[i++]);
+    const b3 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
+    const b4 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
+    result += String.fromCharCode((b1 << 2) | (b2 >> 4));
+    if (b3 !== -1) result += String.fromCharCode(((b2 & 15) << 4) | (b3 >> 2));
+    if (b4 !== -1) result += String.fromCharCode(((b3 & 3) << 6) | b4);
+  }
+  return result;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

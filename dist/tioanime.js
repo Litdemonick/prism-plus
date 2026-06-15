@@ -178,14 +178,13 @@ var io_prismhub_tioanime = (() => {
     const candidates = raw.filter(([, u]) => u.startsWith("http"));
     const results = await Promise.all(
       candidates.map(async ([server, embedUrl]) => {
-        const resolved = await _resolveEmbed(server, embedUrl);
-        if (!resolved) return null;
-        return { url: resolved.url, quality: server, headers: resolved.headers };
+        const resolved2 = await _resolveEmbed(server, embedUrl);
+        return { server, embedUrl, resolved: resolved2 };
       })
     );
-    return {
-      streams: results.filter((s) => s !== null)
-    };
+    const resolved = results.filter((r) => r.resolved !== null).map((r) => ({ url: r.resolved.url, quality: r.server, headers: r.resolved.headers }));
+    const fallback = results.filter((r) => r.resolved === null).map((r) => ({ url: r.embedUrl, quality: r.server }));
+    return { streams: [...resolved, ...fallback] };
   }
   async function _resolveEmbed(server, url) {
     const s = server.toLowerCase();
@@ -198,8 +197,19 @@ var io_prismhub_tioanime = (() => {
     if (!html) return null;
     let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
     if (m) return { url: m[1] };
-    m = /'hls'\s*:\s*'([^']+)'/.exec(html);
+    m = /"hls"\s*:\s*"([^"]+)"/.exec(html);
     if (m) return { url: m[1] };
+    const atobMatch = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
+    if (atobMatch) {
+      try {
+        const decoded = _b64decode(atobMatch[1]);
+        let hls = /"hls"\s*:\s*"([^"]+)"/.exec(decoded) ?? /'hls'\s*:\s*'([^']+)'/.exec(decoded) ?? /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(decoded);
+        if (hls) return { url: hls[1] };
+        const direct = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/.exec(decoded);
+        if (direct) return { url: direct[1] };
+      } catch {
+      }
+    }
     m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
     if (m) return { url: m[0] };
     return null;
@@ -207,15 +217,15 @@ var io_prismhub_tioanime = (() => {
   async function _resolveStreamtape(url) {
     const html = await _fetchEmbed(url);
     if (!html) return null;
-    let m = /robotlink['"]\)[^=]*=\s*["']([^"']+)["']\s*\+\s*["']([^"']*)["']/.exec(html);
+    let m = /(https?:\/\/streamtape\.[a-z]+\/get_video[^"'\s<>&]+)/.exec(html);
+    if (m) return { url: m[1] };
+    m = /(\/\/streamtape\.[a-z]+\/get_video[^"'\s<>&]+)/.exec(html);
+    if (m) return { url: `https:${m[1]}` };
+    m = /robotlink[^)]*\)\s*\.innerHTML\s*=\s*["']([^"']+)["']\s*\+\s*["']([^"']*)["']/.exec(html);
     if (m) {
       const full = m[1] + m[2];
       return { url: full.startsWith("http") ? full : `https:${full}` };
     }
-    m = /(https?:\/\/streamtape\.[^/]+\/get_video[^"'\s<>]+)/.exec(html);
-    if (m) return { url: m[1] };
-    m = /(\/\/streamtape\.[^/]+\/get_video[^"'\s<>]+)/.exec(html);
-    if (m) return { url: `https:${m[1]}` };
     return null;
   }
   async function _fetchEmbed(url) {
@@ -229,6 +239,22 @@ var io_prismhub_tioanime = (() => {
     } catch {
       return null;
     }
+  }
+  function _b64decode(s) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const clean = s.replace(/[^A-Za-z0-9+/]/g, "");
+    let result = "";
+    let i = 0;
+    while (i < clean.length) {
+      const b1 = chars.indexOf(clean[i++]);
+      const b2 = chars.indexOf(clean[i++]);
+      const b3 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
+      const b4 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
+      result += String.fromCharCode(b1 << 2 | b2 >> 4);
+      if (b3 !== -1) result += String.fromCharCode((b2 & 15) << 4 | b3 >> 2);
+      if (b4 !== -1) result += String.fromCharCode((b3 & 3) << 6 | b4);
+    }
+    return result;
   }
   function _parseCards(html) {
     const pattern = /<article[^>]*class="[^"]*anime[^"]*"[\s\S]*?<a[^>]*href="\/anime\/([^"]+)"[^>]*>[\s\S]*?<img[^>]*src="([^"]+)"[\s\S]*?class="[^"]*title[^"]*"[^>]*>[\s\S]*?>([^<]+)<\/a>/gi;

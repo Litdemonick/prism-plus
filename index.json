@@ -18,7 +18,7 @@
     {
       "name": "AnimeFLV",
       "package": "io.prismhub.animeflv",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "PrismHub",
       "type": "anime",
       "icon": "https://animeflv.net/favicon.ico",
@@ -148,7 +148,7 @@
     {
       "name": "TioAnime",
       "package": "io.prismhub.tioanime",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "PrismHub",
       "type": "anime",
       "icon": "https://tioanime.com/favicon.ico",
