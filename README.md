@@ -1,10 +1,18 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/Litdemonick/prism-plus/main/assets/logo_prismplus.png" alt="Prism+" width="200" />
+<br>
+
+<picture>
+  <img src="https://raw.githubusercontent.com/Litdemonick/prism-plus/main/assets/logo_prismplus.png" alt="Prism+" width="340" />
+</picture>
+
+<br><br>
 
 # ✨ Prism+
 
 **El núcleo de extensiones universal y open-source para medios de streaming.**
+
+<br>
 
 [![Licencia MIT](https://img.shields.io/github/license/Litdemonick/prism-plus?style=flat-square)](LICENSE)
 [![Extensiones](https://img.shields.io/badge/extensiones-16-6f42c1?style=flat-square)](#catalogo)
