@@ -34,6 +34,7 @@ export async function resolveEmbed(
     else if (s.includes('mixdrop') || s.includes('mxdrop') || s.includes('mdrop'))
       result = await resolveMixdrop(embedUrl, referer);
     else if (s.includes('mp4upload')) result = await resolveMp4upload(embedUrl, referer);
+    else if (s.includes('hqq') || s.includes('netu')) result = await resolveNetu(embedUrl, referer);
     // Familia streamwish/filemoon/luluvdo/etc.: el genérico desempaqueta el eval.
     else result = await resolveGeneric(embedUrl, referer);
   } catch (e) {
@@ -231,6 +232,72 @@ export async function resolveMp4upload(
 }
 
 /**
+ * hqq.tv / Netu — formato 2024.
+ *
+ * El embed `hqq.tv/player/embed_player.php?vid=XXX` suele almacenar la URL HLS
+ * en uno de estos formatos:
+ *   • `atob('BASE64...')` → decodificar → JSON con m3u8
+ *   • `eval(function(p,a,c,k,e,d){…})` → Dean Edwards packer → m3u8 en texto claro
+ *   • variables base64 `var x = 'AAAAAA...'` → decodificar → m3u8
+ *   • JW Player setup `{file:"...m3u8"}` → m3u8 en texto claro
+ *
+ * El Referer/Origin se extrae del propio dominio CDN del stream (no del host del
+ * embed), que es lo que requieren los segmentos HLS del CDN de hqq.
+ */
+export async function resolveNetu(
+  url: string,
+  referer: string,
+): Promise<ResolvedEmbed | null> {
+  const html = await fetchEmbed(url, referer, { timeout: 12000, retries: 1 });
+  if (!html) return null;
+
+  const host = _hostOf(url) ?? 'hqq.tv';
+  const siteHdrs: Record<string, string> = {
+    Referer: `https://${host}/`,
+    Origin: `https://${host}`,
+  };
+
+  // 1. atob() → decode → find m3u8 (formato más común en hqq 2024)
+  for (const m of html.matchAll(/atob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/g)) {
+    try {
+      const decoded = b64decode(m[1]);
+      const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, '/'));
+      if (src) return { url: src[1], headers: _cdnReferer(src[1], siteHdrs) };
+    } catch { /* ignorar */ }
+  }
+
+  // 2. eval(p,a,c,k) + m3u8 en texto claro
+  const haystack = `${html}\n${_unpackAll(html)}`;
+  const direct = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(haystack.replace(/\\\//g, '/'));
+  if (direct) return { url: direct[1], headers: _cdnReferer(direct[1], siteHdrs) };
+
+  // 3. Variables base64 largas (var x = 'AAAA...')
+  for (const m of html.matchAll(/=\s*['"]([A-Za-z0-9+/=]{80,})['"]/g)) {
+    try {
+      const decoded = b64decode(m[1]);
+      const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, '/'));
+      if (src) return { url: src[1], headers: _cdnReferer(src[1], siteHdrs) };
+    } catch { /* ignorar */ }
+  }
+
+  // 4. JW Player file/source con m3u8 o mp4
+  const fileM = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/.exec(html);
+  if (fileM) return { url: fileM[1].replace(/\\\//g, '/'), headers: siteHdrs };
+
+  return null;
+}
+
+/** Usa el dominio del propio CDN del stream como Referer/Origin (lo que exige hqq). */
+function _cdnReferer(
+  streamUrl: string,
+  fallback: Record<string, string>,
+): Record<string, string> {
+  const h = _hostOf(streamUrl);
+  if (!h) return fallback;
+  return { Referer: `https://${h}/`, Origin: `https://${h}` };
+}
+
+/**
  * Resolver genérico: descarga el embed, desempaqueta cualquier `eval(p,a,c,k,e,d)`
  * y busca el stream (m3u8 firmado, `file:`/`source:`/`src:` de jwplayer, o mp4).
  * Cubre luluvdo y buena parte de la familia streamwish/filemoon sin código
@@ -246,21 +313,29 @@ export async function resolveGeneric(
   const host = _hostOf(url);
   const headers = host ? { Referer: `https://${host}/` } : undefined;
   const haystack = `${html}\n${_unpackAll(html)}`;
+  const flat = haystack.replace(/\\\//g, '/');
 
   // m3u8 (preferido: streams adaptativos firmados)
-  const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(haystack.replace(/\\\//g, '/'));
+  const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(flat);
   if (m3u8) return { url: m3u8[1], headers };
 
+  // atob() → decode → m3u8 (común en embeds modernos con ofuscación ligera)
+  for (const m of html.matchAll(/atob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/g)) {
+    try {
+      const decoded = b64decode(m[1]);
+      const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, '/'));
+      if (src) return { url: src[1], headers };
+    } catch { /* ignorar */ }
+  }
+
   // jwplayer: file/source/src
-  const file = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/.exec(
-    haystack,
-  );
+  const file = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/.exec(flat);
   if (file) return { url: file[1], headers };
 
   // mp4 suelto (descartando assets)
-  const mp4s = haystack.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g) ?? [];
+  const mp4s = flat.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g) ?? [];
   const real = mp4s.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
-  if (real) return { url: real.replace(/\\\//g, '/'), headers };
+  if (real) return { url: real, headers };
 
   return null;
 }

@@ -137,6 +137,7 @@ var io_prismhub_animeflv = (() => {
       else if (s.includes("mixdrop") || s.includes("mxdrop") || s.includes("mdrop"))
         result = await resolveMixdrop(embedUrl, referer);
       else if (s.includes("mp4upload")) result = await resolveMp4upload(embedUrl, referer);
+      else if (s.includes("hqq") || s.includes("netu")) result = await resolveNetu(embedUrl, referer);
       else result = await resolveGeneric(embedUrl, referer);
     } catch (e) {
       console.log(`[resolveEmbed] ${server} THREW: ${e?.message ?? e}`);
@@ -258,6 +259,43 @@ var io_prismhub_animeflv = (() => {
     if (!real) return null;
     return { url: real, headers: { Referer: "https://www.mp4upload.com/" } };
   }
+  async function resolveNetu(url, referer) {
+    const html = await fetchEmbed(url, referer, { timeout: 12e3, retries: 1 });
+    if (!html) return null;
+    const host = _hostOf(url) ?? "hqq.tv";
+    const siteHdrs = {
+      Referer: `https://${host}/`,
+      Origin: `https://${host}`
+    };
+    for (const m of html.matchAll(/atob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/g)) {
+      try {
+        const decoded = b64decode(m[1]);
+        const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, "/"));
+        if (src) return { url: src[1], headers: _cdnReferer(src[1], siteHdrs) };
+      } catch {
+      }
+    }
+    const haystack = `${html}
+${_unpackAll(html)}`;
+    const direct = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(haystack.replace(/\\\//g, "/"));
+    if (direct) return { url: direct[1], headers: _cdnReferer(direct[1], siteHdrs) };
+    for (const m of html.matchAll(/=\s*['"]([A-Za-z0-9+/=]{80,})['"]/g)) {
+      try {
+        const decoded = b64decode(m[1]);
+        const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, "/"));
+        if (src) return { url: src[1], headers: _cdnReferer(src[1], siteHdrs) };
+      } catch {
+      }
+    }
+    const fileM = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/.exec(html);
+    if (fileM) return { url: fileM[1].replace(/\\\//g, "/"), headers: siteHdrs };
+    return null;
+  }
+  function _cdnReferer(streamUrl, fallback) {
+    const h = _hostOf(streamUrl);
+    if (!h) return fallback;
+    return { Referer: `https://${h}/`, Origin: `https://${h}` };
+  }
   async function resolveGeneric(url, referer) {
     const html = await fetchEmbed(url, referer);
     if (!html) return null;
@@ -265,15 +303,22 @@ var io_prismhub_animeflv = (() => {
     const headers = host ? { Referer: `https://${host}/` } : void 0;
     const haystack = `${html}
 ${_unpackAll(html)}`;
-    const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(haystack.replace(/\\\//g, "/"));
+    const flat = haystack.replace(/\\\//g, "/");
+    const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(flat);
     if (m3u8) return { url: m3u8[1], headers };
-    const file = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/.exec(
-      haystack
-    );
+    for (const m of html.matchAll(/atob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/g)) {
+      try {
+        const decoded = b64decode(m[1]);
+        const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, "/"));
+        if (src) return { url: src[1], headers };
+      } catch {
+      }
+    }
+    const file = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/.exec(flat);
     if (file) return { url: file[1], headers };
-    const mp4s = haystack.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g) ?? [];
+    const mp4s = flat.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g) ?? [];
     const real = mp4s.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
-    if (real) return { url: real.replace(/\\\//g, "/"), headers };
+    if (real) return { url: real, headers };
     return null;
   }
   function _unpackAll(html) {
