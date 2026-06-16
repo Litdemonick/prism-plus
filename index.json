@@ -1,109 +1,79 @@
-{
-  "name": "Prism+",
-  "protocolVersion": "1",
-  "description": "Repositorio oficial de extensiones para PrismHub y plataformas compatibles",
-  "version": "1.0.0",
-  "website": "https://github.com/Litdemonick/prism-plus",
-  "extensions": [
-    {
-      "name": "AnimeFLV",
-      "package": "io.prismhub.animeflv",
-      "version": "1.0.7",
-      "author": "PrismHub",
-      "type": "anime",
-      "icon": "https://animeflv.net/favicon.ico",
-      "description": "Anime con subtítulos y doblaje en español desde AnimeFLV",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animeflv.js"
-    },
-    {
-      "name": "Animepahe",
-      "package": "io.prismhub.animepahe",
-      "version": "1.0.0",
-      "author": "PrismHub",
-      "type": "anime",
-      "icon": "https://animepahe.ru/web-app-manifest-512x512.png",
-      "description": "Anime en inglés desde Animepahe",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animepahe.js"
-    },
-    {
-      "name": "Comick",
-      "package": "io.prismhub.comick",
-      "version": "1.0.0",
-      "author": "PrismHub",
-      "type": "manga",
-      "icon": "https://comick.app/static/icons/unicorn-256_maskable.png",
-      "description": "Manga multi-idioma vía API de Comick",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/comick.js"
-    },
-    {
-      "name": "Jikan Anime",
-      "package": "io.prismhub.jikan",
-      "version": "1.0.0",
-      "author": "PrismHub",
-      "type": "anime",
-      "icon": "https://cdn.myanimelist.net/img/sp/icon/apple-touch-icon-256.png",
-      "description": "Catálogo de anime desde MyAnimeList vía Jikan API pública (sin autenticación)",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jikan-anime.js"
-    },
-    {
-      "name": "MangaBat",
-      "package": "io.prismhub.mangabat",
-      "version": "1.0.0",
-      "author": "PrismHub",
-      "type": "manga",
-      "icon": "https://h.mangabat.com/favicon-96x96.png",
-      "description": "Manga en inglés desde MangaBat",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/mangabat.js"
-    },
-    {
-      "name": "MangaDex",
-      "package": "io.prismhub.mangadex",
-      "version": "1.0.2",
-      "author": "PrismHub",
-      "type": "manga",
-      "icon": "https://mangadex.org/img/avatar.png",
-      "description": "Manga multi-idioma vía API oficial de MangaDex",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/mangadex.js"
-    },
-    {
-      "name": "MonosChinos",
-      "package": "io.prismhub.monoschinos",
-      "version": "1.0.8",
-      "author": "PrismHub",
-      "type": "anime",
-      "icon": "https://monoschinos.st/img/2web.jpg",
-      "description": "Anime en español latino desde MonosChinos",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/monoschinos.js"
-    },
-    {
-      "name": "OmegaScans",
-      "package": "io.prismhub.omegascans",
-      "version": "1.0.1",
-      "author": "PrismHub",
-      "type": "manga",
-      "icon": "https://omegascans.org/icon.png",
-      "description": "Manga en inglés (manhwa / manhua) vía API de OmegaScans",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/omegascans.js"
-    },
-    {
-      "name": "TioAnime",
-      "package": "io.prismhub.tioanime",
-      "version": "1.0.9",
-      "author": "PrismHub",
-      "type": "anime",
-      "icon": "https://tioanime.com/favicon.ico",
-      "description": "Anime en español latino desde TioAnime",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js"
-    },
-    {
-      "name": "YTS",
-      "package": "io.prismhub.yts",
-      "version": "1.0.0",
-      "author": "PrismHub",
-      "type": "movie",
-      "icon": "https://yts.mx/assets/images/website/apple-touch-icon-144x144.png",
-      "description": "Películas en alta calidad vía YTS.mx (torrent links)",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/yts.js"
-    }
-  ]
-}
+[
+  {
+    "name": "TioAnime",
+    "package": "io.prismhub.tioanime",
+    "version": "1.1.0",
+    "author": "PrismHub",
+    "lang": "es",
+    "license": "MIT",
+    "type": "bangumi",
+    "webSite": "https://tioanime.com",
+    "icon": "https://tioanime.com/favicon.ico",
+    "description": "Anime en español latino desde TioAnime",
+    "url": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js"
+  },
+  {
+    "name": "AnimeFLV",
+    "package": "io.prismhub.animeflv",
+    "version": "1.1.0",
+    "author": "PrismHub",
+    "lang": "es",
+    "license": "MIT",
+    "type": "bangumi",
+    "webSite": "https://animeflv.net",
+    "icon": "https://animeflv.net/favicon.ico",
+    "description": "Anime en español e inglés subtitulado desde AnimeFLV",
+    "url": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animeflv.js"
+  },
+  {
+    "name": "MonosChinos",
+    "package": "io.prismhub.monoschinos",
+    "version": "1.1.0",
+    "author": "PrismHub",
+    "lang": "es",
+    "license": "MIT",
+    "type": "bangumi",
+    "webSite": "https://monoschinos.st",
+    "icon": "https://monoschinos.st/img/2web.jpg",
+    "description": "Anime en español latino desde MonosChinos",
+    "url": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/monoschinos.js"
+  },
+  {
+    "name": "Animepahe",
+    "package": "io.prismhub.animepahe",
+    "version": "1.0.0",
+    "author": "PrismHub",
+    "lang": "en",
+    "license": "MIT",
+    "type": "bangumi",
+    "webSite": "https://animepahe.ru",
+    "icon": "https://animepahe.ru/web-app-manifest-512x512.png",
+    "description": "Anime en inglés desde Animepahe"
+  },
+  {
+    "name": "MangaDex",
+    "package": "io.prismhub.mangadex",
+    "version": "1.0.2",
+    "author": "PrismHub",
+    "lang": "all",
+    "license": "MIT",
+    "type": "manga",
+    "webSite": "https://mangadex.org",
+    "icon": "https://mangadex.org/img/avatar.png",
+    "description": "Manga multi-idioma vía API oficial de MangaDex",
+    "url": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/mangadex.js"
+  },
+  {
+    "name": "MangaBat",
+    "package": "io.prismhub.mangabat",
+    "version": "1.0.0",
+    "author": "PrismHub",
+    "lang": "en",
+    "license": "MIT",
+    "type": "manga",
+    "webSite": "https://h.mangabat.com",
+    "icon": "https://h.mangabat.com/favicon-96x96.png",
+    "description": "Manga en inglés desde MangaBat",
+    "url": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/mangabat.js"
+  }
+]

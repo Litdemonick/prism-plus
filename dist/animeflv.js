@@ -1,517 +1,243 @@
-"use strict";
-var io_prismhub_animeflv = (() => {
-  var __defProp = Object.defineProperty;
-  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-  var __getOwnPropNames = Object.getOwnPropertyNames;
-  var __hasOwnProp = Object.prototype.hasOwnProperty;
-  var __export = (target, all) => {
-    for (var name in all)
-      __defProp(target, name, { get: all[name], enumerable: true });
-  };
-  var __copyProps = (to, from, except, desc) => {
-    if (from && typeof from === "object" || typeof from === "function") {
-      for (let key of __getOwnPropNames(from))
-        if (!__hasOwnProp.call(to, key) && key !== except)
-          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-    }
-    return to;
-  };
-  var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+// ==MiruExtension==
+// @name         AnimeFLV
+// @version      1.1.0
+// @author       PrismHub
+// @lang         es
+// @license      MIT
+// @icon         https://animeflv.net/favicon.ico
+// @package      io.prismhub.animeflv
+// @type         bangumi
+// @webSite      https://animeflv.net
+// @description  Anime en español e inglés subtitulado desde AnimeFLV
+// ==/MiruExtension==
 
-  // extensions/animeflv/index.ts
-  var index_exports = {};
-  __export(index_exports, {
-    detail: () => detail,
-    latest: () => latest,
-    search: () => search,
-    watch: () => watch
-  });
-
-  // sdk/http.ts
-  var NetworkError = class extends Error {
-    constructor(cause, url) {
-      super(`Error de red en ${url}: ${cause?.message ?? cause}`);
-      this.name = "NetworkError";
-    }
-  };
-  var HttpError = class extends Error {
-    constructor(status, statusText, url) {
-      super(`HTTP ${status} ${statusText} \u2014 ${url}`);
-      this.status = status;
-      this.statusText = statusText;
-      this.url = url;
-      this.name = "HttpError";
-    }
-  };
-  var TimeoutError = class extends Error {
-    constructor(ms, url) {
-      super(`Timeout de ${ms}ms superado \u2014 ${url}`);
-      this.name = "TimeoutError";
-    }
-  };
-  var DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-  var DEFAULT_TIMEOUT = 15e3;
-  var DEFAULT_RETRIES = 2;
-  function isRetryable(status) {
-    return status === 429 || status >= 500 && status < 600;
+export default class extends Extension {
+  async latest(page) {
+    const html = await this.request(`/browse?order=added&page=${page}`);
+    return _parseCards(html);
   }
-  async function request(url, options = {}) {
-    const {
-      method = "GET",
-      headers = {},
-      body,
-      retries = DEFAULT_RETRIES,
-      timeout = DEFAULT_TIMEOUT,
-      acceptStatus = false
-    } = options;
-    const merged = { "User-Agent": DEFAULT_UA, ...headers };
-    let lastError;
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      const controller = new AbortController();
+
+  async search(kw, page) {
+    const html = await this.request(`/browse?q=${encodeURIComponent(kw)}&page=${page}`);
+    return _parseCards(html);
+  }
+
+  async detail(url) {
+    const slug = url.replace(/.*\/anime\//, '');
+    const html = await this.request(`/anime/${slug}`);
+
+    const title = (_rx(/<h1[^>]*class="[^"]*Title[^"]*"[^>]*>([^<]+)<\/h1>/i, html) || slug).trim();
+    const rawCover = _rx(/<div[^>]*class="[^"]*AnimeCover[^"]*"[\s\S]*?<img[^>]*src="([^"]+)"/i, html) || '';
+    const cover = rawCover.startsWith('http') ? rawCover : `https://animeflv.net${rawCover}`;
+    const descBlock = /<div[^>]*class="Description"[^>]*>([\s\S]*?)<\/div>/i.exec(html);
+    const desc = descBlock ? descBlock[1].replace(/<[^>]*>/g, '').trim() : '';
+
+    const epM = /var\s+episodes\s*=\s*(\[\[[\s\S]*?\]\])/.exec(html);
+    const urls = [];
+    if (epM) {
       try {
-        const res = await Promise.race([
-          fetch(url, { method, headers: merged, body, signal: controller.signal }),
-          new Promise(
-            (_, reject) => setTimeout(() => {
-              controller.abort();
-              reject(new TimeoutError(timeout, url));
-            }, timeout)
-          )
-        ]);
-        if (acceptStatus || res.ok) {
-          controller.abort();
-          return res;
-        } else {
-          const err = new HttpError(res.status, res.statusText, url);
-          if (isRetryable(res.status) && attempt < retries) {
-            lastError = err;
-          } else {
-            throw err;
-          }
+        const raw = JSON.parse(epM[1]);
+        for (let i = raw.length - 1; i >= 0; i--) {
+          const num = raw[i][0];
+          urls.push({ name: `Episodio ${num}`, url: `${slug}-${num}` });
         }
-      } catch (err) {
-        if (err instanceof TimeoutError) throw err;
-        if (err instanceof HttpError) throw err;
-        lastError = new NetworkError(err, url);
-      }
-      if (attempt < retries) await _sleep(300 * 2 ** attempt);
+      } catch {}
     }
-    throw lastError;
-  }
-  async function get(url, headers) {
-    return (await request(url, { headers })).text();
-  }
-  function _sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+
+    return { title, cover, desc, episodes: [{ title: 'Episodios', urls }] };
   }
 
-  // sdk/html.ts
-  function matchFirst(html, pattern) {
-    return pattern.exec(html)?.[1]?.trim() ?? "";
-  }
-  function matchGroups(html, pattern) {
-    const flags = pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g";
-    return [...html.matchAll(new RegExp(pattern.source, flags))].map(
-      (m) => [...m].slice(1).map((s) => s?.trim() ?? "")
-    );
-  }
-  function between(html, start, end) {
-    const s = html.indexOf(start);
-    if (s === -1) return "";
-    const e = html.indexOf(end, s + start.length);
-    if (e === -1) return "";
-    return html.slice(s + start.length, e).trim();
-  }
-  function stripTags(html) {
-    return html.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
-  }
+  async watch(episodeUrl) {
+    if (_isEmbed(episodeUrl)) return _resolveEmbedUrl(episodeUrl);
 
-  // sdk/embeds.ts
-  async function resolveEmbed(server, embedUrl, referer) {
-    const s = `${server} ${embedUrl}`.toLowerCase();
-    let result;
-    try {
-      if (s.includes("voe")) result = await resolveVoe(embedUrl, referer);
-      else if (s.includes("streamtape") || s.includes("stape") || s.includes("strtape"))
-        result = await resolveStreamtape(embedUrl, referer);
-      else if (s.includes("mixdrop") || s.includes("mxdrop") || s.includes("mdrop"))
-        result = await resolveMixdrop(embedUrl, referer);
-      else if (s.includes("mp4upload")) result = await resolveMp4upload(embedUrl, referer);
-      else if (s.includes("hqq") || s.includes("netu")) result = await resolveNetu(embedUrl, referer);
-      else result = await resolveGeneric(embedUrl, referer);
-    } catch (e) {
-      console.log(`[resolveEmbed] ${server} THREW: ${e?.message ?? e}`);
-      return null;
-    }
-    console.log(
-      `[resolveEmbed] ${server} -> ${result ? result.url.slice(0, 60) : "NULL"}`
-    );
-    return result;
-  }
-  async function resolveVoe(url, referer) {
-    const voeOpts = { timeout: 14e3, retries: 1 };
-    let html = await fetchEmbed(url, referer, voeOpts);
-    if (!html) return null;
-    const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(
-      html
-    );
-    if (redir) {
-      const mirror = await fetchEmbed(redir[1], "https://voe.sx/", voeOpts);
-      if (mirror) html = mirror;
-    }
-    const jsonScript = /<script[^>]*type=["']application\/json["'][^>]*>\s*\[\s*"([^"]+)"\s*\]\s*<\/script>/.exec(
-      html
-    );
-    if (jsonScript) {
-      const decoded = _voeDecode(jsonScript[1]);
-      if (decoded) {
-        const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(decoded);
-        if (src) return { url: _unescapeUrl(src[1]) };
-        const anyM3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(
-          decoded.replace(/\\\//g, "/")
-        );
-        if (anyM3u8) return { url: anyM3u8[1] };
-        const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(decoded);
-        if (mp4) return { url: _unescapeUrl(mp4[1]) };
+    const slug = episodeUrl.replace(/.*\/ver\//, '');
+    const html = await this.request(`/ver/${slug}`);
+
+    const vm = /var\s+videos\s*=\s*(\{[\s\S]*?\});/.exec(html);
+    if (!vm) return _err('No se encontraron servidores');
+
+    let videos;
+    try { videos = JSON.parse(vm[1]); } catch { return _err('Error parseando servidores'); }
+
+    const all = [...(videos['LAT'] || []), ...(videos['SUB'] || [])]
+      .map(v => ({ name: v.server || v.title || 'Server', embed: v.code || v.url || '' }))
+      .filter(v => v.embed.startsWith('http'));
+
+    if (!all.length) return _err('No hay URLs válidas');
+
+    const servers = {};
+    for (const { name, embed } of all) servers[name] = embed;
+
+    for (const { name, embed } of all) {
+      const res = await _resolveEmbedUrl(embed);
+      if (res && res.url && !res.url.startsWith('error://')) {
+        return {
+          type: res.type || 'hls',
+          url: res.url,
+          headers: {
+            ...(res.headers || {}),
+            'X-Servers': JSON.stringify(servers),
+            'X-Primary-Server': name,
+          },
+        };
       }
     }
-    let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
-    if (m) return { url: m[1] };
-    const atobMatch = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
-    if (atobMatch) {
-      try {
-        const decoded = b64decode(atobMatch[1]);
-        const hls = /['"]hls['"]\s*:\s*['"]([^'"]+)['"]/.exec(decoded);
-        if (hls) return { url: hls[1] };
-        const direct = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/.exec(decoded);
-        if (direct) return { url: direct[1] };
-      } catch {
-      }
-    }
-    m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
-    if (m) return { url: m[0] };
-    return null;
+
+    const first = all[0];
+    return {
+      type: 'hls',
+      url: first.embed,
+      headers: {
+        'X-Servers': JSON.stringify(servers),
+        'X-Primary-Server': first.name,
+      },
+    };
   }
-  function _rot13(s) {
-    return s.replace(/[a-zA-Z]/g, (c) => {
-      const base = c <= "Z" ? 65 : 97;
-      return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function _rx(re, html) {
+  const m = re.exec(html);
+  return m ? m[1] : null;
+}
+
+function _parseCards(html) {
+  const items = [];
+  const re = /<article[^>]*class="[^"]*Anime[^"]*"[\s\S]*?<a[^>]*href="\/anime\/([^"]+)"[\s\S]*?<img[^>]*src="([^"]+)"[\s\S]*?<h3[^>]*class="[^"]*Title[^"]*"[^>]*>([^<]+)<\/h3>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const [, slug, rawCover, title] = m;
+    items.push({
+      title: title.trim(),
+      url: slug.trim(),
+      cover: rawCover.startsWith('http') ? rawCover : `https://animeflv.net${rawCover}`,
     });
   }
-  function _unescapeUrl(s) {
-    return s.replace(/\\\//g, "/");
-  }
-  function _voeDecode(raw) {
-    try {
-      let r = _rot13(raw);
-      for (const p of ["@$", "^^", "#&", "~@", "%?", "*~", "!!", "`"]) {
-        r = r.split(p).join("");
-      }
-      const step3 = b64decode(r);
-      let shifted = "";
-      for (let i = 0; i < step3.length; i++) {
-        shifted += String.fromCharCode(step3.charCodeAt(i) - 3);
-      }
-      const reversed = shifted.split("").reverse().join("");
-      return b64decode(reversed);
-    } catch {
-      return null;
-    }
-  }
-  async function resolveStreamtape(url, referer) {
-    const html = await fetchEmbed(url, referer);
-    if (!html) return null;
-    const div = /id=["'](?:ideoolink|botlink|robotlink)["'][^>]*>\s*(\/\/?[^<]*get_video[^<]*)</.exec(
-      html
-    );
-    if (div) {
-      let path = div[1].trim();
-      if (path.startsWith("//")) path = `https:${path}`;
-      else if (path.startsWith("/")) path = `https:/${path}`;
-      if (!/[?&]stream=/.test(path)) path += "&stream=1";
-      return { url: path, headers: { Referer: "https://streamtape.com/" } };
-    }
-    let m = /(https?:\/\/streamtape\.[a-z]+\/get_video[^"'\s<>]+)/.exec(html);
-    if (m) return { url: m[1], headers: { Referer: "https://streamtape.com/" } };
-    m = /(\/\/streamtape\.[a-z]+\/get_video[^"'\s<>]+)/.exec(html);
-    if (m) return { url: `https:${m[1]}`, headers: { Referer: "https://streamtape.com/" } };
-    return null;
-  }
-  async function resolveMixdrop(url, referer) {
-    const html = await fetchEmbed(url, referer);
-    if (!html) return null;
-    const unpacked = _unpackAll(html);
-    const wurl = /MDCore\.wurl\s*=\s*["']([^"']+)["']/.exec(unpacked);
-    let target = wurl?.[1];
-    if (!target) {
-      const mp4 = /(\/\/[^"'\s]+\.mp4[^"'\s]*)/.exec(unpacked);
-      target = mp4?.[1];
-    }
-    if (!target) return null;
-    const full = target.startsWith("http") ? target : `https:${target}`;
-    return { url: full, headers: { Referer: "https://mixdrop.top/" } };
-  }
-  async function resolveMp4upload(url, referer) {
-    const html = await fetchEmbed(url, referer);
-    if (!html) return null;
-    const candidates = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g) ?? [];
-    const real = candidates.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
-    if (!real) return null;
-    return { url: real, headers: { Referer: "https://www.mp4upload.com/" } };
-  }
-  async function resolveNetu(url, referer) {
-    const html = await fetchEmbed(url, referer, { timeout: 12e3, retries: 1 });
-    if (!html) return null;
-    const host = _hostOf(url) ?? "hqq.tv";
-    const siteHdrs = {
-      Referer: `https://${host}/`,
-      Origin: `https://${host}`
-    };
-    for (const m of html.matchAll(/atob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/g)) {
-      try {
-        const decoded = b64decode(m[1]);
-        const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, "/"));
-        if (src) return { url: src[1], headers: _cdnReferer(src[1], siteHdrs) };
-      } catch {
-      }
-    }
-    const haystack = `${html}
-${_unpackAll(html)}`;
-    const direct = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(haystack.replace(/\\\//g, "/"));
-    if (direct) return { url: direct[1], headers: _cdnReferer(direct[1], siteHdrs) };
-    for (const m of html.matchAll(/=\s*['"]([A-Za-z0-9+/=]{80,})['"]/g)) {
-      try {
-        const decoded = b64decode(m[1]);
-        const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, "/"));
-        if (src) return { url: src[1], headers: _cdnReferer(src[1], siteHdrs) };
-      } catch {
-      }
-    }
-    const fileM = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/.exec(html);
-    if (fileM) return { url: fileM[1].replace(/\\\//g, "/"), headers: siteHdrs };
-    return null;
-  }
-  function _cdnReferer(streamUrl, fallback) {
-    const h = _hostOf(streamUrl);
-    if (!h) return fallback;
-    return { Referer: `https://${h}/`, Origin: `https://${h}` };
-  }
-  async function resolveGeneric(url, referer) {
-    const html = await fetchEmbed(url, referer);
-    if (!html) return null;
-    const host = _hostOf(url);
-    const headers = host ? { Referer: `https://${host}/` } : void 0;
-    const haystack = `${html}
-${_unpackAll(html)}`;
-    const flat = haystack.replace(/\\\//g, "/");
-    const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(flat);
-    if (m3u8) return { url: m3u8[1], headers };
-    for (const m of html.matchAll(/atob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/g)) {
-      try {
-        const decoded = b64decode(m[1]);
-        const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, "/"));
-        if (src) return { url: src[1], headers };
-      } catch {
-      }
-    }
-    const file = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/.exec(flat);
-    if (file) return { url: file[1], headers };
-    const mp4s = flat.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g) ?? [];
-    const real = mp4s.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
-    if (real) return { url: real, headers };
-    return null;
-  }
-  function _unpackAll(html) {
-    let out = "";
-    const re = /eval\(function\(p,a,c,k,e,[dr]\)\{[\s\S]*?\.split\('\|'\)[^)]*\)\)/g;
-    for (const m of html.matchAll(re)) {
-      const u = _unpack(m[0]);
-      if (u) out += `
-${u}`;
-    }
-    return out;
-  }
-  function _unpack(src) {
-    const m = /\}\s*\(\s*'(.*?)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*'(.*?)'\.split\('\|'\)/s.exec(
-      src
-    );
-    if (!m) return "";
-    let payload = m[1];
-    const radix = parseInt(m[2], 10);
-    const count = parseInt(m[3], 10);
-    const words = m[4].split("|");
-    payload = payload.split("\\'").join("'");
-    const enc = (n) => (n < radix ? "" : enc(Math.floor(n / radix))) + ((n = n % radix) > 35 ? String.fromCharCode(n + 29) : n.toString(36));
-    const dict = {};
-    for (let i = count - 1; i >= 0; i--) dict[enc(i)] = words[i] || enc(i);
-    return payload.replace(/\b\w+\b/g, (w) => dict[w] ?? w);
-  }
-  function _hostOf(url) {
-    const m = /^https?:\/\/([^/]+)/.exec(url);
-    return m ? m[1] : null;
-  }
-  async function fetchEmbed(url, referer, opts = {}) {
-    try {
-      const res = await request(url, {
-        headers: { Referer: referer },
-        timeout: opts.timeout ?? 8e3,
-        retries: opts.retries ?? 0,
-        acceptStatus: true
-        // muchos embeds traen el contenido útil en 403/404
-      });
-      return res.text();
-    } catch (e) {
-      console.log(`[fetchEmbed] FAIL ${url.slice(0, 45)} :: ${e?.message ?? e}`);
-      return null;
-    }
-  }
-  function b64decode(s) {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    const clean = s.replace(/[^A-Za-z0-9+/]/g, "");
-    let result = "";
-    let i = 0;
-    while (i < clean.length) {
-      const b1 = chars.indexOf(clean[i++]);
-      const b2 = chars.indexOf(clean[i++]);
-      const b3 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
-      const b4 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
-      result += String.fromCharCode(b1 << 2 | b2 >> 4);
-      if (b3 !== -1) result += String.fromCharCode((b2 & 15) << 4 | b3 >> 2);
-      if (b4 !== -1) result += String.fromCharCode((b3 & 3) << 6 | b4);
-    }
-    return result;
-  }
+  return items;
+}
 
-  // extensions/animeflv/index.ts
-  var BASE = "https://animeflv.net";
-  async function latest(page) {
-    const html = await get(`${BASE}/browse?order=added&page=${page}`);
-    return _parseCards(html);
+function _isEmbed(url) {
+  if (!url.startsWith('http')) return false;
+  return !url.includes('animeflv.net');
+}
+
+function _err(msg) {
+  return { type: 'hls', url: `error://${msg}`, headers: {} };
+}
+
+function _b64decode(s) {
+  try {
+    return CryptoJS.enc.Base64.parse(s).toString(CryptoJS.enc.Utf8);
+  } catch {
+    const t = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let r = '', buf = 0, bits = 0;
+    for (const c of s.replace(/[^A-Za-z0-9+/]/g, '')) {
+      buf = (buf << 6) | t.indexOf(c);
+      bits += 6;
+      if (bits >= 8) { bits -= 8; r += String.fromCharCode((buf >> bits) & 0xff); }
+    }
+    return r;
   }
-  async function search(keyword, page) {
-    const html = await get(
-      `${BASE}/browse?q=${encodeURIComponent(keyword)}&page=${page}`
-    );
-    return _parseCards(html);
+}
+
+async function _fetchHtml(url, referer) {
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Referer': referer || url,
+      'Accept': 'text/html,application/xhtml+xml,*/*;q=0.9',
+    }
+  });
+  return res.text();
+}
+
+async function _resolveEmbedUrl(url) {
+  const s = url.toLowerCase();
+  try {
+    if (s.includes('voe')) return await _resolveVoe(url);
+    if (s.includes('netu') || s.includes('hqq')) return await _resolveNetu(url);
+    if (s.includes('streamtape')) return await _resolveStreamtape(url);
+    if (s.includes('doodstream') || s.includes('dood')) return await _resolveDood(url);
+    if (s.includes('filemoon') || s.includes('fmoonembed')) return await _resolveFilemoon(url);
+    if (s.includes('mp4upload')) return await _resolveMp4upload(url);
+  } catch {}
+  return _err(`Sin resolver: ${url}`);
+}
+
+async function _resolveVoe(url) {
+  const html = await _fetchHtml(url, 'https://voe.sx/');
+  const b64m = /['"]hls['"]\s*:\s*['"]([A-Za-z0-9+/=]{20,})['"]/.exec(html);
+  if (b64m) {
+    const dec = _b64decode(b64m[1]);
+    const src = /(https?:[^\s"']+\.m3u8[^\s"']*)/.exec(dec.replace(/\\\//g, '/'));
+    if (src) return { type: 'hls', url: src[1], headers: { Referer: 'https://voe.sx/' } };
   }
-  async function detail(url) {
-    const html = await get(`${BASE}/anime/${url}`);
-    const title = matchFirst(html, /<h1[^>]*class="[^"]*Title[^"]*"[^>]*>([^<]+)<\/h1>/i);
-    const rawCover = matchFirst(
-      html,
-      /<div[^>]*class="[^"]*AnimeCover[^"]*"[\s\S]*?<img[^>]*src="([^"]+)"/i
-    );
-    const cover = rawCover.startsWith("http") ? rawCover : `${BASE}${rawCover}`;
-    const description = stripTags(between(html, '<div class="Description">', "</div>"));
-    const episodes = _parseEpisodes(html, url);
-    const status = matchFirst(
-      html,
-      /<span[^>]*>Estado:<\/span>\s*<span[^>]*>([^<]+)<\/span>/i
-    );
-    const type = matchFirst(
-      html,
-      /<span[^>]*>Tipo:<\/span>\s*<a[^>]*>([^<]+)<\/a>/i
-    );
-    const genres = matchGroups(
-      html,
-      /<a[^>]*href="\/browse[^"]*genre[^"]*"[^>]*>([^<]+)<\/a>/gi
-    ).map((g) => g[0]);
-    return {
-      title,
-      cover,
-      description,
-      episodes,
-      extra: {
-        Estado: status,
-        Tipo: type,
-        G\u00E9neros: genres.join(", ")
-      }
-    };
+  const direct = /['"](?:hlsUrl|hls_url)['"]\s*:\s*['"]([^'"]+)['"]/.exec(html)
+    || /(https?:[^\s"']+\.m3u8[^\s"']*)/.exec(html);
+  if (direct) return { type: 'hls', url: direct[1], headers: { Referer: 'https://voe.sx/' } };
+  return _err('voe: m3u8 no encontrada');
+}
+
+async function _resolveNetu(url) {
+  let host = 'hqq.tv';
+  try { host = new URL(url).hostname; } catch {}
+  const referer = `https://${host}/`;
+  const html = await _fetchHtml(url, referer);
+  const re = /atob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/g;
+  let am;
+  while ((am = re.exec(html)) !== null) {
+    const dec = _b64decode(am[1]);
+    const src = /(https?:[^\s"'\\]+\.m3u8[^\s"'\\]*)/.exec(dec.replace(/\\\//g, '/'));
+    if (src) return { type: 'hls', url: src[1], headers: { Referer: referer } };
   }
-  async function watch(url) {
-    const html = await get(`${BASE}/ver/${url}`);
-    const videosMatch = /var\s+videos\s*=\s*(\{[\s\S]*?\});/.exec(html);
-    if (!videosMatch) return { streams: [] };
-    let videos;
+  const b64re = /=\s*['"]([A-Za-z0-9+/=]{80,})['"]/g;
+  let bm;
+  while ((bm = b64re.exec(html)) !== null) {
     try {
-      videos = JSON.parse(videosMatch[1]);
-    } catch {
-      return { streams: [] };
-    }
-    const all = [...videos["LAT"] ?? [], ...videos["SUB"] ?? []].map((v) => ({ server: v.server || v.title || "", embed: v.code ?? v.url ?? "" })).filter((v) => v.embed.startsWith("http"));
-    if (all.length === 0) return { streams: [] };
-    const results = await Promise.all(
-      all.map(async (v) => {
-        const resolved2 = await resolveEmbed(v.server, v.embed, `${BASE}/`);
-        return { server: v.server, embedUrl: v.embed, resolved: resolved2 };
-      })
-    );
-    const resolved = results.filter((r) => r.resolved !== null).map((r) => ({ url: r.resolved.url, quality: r.server, headers: r.resolved.headers }));
-    const fallback = results.filter((r) => r.resolved === null).map((r) => ({ url: r.embedUrl, quality: r.server }));
-    return { streams: [...resolved, ...fallback] };
+      const dec = _b64decode(bm[1]);
+      const src = /(https?:[^\s"'\\]+\.m3u8[^\s"'\\]*)/.exec(dec.replace(/\\\//g, '/'));
+      if (src) return { type: 'hls', url: src[1], headers: { Referer: referer } };
+    } catch {}
   }
-  function _parseCards(html) {
-    const pattern = /<article[^>]*class="[^"]*Anime[^"]*"[\s\S]*?<a[^>]*href="\/anime\/([^"]+)"[\s\S]*?<img[^>]*src="([^"]+)"[\s\S]*?<h3[^>]*class="[^"]*Title[^"]*"[^>]*>([^<]+)<\/h3>/gi;
-    const items = [];
-    for (const [, slug, rawCover, title] of html.matchAll(pattern)) {
-      items.push({
-        title: title.trim(),
-        url: slug.trim(),
-        cover: rawCover.startsWith("http") ? rawCover : `${BASE}${rawCover}`
-      });
-    }
-    return items;
+  const direct = /(https?:[^\s"'\\]+\.m3u8[^\s"'\\]*)/.exec(html.replace(/\\\//g, '/'));
+  if (direct) return { type: 'hls', url: direct[1], headers: { Referer: referer } };
+  return _err(`netu: m3u8 no encontrada (${host})`);
+}
+
+async function _resolveStreamtape(url) {
+  const html = await _fetchHtml(url, 'https://streamtape.com/');
+  const linkM = /id="robotlink"[^>]*>([^<]+)/.exec(html)
+    || /robotlink.*?innerHTML\s*=\s*['"]([^'"]+)['"]/.exec(html);
+  if (linkM) {
+    const raw = linkM[1].replace(/&amp;/g, '&');
+    const mp4Url = raw.startsWith('http') ? raw : `https:${raw}`;
+    return { type: 'mp4', url: mp4Url, headers: { Referer: 'https://streamtape.com/' } };
   }
-  function _parseEpisodes(html, animeSlug) {
-    const match = /var\s+episodes\s*=\s*(\[\[[\s\S]*?\]\])/.exec(html);
-    if (!match) return [];
-    try {
-      const raw = JSON.parse(match[1]);
-      return raw.reverse().map(([num]) => ({
-        title: `Episodio ${num}`,
-        url: `${animeSlug}-${num}`
-      }));
-    } catch {
-      return [];
-    }
-  }
-  return __toCommonJS(index_exports);
-})();
-;(function(){
-  function _s(v){return v==null?'':String(v);}
-  function _ep(ep){
-    if(!ep||typeof ep!=='object')return null;
-    var u=_s(ep.url);if(!u)return null;
-    return{title:_s(ep.title)||u,url:u,thumbnail:ep.thumbnail!=null?_s(ep.thumbnail):void 0,
-      duration:typeof ep.duration==='number'?ep.duration:void 0,
-      airDate:ep.airDate!=null?_s(ep.airDate):void 0,
-      number:typeof ep.number==='number'?ep.number:void 0};
-  }
-  function _detail(d){
-    if(!d||typeof d!=='object')return{title:'',episodes:[]};
-    var eps=(Array.isArray(d.episodes)?d.episodes:[]).map(_ep).filter(Boolean);
-    return Object.assign({},d,{episodes:eps});
-  }
-  function _items(a){
-    if(!Array.isArray(a))return[];
-    return a.map(function(it){
-      if(!it||typeof it!=='object')return null;
-      var u=_s(it.url);if(!u)return null;
-      return Object.assign({},it,{title:_s(it.title)||u,url:u});
-    }).filter(Boolean);
-  }
-  var _m=typeof io_prismhub_animeflv!=='undefined'?io_prismhub_animeflv:null;
-  if(_m&&typeof _m==='object'){
-    var _d=_m.detail,_l=_m.latest,_ss=_m.search;
-    if(typeof _d==='function'||typeof _l==='function'||typeof _ss==='function'){
-      // esbuild define exports como getters no-configurables (Object.defineProperty sin set).
-      // En strict mode asignar directo falla. Copiamos LEYENDO los getters a un objeto plano.
-      var _w={};
-      for(var _k in _m){try{_w[_k]=_m[_k];}catch(_e){}}
-      if(typeof _d==='function')_w.detail=async function(){return _detail(await _d.apply(_m,arguments));};
-      if(typeof _l==='function')_w.latest=async function(){return _items(await _l.apply(_m,arguments));};
-      if(typeof _ss==='function')_w.search=async function(){return _items(await _ss.apply(_m,arguments));};
-      io_prismhub_animeflv=_w;
-    }
-  }
-})();
+  return _err('streamtape: link no encontrado');
+}
+
+async function _resolveDood(url) {
+  const html = await _fetchHtml(url, 'https://doodstream.com/');
+  const passM = /\/pass_md5\/([^'"]+)/.exec(html);
+  if (!passM) return _err('dood: pass no encontrado');
+  const token = await _fetchHtml(`https://doodstream.com/pass_md5/${passM[1]}`, url);
+  if (!token.startsWith('http')) return _err('dood: token inválido');
+  const mp4Url = token + Math.random().toString(36).slice(2) + '?token=' + passM[1].split('/').pop();
+  return { type: 'mp4', url: mp4Url, headers: { Referer: 'https://doodstream.com/' } };
+}
+
+async function _resolveFilemoon(url) {
+  const html = await _fetchHtml(url, url);
+  const src = /(https?:[^\s"']+\.m3u8[^\s"']*)/.exec(html);
+  if (src) return { type: 'hls', url: src[1], headers: { Referer: url } };
+  return _err('filemoon: m3u8 no encontrada');
+}
+
+async function _resolveMp4upload(url) {
+  const html = await _fetchHtml(url, 'https://mp4upload.com/');
+  const src = /src\s*:\s*["']([^"']+\.mp4[^"']*)["']/.exec(html)
+    || /(https?:[^\s"']+\.mp4[^\s"']*)/.exec(html);
+  if (src) return { type: 'mp4', url: src[1], headers: { Referer: 'https://mp4upload.com/' } };
+  return _err('mp4upload: mp4 no encontrado');
+}
