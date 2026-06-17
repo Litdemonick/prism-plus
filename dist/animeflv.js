@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeFLV
-// @version      1.0.8
+// @version      1.0.9
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -16,7 +16,21 @@ var io_prismhub_animeflv = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getOwnPropSymbols = Object.getOwnPropertySymbols;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __propIsEnum = Object.prototype.propertyIsEnumerable;
+  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __spreadValues = (a, b) => {
+    for (var prop in b || (b = {}))
+      if (__hasOwnProp.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    if (__getOwnPropSymbols)
+      for (var prop of __getOwnPropSymbols(b)) {
+        if (__propIsEnum.call(b, prop))
+          __defNormalProp(a, prop, b[prop]);
+      }
+    return a;
+  };
   var __export = (target, all) => {
     for (var name in all)
       __defProp(target, name, { get: all[name], enumerable: true });
@@ -43,7 +57,8 @@ var io_prismhub_animeflv = (() => {
   // sdk/http.ts
   var NetworkError = class extends Error {
     constructor(cause, url) {
-      super(`Error de red en ${url}: ${cause?.message ?? cause}`);
+      var _a;
+      super(`Error de red en ${url}: ${(_a = cause == null ? void 0 : cause.message) != null ? _a : cause}`);
       this.name = "NetworkError";
     }
   };
@@ -77,7 +92,7 @@ var io_prismhub_animeflv = (() => {
       timeout = DEFAULT_TIMEOUT,
       acceptStatus = false
     } = options;
-    const merged = { "User-Agent": DEFAULT_UA, ...headers };
+    const merged = __spreadValues({ "User-Agent": DEFAULT_UA }, headers);
     let lastError;
     for (let attempt = 0; attempt <= retries; attempt++) {
       const controller = new AbortController();
@@ -120,12 +135,16 @@ var io_prismhub_animeflv = (() => {
 
   // sdk/html.ts
   function matchFirst(html, pattern) {
-    return pattern.exec(html)?.[1]?.trim() ?? "";
+    var _a, _b, _c;
+    return (_c = (_b = (_a = pattern.exec(html)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : "";
   }
   function matchGroups(html, pattern) {
     const flags = pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g";
     return [...html.matchAll(new RegExp(pattern.source, flags))].map(
-      (m) => [...m].slice(1).map((s) => s?.trim() ?? "")
+      (m) => [...m].slice(1).map((s) => {
+        var _a;
+        return (_a = s == null ? void 0 : s.trim()) != null ? _a : "";
+      })
     );
   }
   function between(html, start, end) {
@@ -141,6 +160,7 @@ var io_prismhub_animeflv = (() => {
 
   // sdk/embeds.ts
   async function resolveEmbed(server, embedUrl, referer) {
+    var _a;
     const s = `${server} ${embedUrl}`.toLowerCase();
     let result;
     try {
@@ -155,7 +175,7 @@ var io_prismhub_animeflv = (() => {
       else if (s.includes("hqq") || s.includes("netu")) result = await resolveNetu(embedUrl, referer);
       else result = await resolveGeneric(embedUrl, referer);
     } catch (e) {
-      console.log(`[resolveEmbed] ${server} THREW: ${e?.message ?? e}`);
+      console.log(`[resolveEmbed] ${server} THREW: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
       return null;
     }
     console.log(
@@ -200,7 +220,7 @@ var io_prismhub_animeflv = (() => {
         if (hls) return { url: hls[1] };
         const direct = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/.exec(decoded);
         if (direct) return { url: direct[1] };
-      } catch {
+      } catch (e) {
       }
     }
     m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
@@ -229,7 +249,7 @@ var io_prismhub_animeflv = (() => {
       }
       const reversed = shifted.split("").reverse().join("");
       return b64decode(reversed);
-    } catch {
+    } catch (e) {
       return null;
     }
   }
@@ -257,19 +277,20 @@ var io_prismhub_animeflv = (() => {
     if (!html) return null;
     const unpacked = _unpackAll(html);
     const wurl = /MDCore\.wurl\s*=\s*["']([^"']+)["']/.exec(unpacked);
-    let target = wurl?.[1];
+    let target = wurl == null ? void 0 : wurl[1];
     if (!target) {
       const mp4 = /(\/\/[^"'\s]+\.mp4[^"'\s]*)/.exec(unpacked);
-      target = mp4?.[1];
+      target = mp4 == null ? void 0 : mp4[1];
     }
     if (!target) return null;
     const full = target.startsWith("http") ? target : `https:${target}`;
     return { url: full, headers: { Referer: "https://mixdrop.top/" } };
   }
   async function resolveMp4upload(url, referer) {
+    var _a;
     const html = await fetchEmbed(url, referer);
     if (!html) return null;
-    const candidates = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g) ?? [];
+    const candidates = (_a = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g)) != null ? _a : [];
     const real = candidates.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
     if (!real) return null;
     return { url: real, headers: { Referer: "https://www.mp4upload.com/" } };
@@ -290,7 +311,8 @@ var io_prismhub_animeflv = (() => {
     return null;
   }
   async function resolveNetu(url, referer) {
-    const host = _hostOf(url) ?? "hqq.tv";
+    var _a;
+    const host = (_a = _hostOf(url)) != null ? _a : "hqq.tv";
     const siteHdrs = {
       Referer: `https://${host}/`,
       Origin: `https://${host}`
@@ -306,7 +328,7 @@ var io_prismhub_animeflv = (() => {
         const decoded = b64decode(m[1]);
         const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, "/"));
         if (src) return { url: src[1], headers: _cdnReferer(src[1], siteHdrs) };
-      } catch {
+      } catch (e) {
       }
     }
     const haystack = `${html}
@@ -318,7 +340,7 @@ ${_unpackAll(html)}`;
         const decoded = b64decode(m[1]);
         const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, "/"));
         if (src) return { url: src[1], headers: _cdnReferer(src[1], siteHdrs) };
-      } catch {
+      } catch (e) {
       }
     }
     const fileM = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/.exec(html);
@@ -331,6 +353,7 @@ ${_unpackAll(html)}`;
     return { Referer: `https://${h}/`, Origin: `https://${h}` };
   }
   async function resolveGeneric(url, referer) {
+    var _a;
     const html = await fetchEmbed(url, referer);
     if (!html) return null;
     const host = _hostOf(url);
@@ -345,12 +368,12 @@ ${_unpackAll(html)}`;
         const decoded = b64decode(m[1]);
         const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, "/"));
         if (src) return { url: src[1], headers };
-      } catch {
+      } catch (e) {
       }
     }
     const file = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/.exec(flat);
     if (file) return { url: file[1], headers };
-    const mp4s = flat.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g) ?? [];
+    const mp4s = (_a = flat.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g)) != null ? _a : [];
     const real = mp4s.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
     if (real) return { url: real, headers };
     return null;
@@ -366,7 +389,7 @@ ${u}`;
     return out;
   }
   function _unpack(src) {
-    const m = /\}\s*\(\s*'(.*?)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*'(.*?)'\.split\('\|'\)/s.exec(
+    const m = new RegExp("\\}\\s*\\(\\s*'(.*?)'\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*'(.*?)'\\.split\\('\\|'\\)", "s").exec(
       src
     );
     if (!m) return "";
@@ -378,24 +401,28 @@ ${u}`;
     const enc = (n) => (n < radix ? "" : enc(Math.floor(n / radix))) + ((n = n % radix) > 35 ? String.fromCharCode(n + 29) : n.toString(36));
     const dict = {};
     for (let i = count - 1; i >= 0; i--) dict[enc(i)] = words[i] || enc(i);
-    return payload.replace(/\b\w+\b/g, (w) => dict[w] ?? w);
+    return payload.replace(/\b\w+\b/g, (w) => {
+      var _a;
+      return (_a = dict[w]) != null ? _a : w;
+    });
   }
   function _hostOf(url) {
     const m = /^https?:\/\/([^/]+)/.exec(url);
     return m ? m[1] : null;
   }
   async function fetchEmbed(url, referer, opts = {}) {
+    var _a, _b, _c, _d;
     try {
       const res = await request(url, {
-        headers: { Referer: referer, ...opts.headers ?? {} },
-        timeout: opts.timeout ?? 8e3,
-        retries: opts.retries ?? 0,
+        headers: __spreadValues({ Referer: referer }, (_a = opts.headers) != null ? _a : {}),
+        timeout: (_b = opts.timeout) != null ? _b : 8e3,
+        retries: (_c = opts.retries) != null ? _c : 0,
         acceptStatus: true
         // muchos embeds traen el contenido útil en 403/404
       });
       return res.text();
     } catch (e) {
-      console.log(`[fetchEmbed] FAIL ${url.slice(0, 45)} :: ${e?.message ?? e}`);
+      console.log(`[fetchEmbed] FAIL ${url.slice(0, 45)} :: ${(_d = e == null ? void 0 : e.message) != null ? _d : e}`);
       return null;
     }
   }
@@ -463,16 +490,20 @@ ${u}`;
     };
   }
   async function watch(url) {
+    var _a, _b;
     const html = await get(`${BASE}/ver/${url}`);
     const videosMatch = /var\s+videos\s*=\s*(\{[\s\S]*?\});/.exec(html);
     if (!videosMatch) return { streams: [] };
     let videos;
     try {
       videos = JSON.parse(videosMatch[1]);
-    } catch {
+    } catch (e) {
       return { streams: [] };
     }
-    const all = [...videos["LAT"] ?? [], ...videos["SUB"] ?? []].map((v) => ({ server: v.server || v.title || "", embed: v.code ?? v.url ?? "" })).filter((v) => v.embed.startsWith("http"));
+    const all = [...(_a = videos["LAT"]) != null ? _a : [], ...(_b = videos["SUB"]) != null ? _b : []].map((v) => {
+      var _a2, _b2;
+      return { server: v.server || v.title || "", embed: (_b2 = (_a2 = v.code) != null ? _a2 : v.url) != null ? _b2 : "" };
+    }).filter((v) => v.embed.startsWith("http"));
     if (all.length === 0) return { streams: [] };
     const results = await Promise.all(
       all.map(async (v) => {
@@ -505,7 +536,7 @@ ${u}`;
         title: `Episodio ${num}`,
         url: `${animeSlug}-${num}`
       }));
-    } catch {
+    } catch (e) {
       return [];
     }
   }

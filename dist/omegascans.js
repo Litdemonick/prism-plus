@@ -16,7 +16,21 @@ var io_prismhub_omegascans = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getOwnPropSymbols = Object.getOwnPropertySymbols;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __propIsEnum = Object.prototype.propertyIsEnumerable;
+  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __spreadValues = (a, b) => {
+    for (var prop in b || (b = {}))
+      if (__hasOwnProp.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    if (__getOwnPropSymbols)
+      for (var prop of __getOwnPropSymbols(b)) {
+        if (__propIsEnum.call(b, prop))
+          __defNormalProp(a, prop, b[prop]);
+      }
+    return a;
+  };
   var __export = (target, all) => {
     for (var name in all)
       __defProp(target, name, { get: all[name], enumerable: true });
@@ -43,7 +57,8 @@ var io_prismhub_omegascans = (() => {
   // sdk/http.ts
   var NetworkError = class extends Error {
     constructor(cause, url) {
-      super(`Error de red en ${url}: ${cause?.message ?? cause}`);
+      var _a;
+      super(`Error de red en ${url}: ${(_a = cause == null ? void 0 : cause.message) != null ? _a : cause}`);
       this.name = "NetworkError";
     }
   };
@@ -77,7 +92,7 @@ var io_prismhub_omegascans = (() => {
       timeout = DEFAULT_TIMEOUT,
       acceptStatus = false
     } = options;
-    const merged = { "User-Agent": DEFAULT_UA, ...headers };
+    const merged = __spreadValues({ "User-Agent": DEFAULT_UA }, headers);
     let lastError;
     for (let attempt = 0; attempt <= retries; attempt++) {
       const controller = new AbortController();
@@ -150,15 +165,19 @@ var io_prismhub_omegascans = (() => {
       title: series.title,
       cover: series.thumbnail,
       description: series.description,
-      episodes: chapRes.data.map((ch) => ({
-        title: ch.chapter_name ?? `Chapter ${ch.title}`,
-        url: `${ch.series.series_slug}/${ch.chapter_slug}`
-      }))
+      episodes: chapRes.data.map((ch) => {
+        var _a;
+        return {
+          title: (_a = ch.chapter_name) != null ? _a : `Chapter ${ch.title}`,
+          url: `${ch.series.series_slug}/${ch.chapter_slug}`
+        };
+      })
     };
   }
   async function watch(url) {
+    var _a, _b, _c;
     const data = await getJson(`${API}/chapter/${url}`);
-    const images = data.chapter?.chapter_data?.images ?? [];
+    const images = (_c = (_b = (_a = data.chapter) == null ? void 0 : _a.chapter_data) == null ? void 0 : _b.images) != null ? _c : [];
     return {
       streams: images.map((imgUrl, i) => ({
         url: imgUrl,

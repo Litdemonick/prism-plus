@@ -16,7 +16,21 @@ var io_prismhub_mangadex = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getOwnPropSymbols = Object.getOwnPropertySymbols;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __propIsEnum = Object.prototype.propertyIsEnumerable;
+  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __spreadValues = (a, b) => {
+    for (var prop in b || (b = {}))
+      if (__hasOwnProp.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    if (__getOwnPropSymbols)
+      for (var prop of __getOwnPropSymbols(b)) {
+        if (__propIsEnum.call(b, prop))
+          __defNormalProp(a, prop, b[prop]);
+      }
+    return a;
+  };
   var __export = (target, all) => {
     for (var name in all)
       __defProp(target, name, { get: all[name], enumerable: true });
@@ -43,7 +57,8 @@ var io_prismhub_mangadex = (() => {
   // sdk/http.ts
   var NetworkError = class extends Error {
     constructor(cause, url) {
-      super(`Error de red en ${url}: ${cause?.message ?? cause}`);
+      var _a;
+      super(`Error de red en ${url}: ${(_a = cause == null ? void 0 : cause.message) != null ? _a : cause}`);
       this.name = "NetworkError";
     }
   };
@@ -77,7 +92,7 @@ var io_prismhub_mangadex = (() => {
       timeout = DEFAULT_TIMEOUT,
       acceptStatus = false
     } = options;
-    const merged = { "User-Agent": DEFAULT_UA, ...headers };
+    const merged = __spreadValues({ "User-Agent": DEFAULT_UA }, headers);
     let lastError;
     for (let attempt = 0; attempt <= retries; attempt++) {
       const controller = new AbortController();
@@ -125,12 +140,14 @@ var io_prismhub_mangadex = (() => {
     return `${COVERS}/${mangaId}/${fileName}.256.jpg`;
   }
   function titleOf(attrs) {
+    var _a, _b;
     const t = attrs.title;
-    return t["en"] ?? t[Object.keys(t)[0]] ?? "Unknown";
+    return (_b = (_a = t["en"]) != null ? _a : t[Object.keys(t)[0]]) != null ? _b : "Unknown";
   }
   function mapItem(item) {
+    var _a;
     const rel = item.relationships.find((r) => r.type === "cover_art");
-    if (!rel?.attributes?.fileName) return null;
+    if (!((_a = rel == null ? void 0 : rel.attributes) == null ? void 0 : _a.fileName)) return null;
     return {
       title: titleOf(item.attributes),
       url: item.id,
@@ -160,6 +177,7 @@ var io_prismhub_mangadex = (() => {
     });
   }
   async function detail(mangaId) {
+    var _a, _b, _c;
     const [mangaRes, chapRes] = await Promise.all([
       getJson(`${API}/manga/${mangaId}?${INCLUDES}&${RATINGS}`),
       getJson(
@@ -168,13 +186,13 @@ var io_prismhub_mangadex = (() => {
     ]);
     const manga = mangaRes.data;
     const rel = manga.relationships.find((r) => r.type === "cover_art");
-    const cover = rel?.attributes?.fileName ? coverUrl(mangaId, rel.attributes.fileName) : void 0;
+    const cover = ((_a = rel == null ? void 0 : rel.attributes) == null ? void 0 : _a.fileName) ? coverUrl(mangaId, rel.attributes.fileName) : void 0;
     const desc = manga.attributes.description;
-    const description = desc["en"] ?? desc[Object.keys(desc)[0]] ?? "";
+    const description = (_c = (_b = desc["en"]) != null ? _b : desc[Object.keys(desc)[0]]) != null ? _c : "";
     const episodes = chapRes.data.map((ch) => {
       const num = ch.attributes.chapter;
       const t = ch.attributes.title;
-      const label = num ? `Chapter ${num}${t ? ` \u2014 ${t}` : ""}` : t ?? "Chapter";
+      const label = num ? `Chapter ${num}${t ? ` \u2014 ${t}` : ""}` : t != null ? t : "Chapter";
       return { title: label, url: ch.id };
     });
     return { title: titleOf(manga.attributes), cover, description, episodes };

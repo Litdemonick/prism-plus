@@ -227,7 +227,10 @@ for (const name of entries) {
       format: 'iife',
       outfile: outFile,
       platform: 'neutral',
-      target: 'es2020',
+      // El runtime QuickJS de PrismHub no parsea optional chaining (?.) ni
+      // nullish coalescing (??) (ES2020). Con es2017 esbuild los transpila a
+      // sintaxis compatible (manteniendo async/await).
+      target: 'es2017',
       minify: false,
       globalName,
       // PrismHub-compatible output: ==MiruExtension== header + IIFE bundle +

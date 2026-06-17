@@ -16,7 +16,21 @@ var io_prismhub_animepahe = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getOwnPropSymbols = Object.getOwnPropertySymbols;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __propIsEnum = Object.prototype.propertyIsEnumerable;
+  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __spreadValues = (a, b) => {
+    for (var prop in b || (b = {}))
+      if (__hasOwnProp.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    if (__getOwnPropSymbols)
+      for (var prop of __getOwnPropSymbols(b)) {
+        if (__propIsEnum.call(b, prop))
+          __defNormalProp(a, prop, b[prop]);
+      }
+    return a;
+  };
   var __export = (target, all) => {
     for (var name in all)
       __defProp(target, name, { get: all[name], enumerable: true });
@@ -43,7 +57,8 @@ var io_prismhub_animepahe = (() => {
   // sdk/http.ts
   var NetworkError = class extends Error {
     constructor(cause, url) {
-      super(`Error de red en ${url}: ${cause?.message ?? cause}`);
+      var _a;
+      super(`Error de red en ${url}: ${(_a = cause == null ? void 0 : cause.message) != null ? _a : cause}`);
       this.name = "NetworkError";
     }
   };
@@ -77,7 +92,7 @@ var io_prismhub_animepahe = (() => {
       timeout = DEFAULT_TIMEOUT,
       acceptStatus = false
     } = options;
-    const merged = { "User-Agent": DEFAULT_UA, ...headers };
+    const merged = __spreadValues({ "User-Agent": DEFAULT_UA }, headers);
     let lastError;
     for (let attempt = 0; attempt <= retries; attempt++) {
       const controller = new AbortController();
@@ -123,7 +138,8 @@ var io_prismhub_animepahe = (() => {
 
   // sdk/html.ts
   function matchFirst(html, pattern) {
-    return pattern.exec(html)?.[1]?.trim() ?? "";
+    var _a, _b, _c;
+    return (_c = (_b = (_a = pattern.exec(html)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : "";
   }
 
   // sdk/unpack.ts
@@ -140,10 +156,11 @@ var io_prismhub_animepahe = (() => {
     if (!codeMatch) return packed;
     let code = codeMatch[1];
     function toBase(n) {
+      var _a, _b;
       const digits = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
       const safeRadix = Math.min(radix, 62);
-      if (n < safeRadix) return digits[n] ?? n.toString(36);
-      return toBase(Math.floor(n / safeRadix)) + (digits[n % safeRadix] ?? (n % safeRadix).toString(36));
+      if (n < safeRadix) return (_a = digits[n]) != null ? _a : n.toString(36);
+      return toBase(Math.floor(n / safeRadix)) + ((_b = digits[n % safeRadix]) != null ? _b : (n % safeRadix).toString(36));
     }
     const lookup = {};
     while (count--) {
@@ -152,7 +169,10 @@ var io_prismhub_animepahe = (() => {
         lookup[key] = keys[count];
       }
     }
-    code = code.replace(/\b(\w+)\b/g, (token) => lookup[token] ?? token);
+    code = code.replace(/\b(\w+)\b/g, (token) => {
+      var _a;
+      return (_a = lookup[token]) != null ? _a : token;
+    });
     code = code.replace(/\\'/g, "'").replace(/\\"/g, '"');
     return code;
   }
@@ -263,12 +283,13 @@ var io_prismhub_animepahe = (() => {
     return result;
   }
   async function watch(url) {
+    var _a;
     const [animeSession, episodeSession] = url.split(";");
     if (!episodeSession) return { streams: [] };
     const linksData = await getJson(
       `${BASE}/api?m=links&id=${animeSession}&session=${episodeSession}&p=kwik`
     );
-    const entries = Object.entries(linksData.data ?? {});
+    const entries = Object.entries((_a = linksData.data) != null ? _a : {});
     if (entries.length === 0) return { streams: [] };
     const streams = [];
     for (const [quality, link] of entries) {
@@ -285,7 +306,7 @@ var io_prismhub_animepahe = (() => {
             headers: { Referer: `${KWIK}/` }
           });
         }
-      } catch {
+      } catch (e) {
       }
     }
     return { streams, headers: { Referer: `${KWIK}/` } };

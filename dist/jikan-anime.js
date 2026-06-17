@@ -16,7 +16,21 @@ var io_prismhub_jikan = (() => {
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getOwnPropSymbols = Object.getOwnPropertySymbols;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __propIsEnum = Object.prototype.propertyIsEnumerable;
+  var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __spreadValues = (a, b) => {
+    for (var prop in b || (b = {}))
+      if (__hasOwnProp.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    if (__getOwnPropSymbols)
+      for (var prop of __getOwnPropSymbols(b)) {
+        if (__propIsEnum.call(b, prop))
+          __defNormalProp(a, prop, b[prop]);
+      }
+    return a;
+  };
   var __export = (target, all) => {
     for (var name in all)
       __defProp(target, name, { get: all[name], enumerable: true });
@@ -43,7 +57,8 @@ var io_prismhub_jikan = (() => {
   // sdk/http.ts
   var NetworkError = class extends Error {
     constructor(cause, url) {
-      super(`Error de red en ${url}: ${cause?.message ?? cause}`);
+      var _a;
+      super(`Error de red en ${url}: ${(_a = cause == null ? void 0 : cause.message) != null ? _a : cause}`);
       this.name = "NetworkError";
     }
   };
@@ -77,7 +92,7 @@ var io_prismhub_jikan = (() => {
       timeout = DEFAULT_TIMEOUT,
       acceptStatus = false
     } = options;
-    const merged = { "User-Agent": DEFAULT_UA, ...headers };
+    const merged = __spreadValues({ "User-Agent": DEFAULT_UA }, headers);
     let lastError;
     for (let attempt = 0; attempt <= retries; attempt++) {
       const controller = new AbortController();
@@ -133,6 +148,7 @@ var io_prismhub_jikan = (() => {
     return data.data.map(mapItem);
   }
   async function detail(url) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
     const [anime, eps] = await Promise.all([
       getJson(`${BASE}/anime/${url}/full`),
       getJson(`${BASE}/anime/${url}/episodes`)
@@ -140,21 +156,21 @@ var io_prismhub_jikan = (() => {
     const a = anime.data;
     return {
       title: a.title,
-      cover: a.images?.jpg?.large_image_url,
-      description: a.synopsis ?? void 0,
+      cover: (_b = (_a = a.images) == null ? void 0 : _a.jpg) == null ? void 0 : _b.large_image_url,
+      description: (_c = a.synopsis) != null ? _c : void 0,
       episodes: eps.data.map((e) => ({
         title: e.title ? `Ep. ${e.mal_id} \u2014 ${e.title}` : `Episodio ${e.mal_id}`,
         url: `${url}/ep/${e.mal_id}`
       })),
       extra: {
-        Estado: a.status ?? "",
-        Tipo: a.type ?? "",
-        Episodios: String(a.episodes ?? "?"),
-        Duraci\u00F3n: a.duration ?? "",
+        Estado: (_d = a.status) != null ? _d : "",
+        Tipo: (_e = a.type) != null ? _e : "",
+        Episodios: String((_f = a.episodes) != null ? _f : "?"),
+        Duraci\u00F3n: (_g = a.duration) != null ? _g : "",
         Calificaci\u00F3n: a.score ? `${a.score} / 10` : "N/A",
-        Estudio: a.studios?.[0]?.name ?? "",
+        Estudio: (_j = (_i = (_h = a.studios) == null ? void 0 : _h[0]) == null ? void 0 : _i.name) != null ? _j : "",
         Temporada: a.season && a.year ? `${capitalize(a.season)} ${a.year}` : "",
-        G\u00E9neros: a.genres?.map((g) => g.name).join(", ") ?? ""
+        G\u00E9neros: (_l = (_k = a.genres) == null ? void 0 : _k.map((g) => g.name).join(", ")) != null ? _l : ""
       }
     };
   }
@@ -162,12 +178,13 @@ var io_prismhub_jikan = (() => {
     return { streams: [] };
   }
   function mapItem(a) {
+    var _a, _b, _c, _d;
     return {
       title: a.title,
       url: String(a.mal_id),
-      cover: a.images?.jpg?.image_url,
-      description: a.synopsis ?? void 0,
-      tags: a.genres?.map((g) => g.name)
+      cover: (_b = (_a = a.images) == null ? void 0 : _a.jpg) == null ? void 0 : _b.image_url,
+      description: (_c = a.synopsis) != null ? _c : void 0,
+      tags: (_d = a.genres) == null ? void 0 : _d.map((g) => g.name)
     };
   }
   function capitalize(s) {
