@@ -39,68 +39,28 @@ for (const file of bundles) {
   const bundlePath = join(DIST_DIR, file);
   const issues     = [];
 
-  // ── Cargar manifest para obtener el package id ────────────────────────────
-  const manifestPath = join(EXT_DIR, name, 'manifest.json');
-  if (!existsSync(manifestPath)) {
-    issues.push('manifest.json no encontrado — ¿la extensión fue eliminada?');
-    report(name, issues);
-    continue;
+  // ── Validación estática del formato PrismHub ──────────────────────────────
+  // Los bundles se publican como `export default class extends Extension` con
+  // cabecera ==PrismHubExtension==. No se pueden evaluar como script plano (la
+  // sintaxis `export` es de módulo), así que validamos su estructura de forma
+  // estática. Cubre tanto las nativas (build TS) como las vendored (comunidad).
+  const code = readFileSync(bundlePath, 'utf8');
+
+  if (!code.includes('==PrismHubExtension==')) {
+    issues.push('falta la cabecera ==PrismHubExtension==');
   }
-
-  let manifest;
-  try {
-    manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  } catch {
-    issues.push('manifest.json: JSON inválido');
-    report(name, issues);
-    continue;
+  if (!/@package\s+\S+/.test(code)) {
+    issues.push('falta @package en la cabecera');
   }
-
-  const globalName = manifest.package.replace(/[^a-zA-Z0-9_$]/g, '_');
-
-  // ── Ejecutar el IIFE en un contexto aislado ───────────────────────────────
-  const code    = readFileSync(bundlePath, 'utf8');
-  const sandbox = {
-    // Stub mínimo de fetch — nunca se llama en estos tests
-    fetch: () => Promise.reject(new Error('fetch disabled in tests')),
-    setTimeout: (fn, ms) => { /* no-op */ },
-    clearTimeout: () => {},
-    console,
-  };
-
-  try {
-    runInNewContext(code, sandbox);
-  } catch (err) {
-    issues.push(`Error al evaluar el bundle: ${err.message}`);
-    report(name, issues);
-    continue;
+  // Acepta tanto la forma anónima como con nombre de clase:
+  //   export default class extends Extension
+  //   export default class Foo extends Extension
+  if (!/export default class\s+(?:\w+\s+)?extends\s+Extension/.test(code)) {
+    issues.push('falta `export default class extends Extension`');
   }
-
-  // ── Verificar que el global existe ───────────────────────────────────────
-  const ext = sandbox[globalName];
-  if (!ext || typeof ext !== 'object') {
-    issues.push(`Global '${globalName}' no encontrado en el bundle`);
-    report(name, issues);
-    continue;
-  }
-
-  // ── Verificar las 4 funciones exportadas ─────────────────────────────────
   for (const fn of REQUIRED_FNS) {
-    if (typeof ext[fn] !== 'function') {
-      issues.push(`'${fn}' no es una función (tipo: ${typeof ext[fn]})`);
-    } else {
-      // Verificar que devuelve una Promise (es async)
-      const result = ext[fn].__proto__?.constructor?.name;
-      // Una función async tiene un constructor llamado AsyncFunction
-      const isAsync = ext[fn].constructor?.name === 'AsyncFunction' ||
-                      // Fallback: llamarla con args inválidos y ver si devuelve Promise
-                      ext[fn]('__test__', 1) instanceof Promise;
-      if (!isAsync) {
-        issues.push(`'${fn}' no es async`);
-      } else {
-        // Limpiar la Promise pendiente (no nos importa el resultado)
-        ext[fn]('__test__', 1)?.catch?.(() => {});
-      }
+    if (!new RegExp(`\\b${fn}\\s*\\(`).test(code)) {
+      issues.push(`no referencia el método '${fn}('`);
     }
   }
 
