@@ -221,7 +221,40 @@ export default class extends Extension {
   async search(kw, page, filter) { return io_prismhub_comick.search(kw, page, filter); }
   async createFilter(filter) { return typeof io_prismhub_comick.createFilter === 'function' ? io_prismhub_comick.createFilter(filter) : {}; }
   async detail(url) { return io_prismhub_comick.detail(url); }
-  async watch(url) { return io_prismhub_comick.watch(url); }
   async checkUpdate(url) { return typeof io_prismhub_comick.checkUpdate === 'function' ? io_prismhub_comick.checkUpdate(url) : {}; }
+
+  // Adapta el formato de Prism+ ({streams:[{url,quality,headers}]}) al contrato
+  // de watch de PrismHub ({type,url,headers} + X-Servers para el selector de
+  // servidores). Si llega una URL ya resuelta (cambio de servidor), se devuelve.
+  async watch(url) {
+    if (typeof url === 'string' && url.indexOf('http') === 0 &&
+        (url.indexOf('.m3u8') !== -1 || url.indexOf('.mp4') !== -1)) {
+      return { type: url.indexOf('.mp4') !== -1 ? 'mp4' : 'hls', url: url, headers: {} };
+    }
+    var r = await io_prismhub_comick.watch(url);
+    if (!r || !Array.isArray(r.streams)) return r;
+    var streams = r.streams.filter(function (s) { return s && s.url; });
+    if (streams.length === 0) {
+      return { type: 'hls', url: 'error://Sin servidores disponibles', headers: {} };
+    }
+    var servers = {}, referers = {};
+    for (var i = 0; i < streams.length; i++) {
+      var s = streams[i];
+      var name = s.quality || s.server || ('Servidor ' + (i + 1));
+      servers[name] = s.url;
+      if (s.headers && s.headers.Referer) referers[name] = s.headers.Referer;
+    }
+    var p = streams[0];
+    return {
+      type: p.url.indexOf('.mp4') !== -1 ? 'mp4' : 'hls',
+      url: p.url,
+      subtitles: r.subtitles || [],
+      headers: Object.assign({}, p.headers || {}, {
+        'X-Servers': JSON.stringify(servers),
+        'X-Primary-Server': p.quality || p.server || 'Servidor 1',
+        'X-Server-Referers': JSON.stringify(referers)
+      })
+    };
+  }
 }
 
