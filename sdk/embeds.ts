@@ -36,6 +36,7 @@ export async function resolveEmbed(
     else if (s.includes('mp4upload')) result = await resolveMp4upload(embedUrl, referer);
     else if (s.includes('yourupload') || s.includes('yupload'))
       result = await resolveYourupload(embedUrl, referer);
+    else if (s.includes('pixeldrain')) result = resolvePixeldrain(embedUrl);
     else if (s.includes('hqq') || s.includes('netu')) result = await resolveNetu(embedUrl, referer);
     // Familia streamwish/filemoon/luluvdo/etc.: el genérico desempaqueta el eval.
     else result = await resolveGeneric(embedUrl, referer);
@@ -270,6 +271,25 @@ export async function resolveYourupload(
   if (m) return { url: 'https:' + m[1], headers: hdrs };
 
   return null;
+}
+
+/**
+ * pixeldrain.com — descarga directa, sin ofuscación.
+ *
+ * Acepta cualquier forma de URL pixeldrain:
+ *   • pixeldrain.com/u/{id}        (página de visualización)
+ *   • pixeldrain.com/api/file/{id} (descarga directa, ya resuelta)
+ *   • pixeldrain.com/d/{id}        (descarga)
+ * y devuelve el endpoint de archivo directo `/api/file/{id}`, que media_kit
+ * reproduce nativo. Es síncrono: solo reescribe la URL, no hace fetch.
+ */
+export function resolvePixeldrain(url: string): ResolvedEmbed | null {
+  const m = /pixeldrain\.com\/(?:u|d|api\/file)\/([A-Za-z0-9]+)/.exec(url);
+  if (!m) return null;
+  return {
+    url: `https://pixeldrain.com/api/file/${m[1]}`,
+    headers: { Referer: 'https://pixeldrain.com/' },
+  };
 }
 
 /**

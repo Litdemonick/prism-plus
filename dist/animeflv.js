@@ -151,6 +151,7 @@ async function resolveEmbed(server, embedUrl, referer) {
     else if (s.includes("mp4upload")) result = await resolveMp4upload(embedUrl, referer);
     else if (s.includes("yourupload") || s.includes("yupload"))
       result = await resolveYourupload(embedUrl, referer);
+    else if (s.includes("pixeldrain")) result = resolvePixeldrain(embedUrl);
     else if (s.includes("hqq") || s.includes("netu")) result = await resolveNetu(embedUrl, referer);
     else result = await resolveGeneric(embedUrl, referer);
   } catch (e) {
@@ -288,6 +289,14 @@ async function resolveYourupload(url, referer) {
   m = /(\/\/[^"'\s<>]+\.mp4[^"'\s<>]*)/.exec(html);
   if (m) return { url: "https:" + m[1], headers: hdrs };
   return null;
+}
+function resolvePixeldrain(url) {
+  const m = /pixeldrain\.com\/(?:u|d|api\/file)\/([A-Za-z0-9]+)/.exec(url);
+  if (!m) return null;
+  return {
+    url: `https://pixeldrain.com/api/file/${m[1]}`,
+    headers: { Referer: "https://pixeldrain.com/" }
+  };
 }
 async function resolveNetu(url, referer) {
   var _a;
