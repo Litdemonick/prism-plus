@@ -34,6 +34,8 @@ export async function resolveEmbed(
     else if (s.includes('mixdrop') || s.includes('mxdrop') || s.includes('mdrop'))
       result = await resolveMixdrop(embedUrl, referer);
     else if (s.includes('mp4upload')) result = await resolveMp4upload(embedUrl, referer);
+    else if (s.includes('yourupload') || s.includes('yupload'))
+      result = await resolveYourupload(embedUrl, referer);
     else if (s.includes('hqq') || s.includes('netu')) result = await resolveNetu(embedUrl, referer);
     // Familia streamwish/filemoon/luluvdo/etc.: el genérico desempaqueta el eval.
     else result = await resolveGeneric(embedUrl, referer);
@@ -229,6 +231,42 @@ export async function resolveMp4upload(
   const real = candidates.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
   if (!real) return null;
   return { url: real, headers: { Referer: 'https://www.mp4upload.com/' } };
+}
+
+/**
+ * yourupload.com — embed `yourupload.com/embed/XXX`.
+ *
+ * El reproductor JW de YourUpload expone el mp4 directo en la página del embed,
+ * normalmente como `file: "https://cdnXX.yourupload.com/.../video.mp4"` (a veces
+ * protocolo-relativo `//cdn...`). Es mp4 directo, así que media_kit lo reproduce
+ * sin más. Se prueban varios patrones por robustez.
+ */
+export async function resolveYourupload(
+  url: string,
+  referer: string,
+): Promise<ResolvedEmbed | null> {
+  const html = await fetchEmbed(url, referer, { timeout: 12000, retries: 1 });
+  if (!html) return null;
+  const hdrs = { Referer: 'https://www.yourupload.com/' };
+
+  const norm = (u: string) =>
+    u.replace(/\\\//g, '/').replace(/^\/\//, 'https://');
+
+  // 1. JW Player: file/src/source con mp4 o m3u8
+  let m = /(?:file|src|source)\s*:\s*["']([^"']+\.(?:mp4|m3u8)[^"']*)["']/i.exec(
+    html,
+  );
+  if (m) return { url: norm(m[1]), headers: hdrs };
+
+  // 2. Cualquier URL .mp4 absoluta del CDN
+  m = /(https?:\/\/[^"'\s<>]+\.mp4[^"'\s<>]*)/.exec(html);
+  if (m) return { url: m[1], headers: hdrs };
+
+  // 3. .mp4 protocolo-relativo
+  m = /(\/\/[^"'\s<>]+\.mp4[^"'\s<>]*)/.exec(html);
+  if (m) return { url: 'https:' + m[1], headers: hdrs };
+
+  return null;
 }
 
 /**

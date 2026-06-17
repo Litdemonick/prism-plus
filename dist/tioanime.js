@@ -150,6 +150,8 @@ var io_prismhub_tioanime = (() => {
       else if (s.includes("mixdrop") || s.includes("mxdrop") || s.includes("mdrop"))
         result = await resolveMixdrop(embedUrl, referer);
       else if (s.includes("mp4upload")) result = await resolveMp4upload(embedUrl, referer);
+      else if (s.includes("yourupload") || s.includes("yupload"))
+        result = await resolveYourupload(embedUrl, referer);
       else if (s.includes("hqq") || s.includes("netu")) result = await resolveNetu(embedUrl, referer);
       else result = await resolveGeneric(embedUrl, referer);
     } catch (e) {
@@ -271,6 +273,21 @@ var io_prismhub_tioanime = (() => {
     const real = candidates.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
     if (!real) return null;
     return { url: real, headers: { Referer: "https://www.mp4upload.com/" } };
+  }
+  async function resolveYourupload(url, referer) {
+    const html = await fetchEmbed(url, referer, { timeout: 12e3, retries: 1 });
+    if (!html) return null;
+    const hdrs = { Referer: "https://www.yourupload.com/" };
+    const norm = (u) => u.replace(/\\\//g, "/").replace(/^\/\//, "https://");
+    let m = /(?:file|src|source)\s*:\s*["']([^"']+\.(?:mp4|m3u8)[^"']*)["']/i.exec(
+      html
+    );
+    if (m) return { url: norm(m[1]), headers: hdrs };
+    m = /(https?:\/\/[^"'\s<>]+\.mp4[^"'\s<>]*)/.exec(html);
+    if (m) return { url: m[1], headers: hdrs };
+    m = /(\/\/[^"'\s<>]+\.mp4[^"'\s<>]*)/.exec(html);
+    if (m) return { url: "https:" + m[1], headers: hdrs };
+    return null;
   }
   async function resolveNetu(url, referer) {
     const html = await fetchEmbed(url, referer, { timeout: 12e3, retries: 1 });
