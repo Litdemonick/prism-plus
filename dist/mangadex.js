@@ -68,19 +68,25 @@ async function request(url, options = {}) {
   const merged = __spreadValues({ "User-Agent": DEFAULT_UA }, headers);
   let lastError;
   for (let attempt = 0; attempt <= retries; attempt++) {
-    const controller = new AbortController();
+    const Ctrl = typeof AbortController !== "undefined" ? AbortController : null;
+    const controller = Ctrl ? new Ctrl() : null;
     try {
       const res = await Promise.race([
-        fetch(url, { method, headers: merged, body, signal: controller.signal }),
+        fetch(url, {
+          method,
+          headers: merged,
+          body,
+          signal: controller ? controller.signal : void 0
+        }),
         new Promise(
           (_, reject) => setTimeout(() => {
-            controller.abort();
+            if (controller) controller.abort();
             reject(new TimeoutError(timeout, url));
           }, timeout)
         )
       ]);
       if (acceptStatus || res.ok) {
-        controller.abort();
+        if (controller) controller.abort();
         return res;
       } else {
         const err = new HttpError(res.status, res.statusText, url);

@@ -86,15 +86,25 @@ export async function request(
   let lastError: unknown;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
-    const controller = new AbortController();
+    // AbortController no existe en el QuickJS de PrismHub. Es opcional: el
+    // Promise.race de abajo ya garantiza el timeout aunque no podamos cancelar
+    // el fetch subyacente.
+    const Ctrl =
+      typeof AbortController !== 'undefined' ? AbortController : null;
+    const controller = Ctrl ? new Ctrl() : null;
 
     try {
       // Promise.race garantiza timeout aunque el runtime no soporte AbortSignal
       const res = await Promise.race([
-        fetch(url, { method, headers: merged, body, signal: controller.signal }),
+        fetch(url, {
+          method,
+          headers: merged,
+          body,
+          signal: controller ? controller.signal : undefined,
+        }),
         new Promise<never>((_, reject) =>
           setTimeout(() => {
-            controller.abort();
+            if (controller) controller.abort();
             reject(new TimeoutError(timeout, url));
           }, timeout),
         ),
@@ -104,7 +114,7 @@ export async function request(
       // resolución de embeds — muchos hosts traen el contenido útil en páginas
       // 403/404). Si no, errores 4xx/5xx lanzan HttpError.
       if (acceptStatus || res.ok) {
-        controller.abort(); // cancelar el timer de timeout
+        if (controller) controller.abort(); // cancelar el timer de timeout
         return res;
       } else {
         const err = new HttpError(res.status, res.statusText, url);
