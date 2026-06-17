@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeFLV
-// @version      1.0.7
+// @version      1.0.8
 // @author       PrismHub
 // @lang         es
 // @license      MIT

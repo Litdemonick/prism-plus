@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         MonosChinos
-// @version      1.0.8
+// @version      1.0.9
 // @author       PrismHub
 // @lang         es
 // @license      MIT
