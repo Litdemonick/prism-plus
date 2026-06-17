@@ -154,8 +154,42 @@ async function watch(url) {
 export default class extends Extension {
   async latest(page) { return latest(page); }
   async search(kw, page, filter) { return search(kw, page, filter); }
-  async detail(url) { return detail(url); }
   async createFilter(filter) { return (typeof createFilter === 'function') ? createFilter(filter) : {}; }
+
+  // Adapta el detail de Prism+ al de PrismHub: episodios planos [{title,url}] ->
+  // grupos [{title, urls:[{name,url}]}], y description -> desc.
+  async detail(url) {
+    var d = await detail(url);
+    if (!d || typeof d !== 'object') return d;
+    var eps = Array.isArray(d.episodes) ? d.episodes : [];
+    var grouped;
+    if (eps.length && eps[0] && Array.isArray(eps[0].urls)) {
+      grouped = eps.map(function (g) {
+        return {
+          title: g.title || 'Episodios',
+          urls: (Array.isArray(g.urls) ? g.urls : []).filter(function (e) {
+            return e && e.url;
+          }).map(function (e) {
+            return { name: e.name || e.title || e.url, url: e.url };
+          })
+        };
+      });
+    } else {
+      grouped = [{
+        title: 'Episodios',
+        urls: eps.filter(function (e) { return e && e.url; }).map(function (e) {
+          return { name: e.title || e.name || e.url, url: e.url };
+        })
+      }];
+    }
+    return {
+      title: d.title || '',
+      cover: d.cover,
+      desc: d.desc || d.description || '',
+      episodes: grouped,
+      headers: d.headers
+    };
+  }
   async checkUpdate(url) { return (typeof checkUpdate === 'function') ? checkUpdate(url) : {}; }
 
   // Adapta el formato de Prism+ ({streams:[{url,quality,headers}]}) al contrato
