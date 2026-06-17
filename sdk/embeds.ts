@@ -286,14 +286,20 @@ export async function resolveNetu(
   url: string,
   referer: string,
 ): Promise<ResolvedEmbed | null> {
-  const html = await fetchEmbed(url, referer, { timeout: 12000, retries: 1 });
-  if (!html) return null;
-
   const host = _hostOf(url) ?? 'hqq.tv';
   const siteHdrs: Record<string, string> = {
     Referer: `https://${host}/`,
     Origin: `https://${host}`,
   };
+
+  // hqq/netu responde 403 sin el header Origin del propio host — enviarlo es lo
+  // que desbloquea la página del reproductor.
+  const html = await fetchEmbed(url, referer, {
+    timeout: 12000,
+    retries: 1,
+    headers: { Origin: `https://${host}` },
+  });
+  if (!html) return null;
 
   // 1. atob() → decode → find m3u8 (formato más común en hqq 2024)
   for (const m of html.matchAll(/atob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/g)) {
@@ -423,11 +429,15 @@ function _hostOf(url: string): string | null {
 export async function fetchEmbed(
   url: string,
   referer: string,
-  opts: { timeout?: number; retries?: number } = {},
+  opts: {
+    timeout?: number;
+    retries?: number;
+    headers?: Record<string, string>;
+  } = {},
 ): Promise<string | null> {
   try {
     const res = await request(url, {
-      headers: { Referer: referer },
+      headers: { Referer: referer, ...(opts.headers ?? {}) },
       timeout: opts.timeout ?? 8000,
       retries: opts.retries ?? 0,
       acceptStatus: true, // muchos embeds traen el contenido útil en 403/404

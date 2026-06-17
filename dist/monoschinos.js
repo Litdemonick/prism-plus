@@ -284,13 +284,17 @@ var io_prismhub_monoschinos = (() => {
     return null;
   }
   async function resolveNetu(url, referer) {
-    const html = await fetchEmbed(url, referer, { timeout: 12e3, retries: 1 });
-    if (!html) return null;
     const host = _hostOf(url) ?? "hqq.tv";
     const siteHdrs = {
       Referer: `https://${host}/`,
       Origin: `https://${host}`
     };
+    const html = await fetchEmbed(url, referer, {
+      timeout: 12e3,
+      retries: 1,
+      headers: { Origin: `https://${host}` }
+    });
+    if (!html) return null;
     for (const m of html.matchAll(/atob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/g)) {
       try {
         const decoded = b64decode(m[1]);
@@ -377,7 +381,7 @@ ${u}`;
   async function fetchEmbed(url, referer, opts = {}) {
     try {
       const res = await request(url, {
-        headers: { Referer: referer },
+        headers: { Referer: referer, ...opts.headers ?? {} },
         timeout: opts.timeout ?? 8e3,
         retries: opts.retries ?? 0,
         acceptStatus: true
