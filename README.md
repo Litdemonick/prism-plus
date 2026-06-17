@@ -38,7 +38,7 @@ Cada extensión habla con una fuente (un sitio de anime, una API de manga, una p
 - [📦 Referencia del SDK](#sdk)
 - [🔧 Cómo escribir una extensión](#extension)
 - [📚 Catálogo de extensiones](#catalogo)
-- [🔌 Integrar Prism+ en tu app](#integracion)
+- [🔌 Consumo desde PrismHub](#integracion)
 - [⚙️ Build](#build)
 - [🤝 Contribuir](#contribuir)
 
@@ -640,9 +640,15 @@ npm run build   # validate + typecheck + esbuild + test
 
 <a id="integracion"></a>
 
-## 🔌 Integrar Prism+ en tu app
+## 🔌 Consumo desde PrismHub
 
-### Descargar el catálogo
+> ⚠️ **Prism+ es exclusivo de [PrismHub](https://github.com/Litdemonick/Prism_Hub).** No es un núcleo universal para otras apps: cada extensión se publica en el **formato nativo de PrismHub** (cabecera `==PrismHubExtension==` + `export default class extends Extension`) y se ejecuta dentro del runtime de PrismHub. Otra app no podría cargarlas sin replicar ese runtime.
+
+PrismHub ya viene configurado para alimentarse de este repositorio. No hay nada que integrar manualmente:
+
+1. Descarga el catálogo `index.json` y muestra las extensiones disponibles.
+2. Pre-instala el conjunto curado de nativas y descarga el resto bajo demanda.
+3. Carga cada `.js` (formato `export default class extends Extension`) en su motor JS.
 
 ```
 GET https://raw.githubusercontent.com/Litdemonick/prism-plus/main/index.json
@@ -654,36 +660,37 @@ GET https://raw.githubusercontent.com/Litdemonick/prism-plus/main/index.json
   "protocolVersion": "1",
   "extensions": [
     {
-      "name": "GoGoAnime",
-      "package": "io.prismhub.gogoanime",
-      "version": "1.0.0",
-      "type": "anime",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/gogoanime.js"
+      "name": "TioAnime",
+      "package": "io.prismhub.tioanime",
+      "version": "1.1.0",
+      "type": "bangumi",
+      "webSite": "https://tioanime.com",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js"
     }
   ]
 }
 ```
 
-### Cargar y usar una extensión
-
-El nombre global del IIFE es el `package` con no-alfanuméricos reemplazados por `_`:
+Cada `script` apunta a un bundle ya listo para PrismHub:
 
 ```javascript
-// io.prismhub.gogoanime → io_prismhub_gogoanime
-const ext = io_prismhub_gogoanime;
-
-const items  = await ext.latest(1);
-const detail = await ext.detail(items[0].url);
-const play   = await ext.watch(detail.episodes[0].url);
-// play.streams[0].url → URL reproducible
-// play.reason         → "premium_required" si está vacío
+// ==PrismHubExtension==
+// @package      io.prismhub.tioanime
+// @type         bangumi
+// ==/PrismHubExtension==
+export default class extends Extension {
+  async latest(page) { /* ... */ }
+  async search(kw, page) { /* ... */ }
+  async detail(url) { /* ... */ }
+  async watch(url) { /* ... */ }
+}
 ```
 
-### Self-hosting
+### Self-hosting (solo el mantenedor)
 
 ```yaml
 env:
-  REPO_OWNER: tu-usuario
+  REPO_OWNER: Litdemonick
   REPO_NAME:  prism-plus
   BRANCH:     main
 ```
