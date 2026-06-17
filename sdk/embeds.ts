@@ -74,7 +74,10 @@ export async function resolveVoe(
 ): Promise<ResolvedEmbed | null> {
   // voe encadena 2 fetches (redirect + espejo); le damos más margen y 1 reintento
   // para reducir fallos intermitentes bajo carga paralela.
-  const voeOpts = { timeout: 14000, retries: 1 };
+  // Timeout corto y sin reintento: si Voe está bloqueado por el ISP (sus
+  // dominios espejo rotan y algunos ISP los filtran), hay que fallar rápido
+  // para no demorar la apertura del episodio esperando a Voe.
+  const voeOpts = { timeout: 7000, retries: 0 };
   let html = await fetchEmbed(url, referer, voeOpts);
   if (!html) return null;
 

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         MonosChinos
-// @version      1.1.3
+// @version      1.1.4
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -154,7 +154,7 @@ async function resolveEmbed(server, embedUrl, referer) {
   return result;
 }
 async function resolveVoe(url, referer) {
-  const voeOpts = { timeout: 14e3, retries: 1 };
+  const voeOpts = { timeout: 7e3, retries: 0 };
   let html = await fetchEmbed(url, referer, voeOpts);
   if (!html) return null;
   const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(
