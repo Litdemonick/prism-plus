@@ -1,3 +1,16 @@
+// ==PrismHubExtension==
+// @name         Comick
+// @version      1.0.0
+// @author       PrismHub
+// @lang         all
+// @license      MIT
+// @icon         https://comick.app/static/icons/unicorn-256_maskable.png
+// @package      io.prismhub.comick
+// @type         manga
+// @webSite      https://comick.fun
+// @description  Manga multi-idioma vía API de Comick
+// ==/PrismHubExtension==
+
 "use strict";
 var io_prismhub_comick = (() => {
   var __defProp = Object.defineProperty;
@@ -203,3 +216,12 @@ var io_prismhub_comick = (() => {
     }
   }
 })();
+export default class extends Extension {
+  async latest(page) { return io_prismhub_comick.latest(page); }
+  async search(kw, page, filter) { return io_prismhub_comick.search(kw, page, filter); }
+  async createFilter(filter) { return typeof io_prismhub_comick.createFilter === 'function' ? io_prismhub_comick.createFilter(filter) : {}; }
+  async detail(url) { return io_prismhub_comick.detail(url); }
+  async watch(url) { return io_prismhub_comick.watch(url); }
+  async checkUpdate(url) { return typeof io_prismhub_comick.checkUpdate === 'function' ? io_prismhub_comick.checkUpdate(url) : {}; }
+}
+

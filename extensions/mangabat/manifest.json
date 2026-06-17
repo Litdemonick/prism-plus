@@ -5,5 +5,8 @@
   "author": "PrismHub",
   "type": "manga",
   "icon": "https://h.mangabat.com/favicon-96x96.png",
-  "description": "Manga en inglés desde MangaBat"
+  "description": "Manga en inglés desde MangaBat",
+  "lang": "en",
+  "webSite": "https://h.mangabat.com",
+  "license": "MIT"
 }

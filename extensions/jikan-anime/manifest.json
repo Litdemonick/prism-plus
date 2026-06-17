@@ -5,5 +5,8 @@
   "author": "PrismHub",
   "type": "anime",
   "icon": "https://cdn.myanimelist.net/img/sp/icon/apple-touch-icon-256.png",
-  "description": "Catálogo de anime desde MyAnimeList vía Jikan API pública (sin autenticación)"
+  "description": "Catálogo de anime desde MyAnimeList vía Jikan API pública (sin autenticación)",
+  "lang": "en",
+  "webSite": "https://myanimelist.net",
+  "license": "MIT"
 }

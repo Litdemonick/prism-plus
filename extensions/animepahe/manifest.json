@@ -5,5 +5,8 @@
   "author": "PrismHub",
   "type": "anime",
   "icon": "https://animepahe.ru/web-app-manifest-512x512.png",
-  "description": "Anime en inglés desde Animepahe"
+  "description": "Anime en inglés desde Animepahe",
+  "lang": "en",
+  "webSite": "https://animepahe.ru",
+  "license": "MIT"
 }

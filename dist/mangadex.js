@@ -1,3 +1,16 @@
+// ==PrismHubExtension==
+// @name         MangaDex
+// @version      1.0.2
+// @author       PrismHub
+// @lang         all
+// @license      MIT
+// @icon         https://mangadex.org/img/avatar.png
+// @package      io.prismhub.mangadex
+// @type         manga
+// @webSite      https://mangadex.org
+// @description  Manga multi-idioma vía API oficial de MangaDex
+// ==/PrismHubExtension==
+
 "use strict";
 var io_prismhub_mangadex = (() => {
   var __defProp = Object.defineProperty;
@@ -216,3 +229,12 @@ var io_prismhub_mangadex = (() => {
     }
   }
 })();
+export default class extends Extension {
+  async latest(page) { return io_prismhub_mangadex.latest(page); }
+  async search(kw, page, filter) { return io_prismhub_mangadex.search(kw, page, filter); }
+  async createFilter(filter) { return typeof io_prismhub_mangadex.createFilter === 'function' ? io_prismhub_mangadex.createFilter(filter) : {}; }
+  async detail(url) { return io_prismhub_mangadex.detail(url); }
+  async watch(url) { return io_prismhub_mangadex.watch(url); }
+  async checkUpdate(url) { return typeof io_prismhub_mangadex.checkUpdate === 'function' ? io_prismhub_mangadex.checkUpdate(url) : {}; }
+}
+

@@ -5,5 +5,8 @@
   "author": "PrismHub",
   "type": "manga",
   "icon": "https://mangadex.org/img/avatar.png",
-  "description": "Manga multi-idioma vía API oficial de MangaDex"
+  "description": "Manga multi-idioma vía API oficial de MangaDex",
+  "lang": "all",
+  "webSite": "https://mangadex.org",
+  "license": "MIT"
 }

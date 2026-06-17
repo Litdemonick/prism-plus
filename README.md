@@ -10,20 +10,24 @@
 
 # ✨ Prism+
 
-**El núcleo de extensiones universal y open-source para medios de streaming.**
+**El motor de extensiones oficial y exclusivo de PrismHub.**
 
 <br>
 
 [![Licencia MIT](https://img.shields.io/github/license/Litdemonick/prism-plus?style=flat-square)](LICENSE)
-[![Extensiones](https://img.shields.io/badge/extensiones-16-6f42c1?style=flat-square)](#catalogo)
+[![Extensiones](https://img.shields.io/badge/extensiones-161-6f42c1?style=flat-square)](#catalogo)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript)](tsconfig.json)
 [![Build](https://img.shields.io/github/actions/workflow/status/Litdemonick/prism-plus/build.yml?branch=main&style=flat-square&label=CI)](https://github.com/Litdemonick/prism-plus/actions)
 
 </div>
 
-Prism+ es la capa de extensiones que impulsa [PrismHub](https://github.com/Litdemonick/Prism_Hub) y cualquier cliente de medios compatible. Cada extensión es un módulo TypeScript que sabe cómo hablar con una fuente — un sitio de anime, una API de manga, una plataforma de películas, un feed de video — y expone una interfaz unificada que tu app puede llamar.
+Prism+ es la **única fuente de extensiones de [PrismHub](https://github.com/Litdemonick/Prism_Hub)**. PrismHub se alimenta exclusivamente de este repositorio: trae de fábrica un conjunto curado de extensiones nativas y descarga el resto del catálogo desde aquí.
 
-> 🌍 **Alcance:** anime, manga, manhwa, películas, series, documentales, TV en vivo, novelas, podcasts, feeds de video y mucho más. Si existe una fuente web pública, puede haber una extensión Prism+ para ella.
+Cada extensión habla con una fuente (un sitio de anime, una API de manga, una plataforma de películas, un feed de video) y expone una interfaz unificada. El build genera **el formato nativo de PrismHub** automáticamente — cabecera `==PrismHubExtension==` + `export default class extends Extension` — así que todo lo que se publica aquí funciona directamente en la app.
+
+> 🌍 **Alcance:** anime, manga, manhwa, películas, series, documentales, TV en vivo, novelas, podcasts, feeds de video y más.
+
+> 🔒 **Cerrado a contribuciones externas.** Este repositorio es exclusivo de PrismHub y solo su mantenedor añade extensiones nuevas. No se aceptan repos ni extensiones de terceros: si intentas instalar en PrismHub una extensión que ya existe aquí de forma nativa, la app la bloquea.
 
 ---
 

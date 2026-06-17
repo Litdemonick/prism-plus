@@ -5,5 +5,8 @@
   "author": "PrismHub",
   "type": "manga",
   "icon": "https://omegascans.org/icon.png",
-  "description": "Manga en inglés (manhwa / manhua) vía API de OmegaScans"
+  "description": "Manga en inglés (manhwa / manhua) vía API de OmegaScans",
+  "lang": "en",
+  "webSite": "https://omegascans.org",
+  "license": "MIT"
 }

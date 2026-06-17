@@ -1,3 +1,16 @@
+// ==PrismHubExtension==
+// @name         Animepahe
+// @version      1.0.0
+// @author       PrismHub
+// @lang         en
+// @license      MIT
+// @icon         https://animepahe.ru/web-app-manifest-512x512.png
+// @package      io.prismhub.animepahe
+// @type         bangumi
+// @webSite      https://animepahe.ru
+// @description  Anime en inglés desde Animepahe
+// ==/PrismHubExtension==
+
 "use strict";
 var io_prismhub_animepahe = (() => {
   var __defProp = Object.defineProperty;
@@ -334,3 +347,12 @@ var io_prismhub_animepahe = (() => {
     }
   }
 })();
+export default class extends Extension {
+  async latest(page) { return io_prismhub_animepahe.latest(page); }
+  async search(kw, page, filter) { return io_prismhub_animepahe.search(kw, page, filter); }
+  async createFilter(filter) { return typeof io_prismhub_animepahe.createFilter === 'function' ? io_prismhub_animepahe.createFilter(filter) : {}; }
+  async detail(url) { return io_prismhub_animepahe.detail(url); }
+  async watch(url) { return io_prismhub_animepahe.watch(url); }
+  async checkUpdate(url) { return typeof io_prismhub_animepahe.checkUpdate === 'function' ? io_prismhub_animepahe.checkUpdate(url) : {}; }
+}
+

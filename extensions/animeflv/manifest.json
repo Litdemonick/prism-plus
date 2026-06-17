@@ -5,5 +5,8 @@
   "author": "PrismHub",
   "type": "anime",
   "icon": "https://animeflv.net/favicon.ico",
-  "description": "Anime con subtítulos y doblaje en español desde AnimeFLV"
+  "description": "Anime con subtítulos y doblaje en español desde AnimeFLV",
+  "lang": "es",
+  "webSite": "https://animeflv.net",
+  "license": "MIT"
 }

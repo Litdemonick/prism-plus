@@ -5,5 +5,8 @@
   "author": "PrismHub",
   "type": "anime",
   "icon": "https://tioanime.com/favicon.ico",
-  "description": "Anime en español latino desde TioAnime"
+  "description": "Anime en español latino desde TioAnime",
+  "lang": "es",
+  "webSite": "https://tioanime.com",
+  "license": "MIT"
 }

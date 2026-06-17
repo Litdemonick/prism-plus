@@ -15,6 +15,7 @@ import {
   readdirSync,
   readFileSync,
   writeFileSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   rmSync,
@@ -27,6 +28,7 @@ import { fileURLToPath } from 'url';
 const ROOT       = fileURLToPath(new URL('..', import.meta.url));
 const EXT_DIR    = join(ROOT, 'extensions');
 const DIST_DIR   = join(ROOT, 'dist');
+const VENDOR_DIR = join(ROOT, 'vendored');
 const INDEX_PATH = join(ROOT, 'index.json');
 
 const REPO_OWNER = process.env.REPO_OWNER ?? 'Litdemonick';
@@ -79,6 +81,57 @@ function makeSanitizeFooter(globalName) {
 })();`;
 }
 
+// ─── Formato PrismHub ─────────────────────────────────────────────────────────
+// PrismHub carga las extensiones como `export default class extends Extension`
+// con una cabecera de metadatos `==MiruExtension==`. Las extensiones de Prism+
+// se escriben como funciones de módulo (latest/search/detail/watch) sobre el
+// SDK (fetch); el build las envuelve en ese formato automáticamente.
+
+// Mapea el tipo semántico del manifest al ExtensionType de PrismHub.
+function mapType(t) {
+  const s = String(t || '').toLowerCase();
+  if (['manga', 'comic', 'manhwa', 'manhua'].includes(s)) return 'manga';
+  if (['novel', 'fikushon', 'ln'].includes(s)) return 'fikushon';
+  return 'bangumi'; // anime, movie, series, tv, live → video
+}
+
+// Cabecera ==PrismHubExtension== que PrismHub parsea para los metadatos.
+// Mismo formato @clave valor que Miru (por compatibilidad del parser), pero
+// con el marcador propio de PrismHub — estas extensiones son de PrismHub/Prism+,
+// no de Miru.
+function makeHeader(m) {
+  return [
+    '// ==PrismHubExtension==',
+    `// @name         ${m.name}`,
+    `// @version      ${m.version}`,
+    `// @author       ${m.author}`,
+    `// @lang         ${m.lang ?? 'all'}`,
+    `// @license      ${m.license ?? 'MIT'}`,
+    `// @icon         ${m.icon ?? ''}`,
+    `// @package      ${m.package}`,
+    `// @type         ${mapType(m.type)}`,
+    `// @webSite      ${m.webSite ?? ''}`,
+    `// @description  ${m.description ?? ''}`,
+    '// ==/PrismHubExtension==',
+    '',
+  ].join('\n');
+}
+
+// Envoltorio que expone las funciones del bundle como métodos de la clase que
+// PrismHub instancia. El globalName ya fue saneado por el footer.
+function makeClassWrapper(globalName) {
+  return `
+export default class extends Extension {
+  async latest(page) { return ${globalName}.latest(page); }
+  async search(kw, page, filter) { return ${globalName}.search(kw, page, filter); }
+  async createFilter(filter) { return typeof ${globalName}.createFilter === 'function' ? ${globalName}.createFilter(filter) : {}; }
+  async detail(url) { return ${globalName}.detail(url); }
+  async watch(url) { return ${globalName}.watch(url); }
+  async checkUpdate(url) { return typeof ${globalName}.checkUpdate === 'function' ? ${globalName}.checkUpdate(url) : {}; }
+}
+`;
+}
+
 // ─── Build ────────────────────────────────────────────────────────────────────
 
 if (!existsSync(DIST_DIR)) mkdirSync(DIST_DIR, { recursive: true });
@@ -98,7 +151,10 @@ if (entries.length === 0) {
 // smoke tests (manifest no encontrado). Lo limpiamos automáticamente para que
 // dist/ siempre refleje exactamente las extensiones presentes.
 
-const validNames = new Set(entries);
+const vendoredNames = existsSync(VENDOR_DIR)
+  ? readdirSync(VENDOR_DIR).filter(f => f.endsWith('.js')).map(f => f.replace(/\.js$/, ''))
+  : [];
+const validNames = new Set([...entries, ...vendoredNames]);
 let pruned = 0;
 for (const file of readdirSync(DIST_DIR).filter(f => f.endsWith('.js'))) {
   if (!validNames.has(file.replace(/\.js$/, ''))) {
@@ -141,15 +197,76 @@ for (const name of entries) {
       target: 'es2020',
       minify: false,
       globalName,
-      footer: { js: makeSanitizeFooter(globalName) },
+      // PrismHub-compatible output: ==MiruExtension== header + IIFE bundle +
+      // sanitize footer + `export default class extends Extension` wrapper.
+      banner: { js: makeHeader(manifest) },
+      footer: {
+        js: makeSanitizeFooter(globalName) + makeClassWrapper(globalName),
+      },
     });
 
-    builtManifests.push({ ...manifest, script: rawUrl(name) });
+    builtManifests.push({
+      ...manifest,
+      type: mapType(manifest.type),
+      script: rawUrl(name),
+    });
     console.log(`  ✓  ${name}.js  (${manifest.name}  v${manifest.version})`);
   } catch (err) {
     errors.push(name);
     console.error(`  ✗  ${name} — error de compilación:`, err.message);
   }
+}
+
+// ─── Vendored: extensiones ya pre-construidas (formato PrismHub) ───────────────
+// Extensiones de terceros/comunidad ya en formato `==PrismHubExtension==` +
+// `export default class extends Extension`. No pasan por el build TS: se copian
+// tal cual a dist/ y se añaden al catálogo. Prism+ es la única fuente.
+
+function parseHeaderMeta(js) {
+  const meta = {};
+  for (const line of js.split('\n').slice(0, 30)) {
+    const m = /^\/\/\s*@(\w+)\s+(.*)$/.exec(line.trim());
+    if (m) meta[m[1]] = m[2].trim();
+  }
+  return meta;
+}
+
+const nativePackages = new Set(builtManifests.map(m => m.package));
+
+if (existsSync(VENDOR_DIR)) {
+  const vendored = readdirSync(VENDOR_DIR).filter(f => f.endsWith('.js')).sort();
+  let vok = 0;
+  for (const file of vendored) {
+    const js = readFileSync(join(VENDOR_DIR, file), 'utf8');
+    const m = parseHeaderMeta(js);
+    if (!m.package || !js.includes('export default class')) {
+      console.warn(`  ⚠  vendored/${file} — sin formato válido, omitido`);
+      continue;
+    }
+    // Dedup: nunca pisar una extensión nativa de prism+.
+    if (nativePackages.has(m.package)) {
+      console.warn(`  ⚠  vendored/${file} — duplica nativa ${m.package}, omitido`);
+      continue;
+    }
+    nativePackages.add(m.package);
+    copyFileSync(join(VENDOR_DIR, file), join(DIST_DIR, file));
+    builtManifests.push({
+      name: m.name ?? file.replace(/\.js$/, ''),
+      package: m.package,
+      version: (m.version ?? '1.0.0').replace(/^v/, ''),
+      author: m.author ?? 'community',
+      lang: m.lang ?? 'all',
+      license: m.license ?? 'MIT',
+      icon: m.icon ?? '',
+      type: mapType(m.type),
+      webSite: m.webSite ?? '',
+      description: m.description ?? m.name ?? '',
+      nsfw: m.nsfw === 'true',
+      script: `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}/dist/${file}`,
+    });
+    vok++;
+  }
+  console.log(`\n📦  Vendored: ${vok} extensión(es) de la comunidad añadidas`);
 }
 
 // ─── Generar index.json ───────────────────────────────────────────────────────

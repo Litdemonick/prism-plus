@@ -5,5 +5,8 @@
   "author": "PrismHub",
   "type": "manga",
   "icon": "https://comick.app/static/icons/unicorn-256_maskable.png",
-  "description": "Manga multi-idioma vía API de Comick"
+  "description": "Manga multi-idioma vía API de Comick",
+  "lang": "all",
+  "webSite": "https://comick.fun",
+  "license": "MIT"
 }

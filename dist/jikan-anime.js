@@ -1,3 +1,16 @@
+// ==PrismHubExtension==
+// @name         Jikan Anime
+// @version      1.0.0
+// @author       PrismHub
+// @lang         en
+// @license      MIT
+// @icon         https://cdn.myanimelist.net/img/sp/icon/apple-touch-icon-256.png
+// @package      io.prismhub.jikan
+// @type         bangumi
+// @webSite      https://myanimelist.net
+// @description  Catálogo de anime desde MyAnimeList vía Jikan API pública (sin autenticación)
+// ==/PrismHubExtension==
+
 "use strict";
 var io_prismhub_jikan = (() => {
   var __defProp = Object.defineProperty;
@@ -200,3 +213,12 @@ var io_prismhub_jikan = (() => {
     }
   }
 })();
+export default class extends Extension {
+  async latest(page) { return io_prismhub_jikan.latest(page); }
+  async search(kw, page, filter) { return io_prismhub_jikan.search(kw, page, filter); }
+  async createFilter(filter) { return typeof io_prismhub_jikan.createFilter === 'function' ? io_prismhub_jikan.createFilter(filter) : {}; }
+  async detail(url) { return io_prismhub_jikan.detail(url); }
+  async watch(url) { return io_prismhub_jikan.watch(url); }
+  async checkUpdate(url) { return typeof io_prismhub_jikan.checkUpdate === 'function' ? io_prismhub_jikan.checkUpdate(url) : {}; }
+}
+

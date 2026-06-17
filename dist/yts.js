@@ -1,3 +1,16 @@
+// ==PrismHubExtension==
+// @name         YTS
+// @version      1.0.0
+// @author       PrismHub
+// @lang         en
+// @license      MIT
+// @icon         https://yts.mx/assets/images/website/apple-touch-icon-144x144.png
+// @package      io.prismhub.yts
+// @type         bangumi
+// @webSite      https://yts.mx
+// @description  Películas en alta calidad vía YTS.mx (torrent links)
+// ==/PrismHubExtension==
+
 "use strict";
 var io_prismhub_yts = (() => {
   var __defProp = Object.defineProperty;
@@ -183,3 +196,12 @@ var io_prismhub_yts = (() => {
     }
   }
 })();
+export default class extends Extension {
+  async latest(page) { return io_prismhub_yts.latest(page); }
+  async search(kw, page, filter) { return io_prismhub_yts.search(kw, page, filter); }
+  async createFilter(filter) { return typeof io_prismhub_yts.createFilter === 'function' ? io_prismhub_yts.createFilter(filter) : {}; }
+  async detail(url) { return io_prismhub_yts.detail(url); }
+  async watch(url) { return io_prismhub_yts.watch(url); }
+  async checkUpdate(url) { return typeof io_prismhub_yts.checkUpdate === 'function' ? io_prismhub_yts.checkUpdate(url) : {}; }
+}
+

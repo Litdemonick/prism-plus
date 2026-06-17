@@ -1,3 +1,16 @@
+// ==PrismHubExtension==
+// @name         OmegaScans
+// @version      1.0.1
+// @author       PrismHub
+// @lang         en
+// @license      MIT
+// @icon         https://omegascans.org/icon.png
+// @package      io.prismhub.omegascans
+// @type         manga
+// @webSite      https://omegascans.org
+// @description  Manga en inglés (manhwa / manhua) vía API de OmegaScans
+// ==/PrismHubExtension==
+
 "use strict";
 var io_prismhub_omegascans = (() => {
   var __defProp = Object.defineProperty;
@@ -193,3 +206,12 @@ var io_prismhub_omegascans = (() => {
     }
   }
 })();
+export default class extends Extension {
+  async latest(page) { return io_prismhub_omegascans.latest(page); }
+  async search(kw, page, filter) { return io_prismhub_omegascans.search(kw, page, filter); }
+  async createFilter(filter) { return typeof io_prismhub_omegascans.createFilter === 'function' ? io_prismhub_omegascans.createFilter(filter) : {}; }
+  async detail(url) { return io_prismhub_omegascans.detail(url); }
+  async watch(url) { return io_prismhub_omegascans.watch(url); }
+  async checkUpdate(url) { return typeof io_prismhub_omegascans.checkUpdate === 'function' ? io_prismhub_omegascans.checkUpdate(url) : {}; }
+}
+
