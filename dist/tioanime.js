@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         TioAnime
-// @version      1.1.6
+// @version      1.1.7
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -437,11 +437,8 @@ async function search(keyword, page) {
 async function detail(url) {
   const html = await get(`${BASE}/anime/${url}`);
   const title = matchFirst(html, /<h1[^>]*class="[^"]*title[^"]*"[^>]*>([^<]+)<\/h1>/i);
-  const rawCover = matchFirst(
-    html,
-    /<div[^>]*class="[^"]*anime-image[^"]*"[\s\S]*?<img[^>]*src="([^"]+)"/i
-  );
-  const cover = rawCover.startsWith("http") ? rawCover : `${BASE}${rawCover}`;
+  const rawCover = matchFirst(html, /<img[^>]*src="(\/uploads\/portadas\/[^"]+)"/i) || matchFirst(html, /<img[^>]*src="([^"]*\/uploads\/[^"]+\.(?:jpg|jpeg|png|webp))"/i);
+  const cover = !rawCover ? "" : rawCover.startsWith("http") ? rawCover : `${BASE}${rawCover}`;
   const description = stripTags(
     between(html, '<p class="sinopsis">', "</p>")
   );
