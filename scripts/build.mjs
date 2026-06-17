@@ -117,16 +117,18 @@ function makeHeader(m) {
   ].join('\n');
 }
 
-// Envoltorio que expone las funciones del bundle como métodos de la clase que
-// PrismHub instancia. El globalName ya fue saneado por el footer.
-function makeClassWrapper(globalName) {
+// Envoltorio: las funciones del bundle (latest/search/detail/watch) quedan como
+// declaraciones top-level (esbuild ESM sin el export), igual que las extensiones
+// hand-made compatibles con el QuickJS de PrismHub. La clase las llama directo.
+// `typeof X === 'function'` es seguro aunque X no esté declarada (no lanza).
+function makeClassWrapper() {
   return `
 export default class extends Extension {
-  async latest(page) { return ${globalName}.latest(page); }
-  async search(kw, page, filter) { return ${globalName}.search(kw, page, filter); }
-  async createFilter(filter) { return typeof ${globalName}.createFilter === 'function' ? ${globalName}.createFilter(filter) : {}; }
-  async detail(url) { return ${globalName}.detail(url); }
-  async checkUpdate(url) { return typeof ${globalName}.checkUpdate === 'function' ? ${globalName}.checkUpdate(url) : {}; }
+  async latest(page) { return latest(page); }
+  async search(kw, page, filter) { return search(kw, page, filter); }
+  async detail(url) { return detail(url); }
+  async createFilter(filter) { return (typeof createFilter === 'function') ? createFilter(filter) : {}; }
+  async checkUpdate(url) { return (typeof checkUpdate === 'function') ? checkUpdate(url) : {}; }
 
   // Adapta el formato de Prism+ ({streams:[{url,quality,headers}]}) al contrato
   // de watch de PrismHub ({type,url,headers} + X-Servers para el selector de
@@ -136,7 +138,7 @@ export default class extends Extension {
         (url.indexOf('.m3u8') !== -1 || url.indexOf('.mp4') !== -1)) {
       return { type: url.indexOf('.mp4') !== -1 ? 'mp4' : 'hls', url: url, headers: {} };
     }
-    var r = await ${globalName}.watch(url);
+    var r = await watch(url);
     if (!r || !Array.isArray(r.streams)) return r;
     var streams = r.streams.filter(function (s) { return s && s.url; });
     if (streams.length === 0) {
@@ -145,9 +147,9 @@ export default class extends Extension {
     var servers = {}, referers = {};
     for (var i = 0; i < streams.length; i++) {
       var s = streams[i];
-      var name = s.quality || s.server || ('Servidor ' + (i + 1));
-      servers[name] = s.url;
-      if (s.headers && s.headers.Referer) referers[name] = s.headers.Referer;
+      var nm = s.quality || s.server || ('Servidor ' + (i + 1));
+      servers[nm] = s.url;
+      if (s.headers && s.headers.Referer) referers[nm] = s.headers.Referer;
     }
     var p = streams[0];
     return {
@@ -221,25 +223,26 @@ for (const name of entries) {
   const globalName = manifest.package.replace(/[^a-zA-Z0-9_$]/g, '_');
 
   try {
-    await build({
+    const result = await build({
       entryPoints: [entryFile],
       bundle: true,
-      format: 'iife',
-      outfile: outFile,
+      // ESM (no IIFE): el wrapping CommonJS de esbuild (__toCommonJS/__export)
+      // rompía el QuickJS (viejo) de PrismHub. Con ESM quedan funciones
+      // top-level; quitamos el `export` y PrismHub lo evalúa como script.
+      format: 'esm',
       platform: 'neutral',
-      // El runtime QuickJS de PrismHub no parsea optional chaining (?.) ni
-      // nullish coalescing (??) (ES2020). Con es2017 esbuild los transpila a
-      // sintaxis compatible (manteniendo async/await).
+      // es2017 transpila optional chaining (?.) y nullish (??) que ese QuickJS
+      // no parsea, manteniendo async/await.
       target: 'es2017',
       minify: false,
-      globalName,
-      // PrismHub-compatible output: ==MiruExtension== header + IIFE bundle +
-      // sanitize footer + `export default class extends Extension` wrapper.
-      banner: { js: makeHeader(manifest) },
-      footer: {
-        js: makeSanitizeFooter(globalName) + makeClassWrapper(globalName),
-      },
+      write: false,
     });
+
+    let body = result.outputFiles[0].text;
+    // Quitar la sentencia `export { ... };` final (PrismHub no es módulo).
+    body = body.replace(/\n?export\s*\{[\s\S]*?\};?\s*$/m, '\n');
+    const finalJs = makeHeader(manifest) + body + makeClassWrapper();
+    writeFileSync(outFile, finalJs, 'utf8');
 
     builtManifests.push({
       ...manifest,
