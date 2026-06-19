@@ -152,6 +152,8 @@ async function resolveEmbed(server, embedUrl, referer) {
     else if (s.includes("yourupload") || s.includes("yupload"))
       result = await resolveYourupload(embedUrl, referer);
     else if (s.includes("pixeldrain")) result = resolvePixeldrain(embedUrl);
+    else if (s.includes("dood") || s.includes("dsvplay") || s.includes("playmogo") || s.includes("d000d") || s.includes("ds2play") || s.includes("ds2video") || s.includes("vidply") || s.includes("do0od") || s.includes("all3do"))
+      result = await resolveDoodstream(embedUrl, referer);
     else if (s.includes("hqq") || s.includes("netu")) result = await resolveNetu(embedUrl, referer);
     else result = await resolveGeneric(embedUrl, referer);
   } catch (e) {
@@ -297,6 +299,33 @@ function resolvePixeldrain(url) {
     url: `https://pixeldrain.com/api/file/${m[1]}`,
     headers: { Referer: "https://pixeldrain.com/" }
   };
+}
+async function resolveDoodstream(url, referer) {
+  const host = _hostOf(url);
+  if (!host) return null;
+  const html = await fetchEmbed(url, referer, { timeout: 1e4, retries: 1 });
+  if (!html) return null;
+  const md5 = /\/pass_md5\/[A-Za-z0-9\-]+\/[A-Za-z0-9]+/.exec(html);
+  if (!md5) return null;
+  const md5path = md5[0];
+  const token = md5path.slice(md5path.lastIndexOf("/") + 1);
+  const base = await fetchEmbed(
+    `https://${host}${md5path}`,
+    `https://${host}/`,
+    { timeout: 1e4, retries: 1 }
+  );
+  if (!base || !/^https?:\/\//.test(base.trim())) return null;
+  const rand = _randomStr(10);
+  const finalUrl = `${base.trim()}${rand}?token=${token}&expiry=${Date.now()}`;
+  return { url: finalUrl, headers: { Referer: `https://${host}/` } };
+}
+function _randomStr(len) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let s = "";
+  for (let i = 0; i < len; i++) {
+    s += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return s;
 }
 async function resolveNetu(url, referer) {
   var _a;

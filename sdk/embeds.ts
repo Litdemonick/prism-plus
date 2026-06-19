@@ -37,6 +37,12 @@ export async function resolveEmbed(
     else if (s.includes('yourupload') || s.includes('yupload'))
       result = await resolveYourupload(embedUrl, referer);
     else if (s.includes('pixeldrain')) result = resolvePixeldrain(embedUrl);
+    else if (
+      s.includes('dood') || s.includes('dsvplay') || s.includes('playmogo') ||
+      s.includes('d000d') || s.includes('ds2play') || s.includes('ds2video') ||
+      s.includes('vidply') || s.includes('do0od') || s.includes('all3do')
+    )
+      result = await resolveDoodstream(embedUrl, referer);
     else if (s.includes('hqq') || s.includes('netu')) result = await resolveNetu(embedUrl, referer);
     // Familia streamwish/filemoon/luluvdo/etc.: el genérico desempaqueta el eval.
     else result = await resolveGeneric(embedUrl, referer);
@@ -290,6 +296,55 @@ export function resolvePixeldrain(url: string): ResolvedEmbed | null {
     url: `https://pixeldrain.com/api/file/${m[1]}`,
     headers: { Referer: 'https://pixeldrain.com/' },
   };
+}
+
+/**
+ * doodstream y sus espejos (dsvplay, playmogo, d000d, ds2play, vidply…).
+ *
+ * Algoritmo (verificado 2026): el embed (que redirige al espejo del momento)
+ * contiene una ruta `/pass_md5/<id>/<token>`. Se descarga esa ruta con el
+ * Referer del embed → devuelve la URL base del CDN en texto plano. La URL final
+ * de reproducción es: base + 10 caracteres aleatorios + `?token=<token>&expiry=<ms>`.
+ * media_kit la reproduce nativo (es un mp4 directo).
+ *
+ * No necesita conocer el dominio espejo: se piden tanto el embed como el
+ * pass_md5 al host original y el cliente sigue la redirección automáticamente.
+ */
+export async function resolveDoodstream(
+  url: string,
+  referer: string,
+): Promise<ResolvedEmbed | null> {
+  const host = _hostOf(url);
+  if (!host) return null;
+  const html = await fetchEmbed(url, referer, { timeout: 10000, retries: 1 });
+  if (!html) return null;
+
+  const md5 = /\/pass_md5\/[A-Za-z0-9\-]+\/[A-Za-z0-9]+/.exec(html);
+  if (!md5) return null;
+  const md5path = md5[0];
+  const token = md5path.slice(md5path.lastIndexOf('/') + 1);
+
+  // La respuesta de pass_md5 es la URL base del CDN (texto plano).
+  const base = await fetchEmbed(
+    `https://${host}${md5path}`,
+    `https://${host}/`,
+    { timeout: 10000, retries: 1 },
+  );
+  if (!base || !/^https?:\/\//.test(base.trim())) return null;
+
+  const rand = _randomStr(10);
+  const finalUrl = `${base.trim()}${rand}?token=${token}&expiry=${Date.now()}`;
+  return { url: finalUrl, headers: { Referer: `https://${host}/` } };
+}
+
+/** Cadena alfanumérica aleatoria (para el sufijo que exige el CDN de dood). */
+function _randomStr(len: number): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let s = '';
+  for (let i = 0; i < len; i++) {
+    s += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return s;
 }
 
 /**
