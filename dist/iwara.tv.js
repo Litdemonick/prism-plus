@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         Iwara
 // @version      v0.0.1
 // @author       hualiong
@@ -13,7 +13,7 @@
 export default class extends Extension {
   formatSeconds(seconds) {
     var hours = Math.floor(seconds / 3600);
-    var minutes = Math.floor((seconds % 3600) / 60);
+    var minutes = Math.floor(seconds % 3600 / 60);
     var remainingSeconds = seconds % 60;
     var formattedHours = hours < 10 ? "0" + hours : hours;
     var formattedMinutes = minutes < 10 ? "0" + minutes : minutes;
@@ -24,9 +24,8 @@ export default class extends Extension {
       return formattedHours + ":" + formattedMinutes + ":" + formattedSeconds;
     }
   }
-
-  async $api(url, options = { headers: {} }, count = 3, timeout = 5000) {
-    if (options.headers["Miru-Url"] == undefined) options.headers["Miru-Url"] = "https://api.iwara.tv";
+  async $api(url, options = { headers: {} }, count = 3, timeout = 5e3) {
+    if (options.headers["Miru-Url"] == void 0) options.headers["Miru-Url"] = "https://api.iwara.tv";
     try {
       return await Promise.race([
         this.request(url, options),
@@ -34,20 +33,18 @@ export default class extends Extension {
           setTimeout(() => {
             reject(new Error("Request timed out!"));
           }, timeout);
-        }),
+        })
       ]);
     } catch (error) {
       if (count > 0) {
         console.log(`[Retry (${count})]: ${url}`);
-        return this.$api(url, options, count - 1, timeout + 1000);
+        return this.$api(url, options, count - 1, timeout + 1e3);
       } else {
         throw error;
       }
     }
   }
-
   // =============================== 分割线 ============================== //
-
   async createFilter() {
     const rating = {
       title: "Rating",
@@ -57,8 +54,8 @@ export default class extends Extension {
       options: {
         all: "All",
         general: "General",
-        ecchi: "Ecchi",
-      },
+        ecchi: "Ecchi"
+      }
     };
     const sort = {
       title: "Sort",
@@ -70,8 +67,8 @@ export default class extends Extension {
         trending: "trending",
         popularity: "popularity",
         views: "views",
-        likes: "likes",
-      },
+        likes: "likes"
+      }
     };
     const year = {
       title: "Year",
@@ -80,16 +77,15 @@ export default class extends Extension {
       default: "",
       options: Object.fromEntries(
         new Map(
-          Array.from({ length: new Date().getFullYear() - 2013 }, (_, i) => [
+          Array.from({ length: (/* @__PURE__ */ new Date()).getFullYear() - 2013 }, (_, i) => [
             (2007 + i).toString(),
-            (2007 + i).toString(),
+            (2007 + i).toString()
           ])
         )
-      ),
+      )
     };
     return { rating, sort, year };
   }
-
   /**
    * rating - 全部：all | 普通：general | 成人：ecchi
    * sort - 最新：date | 热门：trending | 人气：popularity | 最多观看：views | 最多赞：likes
@@ -97,53 +93,44 @@ export default class extends Extension {
    * date - 年份
    */
   async latest(page, filter = { rating: ["all"], sort: ["date"] }) {
+    var _a, _b;
     let url = `/videos?rating=${filter.rating[0]}&sort=${filter.sort[0]}&page=${page - 1}`;
-    if (filter.year?.[0]) url += `&date=${filter.year?.[0]}`;
+    if ((_a = filter.year) == null ? void 0 : _a[0]) url += `&date=${(_b = filter.year) == null ? void 0 : _b[0]}`;
     const res = await this.$api(url);
-    return res.results
-      .filter((e) => e.file)
-      .map((e) => ({
-        title: e.title,
-        url: e.id,
-        cover: `https://i.iwara.tv/image/thumbnail/${e.file.id}/thumbnail-${e.thumbnail
-          .toString()
-          .padStart(2, "0")}.jpg`,
-        update: this.formatSeconds(e.file.duration),
-      }));
+    return res.results.filter((e) => e.file).map((e) => ({
+      title: e.title,
+      url: e.id,
+      cover: `https://i.iwara.tv/image/thumbnail/${e.file.id}/thumbnail-${e.thumbnail.toString().padStart(2, "0")}.jpg`,
+      update: this.formatSeconds(e.file.duration)
+    }));
   }
-
   async search(kw, page, filter) {
     if (!kw) return filter ? this.latest(page, filter) : this.latest(page);
     const res = await this.request(`/search?type=video&page=${page - 1}&query=${kw}`, {
-      headers: { "Miru-Url": "https://api.iwara.tv" },
+      headers: { "Miru-Url": "https://api.iwara.tv" }
     });
-    return res.results
-      .filter((e) => e.file)
-      .map((e) => ({
-        title: e.title,
-        url: e.id,
-        cover: `https://i.iwara.tv/image/thumbnail/${e.file.id}/thumbnail-${e.thumbnail
-          .toString()
-          .padStart(2, "0")}.jpg`,
-        update: this.formatSeconds(e.file.duration),
-      }));
+    return res.results.filter((e) => e.file).map((e) => ({
+      title: e.title,
+      url: e.id,
+      cover: `https://i.iwara.tv/image/thumbnail/${e.file.id}/thumbnail-${e.thumbnail.toString().padStart(2, "0")}.jpg`,
+      update: this.formatSeconds(e.file.duration)
+    }));
   }
-
   async detail(id) {
+    var _a, _b;
     const anime = await this.$api(`/video/${id}`);
     const url = anime.fileUrl.split("/");
     const files = await this.$api(url.pop(), { headers: { "Miru-Url": `${url.join("/")}/` } });
     return {
       title: anime.title,
       cover: `https://i.iwara.tv/image/thumbnail/${anime.file.id}/thumbnail-${anime.thumbnail.toString().padStart(2, "0")}.jpg`,
-      desc: anime.body?.trim() ?? "",
+      desc: (_b = (_a = anime.body) == null ? void 0 : _a.trim()) != null ? _b : "",
       episodes: files.map((e) => ({
         title: e.name,
-        urls: [{ name: "view", url: `https:${e.src.view}` }, { name: "download", url: `https:${e.src.download}` }],
-      })),
+        urls: [{ name: "view", url: `https:${e.src.view}` }, { name: "download", url: `https:${e.src.download}` }]
+      }))
     };
   }
-
   async watch(url) {
     console.log(url);
     return { type: url.indexOf(".mp4") > 0 ? "mp4" : "hls", url };

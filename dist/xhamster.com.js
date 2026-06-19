@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         xHamster
 // @version      v0.0.1
 // @author       bachig26
@@ -24,18 +24,16 @@ export default class extends Extension {
       novel.push({
         title,
         url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async search(kw) {
-	const kwstring = kw.replace(/ /g, '+');
+    const kwstring = kw.replace(/ /g, "+");
     const res = await this.request(`/search/${kwstring}`);
     const bsxList = await this.querySelectorAll(res, "div.thumb-list__item.video-thumb");
     const novel = [];
-
     for (const element of bsxList) {
       const html = await element.content;
       const url = await this.getAttributeText(html, "a.video-thumb__image-container.role-pop", "href");
@@ -44,25 +42,21 @@ export default class extends Extension {
       novel.push({
         title,
         url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async detail(url) {
     const res = await this.request("", {
       headers: {
-        "Miru-Url": url,
-      },
+        "Miru-Url": url
+      }
     });
-	  
-	const title = await this.querySelector(res, "meta[property='og:title']").getAttributeText("content");
-	const cover = await this.querySelector(res, "meta[property='og:image']").getAttributeText("content");
-	const urlPatterns = [/<link rel="preload" href="(.+?)"/];
-	  
+    const title = await this.querySelector(res, "meta[property='og:title']").getAttributeText("content");
+    const cover = await this.querySelector(res, "meta[property='og:image']").getAttributeText("content");
+    const urlPatterns = [/<link rel="preload" href="(.+?)"/];
     let episodeUrl = "";
-
     for (const pattern of urlPatterns) {
       const match = res.match(pattern);
       if (match) {
@@ -70,7 +64,6 @@ export default class extends Extension {
         break;
       }
     }
-
     return {
       title: title.trim(),
       cover,
@@ -80,23 +73,22 @@ export default class extends Extension {
           urls: [
             {
               name: title,
-              url: episodeUrl,
-            },
-          ],
-        },
-      ],
+              url: episodeUrl
+            }
+          ]
+        }
+      ]
     };
   }
-
   async watch(url) {
     return {
       type: "hls",
       url: url || "",
-	  headers: {
+      headers: {
         "referer": "https://xhamster.com/",
         "origin": "https://xhamster.com",
         "Miru-Url": url,
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.142.86 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.142.86 Safari/537.36"
       }
     };
   }

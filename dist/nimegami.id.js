@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         Nimegami
 // @version      v0.0.2
 // @author       JerukPurut404
@@ -13,7 +13,6 @@
 //Current issue: Doesn't work on older animes such as spy x family since it's using video.nimegami.id instead of berkasdrive.com
 
 export default class extends Extension {
-
   async latest() {
     const res = await this.request("/");
     const bsxList = await this.querySelectorAll(
@@ -24,7 +23,7 @@ export default class extends Extension {
     for (const element of bsxList) {
       const html = await element.content;
       let url2 = await this.getAttributeText(html, "div.thumb > a", "href");
-      url2 = url2.replace('https://nimegami.id', '');
+      url2 = url2.replace("https://nimegami.id", "");
       console.log(url2);
       const url = url2;
       const title = await this.querySelector(html, "h2 > a").text;
@@ -35,26 +34,23 @@ export default class extends Extension {
       novel.push({
         title: title.trim(),
         url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-  
-
-  async search(kw){
-    const res = await this.request(`/?s=${kw}&post_type=post`)
-    const bsxList = await this.querySelectorAll(res, "article")
+  async search(kw) {
+    const res = await this.request(`/?s=${kw}&post_type=post`);
+    const bsxList = await this.querySelectorAll(res, "article");
     const novel = [];
-
-    for (const element of bsxList){
+    for (const element of bsxList) {
       const html = await element.content;
-      let url2 = await this.getAttributeText(html, 'div.thumbnail > a', "href");
-      url2 = url2.replace('https://nimegami.id', '');
+      let url2 = await this.getAttributeText(html, "div.thumbnail > a", "href");
+      url2 = url2.replace("https://nimegami.id", "");
       console.log(url2);
       const url = url2;
-      const title = await this.querySelector(html, 'h2 > a').text;
-      const cover = await this.querySelector(html, 'img').getAttributeText("src");
+      const title = await this.querySelector(html, "h2 > a").text;
+      const cover = await this.querySelector(html, "img").getAttributeText("src");
       novel.push({
         title: title.trim(),
         url,
@@ -63,17 +59,15 @@ export default class extends Extension {
     }
     return novel;
   }
-
-  async detail(url){
+  async detail(url) {
     const res = await this.request(url);
-    const title = await this.querySelector(res, 'h1.title').text
+    const title = await this.querySelector(res, "h1.title").text;
     const cover = await this.querySelector(res, 'img[itemprop="image"]').getAttributeText("src");
     const desc = "No Desc Avaliable";
     const episodes_360p = [];
     const episodes_480p = [];
     const episodes_720p = [];
     const epiList = await this.querySelectorAll(res, "div.list_eps_stream > li");
-
     for (const element of epiList) {
       const html = await element.content;
       const name = await this.querySelector(html, ".select-eps").text;
@@ -86,56 +80,54 @@ export default class extends Extension {
       const match_360 = textString.match(regex_360);
       const match_480 = textString.match(regex_480);
       const match_720 = textString.match(regex_720);
-      const url = match_360 ? match_360[2] : "";
+      const url2 = match_360 ? match_360[2] : "";
       const url_480 = match_480 ? match_480[2] : "";
       const url_720 = match_720 ? match_720[2] : "";
-
-
       episodes_360p.push({
         name: name.trim(),
-        url,
+        url: url2
       });
       episodes_480p.push({
         name: name.trim(),
-        url: url_480,
+        url: url_480
       });
       episodes_720p.push({
         name: name.trim(),
-        url: url_720,
+        url: url_720
       });
     }
-    return{
+    return {
       title: title.trim(),
-      cover: cover,
-      desc: desc,
-      episodes:[{
-        title: '360p',
-        urls: episodes_360p.reverse()
-      }, 
-      {
-        title: '480p',
-        urls: episodes_480p.reverse()
-      }, 
-      {
-        title: '720p',
-        urls: episodes_720p.reverse()
-      }]
-    }
+      cover,
+      desc,
+      episodes: [
+        {
+          title: "360p",
+          urls: episodes_360p.reverse()
+        },
+        {
+          title: "480p",
+          urls: episodes_480p.reverse()
+        },
+        {
+          title: "720p",
+          urls: episodes_720p.reverse()
+        }
+      ]
+    };
   }
-
   async watch(url) {
-    console.log(url)
+    console.log(url);
     const chec = url.replace(/\\\//g, "/");
-    const res = await this.request('', {
+    const res = await this.request("", {
       headers: {
-        "Miru-Url": chec,
-      },
+        "Miru-Url": chec
+      }
     });
     const video_url = res.match(/<source src="(.+?.mp4)"/)[1];
-    
     return {
       type: "hls",
-      url: video_url || "",
+      url: video_url || ""
     };
   }
 }

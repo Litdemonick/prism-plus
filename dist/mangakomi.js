@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         MangaKomi
 // @version      v0.0.1
 // @author       OshekharO
@@ -14,49 +14,43 @@ export default class extends Extension {
   async req(url) {
     return this.request(url, {
       headers: {
-        "Miru-Url": await this.getSetting("mangakomi"),
-      },
+        "Miru-Url": await this.getSetting("mangakomi")
+      }
     });
   }
-
   async load() {
     this.registerSetting({
       title: "Base URL",
       key: "mangakomi",
       type: "input",
       description: "Homepage URL for MangaKomi",
-      defaultValue: "https://mangakomi.io",
+      defaultValue: "https://mangakomi.io"
     });
-
     this.registerSetting({
       title: "Reverse Order of Chapters",
       key: "reverseChaptersOrder",
       type: "toggle",
       description: "Reverse the order of chapters in ascending order",
-      defaultValue: "true",
+      defaultValue: "true"
     });
   }
-
   async latest(page) {
     const res = await this.req(`/manga/page/${page}/?m_orderby=latest`);
     const latest = await this.querySelectorAll(res, "div.row.row-eq-height > div.col-12.col-md-6");
-
     let comic = [];
     for (const element of latest) {
       const html = await element.content;
       const url = await this.getAttributeText(html, "h3 > a", "href");
       const title = await this.querySelector(html, "h3 > a").text;
       const cover = await this.querySelector(html, "img").getAttributeText("data-src");
-
       comic.push({
         title: title.trim(),
         url,
-        cover,
+        cover
       });
     }
     return comic;
   }
-
   async search(kw) {
     const kwstring = kw.replace(/ /g, "+");
     const res = await this.req(`/?s=${kwstring}&post_type=wp-manga`);
@@ -67,45 +61,39 @@ export default class extends Extension {
         const url = await this.getAttributeText(html, "h3 > a", "href");
         const title = await this.querySelector(html, "h3 > a").text;
         const cover = await this.querySelector(html, "img").getAttributeText("data-src");
-
         return {
           title: title.trim(),
           url,
-          cover,
+          cover
         };
       })
     );
     return result;
   }
-
   async detail(url) {
     const res = await this.request("", {
       headers: {
-        "Miru-Url": url,
-      },
+        "Miru-Url": url
+      }
     });
-
     const title = await this.querySelector(res, "h1").text;
     const cover = await this.querySelector(res, "div.summary_image > a > img.img-responsive.lazyload").getAttributeText("data-src");
     const desc = await this.querySelector(res, "div.summary__content.show-more").text;
-
     const epiList = await this.querySelectorAll(res, "ul.main.version-chap > li");
     const episodes = await Promise.all(
       epiList.map(async (element) => {
         const html = await element.content;
         const name = await this.querySelector(html, "a").text;
-        const url = await this.getAttributeText(html, "a", "href");
+        const url2 = await this.getAttributeText(html, "a", "href");
         return {
           name: name.trim(),
-          url,
+          url: url2
         };
       })
     );
-
-    if ((await this.getSetting("reverseChaptersOrder")) === "true") {
+    if (await this.getSetting("reverseChaptersOrder") === "true") {
       episodes.reverse();
     }
-
     return {
       title: title.trim(),
       cover,
@@ -113,19 +101,17 @@ export default class extends Extension {
       episodes: [
         {
           title: "Chapters",
-          urls: episodes,
-        },
-      ],
+          urls: episodes
+        }
+      ]
     };
   }
-
   async watch(url) {
     const res = await this.request("", {
       headers: {
-        "Miru-Url": url,
-      },
+        "Miru-Url": url
+      }
     });
-
     const images = await Promise.all(
       (await this.querySelectorAll(res, "div.reading-content > div.page-break > img")).map(async (element) => {
         const html = await element.content;
@@ -134,9 +120,8 @@ export default class extends Extension {
         return dataSrc;
       })
     );
-
     return {
-      urls: images,
+      urls: images
     };
   }
 }

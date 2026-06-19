@@ -10,7 +10,7 @@
 // Uso: node scripts/build.mjs
 // ---------------------------------------------------------------------------
 
-import { build } from 'esbuild';
+import { build, transform } from 'esbuild';
 import {
   readdirSync,
   readFileSync,
@@ -304,6 +304,40 @@ function parseHeaderMeta(js) {
   return meta;
 }
 
+// Transpila una vendored a es2017 (igual que las nativas): el QuickJS viejo de
+// PrismHub NO parsea optional chaining (?.) ni nullish (??) — sin esto, ~50 de
+// las 151 vendored fallaban al instalar con un error de sintaxis. Se preserva el
+// header y el contrato `export default class extends Extension` que PrismHub
+// transforma en runtime (esbuild renombra la clase y mueve el `export {…as
+// default}` al final; lo revertimos para que el parser de PrismHub lo reconozca).
+async function transpileVendored(src) {
+  // Quitar BOM inicial: algunos QuickJS lo tratan como token inválido.
+  src = src.replace(/^﻿/, '');
+  const lines = src.split('\n');
+  let i = 0;
+  const header = [];
+  while (i < lines.length &&
+      (lines[i].trim().startsWith('//') || lines[i].trim() === '')) {
+    header.push(lines[i]);
+    i++;
+  }
+  const body = lines.slice(i).join('\n');
+  const r = await transform(body, {
+    loader: 'js',
+    target: 'es2017',
+    format: 'esm',
+  });
+  let code = r.code;
+  // Quitar el bloque `export { X as default };` (multilínea) que añade esbuild.
+  code = code.replace(/export\s*\{[\s\S]*?as\s+default[\s\S]*?\}\s*;?/, '');
+  // Restaurar `export default class … extends Extension` sobre la clase top-level.
+  code = code.replace(
+    /\bclass\s+\w+(\s+extends\s+Extension\b)/,
+    'export default class$1',
+  );
+  return `${header.join('\n')}\n${code.trim()}\n`;
+}
+
 const nativePackages = new Set(builtManifests.map(m => m.package));
 
 if (existsSync(VENDOR_DIR)) {
@@ -322,7 +356,14 @@ if (existsSync(VENDOR_DIR)) {
       continue;
     }
     nativePackages.add(m.package);
-    copyFileSync(join(VENDOR_DIR, file), join(DIST_DIR, file));
+    // Transpilar a es2017 (no copiar crudo) para que el QuickJS de PrismHub
+    // pueda parsearlas. Si el transpilado fallara, se cae al copiado literal.
+    try {
+      writeFileSync(join(DIST_DIR, file), await transpileVendored(js), 'utf8');
+    } catch (e) {
+      console.warn(`  ⚠  vendored/${file} — transpilado falló (${e.message}), copiada cruda`);
+      copyFileSync(join(VENDOR_DIR, file), join(DIST_DIR, file));
+    }
     builtManifests.push({
       name: m.name ?? file.replace(/\.js$/, ''),
       package: m.package,

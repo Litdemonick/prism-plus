@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         AsuraScan
 // @version      v0.0.5
 // @author       bethro
@@ -14,33 +14,29 @@ export default class extends Extension {
   async req(url) {
     return this.request(url, {
       headers: {
-        "Miru-Url": await this.getSetting("asurascans"),
-      },
+        "Miru-Url": await this.getSetting("asurascans")
+      }
     });
   }
-
   async load() {
     this.registerSetting({
       title: "AsuraScan URL",
       key: "asurascans",
       type: "input",
       description: "Homepage URL for AsuraScan",
-      defaultValue: "https://asuracomic.net",
+      defaultValue: "https://asuracomic.net"
     });
-
     this.registerSetting({
       title: "Reverse Order of Chapters",
       key: "reverseChaptersOrderAsura",
       type: "toggle",
       description: "Reverse the order of chapters in ascending order",
-      defaultValue: "true",
+      defaultValue: "true"
     });
   }
-
   async latest(page) {
     const res = await this.req(`/series?page=${page}/`);
     const latest = await this.querySelectorAll(res, "div.grid.grid-cols-2 > a");
-
     let comic = [];
     for (const element of latest) {
       const html = await element.content;
@@ -49,23 +45,20 @@ export default class extends Extension {
       const cover = await this.querySelector(html, "img").getAttributeText(
         "src"
       );
-
       comic.push({
         title: title.trim(),
         url,
-        cover: cover,
+        cover
       });
     }
     return comic;
   }
-
   async search(kw, page) {
     const res = await this.req(`/series?page=${page}&name=${kw}`);
     const searchList = await this.querySelectorAll(
       res,
       "div.grid.grid-cols-2.sm\\:grid-cols-2.md\\:grid-cols-5.gap-3.p-4 > a"
     );
-
     const result = await Promise.all(
       searchList.map(async (element) => {
         const html = await element.content;
@@ -77,25 +70,21 @@ export default class extends Extension {
         const cover = await this.querySelector(html, "img").getAttributeText(
           "src"
         );
-
         return {
           title: title.trim(),
           url,
-          cover,
+          cover
         };
       })
     );
-
     return result;
   }
-
   async detail(url) {
     const res = await this.request("", {
       headers: {
-        "Miru-Url": "https://asuracomic.net/" + url,
-      },
+        "Miru-Url": "https://asuracomic.net/" + url
+      }
     });
-
     const title = await this.querySelector(
       res,
       "div.text-center.sm\\:text-left span.text-xl.font-bold"
@@ -108,7 +97,6 @@ export default class extends Extension {
       res,
       "span.font-medium.text-sm.text-\\[\\#A2A2A2\\]"
     ).text;
-
     const epiList = await this.querySelectorAll(
       res,
       "div.pl-4.pr-2.pb-4.overflow-y-auto > div"
@@ -120,22 +108,20 @@ export default class extends Extension {
           html,
           "h3.text-sm.text-white.font-medium a"
         ).text;
-        const url = await this.getAttributeText(
+        const url2 = await this.getAttributeText(
           html,
           "h3.text-sm.text-white.font-medium a",
           "href"
         );
         return {
           name: name.trim(),
-          url: url,
+          url: url2
         };
       })
     );
-
-    if ((await this.getSetting("reverseChaptersOrderAsura")) === "true") {
+    if (await this.getSetting("reverseChaptersOrderAsura") === "true") {
       episodes.reverse();
     }
-
     return {
       title,
       cover,
@@ -143,35 +129,28 @@ export default class extends Extension {
       episodes: [
         {
           title: "Chapters",
-          urls: episodes,
-        },
-      ],
+          urls: episodes
+        }
+      ]
     };
   }
-
   async watch(url) {
-    //console.log(url + " url");
-
     const res = await this.request("", {
       headers: {
         "Miru-Url": "https://asuracomic.net/series/" + url,
         referer: "https://asuracomic.net/",
         origin: "https://asuracomic.net",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.101 Safari/537.36",
-      },
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.101 Safari/537.36"
+      }
     });
-    const regex = /<script>(.*?)\<\/script>/gs;
+    const regex = new RegExp("<script>(.*?)\\<\\/script>", "gs");
     const matches = res.match(regex);
-    const pageRegex = /\\"pages\\":\[(.*?)\]/gs;
+    const pageRegex = new RegExp('\\\\"pages\\\\":\\[(.*?)\\]', "gs");
     const pageMatches = matches.join("").match(pageRegex);
-    //console.log(pageMatches + "pageMatches");
     const httpRegex = /https:\/\/[^\\]+/g;
     const httpMatches = pageMatches.join("").match(httpRegex);
-    //console.log(httpMatches.length + "httpMatches.length");
-    //console.log(httpMatches + "httpMatches");
-
     return {
-      urls: httpMatches,
+      urls: httpMatches
     };
   }
 }

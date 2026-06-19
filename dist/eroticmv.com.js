@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         EroticMV
 // @version      v0.0.1
 // @author       OshekharO
@@ -24,17 +24,15 @@ export default class extends Extension {
       novel.push({
         title: title.trim(),
         url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async search(kw) {
     const res = await this.request(`/?s=${kw}`);
     const bsxList = await this.querySelectorAll(res, "article.post-item.site__col");
     const novel = [];
-
     for (const element of bsxList) {
       const html = await element.content;
       const url = await this.getAttributeText(html, "a", "href");
@@ -43,26 +41,22 @@ export default class extends Extension {
       novel.push({
         title,
         url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async detail(url) {
     const res = await this.request("", {
       headers: {
-        "Miru-Url": url,
-      },
+        "Miru-Url": url
+      }
     });
-
     const title = await this.querySelector(res, "div.float-video-title > h6").text;
     const cover = await this.querySelector(res, "img.blog-picture.tmdb-picture").getAttributeText("src");
     const desc = await this.querySelector(res, "div.actor-element.tmdb-section-overview > p").text;
     const urlPatterns = [/https?:\/\/[^\s'"]+\.(?:mp4|m3u8)/];
-
     let episodeUrl = "";
-
     for (const pattern of urlPatterns) {
       const match = res.match(pattern);
       if (match) {
@@ -70,7 +64,6 @@ export default class extends Extension {
         break;
       }
     }
-
     return {
       title: title.trim(),
       cover,
@@ -81,18 +74,17 @@ export default class extends Extension {
           urls: [
             {
               name: title,
-              url: episodeUrl,
-            },
-          ],
-        },
-      ],
+              url: episodeUrl
+            }
+          ]
+        }
+      ]
     };
   }
-
   async watch(url) {
     return {
       type: "hls",
-      url: url || "",
+      url: url || ""
     };
   }
 }

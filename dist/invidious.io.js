@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         Invidious
 // @version      v0.0.4
 // @author       OshekharO
@@ -13,38 +13,40 @@
 export default class extends Extension {
   async latest() {
     const res = await this.request(`/trending?region=US`);
- 
     if (!Array.isArray(res)) {
       return [];
     }
- 
-    return res.map((item) => ({
-      title: item.title || "",
-      url: item.videoId || "",
-      cover: item.videoThumbnails?.[0]?.url || "", // Use the first thumbnail's URL if available
-    }));
+    return res.map((item) => {
+      var _a, _b;
+      return {
+        title: item.title || "",
+        url: item.videoId || "",
+        cover: ((_b = (_a = item.videoThumbnails) == null ? void 0 : _a[0]) == null ? void 0 : _b.url) || ""
+        // Use the first thumbnail's URL if available
+      };
+    });
   }
- 
   async search(kw) {
     const res = await this.request(`/search?q=${kw}`);
- 
-    return res.map((item) => ({
-      title: item.title || "",
-      url: item.videoId || "",
-      cover: item.videoThumbnails?.[0]?.url || "",
-    }));
+    return res.map((item) => {
+      var _a, _b;
+      return {
+        title: item.title || "",
+        url: item.videoId || "",
+        cover: ((_b = (_a = item.videoThumbnails) == null ? void 0 : _a[0]) == null ? void 0 : _b.url) || ""
+      };
+    });
   }
- 
   async detail(url) {
+    var _a, _b;
     const res = await this.request(`/videos/${url}`, {
-    headers: {
-      "Miru-Url": "https://cal1.iv.ggtyler.dev/api/v1",
-    },
-    });    
-  
+      headers: {
+        "Miru-Url": "https://cal1.iv.ggtyler.dev/api/v1"
+      }
+    });
     return {
       title: res.title,
-      cover: res.videoThumbnails?.[0]?.url,
+      cover: (_b = (_a = res.videoThumbnails) == null ? void 0 : _a[0]) == null ? void 0 : _b.url,
       desc: res.description,
       episodes: [
         {
@@ -52,20 +54,19 @@ export default class extends Extension {
           urls: [
             {
               name: res.title,
-              url: res.videoId,
-            },
-          ],
-        },
-      ],
+              url: res.videoId
+            }
+          ]
+        }
+      ]
     };
   }
- 
   async watch(url) {
-  const res = await this.request(`/videos/${url}`);
-  
-  return {
-    type: "hls",
-    url: res.formatStreams?.[0]?.url,
-  };
-}
+    var _a, _b;
+    const res = await this.request(`/videos/${url}`);
+    return {
+      type: "hls",
+      url: (_b = (_a = res.formatStreams) == null ? void 0 : _a[0]) == null ? void 0 : _b.url
+    };
+  }
 }

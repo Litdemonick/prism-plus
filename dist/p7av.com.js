@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         在线影院
 // @version      v0.0.2
 // @author       OshekharO
@@ -24,17 +24,15 @@ export default class extends Extension {
       novel.push({
         title: title.trim(),
         url: "https://www.haha888.xyz" + url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async search(kw) {
     const res = await this.request(`/search/${kw}`);
     const bsxList = await this.querySelectorAll(res, "div.video-block.thumbs-rotation");
     const novel = [];
-
     for (const element of bsxList) {
       const html = await element.content;
       const url = await this.getAttributeText(html, "a", "href");
@@ -43,27 +41,23 @@ export default class extends Extension {
       novel.push({
         title: title.trim(),
         url: "https://www.haha888.xyz" + url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async detail(url) {
     const res = await this.request("", {
       headers: {
-        "Miru-Url": url,
-      },
+        "Miru-Url": url
+      }
     });
-
     const title = await this.querySelector(res, "h1.page-title").text;
     const cover = await this.querySelector(res, "meta[name='twitter:image']").getAttributeText("content");
     const desc = await this.querySelector(res, "meta[name='twitter:card']").getAttributeText("content");
     const name = await this.querySelector(res, "h6").text;
     const urlPatterns = [/https?:\/\/[^\s'"]+\.(?:mp4|m3u8)/];
-
     let episodeUrl = "";
-
     for (const pattern of urlPatterns) {
       const match = res.match(pattern);
       if (match) {
@@ -71,7 +65,6 @@ export default class extends Extension {
         break;
       }
     }
-
     return {
       title: title.trim(),
       cover,
@@ -81,24 +74,23 @@ export default class extends Extension {
           title: "Directory",
           urls: [
             {
-              name: name,
-              url: episodeUrl,
-            },
-          ],
-        },
-      ],
+              name,
+              url: episodeUrl
+            }
+          ]
+        }
+      ]
     };
   }
-
   async watch(url) {
     let hh = {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
-      Referer: "https://www.haha888.xyz/",
+      Referer: "https://www.haha888.xyz/"
     };
     return {
       type: "hls",
       url: url || "",
-      headers: hh,
+      headers: hh
     };
   }
 }

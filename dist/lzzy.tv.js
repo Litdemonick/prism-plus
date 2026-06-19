@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         量子资源
 // @version      v0.0.2
 // @author       hualiong
@@ -10,61 +10,56 @@
 // @webSite      https://lzizy.com
 // @nsfw         false
 // ==/PrismHubExtension==
+var __defProp = Object.defineProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 export default class extends Extension {
-  genres = {};
-
-  domains = [
-    // "www.lzzy.tv",
-    "lzizy.com",
-    "lzizy1.com",
-    "lzizy2.com",
-    "lzizy3.com",
-    "lzizy4.com",
-    "lzizy5.com",
-    "lzizy6.com",
-    "lzizy7.com",
-    "lzizy8.com",
-    // "cj.lzcaiji.com",
-  ];
-
-  dict = new Map([
-    ["&nbsp;", " "],
-    ["&quot;", '"'],
-    ["&lt;", "<"],
-    ["&gt;", ">"],
-    ["&amp;", "&"],
-    ["&sdot;", "·"],
-  ]);
-
+  constructor() {
+    super(...arguments);
+    __publicField(this, "genres", {});
+    __publicField(this, "domains", [
+      // "www.lzzy.tv",
+      "lzizy.com",
+      "lzizy1.com",
+      "lzizy2.com",
+      "lzizy3.com",
+      "lzizy4.com",
+      "lzizy5.com",
+      "lzizy6.com",
+      "lzizy7.com",
+      "lzizy8.com"
+      // "cj.lzcaiji.com",
+    ]);
+    __publicField(this, "dict", /* @__PURE__ */ new Map([
+      ["&nbsp;", " "],
+      ["&quot;", '"'],
+      ["&lt;", "<"],
+      ["&gt;", ">"],
+      ["&amp;", "&"],
+      ["&sdot;", "\xB7"]
+    ]));
+  }
   text(content) {
     if (!content) return "";
-    const str =
-      [...content.matchAll(/>([^<]+?)</g)]
-        .map((m) => m[1])
-        .join("")
-        .trim() || content;
+    const str = [...content.matchAll(/>([^<]+?)</g)].map((m) => m[1]).join("").trim() || content;
     return str.replace(/&[a-z]+;/g, (c) => this.dict.get(c) || c);
   }
-
-  async $get(params, count = 2, timeout = 4000) {
+  async $get(params, count = 2, timeout = 4e3) {
     try {
       const list = this.domains.map(
-        (domain) =>
-          new Promise((resolve, reject) => {
-            this.request("/api.php/provide/vod?ac=detail&from=lzm3u8" + params, {
-              headers: { "Miru-Url": `https://${domain}` },
-            })
-              .then((result) => {
-                if (typeof result === "object") {
-                  resolve(result);
-                } else {
-                  reject(new Error("Error: Response is not an json object"));
-                }
-              })
-              .catch((error) => {
-                reject(error);
-              });
-          })
+        (domain) => new Promise((resolve, reject) => {
+          this.request("/api.php/provide/vod?ac=detail&from=lzm3u8" + params, {
+            headers: { "Miru-Url": `https://${domain}` }
+          }).then((result) => {
+            if (typeof result === "object") {
+              resolve(result);
+            } else {
+              reject(new Error("Error: Response is not an json object"));
+            }
+          }).catch((error) => {
+            reject(error);
+          });
+        })
       );
       list.push(
         new Promise((_, reject) => {
@@ -83,66 +78,58 @@ export default class extends Extension {
       }
     }
   }
-
   async load() {
     const res = await this.$get("&ac=list");
     res.class.forEach((e) => {
       this.genres[e.type_id] = e.type_name;
     });
   }
-
   async createFilter() {
     const genres = {
-      title: "影片类型",
+      title: "\u5F71\u7247\u7C7B\u578B",
       max: 1,
       min: 0,
       default: "",
-      options: this.genres,
+      options: this.genres
     };
     return { genres };
   }
-
   async latest(page) {
-    const h = (new Date().getUTCHours() + 9) % 24;
+    const h = ((/* @__PURE__ */ new Date()).getUTCHours() + 9) % 24;
     const res = await this.$get(`&pg=${page}&h=${h || 24}`);
     return res.list.map((e) => ({
       title: e.vod_name,
       url: `${e.vod_id}`,
       cover: e.vod_pic,
-      update: e.vod_remarks,
+      update: e.vod_remarks
     }));
   }
-
   async search(kw, page, filter) {
-    if (!kw && !(filter?.genres?.[0])) {
+    var _a, _b, _c;
+    if (!kw && !((_a = filter == null ? void 0 : filter.genres) == null ? void 0 : _a[0])) {
       return this.latest(page);
     }
-    const res = await this.$get(`&wd=${kw}&t=${filter?.genres?.[0] ?? ""}&pg=${page}`);
+    const res = await this.$get(`&wd=${kw}&t=${(_c = (_b = filter == null ? void 0 : filter.genres) == null ? void 0 : _b[0]) != null ? _c : ""}&pg=${page}`);
     return res.list.map((e) => ({
       title: e.vod_name,
       url: `${e.vod_id}`,
       cover: e.vod_pic,
-      update: e.vod_remarks,
+      update: e.vod_remarks
     }));
   }
-
   async detail(id) {
-    let desc = "无";
+    let desc = "\u65E0";
     const anime = (await this.$get(`&ids=${id}`)).list[0];
     const blurb = this.text(anime.vod_blurb);
     const content = this.text(anime.vod_content);
-    desc = desc.length < blurb?.length ? blurb : desc;
+    desc = desc.length < (blurb == null ? void 0 : blurb.length) ? blurb : desc;
     desc = desc.length < content.length ? content : desc;
-    const urls = anime.vod_play_url
-      .split("#")
-      .filter((e) => e)
-      .map((e) => {
-        const s = e.split("$");
-        return { name: s[0], url: s[1] };
-      });
+    const urls = anime.vod_play_url.split("#").filter((e) => e).map((e) => {
+      const s = e.split("$");
+      return { name: s[0], url: s[1] };
+    });
     return { title: anime.vod_name, cover: anime.vod_pic, desc, episodes: [{ title: this.name, urls }] };
   }
-
   async watch(url) {
     console.log(url);
     return { type: "hls", url };

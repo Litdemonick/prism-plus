@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         HentaiDexy
 // @version      v0.0.1
 // @author       OshekharO
@@ -17,19 +17,17 @@ export default class extends Extension {
     return res.mangas.map((item) => ({
       title: item.title,
       url: item._id,
-      cover: item.coverImage.replace("https://f004.backblazeb2.com/file/", "https://s1.cdnimg.me:9000/"),
+      cover: item.coverImage.replace("https://f004.backblazeb2.com/file/", "https://s1.cdnimg.me:9000/")
     }));
   }
-
   async latest(page) {
     const res = await this.request(`/api/v1/mangas?page=${page}&limit=20`);
     return res.mangas.map((item) => ({
       title: item.title,
       url: item._id,
-      cover: item.coverImage,
+      cover: item.coverImage
     }));
   }
-
   async detail(url, page) {
     const res = await this.request(`/api/v1/mangas/${url}`);
     const id = res.manga._id;
@@ -43,17 +41,16 @@ export default class extends Extension {
           title: "Directory",
           urls: epres.chapters.map((item) => ({
             name: `Chapter ${item.serialNumber}`,
-            url: item._id,
-          })),
-        },
-      ],
+            url: item._id
+          }))
+        }
+      ]
     };
   }
-
   async watch(url) {
     const res = await this.request(`/api/v1/chapters/${url}`);
     return {
-      urls: res.chapter.images,
+      urls: res.chapter.images
     };
   }
 }

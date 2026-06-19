@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         AniLiberty
 // @version      v0.0.9
 // @author       Virus (viridius-hub)
@@ -11,39 +11,39 @@
 // @nsfw         false
 // ==/PrismHubExtension==
 
+var __defProp = Object.defineProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 export default class extends Extension {
-  domain = 'https://anilibria.top'
-
+  constructor() {
+    super(...arguments);
+    __publicField(this, "domain", "https://anilibria.top");
+  }
   async load() {
     this.registerSetting({
       title: "AniLiberty",
       key: "domain_aniliberty",
       type: "input",
       description: "AniLiberty Domain",
-      defaultValue: this.domain,
+      defaultValue: this.domain
     });
-
-    this.domain = await this.getSetting("domain_aniliberty")
+    this.domain = await this.getSetting("domain_aniliberty");
   }
-
   async req(url) {
     return this.request(url, {
       headers: {
-        "Miru-Url": this.domain,
-      },
+        "Miru-Url": this.domain
+      }
     });
   }
-
   async latest(page) {
     const res = await this.req(`/api/v1/anime/releases/latest?limit=42`);
-
     return res.map((item) => ({
       url: `/api/v1/anime/releases/${item.alias}`,
       title: item.name.english,
-      cover: this.domain + item.poster.src,
+      cover: this.domain + item.poster.src
     }));
   }
-
   async detail(url) {
     const res = await this.req(`${url}`);
     return {
@@ -55,27 +55,25 @@ export default class extends Extension {
           title: "Ep",
           urls: res.episodes.map((item) => ({
             name: `${item.ordinal}`,
-            url: item.hls_1080,
-          })),
-        },
-      ],
+            url: item.hls_1080
+          }))
+        }
+      ]
     };
   }
-
   async search(kw, page) {
     const res = await this.req(`/api/v1/app/search/releases?query=${kw}`);
     return res.results.map((item) => ({
       title: item.name.english,
       url: `/api/v1/anime/releases/${item.alias}`,
       cover: this.domain + item.poster.src,
-      desc: item.description,
+      desc: item.description
     }));
   }
-
   async watch(url) {
     return {
       type: "hls",
-      url: url,
+      url
     };
   }
 }

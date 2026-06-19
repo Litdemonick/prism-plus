@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         OneJav
 // @version      v0.0.1
 // @author       OshekharO
@@ -24,17 +24,15 @@ export default class extends Extension {
       novel.push({
         title: title.trim(),
         url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async search(kw) {
     const res = await this.request(`/search/${kw}`);
     const bsxList = await this.querySelectorAll(res, "div.card.mb-3");
     const novel = [];
-
     for (const element of bsxList) {
       const html = await element.content;
       const url = await this.getAttributeText(html, "h5.title.is-4.is-spaced > a", "href");
@@ -43,37 +41,31 @@ export default class extends Extension {
       novel.push({
         title: title.trim(),
         url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async detail(url) {
     const res = await this.request(`${url}`, {
       headers: {
-        "miru-referer": "https://onejav.com/",
-      },
+        "miru-referer": "https://onejav.com/"
+      }
     });
-
     const title = await this.querySelector(res, "h5.title.is-4.is-spaced > a").text;
     const cover = await this.querySelector(res, ".image").getAttributeText("src");
     const desc = await this.querySelector(res, "p.level.has-text-grey-dark").text;
-
     const episodes = [];
     const epiList = await this.querySelectorAll(res, "p.control.is-expanded");
-
     for (const element of epiList) {
       const html = await element.content;
       const name = await this.querySelector(html, "a").text;
-      const url = await this.getAttributeText(html, "a", "href");
-
+      const url2 = await this.getAttributeText(html, "a", "href");
       episodes.push({
         name: `Stream Torrent`,
-        url,
+        url: url2
       });
     }
-
     return {
       title: title.trim(),
       cover,
@@ -81,17 +73,16 @@ export default class extends Extension {
       episodes: [
         {
           title: "Directory",
-          urls: episodes,
-        },
-      ],
+          urls: episodes
+        }
+      ]
     };
   }
-
   async watch(url) {
     const torrent = `https://onejav.com${url}`;
     return {
       type: "torrent",
-      url: torrent,
+      url: torrent
     };
   }
 }

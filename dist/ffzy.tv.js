@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         非凡资源
 // @version      v0.0.2
 // @author       hualiong
@@ -10,48 +10,46 @@
 // @webSite      https://cj.ffzyapi.com
 // @nsfw         false
 // ==/PrismHubExtension==
+var __defProp = Object.defineProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 export default class extends Extension {
-  genres = {};
-
-  domains = {
-    primary: [
-      "api.ffzyapi.com",
-      "ffzy.tv",
-    ],
-    alternate: [
-      "ffzy1.tv",
-      "ffzy2.tv",
-      "ffzy3.tv",
-      "ffzy4.tv",
-      "ffzy5.tv",
-    ],
-  };
-
-  dict = new Map([
-    ["&nbsp;", " "],
-    ["&quot;", '"'],
-    ["&lt;", "<"],
-    ["&gt;", ">"],
-    ["&amp;", "&"],
-    ["&sdot;", "·"],
-  ]);
-
+  constructor() {
+    super(...arguments);
+    __publicField(this, "genres", {});
+    __publicField(this, "domains", {
+      primary: [
+        "api.ffzyapi.com",
+        "ffzy.tv"
+      ],
+      alternate: [
+        "ffzy1.tv",
+        "ffzy2.tv",
+        "ffzy3.tv",
+        "ffzy4.tv",
+        "ffzy5.tv"
+      ]
+    });
+    __publicField(this, "dict", /* @__PURE__ */ new Map([
+      ["&nbsp;", " "],
+      ["&quot;", '"'],
+      ["&lt;", "<"],
+      ["&gt;", ">"],
+      ["&amp;", "&"],
+      ["&sdot;", "\xB7"]
+    ]));
+  }
   text(content) {
     if (!content) return "";
-    const str =
-      [...content.matchAll(/>([^<]+?)</g)]
-        .map((m) => m[1])
-        .join("")
-        .trim() || content;
+    const str = [...content.matchAll(/>([^<]+?)</g)].map((m) => m[1]).join("").trim() || content;
     return str.replace(/&[a-z]+;/g, (c) => this.dict.get(c) || c);
   }
-
-  async $get(params, count = 3, timeout = 4000) {
+  async $get(params, count = 3, timeout = 4e3) {
     const domains = count > 1 ? this.domains.primary : this.domains.alternate;
     try {
-      const list = domains.map((domain) =>
-        this.request("/api.php/provide/vod?ac=detail&from=ffm3u8" + params, {
-          headers: { "Miru-Url": `https://${domain}` },
+      const list = domains.map(
+        (domain) => this.request("/api.php/provide/vod?ac=detail&from=ffm3u8" + params, {
+          headers: { "Miru-Url": `https://${domain}` }
         })
       );
       list.push(
@@ -71,66 +69,58 @@ export default class extends Extension {
       }
     }
   }
-
   async load() {
     const res = await this.$get("&ac=list");
     res.class.forEach((e) => {
       this.genres[e.type_id] = e.type_name;
     });
   }
-
   async createFilter() {
     const genres = {
-      title: "影片类型",
+      title: "\u5F71\u7247\u7C7B\u578B",
       max: 1,
       min: 0,
       default: "",
-      options: this.genres,
+      options: this.genres
     };
     return { genres };
   }
-
   async latest(page) {
-    const h = (new Date().getUTCHours() + 9) % 24;
+    const h = ((/* @__PURE__ */ new Date()).getUTCHours() + 9) % 24;
     const res = await this.$get(`&pg=${page}&h=${h || 24}`);
     return res.list.map((e) => ({
       title: e.vod_name,
       url: `${e.vod_id}`,
       cover: e.vod_pic,
-      update: e.vod_remarks,
+      update: e.vod_remarks
     }));
   }
-
   async search(kw, page, filter) {
-    if (!kw && !(filter?.genres?.[0])) {
+    var _a, _b, _c;
+    if (!kw && !((_a = filter == null ? void 0 : filter.genres) == null ? void 0 : _a[0])) {
       return this.latest(page);
     }
-    const res = await this.$get(`&wd=${kw}&t=${filter?.genres?.[0] ?? ""}&pg=${page}`);
+    const res = await this.$get(`&wd=${kw}&t=${(_c = (_b = filter == null ? void 0 : filter.genres) == null ? void 0 : _b[0]) != null ? _c : ""}&pg=${page}`);
     return res.list.map((e) => ({
       title: e.vod_name,
       url: `${e.vod_id}`,
       cover: e.vod_pic,
-      update: e.vod_remarks,
+      update: e.vod_remarks
     }));
   }
-
   async detail(id) {
-    let desc = "无";
+    let desc = "\u65E0";
     const anime = (await this.$get(`&ids=${id}`)).list[0];
     const blurb = this.text(anime.vod_blurb);
     const content = this.text(anime.vod_content);
-    desc = desc.length < blurb?.length ? blurb : desc;
+    desc = desc.length < (blurb == null ? void 0 : blurb.length) ? blurb : desc;
     desc = desc.length < content.length ? content : desc;
-    const urls = anime.vod_play_url
-      .split("#")
-      .filter((e) => e)
-      .map((e) => {
-        const s = e.split("$");
-        return { name: s[0], url: s[1] };
-      });
+    const urls = anime.vod_play_url.split("#").filter((e) => e).map((e) => {
+      const s = e.split("$");
+      return { name: s[0], url: s[1] };
+    });
     return { title: anime.vod_name, cover: anime.vod_pic, desc, episodes: [{ title: this.name, urls }] };
   }
-
   async watch(url) {
     console.log(url);
     return { type: "hls", url };

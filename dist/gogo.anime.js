@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         GoGoAnime
 // @version      v0.0.8
 // @author       OshekharO
@@ -14,37 +14,34 @@ export default class extends Extension {
   async req(url) {
     return this.request(url, {
       headers: {
-        "Miru-Url": await this.getSetting("gogoApi"),
-      },
+        "Miru-Url": await this.getSetting("gogoApi")
+      }
     });
   }
-
   async load() {
     this.registerSetting({
       title: "GoGo API",
       key: "gogoApi",
       type: "input",
       description: "API URL",
-      defaultValue: "https://consumet-leox-api.vercel.app/anime/gogoanime",
+      defaultValue: "https://consumet-leox-api.vercel.app/anime/gogoanime"
     });
     this.registerSetting({
       title: "Preferred quality",
       key: "prefQuality",
       type: "input",
       description: "Choose between 360p/480p/720p/1080p",
-      defaultValue: "480p",
+      defaultValue: "480p"
     });
   }
-
   async latest(page) {
     const res = await this.req(`/top-airing?page=${page}`);
     return res.results.map((item) => ({
       title: item.title,
       url: item.id,
-      cover: item.image,
+      cover: item.image
     }));
   }
-
   async detail(url) {
     const res = await this.req(`/info/${url}`);
     return {
@@ -56,36 +53,33 @@ export default class extends Extension {
           title: "Ep",
           urls: res.episodes.map((item) => ({
             name: `Episode ${item.number}`,
-            url: item.id,
-          })),
-        },
-      ],
+            url: item.id
+          }))
+        }
+      ]
     };
   }
-
   async search(kw, page) {
     const res = await this.req(`/${kw}?page=${page}`);
     return res.results.map((item) => ({
       title: item.title,
       url: item.id,
-      cover: item.image,
+      cover: item.image
     }));
   }
-
   async watch(url) {
     const quality = await this.getSetting("prefQuality");
     const res = await this.req(`/watch/${url}?server=gogocdn`);
-    const prefQuality = res.sources.find(source => source.quality === quality);
-
+    const prefQuality = res.sources.find((source) => source.quality === quality);
     if (prefQuality) {
       return {
         type: "hls",
-        url: prefQuality.url,
+        url: prefQuality.url
       };
     } else {
       return {
         type: "hls",
-        url: res.sources.pop().url,
+        url: res.sources.pop().url
       };
     }
   }

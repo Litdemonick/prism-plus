@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         SuperCartoons
 // @version      v0.0.1
 // @author       bachig26
@@ -24,18 +24,16 @@ export default class extends Extension {
       novel.push({
         title: title.trim(),
         url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async search(kw) {
-	const kwstring = kw.replace(/ /g, '+');
+    const kwstring = kw.replace(/ /g, "+");
     const res = await this.request(`/?s=${kwstring}&search=Search`);
     const bsxList = await this.querySelectorAll(res, "div.item.col-lg-3.col-md-3");
     const novel = [];
-
     for (const element of bsxList) {
       const html = await element.content;
       const url = await this.getAttributeText(html, "a", "href");
@@ -44,26 +42,22 @@ export default class extends Extension {
       novel.push({
         title,
         url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async detail(url) {
     const res = await this.request("", {
       headers: {
-        "Miru-Url": url,
-      },
+        "Miru-Url": url
+      }
     });
-
     const title = await this.querySelector(res, "div.col-lg-8.col-md-8 > h1").text;
     const cover = await this.querySelector(res, "meta[property='og:image']").getAttributeText("content");
-    const desc = await this.querySelector(res, "div.post-content > p").text;     
+    const desc = await this.querySelector(res, "div.post-content > p").text;
     const urlPatterns = [/https?:\/\/[^\s'"]+\.(?:mp4|m3u8)/];
-
     let episodeUrl = "";
-
     for (const pattern of urlPatterns) {
       const match = res.match(pattern);
       if (match) {
@@ -71,7 +65,6 @@ export default class extends Extension {
         break;
       }
     }
-
     return {
       title: title.trim(),
       cover,
@@ -82,18 +75,17 @@ export default class extends Extension {
           urls: [
             {
               name: `Watch ${title}`,
-              url: episodeUrl,
-            },
-          ],
-        },
-      ],
+              url: episodeUrl
+            }
+          ]
+        }
+      ]
     };
   }
-
   async watch(url) {
     return {
       type: "hls",
-      url: url || "",
+      url: url || ""
     };
   }
 }

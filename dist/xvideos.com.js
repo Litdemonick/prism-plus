@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         XVIDEOS
 // @version      v0.0.1
 // @author       bachig26
@@ -24,18 +24,16 @@ export default class extends Extension {
       novel.push({
         title,
         url: "https://www.xvideos.com" + url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async search(kw) {
-	const kwstring = kw.replace(/ /g, '+');
+    const kwstring = kw.replace(/ /g, "+");
     const res = await this.request(`/?k=${kwstring}`);
     const bsxList = await this.querySelectorAll(res, "div.thumb-block");
     const novel = [];
-
     for (const element of bsxList) {
       const html = await element.content;
       const url = await this.getAttributeText(html, "div.thumb > a", "href");
@@ -44,27 +42,22 @@ export default class extends Extension {
       novel.push({
         title,
         url: "https://www.xvideos.com" + url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async detail(url) {
     const res = await this.request("", {
       headers: {
-        "Miru-Url": url,
-      },
+        "Miru-Url": url
+      }
     });
-
     const title = await this.querySelector(res, "meta[property='og:title']").getAttributeText("content");
     const cover = await this.querySelector(res, "meta[property='og:image']").getAttributeText("content");
-	const desc = await this.querySelector(res, "li.main-uploader > a > span.name").text;
-
-	const urlPatterns = [/https?:\/\/[^\s'"]+\.(?:m3u8)/];
-	
+    const desc = await this.querySelector(res, "li.main-uploader > a > span.name").text;
+    const urlPatterns = [/https?:\/\/[^\s'"]+\.(?:m3u8)/];
     let episodeUrl = "";
-
     for (const pattern of urlPatterns) {
       const match = res.match(pattern);
       if (match) {
@@ -72,29 +65,27 @@ export default class extends Extension {
         break;
       }
     }
-
     return {
       title: title.trim(),
       cover,
-	  desc,
+      desc,
       episodes: [
         {
           title: "Directory",
           urls: [
             {
               name: title,
-              url: episodeUrl,
-            },
-          ],
-        },
-      ],
+              url: episodeUrl
+            }
+          ]
+        }
+      ]
     };
   }
-
   async watch(url) {
     return {
       type: "hls",
-      url: url || "",
+      url: url || ""
     };
   }
 }

@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         SimplyHentai
 // @version      v0.0.2
 // @author       OshekharO
@@ -14,28 +14,23 @@
 export default class extends Extension {
   async search(kw) {
     const res = await this.request(`/search/complex?query=${kw}`);
-
     const mangaList = res.data.map((item) => ({
       title: item.object.title,
       url: item.object.slug,
-      cover: item.object.preview.sizes.thumb,
+      cover: item.object.preview.sizes.thumb
     }));
-
     return mangaList;
   }
-
   async latest() {
     const res = await this.request(`/albums`);
     return res.data.map((item) => ({
       title: item.title,
       url: item.slug,
-      cover: item.preview.sizes.thumb,
+      cover: item.preview.sizes.thumb
     }));
   }
-
   async detail(url) {
     const res = await this.request(`/manga/${url}`);
-
     return {
       title: res.meta.title,
       cover: res.data.preview.sizes.thumb,
@@ -46,25 +41,23 @@ export default class extends Extension {
           urls: [
             {
               name: `${res.meta.title}`,
-              url: `${res.util.host}|${url}`,
-            },
-          ],
-        },
-      ],
+              url: `${res.util.host}|${url}`
+            }
+          ]
+        }
+      ]
     };
   }
-
   async watch(url) {
     const [img, id] = url.split("|");
     const res = await this.request(`/manga/${id}/pages`);
-
     if (res.data.pages && Array.isArray(res.data.pages)) {
       return {
-        urls: res.data.pages.map((item) => item.sizes.full),
+        urls: res.data.pages.map((item) => item.sizes.full)
       };
     } else {
       return {
-        error: "Invalid data format for pages",
+        error: "Invalid data format for pages"
       };
     }
   }

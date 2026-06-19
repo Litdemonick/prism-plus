@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         Draftsex
 // @version      v0.0.2
 // @author       bachig26
@@ -24,18 +24,16 @@ export default class extends Extension {
       novel.push({
         title,
         url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async search(kw) {
-	const kwstring = kw.replace(/ /g, '-');
+    const kwstring = kw.replace(/ /g, "-");
     const res = await this.request(`/search/${kwstring}/`);
     const bsxList = await this.querySelectorAll(res, "div.item.col");
     const novel = [];
-
     for (const element of bsxList) {
       const html = await element.content;
       const url = await this.getAttributeText(html, "a", "href");
@@ -44,27 +42,22 @@ export default class extends Extension {
       novel.push({
         title,
         url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async detail(url) {
     const res = await this.request("", {
-        headers: {
-            "Miru-Url": url,
-        },
+      headers: {
+        "Miru-Url": url
+      }
     });
-
     const title = await this.querySelector(res, "h1.mhead__h").text;
-	const cover = res.match(/posterImage: "(.+?)"/)[1];
-	const desc = await this.querySelector(res, "ul.tag-list > span.tag-list__label").text;
-	
-	const urlPatterns = [/<source title='Best Quality' src="(.+?\.mp4)"/];
-	
+    const cover = res.match(/posterImage: "(.+?)"/)[1];
+    const desc = await this.querySelector(res, "ul.tag-list > span.tag-list__label").text;
+    const urlPatterns = [/<source title='Best Quality' src="(.+?\.mp4)"/];
     let episodeUrl = "";
-
     for (const pattern of urlPatterns) {
       const match = res.match(pattern);
       if (match) {
@@ -72,34 +65,32 @@ export default class extends Extension {
         break;
       }
     }
-
     return {
       title: title.trim(),
       cover,
-	  desc,
+      desc,
       episodes: [
         {
           title: "Directory",
           urls: [
             {
               name: title,
-              url: episodeUrl,
-            },
-          ],
-        },
-      ],
+              url: episodeUrl
+            }
+          ]
+        }
+      ]
     };
   }
-
   async watch(url) {
     let hh = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
-         Referer: "https://draftsex.porn/",
-      };    
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
+      Referer: "https://draftsex.porn/"
+    };
     return {
       type: "hls",
       url: url || "",
-      headers: hh,      
+      headers: hh
     };
   }
 }

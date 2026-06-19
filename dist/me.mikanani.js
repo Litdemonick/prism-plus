@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         Mikanani
 // @version      v0.0.4
 // @author       MiaoMint
@@ -11,9 +11,14 @@
 // @description  蜜柑计划：新一代的动漫下载站
 // ==/PrismHubExtension==
 
+var __defProp = Object.defineProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 export default class extends Extension {
-  date = {};
-
+  constructor() {
+    super(...arguments);
+    __publicField(this, "date", {});
+  }
   async load() {
     await this.registerSetting({
       title: "Source site",
@@ -23,23 +28,20 @@ export default class extends Extension {
       defaultValue: "https://mikanani.me",
       options: {
         "https://mikanani.me": "https://mikanani.me",
-        "https://mikanime.tv": "https://mikanime.tv",
-      },
+        "https://mikanime.tv": "https://mikanime.tv"
+      }
     });
   }
-
   async req(url) {
     return this.request(url, {
       headers: {
-        "Miru-Url": await this.getSetting("source"),
-      },
+        "Miru-Url": await this.getSetting("source")
+      }
     });
   }
-
   async getFullUrl(url) {
     return `${await this.getSetting("source")}${url}`;
   }
-
   async getDate() {
     if (Object.keys(this.date).length != 0) {
       return;
@@ -51,51 +53,47 @@ export default class extends Extension {
       const year = await this.querySelector(html, ".default-cursor").text;
       const seasons = await this.querySelectorAll(html, ".dropdown-menu li");
       const season = [];
-      for (const item of seasons) {
+      for (const item2 of seasons) {
         season.push(
-          await this.getAttributeText(item.content, "a", "data-season")
+          await this.getAttributeText(item2.content, "a", "data-season")
         );
       }
       this.date[year] = season;
     }
   }
-
   async createFilter(filter) {
     await this.getDate();
-    const currentYear = new Date().getFullYear();
+    const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
     const season = {
-      title: "季度",
+      title: "\u5B63\u5EA6",
       max: 1,
       min: 1,
-      default: "春",
+      default: "\u6625",
       options: this.date[currentYear].reduce((obj, item) => {
         obj[item] = item;
         return obj;
-      }, {}),
+      }, {})
     };
-
     if (filter && filter.year) {
       season.options = this.date[filter.year[0]].reduce((obj, item) => {
         obj[item] = item;
         return obj;
       }, {});
     }
-
     return {
       year: {
-        title: "年份",
+        title: "\u5E74\u4EFD",
         max: 1,
         min: 1,
         default: currentYear.toString(),
         options: Object.keys(this.date).reduce((obj, item) => {
           obj[item] = item;
           return obj;
-        }, {}),
+        }, {})
       },
-      season,
+      season
     };
   }
-
   async getData(year, season) {
     await this.getDate();
     const res = await this.req(
@@ -114,19 +112,17 @@ export default class extends Extension {
       bangumi.push({
         cover: await this.getFullUrl(cover),
         title,
-        url,
+        url
       });
     }
     return bangumi;
   }
-
   async latest(page) {
     await this.getDate();
-    const currentYear = new Date().getFullYear();
-    const season = this.date[new Date().getFullYear()][0];
+    const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
+    const season = this.date[(/* @__PURE__ */ new Date()).getFullYear()][0];
     return this.getData(currentYear, season);
   }
-
   async detail(url) {
     const res = await this.req(`${url}`);
     const cover = await this.getFullUrl(
@@ -143,52 +139,46 @@ export default class extends Extension {
     for (const item of listUnstyledLis) {
       const html = item.content;
       const name = await this.querySelector(html, "a").text;
-      const subtitleId = (
-        await this.getAttributeText(html, "a", "data-anchor")
-      ).replace("#", "");
+      const subtitleId = (await this.getAttributeText(html, "a", "data-anchor")).replace("#", "");
       subtitleGrups.push({
         name,
-        subtitleId,
+        subtitleId
       });
     }
-
     const episodeGrups = await Promise.all(
       subtitleGrups.map(async (item) => {
-        const res = await this.req(
+        const res2 = await this.req(
           `/Home/ExpandEpisodeTable?bangumiId=${bangumiId}&subtitleGroupId=${item.subtitleId}&take=999999`
         );
-        const trs = await this.querySelectorAll(res, "tbody tr");
+        const trs = await this.querySelectorAll(res2, "tbody tr");
         const episodes = [];
-        for (const item of trs) {
-          const html = item.content;
+        for (const item2 of trs) {
+          const html = item2.content;
           const name = await this.querySelector(html, "a").text;
-          const url = html.match(/\/Download\/.*\.torrent/)[0];
+          const url2 = html.match(/\/Download\/.*\.torrent/)[0];
           episodes.push({
             name,
-            url,
+            url: url2
           });
         }
         return {
           title: item.name,
-          urls: episodes,
+          urls: episodes
         };
       })
     );
-
     return {
       title,
       cover,
       desc,
-      episodes: episodeGrups,
+      episodes: episodeGrups
     };
   }
-
   async search(kw, page, filter) {
-    // Powered By TiaNXianG(https://github.com/TNXG)
     const res = await this.req(`/Home/Search?searchstr=${kw}&page=${page}`);
     const bangumi = [];
     const html = await this.querySelector(res, ".list-inline .an-ul").content;
-    const bangumiList = html.match(/<li>.*?<\/li>/gs);
+    const bangumiList = html.match(new RegExp("<li>.*?<\\/li>", "gs"));
     for (const item of bangumiList) {
       if (!item) {
         continue;
@@ -196,14 +186,14 @@ export default class extends Extension {
       try {
         const cover = await this.getAttributeText(item, "span", "data-src");
         const title = await item.match(/title="(.*?)"/)[1];
-        const decodedTitle = title.replace(/&#x([0-9A-Fa-f]+);/g, function (match, p1) {
+        const decodedTitle = title.replace(/&#x([0-9A-Fa-f]+);/g, function(match, p1) {
           return String.fromCodePoint(parseInt(p1, 16));
         });
         const url = await item.match(/href="(.*?)"/)[1];
         bangumi.push({
           cover: await this.getFullUrl(cover),
           title: decodedTitle,
-          url: url,
+          url
         });
       } catch (e) {
         continue;
@@ -214,12 +204,11 @@ export default class extends Extension {
     }
     return bangumi;
   }
-
   async watch(url) {
     console.log(await this.getFullUrl(url));
     return {
       type: "torrent",
-      url: await this.getFullUrl(url),
+      url: await this.getFullUrl(url)
     };
   }
 }

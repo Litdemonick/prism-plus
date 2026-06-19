@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         Enime
 // @version      v0.0.5
 // @author       MiaoMint
@@ -15,28 +15,26 @@ export default class extends Extension {
   async req(url) {
     return this.request(url, {
       headers: {
-        "Miru-Url": await this.getSetting("enimeApi"),
-      },
+        "Miru-Url": await this.getSetting("enimeApi")
+      }
     });
   }
-
   async load() {
     this.registerSetting({
       title: "Enime API",
       key: "enimeApi",
       type: "input",
       description: "Enime Api Url",
-      defaultValue: "https://api.enime.moe",
+      defaultValue: "https://api.enime.moe"
     });
     this.registerSetting({
       title: "Use nade.me Proxy",
       key: "nadeProxy",
       type: "toggle",
       description: "Use nade.me Proxy",
-      defaultValue: "true",
+      defaultValue: "true"
     });
   }
-
   async latest(page) {
     const res = await this.req(`/recent?page=${page}`);
     return res.data.map((item) => ({
@@ -44,10 +42,9 @@ export default class extends Extension {
       url: item.animeId,
       cover: item.anime.coverImage,
       desc: item.description,
-      update: item.number.toString(),
+      update: item.number.toString()
     }));
   }
-
   async detail(url) {
     const res = await this.req(`/anime/${url}`);
     return {
@@ -59,13 +56,12 @@ export default class extends Extension {
           title: "Ep",
           urls: res.episodes.map((item) => ({
             name: `Episode ${item.number}`,
-            url: item.id,
-          })),
-        },
-      ],
+            url: item.id
+          }))
+        }
+      ]
     };
   }
-
   async search(kw, page) {
     const res = await this.req(`/search/${kw}?page=${page}`);
     return res.data.map((item) => ({
@@ -73,28 +69,23 @@ export default class extends Extension {
       url: item.id,
       cover: item.coverImage,
       desc: item.description,
-      update: item.currentEpisode.toString(),
+      update: item.currentEpisode.toString()
     }));
   }
-
   async watch(url) {
     const res = await this.req(`/episode/${url}`);
-
     const getM3u8 = async (sourcesId) => {
-      const res = await this.req(`/source/${sourcesId}`);
-      if ((await this.getSetting("nadeProxy")) == "true") {
-        const url = await (
-          await fetch("https://enime.moe/api/generate-cdn", {
-            method: "POST",
-            body: sourcesId,
-          })
-        ).text();
-        console.log(url);
-        return url;
+      const res2 = await this.req(`/source/${sourcesId}`);
+      if (await this.getSetting("nadeProxy") == "true") {
+        const url2 = await (await fetch("https://enime.moe/api/generate-cdn", {
+          method: "POST",
+          body: sourcesId
+        })).text();
+        console.log(url2);
+        return url2;
       }
-      return res.url;
+      return res2.url;
     };
-
     return {
       type: "hls",
       url: await getM3u8(res.sources[0].id),
@@ -105,14 +96,14 @@ export default class extends Extension {
           position: "right",
           selector: res.sources.map((item) => ({
             name: item.id,
-            html: item.url,
+            html: item.url
           })),
-          onSelect: async function (item) {
+          onSelect: async function(item) {
             const m3u8 = await getM3u8(item.name);
             this.switchUrl(m3u8);
-          },
-        },
-      ],
+          }
+        }
+      ]
     };
   }
 }

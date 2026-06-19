@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         Turkish123
 // @version      v0.0.2
 // @author       OshekharO
@@ -21,21 +21,18 @@ export default class extends Extension {
       const url = await this.getAttributeText(html, "a", "href");
       const title = await this.querySelector(html, "h2").text;
       const cover = await this.querySelector(html, "img").getAttributeText("src");
-      //console.log(title+cover+url)
       novel.push({
         title,
         url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async search(kw) {
     const res = await this.request(`/?s=${kw}`);
     const bsxList = await this.querySelectorAll(res, "div.ml-item");
     const novel = [];
-
     for (const element of bsxList) {
       const html = await element.content;
       const url = await this.getAttributeText(html, "a", "href");
@@ -44,36 +41,31 @@ export default class extends Extension {
       novel.push({
         title,
         url,
-        cover,
+        cover
       });
     }
     return novel;
   }
-
   async detail(url) {
     const res = await this.request("", {
       headers: {
-        "Miru-Url": url,
-      },
+        "Miru-Url": url
+      }
     });
-
     const title = await this.querySelector(res, "h1[itemprop=name]").text;
     const cover = await this.querySelector(res, "img[itemprop='image']").getAttributeText("src");
     const desc = await this.querySelector(res, "p.f-desc").text;
     const episodes = [];
     const epiList = await this.querySelectorAll(res, "div.les-content > a");
-
     for (const element of epiList) {
       const html = await element.content;
       const name = await this.querySelector(html, "a").text;
-      const url = await this.getAttributeText(html, "a", "href");
-
+      const url2 = await this.getAttributeText(html, "a", "href");
       episodes.push({
         name: name.trim(),
-        url,
+        url: url2
       });
     }
-
     return {
       title: title.trim(),
       cover,
@@ -81,33 +73,28 @@ export default class extends Extension {
       episodes: [
         {
           title: "Directory",
-          urls: episodes.reverse(),
-        },
-      ],
+          urls: episodes.reverse()
+        }
+      ]
     };
   }
-
   async watch(url) {
     const res = await this.request("", {
       headers: {
-        "Miru-Url": url,
-      },
+        "Miru-Url": url
+      }
     });
-
     const dwishLink = res.match(/https:\/\/tukipasti\.[^\s'"]+/);
-
     const dwishLinkRes = await this.request("", {
       headers: {
-        "Miru-Url": dwishLink,
-      },
+        "Miru-Url": dwishLink
+      }
     });
-
     const directUrlMatch = dwishLinkRes.match(/(https:\/\/[^\s'"]*\.m3u8[^\s'"]*)/);
     const directUrl = directUrlMatch ? directUrlMatch[0] : "";
-
     return {
       type: "hls",
-      url: directUrl || "",
+      url: directUrl || ""
     };
   }
 }

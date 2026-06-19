@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         rawkuma
 // @version      v0.0.2
 // @author       appdevelpo
@@ -11,22 +11,26 @@
 // @nsfw         false
 // ==/PrismHubExtension==
 
-export default class Mangafx extends Extension {
-  filter_jsons = {};
+var __defProp = Object.defineProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
+export default class extends Extension {
+  constructor() {
+    super(...arguments);
+    __publicField(this, "filter_jsons", {});
+  }
   async get_filter(res) {
     const filter_list = res.match(/filter dropdown[\s\S]+?<\/div>/g);
     const filter_type = res.match(/<button.+<span/g).map((element) => {
       const element_match = element.match(/>(.+?)</)[1].replaceAll(" ", "");
       return element_match;
-    })
-
+    });
     filter_list.forEach((element, index) => {
-      const filt = filter_type[index] === "Genre"?{}:{ all: "all" };
+      const filt = filter_type[index] === "Genre" ? {} : { all: "all" };
       element.match(/value="(.+?)"/g).forEach((val) => {
         const name = val.match(/"(.+?)"/)[1];
         filt[name] = name;
-
-      })
+      });
       const max_num = filter_type[index] === "Genre" ? 5 : 1;
       const default_option = filter_type[index] === "Genre" ? "action" : "all";
       const filter_full = {
@@ -34,11 +38,10 @@ export default class Mangafx extends Extension {
         max: max_num,
         min: 1,
         default: default_option,
-        options: filt,
+        options: filt
       };
       this.filter_jsons[filter_type[index]] = filter_full;
-    })
-    
+    });
   }
   async latest(page) {
     const res = await this.request(`/manga/?page=${page}&status=&type=&order=update`);
@@ -54,53 +57,49 @@ export default class Mangafx extends Extension {
       mangas.push({
         title,
         url,
-        cover,
+        cover
       });
     });
     return mangas;
   }
   async createFilter(filter) {
-    return this.filter_jsons
+    return this.filter_jsons;
   }
-  async get_search_url(page,filter) {
-    
+  async get_search_url(page, filter) {
     var base_url = `/manga/?page=${page}&`;
     for (const [key, value] of Object.entries(filter)) {
       if (key === "Genre") {
         value.forEach((item) => {
           base_url += `genre[]=${item}&`;
-        })
+        });
       } else {
         base_url += `${key.toLowerCase()}=${value[0]}&`;
       }
     }
     const url = base_url.replaceAll("all", "").substring(0, base_url.length - 1);
-    
-    return url
+    return url;
   }
   async search(kw, page, filter) {
     var url = `/page/${page}/?s=${kw}`;
     if (!kw) {
-      
-      var url = await this.get_search_url(page,filter)
-      console.log(url)
+      var url = await this.get_search_url(page, filter);
+      console.log(url);
     }
     const res = await this.request(url);
     const bsxList = res.match(/<div class="bs">([\s\S]+?)a>[\s\S]+?<\/div>/gm);
     const mangas = [];
     bsxList.forEach((element) => {
-      const url = element.match(/href="https:\/\/rawkuma.com\/manga(.+?)"/)[1];
+      const url2 = element.match(/href="https:\/\/rawkuma.com\/manga(.+?)"/)[1];
       const title = element.match(/<div class="tt">\s*([^<>\s]+[^<]*)\s*<\/div>/)[1];
       const cover = element.match(/img src="(.+?)"/)[1];
       mangas.push({
         title,
-        url,
-        cover,
+        url: url2,
+        cover
       });
     });
     return mangas;
   }
-
   async detail(url) {
     const res = await this.request(url);
     const titleRegex = /<h1 class="entry-title" itemprop="name">(.+?)<\/h1>/;
@@ -112,8 +111,6 @@ export default class Mangafx extends Extension {
     const descriptionRegex = /<p>([\s\S^]+?)<\/p>/;
     const descriptionMatch = res.match(descriptionRegex);
     const desc = descriptionMatch ? descriptionMatch[1] : null;
-
-
     const liListRegex = /<li data-num=([\s\S]+?)<\/li>/g;
     const liListMatch = res.match(liListRegex);
     const episodes = [];
@@ -129,7 +126,7 @@ export default class Mangafx extends Extension {
         if (name && url) {
           episodes.push({
             name,
-            url,
+            url
           });
         }
       });
@@ -141,25 +138,20 @@ export default class Mangafx extends Extension {
       episodes: [
         {
           title: "Directory",
-          urls: episodes.reverse(),
-        },
-      ],
+          urls: episodes.reverse()
+        }
+      ]
     };
   }
-
   async watch(url) {
     const res = await this.request(`/${url}`);
     const contentRegex = /"images":([\s\S]*?)(])/;
     const contentMatch = res.match(contentRegex);
-
     const content = contentMatch ? contentMatch[1] : null;
     const imgMatches = JSON.parse(content + "]");
-    
-    let urls = imgMatches
-    
+    let urls = imgMatches;
     return {
-      urls,
+      urls
     };
   }
 }
-

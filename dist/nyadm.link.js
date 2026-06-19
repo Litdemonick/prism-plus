@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         NyaFun动漫
 // @version      v0.0.6
 // @author       hualiong
@@ -10,55 +10,51 @@
 // @webSite      https://www.nyadm.net
 // @nsfw         false
 // ==/PrismHubExtension==
+var __defProp = Object.defineProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 export default class extends Extension {
-  decrypt = {
-    filter: () => {
-      const time = Math.ceil(new Date().getTime() / 1000);
-      return { time, key: CryptoJS.MD5("DS" + time + "DCC147D11943AF75").toString() }; // EC.Pop.Uid: DCC147D11943AF75
-    },
-    player: (src, key) => {
-      let ut = CryptoJS.enc.Utf8.parse("2890" + key + "tB959C"),
-        mm = CryptoJS.enc.Utf8.parse("2F131BE91247866E"),
-        decrypted = CryptoJS.AES.decrypt(src, ut, {
+  constructor() {
+    super(...arguments);
+    __publicField(this, "decrypt", {
+      filter: () => {
+        const time = Math.ceil((/* @__PURE__ */ new Date()).getTime() / 1e3);
+        return { time, key: CryptoJS.MD5("DS" + time + "DCC147D11943AF75").toString() };
+      },
+      player: (src, key) => {
+        let ut = CryptoJS.enc.Utf8.parse("2890" + key + "tB959C"), mm = CryptoJS.enc.Utf8.parse("2F131BE91247866E"), decrypted = CryptoJS.AES.decrypt(src, ut, {
           iv: mm,
           mode: CryptoJS.mode.CBC,
-          padding: CryptoJS.pad.Pkcs7,
+          padding: CryptoJS.pad.Pkcs7
         });
-      return CryptoJS.enc.Utf8.stringify(decrypted);
-    },
-  };
-
+        return CryptoJS.enc.Utf8.stringify(decrypted);
+      }
+    });
+  }
   text(element) {
-    const str = [...element.content.matchAll(/>([^<]+?)</g)]
-      .map((m) => m[1])
-      .join("")
-      .trim();
+    const str = [...element.content.matchAll(/>([^<]+?)</g)].map((m) => m[1]).join("").trim();
     return this.textParser(str);
   }
-
   textParser(str) {
-    const dict = new Map([
+    const dict = /* @__PURE__ */ new Map([
       ["&nbsp;", " "],
       ["&quot;", '"'],
       ["&lt;", "<"],
       ["&gt;", ">"],
       ["&amp;", "&"],
-      ["&sdot;", "·"],
+      ["&sdot;", "\xB7"]
     ]);
     return str.replace(/&[a-z]+;/g, (c) => dict.get(c) || c);
   }
-
   base64decode(str) {
     let words = CryptoJS.enc.Base64.parse(str);
     return CryptoJS.enc.Utf8.stringify(words);
   }
-
   async querySelector(content, selector) {
     const res = await this.querySelectorAll(content, selector);
     return res === null ? null : res[0];
   }
-
-  async $req(url, options = { headers: {} }, count = 3, timeout = 5000) {
+  async $req(url, options = { headers: {} }, count = 3, timeout = 5e3) {
     try {
       if (!options.headers["Miru-Url"]) options.headers["Miru-Url"] = this.domain;
       return await Promise.race([
@@ -67,32 +63,30 @@ export default class extends Extension {
           setTimeout(() => {
             reject(new Error("Request timed out!"));
           }, timeout);
-        }),
+        })
       ]);
     } catch (error) {
       if (count > 0) {
         console.log(`[Retry (${count})]: ${url}`);
-        return this.$req(url, options, count - 1, timeout + 1000);
+        return this.$req(url, options, count - 1, timeout + 1e3);
       } else {
         throw error;
       }
     }
   }
-
   async select(page, filter) {
     const { time, key } = this.decrypt.filter();
     const res = await this.$req("/index.php/api/vod", {
       method: "post",
-      data: { type: filter.channels[0], class: filter.genres[0], year: filter.years[0], page, time, key },
+      data: { type: filter.channels[0], class: filter.genres[0], year: filter.years[0], page, time, key }
     });
     return res.list.map((e) => ({
       title: e.vod_name,
       url: `/bangumi/${e.vod_id}.html|${e.vod_name}|${e.vod_pic}`,
       cover: e.vod_pic,
-      update: e.vod_remarks,
+      update: e.vod_remarks
     }));
   }
-
   async test() {
     try {
       await this.request("/play/7566-1-1.html", { headers: { "Miru-Url": this.domain } });
@@ -102,100 +96,96 @@ export default class extends Extension {
     }
     return this.verify;
   }
-
   // =============================== 分割线 ============================== //
-
   async load() {
     const res = await this.$req("/", { headers: { "Miru-Url": "https://www.nyadm.link" } });
     this.domain = await this.getAttributeText(res, "div.links > a:nth-child(1)", "href");
     console.log(this.domain);
-    console.log(await this.test())
+    console.log(await this.test());
   }
-
   async createFilter() {
     const channels = {
-      title: "频道",
+      title: "\u9891\u9053",
       max: 1,
       min: 0,
       default: "",
       options: {
-        1: "番剧",
-        2: "剧场",
-      },
+        1: "\u756A\u5267",
+        2: "\u5267\u573A"
+      }
     };
     const genres = {
-      title: "类型（分类动漫不代表全部动漫）",
+      title: "\u7C7B\u578B\uFF08\u5206\u7C7B\u52A8\u6F2B\u4E0D\u4EE3\u8868\u5168\u90E8\u52A8\u6F2B\uFF09",
       max: 1,
       min: 0,
       default: "",
       options: {
-        奇幻: "奇幻",
-        战斗: "战斗",
-        冒险: "冒险",
-        热血: "热血",
-        日常: "日常",
-        搞笑: "搞笑",
-        后宫: "后宫",
-        异世界: "异世界",
-        穿越: "穿越",
-        治愈: "治愈",
-        爱情: "爱情",
-        狗粮: "狗粮",
-        小说改: "小说改",
-        漫画改: "漫画改",
-        游戏改: "游戏改",
-        偶像: "偶像",
-        校园: "校园",
-        催泪: "催泪",
-        青春: "青春",
-        恋爱: "恋爱",
-        机战: "机战",
-        科幻: "科幻",
-        百合: "百合",
-        音乐: "音乐",
-        悬疑: "悬疑",
-        恐怖: "恐怖",
-        运动: "运动",
-        性转: "性转",
-        党争: "党争",
-      },
+        \u5947\u5E7B: "\u5947\u5E7B",
+        \u6218\u6597: "\u6218\u6597",
+        \u5192\u9669: "\u5192\u9669",
+        \u70ED\u8840: "\u70ED\u8840",
+        \u65E5\u5E38: "\u65E5\u5E38",
+        \u641E\u7B11: "\u641E\u7B11",
+        \u540E\u5BAB: "\u540E\u5BAB",
+        \u5F02\u4E16\u754C: "\u5F02\u4E16\u754C",
+        \u7A7F\u8D8A: "\u7A7F\u8D8A",
+        \u6CBB\u6108: "\u6CBB\u6108",
+        \u7231\u60C5: "\u7231\u60C5",
+        \u72D7\u7CAE: "\u72D7\u7CAE",
+        \u5C0F\u8BF4\u6539: "\u5C0F\u8BF4\u6539",
+        \u6F2B\u753B\u6539: "\u6F2B\u753B\u6539",
+        \u6E38\u620F\u6539: "\u6E38\u620F\u6539",
+        \u5076\u50CF: "\u5076\u50CF",
+        \u6821\u56ED: "\u6821\u56ED",
+        \u50AC\u6CEA: "\u50AC\u6CEA",
+        \u9752\u6625: "\u9752\u6625",
+        \u604B\u7231: "\u604B\u7231",
+        \u673A\u6218: "\u673A\u6218",
+        \u79D1\u5E7B: "\u79D1\u5E7B",
+        \u767E\u5408: "\u767E\u5408",
+        \u97F3\u4E50: "\u97F3\u4E50",
+        \u60AC\u7591: "\u60AC\u7591",
+        \u6050\u6016: "\u6050\u6016",
+        \u8FD0\u52A8: "\u8FD0\u52A8",
+        \u6027\u8F6C: "\u6027\u8F6C",
+        \u515A\u4E89: "\u515A\u4E89"
+      }
     };
     const years = {
-      title: "年份",
+      title: "\u5E74\u4EFD",
       max: 1,
       min: 0,
       default: "",
       options: Object.fromEntries(
         new Map(
-          Array.from({ length: new Date().getFullYear() - 1999 }, (_, i) => [
-            (2000 + i).toString(),
-            (2000 + i).toString(),
+          Array.from({ length: (/* @__PURE__ */ new Date()).getFullYear() - 1999 }, (_, i) => [
+            (2e3 + i).toString(),
+            (2e3 + i).toString()
           ])
         )
-      ),
+      )
     };
     return { channels, genres, years };
   }
-
   async latest(page) {
     if (this.verify && await this.test()) {
-      return [{ title: "需要验证才能使用该扩展！", url: "/play/7566-1-1.html", cover: null }];
+      return [{ title: "\u9700\u8981\u9A8C\u8BC1\u624D\u80FD\u4F7F\u7528\u8BE5\u6269\u5C55\uFF01", url: "/play/7566-1-1.html", cover: null }];
     }
     const res = await this.$req(`/index.php/ajax/data.html?mid=1&limit=20&page=${page}`);
     return res.list.map((e) => ({
       title: e.vod_name,
       url: `${e.detail_link}|${e.vod_name}|${e.vod_pic}`,
       cover: e.vod_pic,
-      update: e.vod_remarks,
+      update: e.vod_remarks
     }));
   }
-
   async search(kw, page, filter) {
+    var _a, _b, _c;
     if (this.verify && await this.test()) {
-      return [{ title: "需要验证才能使用该扩展！", url: "/play/7566-1-1.html", cover: null }];
+      return [{ title: "\u9700\u8981\u9A8C\u8BC1\u624D\u80FD\u4F7F\u7528\u8BE5\u6269\u5C55\uFF01", url: "/play/7566-1-1.html", cover: null }];
     }
-    if (filter?.channels?.[0] || filter?.genres?.[0] || filter?.years?.[0]) {
-      if (kw) throw new Error("在使用筛选器时无法同时使用搜索功能！");
+    if (((_a = filter == null ? void 0 : filter.channels) == null ? void 0 : _a[0]) || ((_b = filter == null ? void 0 : filter.genres) == null ? void 0 : _b[0]) || ((_c = filter == null ? void 0 : filter.years) == null ? void 0 : _c[0])) {
+      if (kw) throw new Error("\u5728\u4F7F\u7528\u7B5B\u9009\u5668\u65F6\u65E0\u6CD5\u540C\u65F6\u4F7F\u7528\u641C\u7D22\u529F\u80FD\uFF01");
       return this.select(page, filter);
     } else if (!kw) return this.latest(page);
     const res = await this.$req(`/search/wd/${encodeURI(kw)}/page/${page}.html`);
@@ -213,13 +203,12 @@ export default class extends Extension {
     });
     return await Promise.all(videos);
   }
-
   async detail(str) {
     if (this.verify) {
       return {
-        title: "请点击右上角的 Webview 窗口进入网站通过验证",
+        title: "\u8BF7\u70B9\u51FB\u53F3\u4E0A\u89D2\u7684 Webview \u7A97\u53E3\u8FDB\u5165\u7F51\u7AD9\u901A\u8FC7\u9A8C\u8BC1",
         cover: null,
-        desc: "请点击右上角的 Webview 窗口进入网站通过验证",
+        desc: "\u8BF7\u70B9\u51FB\u53F3\u4E0A\u89D2\u7684 Webview \u7A97\u53E3\u8FDB\u5165\u7F51\u7AD9\u901A\u8FC7\u9A8C\u8BC1"
       };
     }
     const data = str.split("|");
@@ -238,19 +227,18 @@ export default class extends Extension {
     });
     return { title: data[1], cover: data[2], desc, episodes: await Promise.all(episodes) };
   }
-
   async watch(url) {
     let res = null;
     try {
       res = await this.$req(url);
     } catch (error) {
-      this.verify = true
-      throw new Error("若网络没问题，则可能是网站需要验证，请重启应用再试");
+      this.verify = true;
+      throw new Error("\u82E5\u7F51\u7EDC\u6CA1\u95EE\u9898\uFF0C\u5219\u53EF\u80FD\u662F\u7F51\u7AD9\u9700\u8981\u9A8C\u8BC1\uFF0C\u8BF7\u91CD\u542F\u5E94\u7528\u518D\u8BD5");
     }
     const player = JSON.parse(res.match(/var player_aaaa=({.+?})</)[1]);
     const raw = decodeURIComponent(player.encrypt == 2 ? this.base64decode(player.url) : player.url);
     const resp = await this.$req(`/player/ec.php?code=qw&url=${raw}`, {
-      headers: { "Miru-Url": this.domain.replace("www", "play"), Referer: this.domain },
+      headers: { "Miru-Url": this.domain.replace("www", "play"), Referer: this.domain }
     });
     const json = JSON.parse(resp.match(/let ConFig = ({.+})/)[1]);
     const link = this.decrypt.player(json.url, json.config.uid);

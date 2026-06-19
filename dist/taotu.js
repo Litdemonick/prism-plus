@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         Taotu[Photo]
 // @version      v0.0.1
 // @author       OshekharO
@@ -13,12 +13,11 @@
 
 export default class extends Extension {
   async latest(page) {
-    const res = await this.request('', {
+    const res = await this.request("", {
       headers: {
-        "Miru-Url": `https://en.taotu.org/page-${page}.html`,
-      },
+        "Miru-Url": `https://en.taotu.org/page-${page}.html`
+      }
     });
-
     const elList = await this.querySelectorAll(res, "div.piclist > div");
     const mangas = [];
     for (const element of elList) {
@@ -29,12 +28,11 @@ export default class extends Extension {
       mangas.push({
         title: title.trim(),
         url,
-        cover,
+        cover
       });
     }
     return mangas;
   }
-
   async search(kw, page) {
     const res = await this.request(`/s?q=${kw}&page=${page}`);
     const elList = await this.querySelectorAll(res, "div.piclist > div");
@@ -47,23 +45,20 @@ export default class extends Extension {
       mangas.push({
         title: title.trim(),
         url,
-        cover,
+        cover
       });
     }
     return mangas;
   }
-
   async detail(url) {
-    const res = await this.request('', {
+    const res = await this.request("", {
       headers: {
-        "Miru-Url": `https://en.taotu.org${url}`,
-      },
+        "Miru-Url": `https://en.taotu.org${url}`
+      }
     });
-
     const title = await this.querySelector(res, "a.active").text;
     const cover = await this.querySelector(res, "link[rel='shortcut icon']").getAttributeText("href");
     const desc = await this.querySelector(res, "meta[name='description']").getAttributeText("content");
-
     return {
       title,
       cover,
@@ -74,30 +69,27 @@ export default class extends Extension {
           urls: [
             {
               name: title,
-              url: url,
-            },
-          ],
-        },
-      ],
+              url
+            }
+          ]
+        }
+      ]
     };
   }
-
   async watch(url) {
-    const res = await this.request('', {
+    const res = await this.request("", {
       headers: {
-        "Miru-Url": `https://en.taotu.org${url}`,
-      },
+        "Miru-Url": `https://en.taotu.org${url}`
+      }
     });
-
     const images = await Promise.all(
       (await this.querySelectorAll(res, "div.piclist > a > img")).map(async (element) => {
         const html = await element.content;
         return this.getAttributeText(html, "img", "src");
       })
     );
-
     return {
-      urls: images,
+      urls: images
     };
   }
 }

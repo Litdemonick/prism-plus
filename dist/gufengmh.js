@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name        古风漫画
 // @version      v0.0.1
 // @author       瑜君之学-杨瑜候
@@ -23,18 +23,15 @@ export default class extends Extension {
         return {
           title: await this.getAttributeText(html, "img", "alt"),
           url: await this.getAttributeText(html, "a", "href"),
-          img: upImg,
+          img: upImg
         };
       })
     );
-
     return novel;
   }
-
   async search(keyword, page) {
     const res = await this.request(`/search/?keywords=${keyword}&page=${page}`);
     const bsxList = await this.querySelectorAll(res, "li.item-lg");
-
     const lieBiao = await Promise.all(
       bsxList.map(async (element) => {
         const html = await element.content;
@@ -43,25 +40,22 @@ export default class extends Extension {
         return {
           title: await this.getAttributeText(html, "img", "alt"),
           url: await this.getAttributeText(html, "a", "href"),
-          img: upImg,
+          img: upImg
         };
       })
     );
     return lieBiao;
   }
-
   async detail(url) {
+    var _a, _b, _c, _d;
     const res = await this.request("", { headers: { "Miru-Url": url } });
-
-    const coverTitle =
-      (await this.querySelector(res, ".book-title > h1 > span")?.text) ?? "";
+    const coverTitle = (_b = await ((_a = this.querySelector(res, ".book-title > h1 > span")) == null ? void 0 : _a.text)) != null ? _b : "";
     const coverImg = await this.getAttributeText(
       res,
       "div.book-cover > p > img",
       "src"
     );
-    const coverDesc =
-      (await this.querySelector(res, "#intro-all > p")?.text) ?? "";
+    const coverDesc = (_d = await ((_c = this.querySelector(res, "#intro-all > p")) == null ? void 0 : _c.text)) != null ? _d : "";
     const selectList = await this.querySelectorAll(
       res,
       "div.chapter-body > ul > li"
@@ -70,13 +64,12 @@ export default class extends Extension {
     for (const element of selectList) {
       const html = element.content;
       const title = await this.querySelector(html, "span").text;
-      const url = await this.getAttributeText(html, "a", "href");
+      const url2 = await this.getAttributeText(html, "a", "href");
       muLuDAta.push({
         name: title,
-        url: url,
+        url: url2
       });
     }
-
     return {
       title: coverTitle,
       cover: coverImg,
@@ -84,28 +77,22 @@ export default class extends Extension {
       episodes: [
         {
           title: "Directory",
-          urls: muLuDAta,
-        },
-      ],
+          urls: muLuDAta
+        }
+      ]
     };
   }
-
   async watch(url) {
     const res = await this.request(url);
-
-    const chapterImagesMatch = res.match(/var chapterImages = \[(.*?)\];/s);
+    const chapterImagesMatch = res.match(new RegExp("var chapterImages = \\[(.*?)\\];", "s"));
     const chapterPathMatch = res.match(/var chapterPath = "([^"]+)";/);
-
     if (chapterImagesMatch && chapterPathMatch) {
-      const chapterImages = chapterImagesMatch[1]
-        .split(",")
-        .map((item) => item.replace(/["\s]/g, ""));
+      const chapterImages = chapterImagesMatch[1].split(",").map((item) => item.replace(/["\s]/g, ""));
       const chapterPath = chapterPathMatch[1];
-
       return {
         urls: chapterImages.map(
           (image) => `https://res.xiaoqinre.com/${chapterPath}${image}`
-        ),
+        )
       };
     }
   }

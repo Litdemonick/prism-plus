@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         聚小说
 // @version      v0.0.1
 // @author       OshekharO
@@ -23,17 +23,15 @@ export default class extends Extension {
       novel.push({
         title: title.trim(),
         url,
-        cover: "https://www.juxiaoshuo.net" + cover,
+        cover: "https://www.juxiaoshuo.net" + cover
       });
     }
     return novel;
   }
-
   async search(kw) {
     const res = await this.request(`/page/search?query=${kw}&source=12`);
     const bsxList = await this.querySelectorAll(res, "div.so_list.bookcase");
     const novel = [];
-
     for (const element of bsxList) {
       const html = await element.content;
       const url = await this.getAttributeText(html, "a", "href");
@@ -42,19 +40,17 @@ export default class extends Extension {
       novel.push({
         title: title.trim(),
         url,
-        cover: "https://www.juxiaoshuo.net" + cover,
+        cover: "https://www.juxiaoshuo.net" + cover
       });
     }
     return novel;
   }
-
-async detail(url) {
+  async detail(url) {
     const res = await this.request(`${url}`, {
       headers: {
-        "miru-referer": "https://www.juxiaoshuo.net/",
-      },
+        "miru-referer": "https://www.juxiaoshuo.net/"
+      }
     });
-
     const title = await this.querySelector(res, "span.title").text;
     const cover = await this.querySelector(
       res,
@@ -64,24 +60,19 @@ async detail(url) {
       res,
       "div.intro > dl > dd"
     ).text;
-
     const episodes = [];
     const listMainMatch = res.match(/<div class="listmain">([\s\S]+?)<\/div>/);
-
-if (listMainMatch) {
-  const epiList = listMainMatch[1].matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g);
-
-  for (const match of epiList) {
-    const url = match[1];
-    const name = match[2];
-
-    episodes.push({
-      name,
-      url,
-    });
-  }
-}
-
+    if (listMainMatch) {
+      const epiList = listMainMatch[1].matchAll(/<a[^>]*href="([^"]+)"[^>]*>([^<]+)<\/a>/g);
+      for (const match of epiList) {
+        const url2 = match[1];
+        const name = match[2];
+        episodes.push({
+          name,
+          url: url2
+        });
+      }
+    }
     return {
       title,
       cover: "https://www.juxiaoshuo.net" + cover,
@@ -89,25 +80,22 @@ if (listMainMatch) {
       episodes: [
         {
           title: "Chapters",
-          urls: episodes,
-        },
-      ],
+          urls: episodes
+        }
+      ]
     };
   }
-
   async watch(url) {
     const res = await this.request(`${url}`);
     const contentList = await this.querySelectorAll(res, "div.Readarea.ReadAjax_content");
     const title = await this.querySelector(res, "h1.wap_none").text;
     const content = [];
-
     for (const c of contentList) {
       content.push(await this.querySelector(c.content, "div").text);
     }
-
     return {
       title,
-      content,
+      content
     };
   }
 }

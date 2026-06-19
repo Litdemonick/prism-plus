@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         GakiArchives
 // @version      v0.0.1
 // @author       bachig26
@@ -24,18 +24,16 @@ export default class extends Extension {
       novel.push({
         title: title.trim(),
         url: "https://gakiarchives.com" + url,
-        cover: "https://gakiarchives.com" + cover,
+        cover: "https://gakiarchives.com" + cover
       });
     }
     return novel;
   }
-
   async search(kw) {
-	const kwstring = kw.replace(/ /g, '+');
+    const kwstring = kw.replace(/ /g, "+");
     const res = await this.request(`/search/${kwstring}`);
     const bsxList = await this.querySelectorAll(res, "div.owl-items.w-25");
     const novel = [];
-
     for (const element of bsxList) {
       const html = await element.content;
       const url = await this.getAttributeText(html, "a", "href");
@@ -44,26 +42,22 @@ export default class extends Extension {
       novel.push({
         title: title.trim(),
         url: "https://gakiarchives.com" + url,
-        cover: "https://gakiarchives.com" + cover,
+        cover: "https://gakiarchives.com" + cover
       });
     }
     return novel;
   }
-
   async detail(url) {
-    const res = await this.request('', {
+    const res = await this.request("", {
       headers: {
-        "Miru-Url": url,
-      },
+        "Miru-Url": url
+      }
     });
-
     const title = await this.querySelector(res, "div.card-header > h3").text;
     const cover = res.match(/pic:\s*'([^']+?)'/)[1];
     const desc = await this.querySelector(res, "i.far.fa-folder + a").text;
     const urlPatterns = [/https?:\/\/[^\s'"]+\.(?:m3u8)/];
-
     let episodeUrl = "";
-
     for (const pattern of urlPatterns) {
       const match = res.match(pattern);
       if (match) {
@@ -71,7 +65,6 @@ export default class extends Extension {
         break;
       }
     }
-
     return {
       title: title.trim(),
       cover: "https://gakiarchives.com" + cover,
@@ -82,18 +75,17 @@ export default class extends Extension {
           urls: [
             {
               name: title,
-              url: episodeUrl,
-            },
-          ],
-        },
-      ],
+              url: episodeUrl
+            }
+          ]
+        }
+      ]
     };
-    }
-	
+  }
   async watch(url) {
     return {
       type: "hls",
-      url: url || "",
+      url: url || ""
     };
   }
 }

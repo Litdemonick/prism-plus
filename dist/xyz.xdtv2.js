@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         好看的2号
 // @version      v0.0.2
 // @author       zj
@@ -24,12 +24,11 @@ export default class extends Extension {
       bangumi.push({
         title: title.trim(),
         url: `${url};${cover};${title}`,
-        cover,
+        cover
       });
     }
     return bangumi;
   }
-
   async latest() {
     const res = await this.request("/index.php/vod/type.html");
     const bsxList = await this.querySelectorAll(res, "ul.thumbnail-group.clearfix > li");
@@ -42,49 +41,44 @@ export default class extends Extension {
       bangumi.push({
         title: title.trim(),
         url: `${url};${cover};${title}`,
-        cover,
+        cover
       });
     }
     return bangumi;
   }
-
   async detail(url) {
-    const res = await this.request(url.split(';')[0]);
-    const title = url.split(';')[2];
-    const cover = url.split(';')[1];
+    const res = await this.request(url.split(";")[0]);
+    const title = url.split(";")[2];
+    const cover = url.split(";")[1];
     const desc = title;
-   
     const episodes = [
       {
-        title: "国内地址",
+        title: "\u56FD\u5185\u5730\u5740",
         urls: [
           {
             name: title,
-            url: 'https://caocao15.xyz' + url.split(';')[0],
-          },
-        ],
-      },
+            url: "https://caocao15.xyz" + url.split(";")[0]
+          }
+        ]
+      }
     ];
-
     return {
       episodes,
       desc: desc.trim(),
       cover,
-      title: title.trim(),
+      title: title.trim()
     };
   }
-
   async watch(url) {
     const res = await this.request("", {
       headers: {
-        "Miru-Url": url,
-      },
+        "Miru-Url": url
+      }
     });
     const json = res.match(/<script type="text\/javascript">var player_aaaa=(.+?)<\/script>/);
-    
-        return {
-            type: "hls",
-            url: JSON.parse(json[1]).url,
-        };
-     }
+    return {
+      type: "hls",
+      url: JSON.parse(json[1]).url
+    };
+  }
 }

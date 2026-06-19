@@ -1,4 +1,4 @@
-﻿// ==PrismHubExtension==
+// ==PrismHubExtension==
 // @name         マンガクロス
 // @version      v0.0.1
 // @author       OshekharO
@@ -16,19 +16,17 @@ export default class extends Extension {
     return res.comics.map((item) => ({
       title: item.title,
       url: item.dir_name,
-      cover: item.image_url,
+      cover: item.image_url
     }));
   }
-
   async latest(page) {
     const res = await this.request(`/api/comics.json?count=30`);
     return res.comics.map((item) => ({
       title: item.title,
       url: item.dir_name,
-      cover: item.image_url,
+      cover: item.image_url
     }));
   }
-
   async detail(url) {
     const res = await this.request(`/api/comics/${url}.json`);
     return {
@@ -40,17 +38,16 @@ export default class extends Extension {
           title: "Directory",
           urls: res.comic.episodes.map((item) => ({
             name: `Chapter ${item.volume}`,
-            url: item.page_url,
-          })),
-        },
-      ],
+            url: item.page_url
+          }))
+        }
+      ]
     };
   }
-
   async watch(url) {
     const res = await this.request(`/${url}/viewer.json`);
     return {
-      urls: res.episode_pages.map((item) => item.image.pc_url),
+      urls: res.episode_pages.map((item) => item.image.pc_url)
     };
   }
 }
