@@ -44,7 +44,14 @@ export async function resolveEmbed(
     )
       result = await resolveDoodstream(embedUrl, referer);
     else if (s.includes('hqq') || s.includes('netu')) result = await resolveNetu(embedUrl, referer);
-    // Familia streamwish/filemoon/luluvdo/etc.: el genérico desempaqueta el eval.
+    else if (
+      s.includes('streamwish') || s.includes('wishfast') || s.includes('vidhide') ||
+      s.includes('filelions') || s.includes('vhide') || s.includes('vtube') ||
+      s.includes('luluvdo') || s.includes('vidmoly') || s.includes('filemoon') ||
+      s.includes('moonplayer') || s.includes('swdyu')
+    )
+      result = await resolveStreamwish(embedUrl, referer);
+    // Genérico como último recurso: desempaqueta eval y busca m3u8/mp4.
     else result = await resolveGeneric(embedUrl, referer);
   } catch (e) {
     console.log(`[resolveEmbed] ${server} THREW: ${(e as Error)?.message ?? e}`);
@@ -420,10 +427,50 @@ function _cdnReferer(
 }
 
 /**
+ * Familia streamwish / wishfast / vidhide / filelions / luluvdo / vidmoly.
+ *
+ * Todos comparten el mismo motor (streamwish open-source). Estrategia:
+ *   1. API JSON: `https://{host}/api/file/{id}?json=1` → devuelve sources[].file
+ *      (el método más fiable y rápido — no depende de ofuscación).
+ *   2. Fallback scraping del embed (para hosts que bloquean la API).
+ *
+ * Filemoon/moonplayer también suelen tener esta API; cuando no, el genérico
+ * intenta desempaquetar el eval.
+ */
+export async function resolveStreamwish(
+  url: string,
+  referer: string,
+): Promise<ResolvedEmbed | null> {
+  const host = _hostOf(url);
+  if (!host) return null;
+  const hdrs = { Referer: `https://${host}/` };
+
+  // Extraer ID del path: /e/{id}, /f/{id}, /d/{id}
+  const idM = /\/(?:e|f|d)\/([A-Za-z0-9]+)/.exec(url);
+  if (idM) {
+    const id = idM[1];
+    // API JSON — retorna {"result":[{"file":"...m3u8"},...]}
+    const apiJson = await fetchEmbed(
+      `https://${host}/api/file/${id}?json=1`,
+      `https://${host}/`,
+      { timeout: 7000 },
+    );
+    if (apiJson) {
+      const fileM = /"file"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(apiJson);
+      if (fileM) return { url: fileM[1].replace(/\\\//g, '/'), headers: hdrs };
+      // Algunos devuelven mp4 en vez de m3u8
+      const mp4M = /"file"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(apiJson);
+      if (mp4M) return { url: mp4M[1].replace(/\\\//g, '/'), headers: hdrs };
+    }
+  }
+
+  // Fallback: scraping + desempaquetado del embed
+  return resolveGeneric(url, referer);
+}
+
+/**
  * Resolver genérico: descarga el embed, desempaqueta cualquier `eval(p,a,c,k,e,d)`
  * y busca el stream (m3u8 firmado, `file:`/`source:`/`src:` de jwplayer, o mp4).
- * Cubre luluvdo y buena parte de la familia streamwish/filemoon sin código
- * específico por host.
  */
 export async function resolveGeneric(
   url: string,

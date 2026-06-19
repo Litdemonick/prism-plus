@@ -146,6 +146,8 @@ async function resolveEmbed(server, embedUrl, referer) {
     else if (s.includes("dood") || s.includes("dsvplay") || s.includes("playmogo") || s.includes("d000d") || s.includes("ds2play") || s.includes("ds2video") || s.includes("vidply") || s.includes("do0od") || s.includes("all3do"))
       result = await resolveDoodstream(embedUrl, referer);
     else if (s.includes("hqq") || s.includes("netu")) result = await resolveNetu(embedUrl, referer);
+    else if (s.includes("streamwish") || s.includes("wishfast") || s.includes("vidhide") || s.includes("filelions") || s.includes("vhide") || s.includes("vtube") || s.includes("luluvdo") || s.includes("vidmoly") || s.includes("filemoon") || s.includes("moonplayer") || s.includes("swdyu"))
+      result = await resolveStreamwish(embedUrl, referer);
     else result = await resolveGeneric(embedUrl, referer);
   } catch (e) {
     console.log(`[resolveEmbed] ${server} THREW: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
@@ -359,6 +361,27 @@ function _cdnReferer(streamUrl, fallback) {
   const h = _hostOf(streamUrl);
   if (!h) return fallback;
   return { Referer: `https://${h}/`, Origin: `https://${h}` };
+}
+async function resolveStreamwish(url, referer) {
+  const host = _hostOf(url);
+  if (!host) return null;
+  const hdrs = { Referer: `https://${host}/` };
+  const idM = /\/(?:e|f|d)\/([A-Za-z0-9]+)/.exec(url);
+  if (idM) {
+    const id = idM[1];
+    const apiJson = await fetchEmbed(
+      `https://${host}/api/file/${id}?json=1`,
+      `https://${host}/`,
+      { timeout: 7e3 }
+    );
+    if (apiJson) {
+      const fileM = /"file"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(apiJson);
+      if (fileM) return { url: fileM[1].replace(/\\\//g, "/"), headers: hdrs };
+      const mp4M = /"file"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(apiJson);
+      if (mp4M) return { url: mp4M[1].replace(/\\\//g, "/"), headers: hdrs };
+    }
+  }
+  return resolveGeneric(url, referer);
 }
 async function resolveGeneric(url, referer) {
   var _a;
