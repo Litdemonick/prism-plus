@@ -93,16 +93,33 @@ export async function watch(url: string): Promise<PrismWatch> {
   }
 
   // 2. Servers embed: <... data-player="BASE64">NombreServer<...>
-  //    El BASE64 decodifica a una URL de embed (voe.sx, mixdrop, etc.)
-  const playerRe = /data-player="([A-Za-z0-9+/=]{10,})"[^>]*>([^<]{1,30})</g;
+  //    Soporta comillas simples y dobles; base64 estándar o URL-safe.
+  const dpRe = /data-player=(?:"([^"]{10,})"|'([^']{10,})')/g;
+  const seenEmbed = new Set<string>();
   const candidates: Array<{ server: string; embedUrl: string }> = [];
-  for (const m of html.matchAll(playerRe)) {
+  for (const m of html.matchAll(dpRe)) {
     try {
-      const embedUrl = b64decode(m[1]);
-      if (embedUrl.startsWith('http')) {
-        candidates.push({ server: m[2].trim() || _guessServer(embedUrl), embedUrl });
-      }
+      const raw = (m[1] !== undefined ? m[1] : m[2]).replace(/[\s\r\n]/g, '');
+      const embedUrl = b64decode(raw);
+      if (!embedUrl.startsWith('http') || seenEmbed.has(embedUrl)) continue;
+      seenEmbed.add(embedUrl);
+      // Nombre del servidor: texto en los ~100 caracteres tras el atributo
+      const ctx = html.slice(m.index!, m.index! + m[0].length + 100);
+      const nm = /["'][^"']{8,}["'][^>]*>([^<\r\n]{1,40})</.exec(ctx);
+      const name = nm?.[1]?.trim() || _guessServer(embedUrl);
+      candidates.push({ server: name, embedUrl });
     } catch { /* ignorar */ }
+  }
+
+  // Fallback: si no hay data-player, buscar iframes de embeds conocidos en el HTML
+  if (candidates.length === 0) {
+    const ifrRe = /<iframe[^>]+src=["'](https?:\/\/(?:voe\.sx|streamtape\.|mixdrop\.|luluvdo\.|bysekoze\.|dsvplay\.|vidhide\.|filelions\.|streamwish\.|wishfast\.|vtube\.|filemoon\.|moon(?:player|video))[^"'\s>]+)["']/gi;
+    for (const m2 of html.matchAll(ifrRe)) {
+      const embedUrl = m2[1];
+      if (seenEmbed.has(embedUrl)) continue;
+      seenEmbed.add(embedUrl);
+      candidates.push({ server: _guessServer(embedUrl), embedUrl });
+    }
   }
 
   // Resolver todos los embeds en paralelo.
@@ -139,5 +156,11 @@ function _guessServer(url: string): string {
   if (url.includes('voe')) return 'Voe';
   if (url.includes('streamtape')) return 'Streamtape';
   if (url.includes('pixeldrain')) return 'Pixeldrain';
+  if (url.includes('mixdrop') || url.includes('mxdrop')) return 'Mixdrop';
+  if (url.includes('luluvdo')) return 'Luluvdo';
+  if (url.includes('bysekoze')) return 'Bysekoze';
+  if (url.includes('dsvplay') || url.includes('dood')) return 'Doodstream';
+  if (url.includes('streamwish') || url.includes('vidhide') || url.includes('filelions')) return 'Streamwish';
+  if (url.includes('filemoon') || url.includes('moonplayer')) return 'Filemoon';
   return 'Embed';
 }

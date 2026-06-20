@@ -48,7 +48,9 @@ export async function resolveEmbed(
       s.includes('streamwish') || s.includes('wishfast') || s.includes('vidhide') ||
       s.includes('filelions') || s.includes('vhide') || s.includes('vtube') ||
       s.includes('luluvdo') || s.includes('vidmoly') || s.includes('filemoon') ||
-      s.includes('moonplayer') || s.includes('swdyu')
+      s.includes('moonplayer') || s.includes('swdyu') || s.includes('bysekoze') ||
+      s.includes('bestx') || s.includes('embedrise') || s.includes('ridoo') ||
+      s.includes('uqload') || s.includes('flaxtv')
     )
       result = await resolveStreamwish(embedUrl, referer);
     // Genérico como último recurso: desempaqueta eval y busca m3u8/mp4.

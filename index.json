@@ -6,24 +6,9 @@
   "website": "https://github.com/Litdemonick/prism-plus",
   "extensions": [
     {
-      "name": "MangaDex",
-      "package": "io.prismhub.mangadex",
-      "version": "1.0.2",
-      "author": "PrismHub",
-      "type": "manga",
-      "icon": "https://mangadex.org/img/avatar.png",
-      "description": "Manga multi-idioma vía API oficial de MangaDex",
-      "lang": "all",
-      "webSite": "https://mangadex.org",
-      "license": "MIT",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/mangadex.js",
-      "sha256": "a2cdfe42464e35d4175f2965000e4fee3954b18cbbbafd65c0b99084772d74c0",
-      "signature": "SiYObS+SMwcYmScs2JKZkHyDc0lc+4mV496mNrT6ECR3WOVvRd/yHZzrbwn5ozNCiLcQbu2MCDPrdYCEfw6SBQ=="
-    },
-    {
       "name": "MonosChinos",
       "package": "io.prismhub.monoschinos",
-      "version": "1.1.5",
+      "version": "1.1.6",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "https://monoschinos.st/img/2web.jpg",
@@ -32,8 +17,8 @@
       "webSite": "https://monoschinos.st",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/monoschinos.js",
-      "sha256": "0d2b8e5090370138eb1abd7f78bd802c82034ab4cdea6e05993adf1867a18c48",
-      "signature": "dLUNIhD3oKE6/MWThe6zn2gIqxXHtBmxMdLU/KmYuygz4GJaxPBKFJyp875mmFr5Jj5ej9hKEZcpB/gt3IcsCA=="
+      "sha256": "aceb96b563fe1d3e9a4959b0dc89af4968c43691d4025032504b8d0d523db115",
+      "signature": "2vUaza/dTzy0+n7/lyiilIOb++5rjKvX2C9q52hmIdVsP+w7TAczdYWlYohGTojF+zSHGY/mILfvXZ0z5vfODQ=="
     },
     {
       "name": "TioAnime",
@@ -47,8 +32,8 @@
       "webSite": "https://tioanime.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js",
-      "sha256": "3dc67de024714976d76ac999f809870573fce9ef4b1cdfdb3f86d83215218777",
-      "signature": "k3VrkSamVGVRWRmHu6slMAYjVzbevsokl7G/CkJ0rxkAJJJlvdCumCGxLLEbp9zXf5I3Ro/yRYXeBbavq4/EDQ=="
+      "sha256": "57097b100f4bd618c768c141c941afc224458f17a895508edfc3e7c219d6b035",
+      "signature": "gBROQUOuptduv+DU21HMVq8mYd3BURpVvo0bhgDFQrPxI+AomYmFAj6zj3A82oN2DI1ohC5AdrR7DN8QGfmvAg=="
     }
   ]
 }

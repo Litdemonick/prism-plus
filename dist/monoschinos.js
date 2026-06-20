@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         MonosChinos
-// @version      1.1.5
+// @version      1.1.6
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -148,7 +148,7 @@ async function resolveEmbed(server, embedUrl, referer) {
     else if (s.includes("dood") || s.includes("dsvplay") || s.includes("playmogo") || s.includes("d000d") || s.includes("ds2play") || s.includes("ds2video") || s.includes("vidply") || s.includes("do0od") || s.includes("all3do"))
       result = await resolveDoodstream(embedUrl, referer);
     else if (s.includes("hqq") || s.includes("netu")) result = await resolveNetu(embedUrl, referer);
-    else if (s.includes("streamwish") || s.includes("wishfast") || s.includes("vidhide") || s.includes("filelions") || s.includes("vhide") || s.includes("vtube") || s.includes("luluvdo") || s.includes("vidmoly") || s.includes("filemoon") || s.includes("moonplayer") || s.includes("swdyu"))
+    else if (s.includes("streamwish") || s.includes("wishfast") || s.includes("vidhide") || s.includes("filelions") || s.includes("vhide") || s.includes("vtube") || s.includes("luluvdo") || s.includes("vidmoly") || s.includes("filemoon") || s.includes("moonplayer") || s.includes("swdyu") || s.includes("bysekoze") || s.includes("bestx") || s.includes("embedrise") || s.includes("ridoo") || s.includes("uqload") || s.includes("flaxtv"))
       result = await resolveStreamwish(embedUrl, referer);
     else result = await resolveGeneric(embedUrl, referer);
   } catch (e) {
@@ -530,6 +530,7 @@ async function detail(url) {
   return { title, cover: cover || void 0, description, episodes };
 }
 async function watch(url) {
+  var _a;
   const html = await get(url, { Referer: `${BASE}/` });
   const direct = [];
   const pdRe = /pixeldrain\.com\/u\/([A-Za-z0-9]+)/g;
@@ -543,15 +544,29 @@ async function watch(url) {
       headers: { Referer: "https://pixeldrain.com/" }
     });
   }
-  const playerRe = /data-player="([A-Za-z0-9+/=]{10,})"[^>]*>([^<]{1,30})</g;
+  const dpRe = /data-player=(?:"([^"]{10,})"|'([^']{10,})')/g;
+  const seenEmbed = /* @__PURE__ */ new Set();
   const candidates = [];
-  for (const m of html.matchAll(playerRe)) {
+  for (const m of html.matchAll(dpRe)) {
     try {
-      const embedUrl = b64decode(m[1]);
-      if (embedUrl.startsWith("http")) {
-        candidates.push({ server: m[2].trim() || _guessServer(embedUrl), embedUrl });
-      }
+      const raw = (m[1] !== void 0 ? m[1] : m[2]).replace(/[\s\r\n]/g, "");
+      const embedUrl = b64decode(raw);
+      if (!embedUrl.startsWith("http") || seenEmbed.has(embedUrl)) continue;
+      seenEmbed.add(embedUrl);
+      const ctx = html.slice(m.index, m.index + m[0].length + 100);
+      const nm = /["'][^"']{8,}["'][^>]*>([^<\r\n]{1,40})</.exec(ctx);
+      const name = ((_a = nm == null ? void 0 : nm[1]) == null ? void 0 : _a.trim()) || _guessServer(embedUrl);
+      candidates.push({ server: name, embedUrl });
     } catch (e) {
+    }
+  }
+  if (candidates.length === 0) {
+    const ifrRe = /<iframe[^>]+src=["'](https?:\/\/(?:voe\.sx|streamtape\.|mixdrop\.|luluvdo\.|bysekoze\.|dsvplay\.|vidhide\.|filelions\.|streamwish\.|wishfast\.|vtube\.|filemoon\.|moon(?:player|video))[^"'\s>]+)["']/gi;
+    for (const m2 of html.matchAll(ifrRe)) {
+      const embedUrl = m2[1];
+      if (seenEmbed.has(embedUrl)) continue;
+      seenEmbed.add(embedUrl);
+      candidates.push({ server: _guessServer(embedUrl), embedUrl });
     }
   }
   const results = await Promise.all(
@@ -573,6 +588,12 @@ function _guessServer(url) {
   if (url.includes("voe")) return "Voe";
   if (url.includes("streamtape")) return "Streamtape";
   if (url.includes("pixeldrain")) return "Pixeldrain";
+  if (url.includes("mixdrop") || url.includes("mxdrop")) return "Mixdrop";
+  if (url.includes("luluvdo")) return "Luluvdo";
+  if (url.includes("bysekoze")) return "Bysekoze";
+  if (url.includes("dsvplay") || url.includes("dood")) return "Doodstream";
+  if (url.includes("streamwish") || url.includes("vidhide") || url.includes("filelions")) return "Streamwish";
+  if (url.includes("filemoon") || url.includes("moonplayer")) return "Filemoon";
   return "Embed";
 }
 
