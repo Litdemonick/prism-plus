@@ -15,9 +15,9 @@
 <br>
 
 [![Licencia MIT](https://img.shields.io/github/license/Litdemonick/prism-plus?style=flat-square)](LICENSE)
-[![Extensiones](https://img.shields.io/badge/extensiones-161-6f42c1?style=flat-square)](#catalogo)
+[![Extensiones](https://img.shields.io/badge/extensiones-3_verificadas-6f42c1?style=flat-square)](#catalogo)
+[![Firma](https://img.shields.io/badge/firma-Ed25519-2ea043?style=flat-square)](#seguridad)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript)](tsconfig.json)
-[![Build](https://img.shields.io/github/actions/workflow/status/Litdemonick/prism-plus/build.yml?branch=main&style=flat-square&label=CI)](https://github.com/Litdemonick/prism-plus/actions)
 
 </div>
 
@@ -27,7 +27,9 @@ Cada extensión habla con una fuente (un sitio de anime, una API de manga, una p
 
 > 🌍 **Alcance:** anime, manga, manhwa, películas, series, documentales, TV en vivo, novelas, podcasts, feeds de video y más.
 
-> 🔒 **Cerrado a contribuciones externas.** Este repositorio es exclusivo de PrismHub y solo su mantenedor añade extensiones nuevas. No se aceptan repos ni extensiones de terceros: si intentas instalar en PrismHub una extensión que ya existe aquí de forma nativa, la app la bloquea.
+> 🧪 **Estado actual: arranque limpio.** El catálogo se reinició para incluir **solo extensiones verificadas una por una**. Hoy hay 3 (TioAnime, MonosChinos, MangaDex); las nuevas se agregan y se prueban desde el [Prism+ Studio](#studio) antes de publicarse, para no shippear nada sin testear.
+
+> 🔒 **Cerrado y firmado.** Solo el mantenedor publica. Cada extensión se **firma con una llave privada Ed25519** y PrismHub la verifica con la llave pública embebida — rechaza cualquier extensión no firmada o alterada (ver [Seguridad](#seguridad)). Que el repo sea público (legible) no permite a nadie inyectar extensiones: hace falta la llave privada, que nunca sale de la máquina del mantenedor.
 
 ---
 
@@ -35,12 +37,14 @@ Cada extensión habla con una fuente (un sitio de anime, una API de manga, una p
 
 - [🏗️ Arquitectura](#arquitectura)
 - [🛡️ Calidad y robustez](#calidad)
+- [🔐 Seguridad — firma de extensiones](#seguridad)
+- [🎞️ Reproducción de video — page-sniff por WebView](#video)
+- [🛠️ Prism+ Studio — administrar y probar extensiones](#studio)
 - [📦 Referencia del SDK](#sdk)
 - [🔧 Cómo escribir una extensión](#extension)
 - [📚 Catálogo de extensiones](#catalogo)
 - [🔌 Consumo desde PrismHub](#integracion)
 - [⚙️ Build](#build)
-- [🤝 Contribuir](#contribuir)
 
 ---
 
@@ -307,6 +311,87 @@ Si el paso 1 falla, el 2, 3 y 4 no corren. `dist/` nunca se contamina.
 
 ---
 
+<a id="seguridad"></a>
+
+## 🔐 Seguridad — firma de extensiones
+
+PrismHub ejecuta el JavaScript de cada extensión. Para que **nadie pueda inyectar una extensión maliciosa** —ni por un PR colado, ni por un repo comprometido, ni por un ataque MITM en la descarga— cada bundle se **firma criptográficamente**.
+
+```
+Mantenedor                                   PrismHub (la app)
+──────────                                   ─────────────────
+🔒 llave PRIVADA (Ed25519)                   🔓 llave PÚBLICA embebida
+   · nunca sale de su máquina                   · viaja dentro de la app
+   · gitignored (.keys/)
+
+Al publicar:  firma = sign(privada, bundle.js)   →  guardada en index.json
+                                                     (campos sha256 + signature)
+Al instalar:  PrismHub baja el bundle  →  verify(pública, bundle, signature)
+                                          · firma válida   → instala ✅
+                                          · sin firma/alterada → RECHAZA ❌
+```
+
+**Por qué el repo público no es un riesgo:** leer el código (público) no es escribir. Solo el mantenedor pushea, y aunque alguien lograra colar un bundle, sin la llave privada la firma no valida y la app lo rechaza. La seguridad no depende del repo sino de la **llave**.
+
+```bash
+npm run keygen   # genera el par una sola vez:
+                 #   .keys/private.pem  → SECRETA, gitignored (respaldala)
+                 #   keys/public.pem    → pública, commiteada
+                 #   keys/public.hex    → para embeber en prism_hub
+```
+
+Cada `npm run build` firma automáticamente si `.keys/private.pem` está presente. El `index.json` queda con `sha256` + `signature` por extensión.
+
+---
+
+<a id="video"></a>
+
+## 🎞️ Reproducción de video — page-sniff por WebView
+
+Los sitios de anime alojan el video en hosts embed (voe, streamwish, doodstream, mp4upload…) que ofuscan su stream y rotan la técnica seguido. En vez de pelear un resolver regex por host, PrismHub usa la lógica del **propio navegador**:
+
+```
+watch() devuelve, además de los servidores que pudo resolver:
+  · pageUrl  → la URL de la página del episodio en el sitio
+
+Si los resolvers nativos no sacan el stream, PrismHub:
+  1. carga pageUrl en un WebView OCULTO (pasa Cloudflare, corre el JS real)
+  2. monta los embeds del sitio en iframes y deja que sus players arranquen
+  3. intercepta el .m3u8/.mp4 que el player pide (hook de fetch/XHR/<video>)
+  4. lo reproduce NATIVO en el reproductor (mpv) — rápido, sin anuncios
+```
+
+Por eso una extensión de video solo necesita devolver `pageUrl` (y los embeds que pueda); el page-sniff universal hace el resto. Mega es la única excepción (transmite cifrado dentro de su página).
+
+```typescript
+export async function watch(url: string): Promise<PrismWatch> {
+  const pageUrl = `${BASE}/ver/${url}`;
+  const html = await get(pageUrl);
+  // ...intentar resolver embeds...
+  return { streams: [...resueltos, ...embeds], pageUrl };  // pageUrl = fallback universal
+}
+```
+
+---
+
+<a id="studio"></a>
+
+## 🛠️ Prism+ Studio — administrar y probar extensiones
+
+El Studio es la herramienta visual (local) para el mantenedor: **crear, editar, probar, firmar y publicar** extensiones sin tocar la consola.
+
+| Acción | Qué hace |
+|--------|----------|
+| **Listar** | Todas las extensiones con estado ✅ probada / ❌ falla / ⏳ sin probar + versión |
+| **Crear / Editar** | Formulario de manifest + editor del `index.ts` |
+| **Probar (de verdad)** | Corre `latest` / `search` / `detail` / `watch` contra la fuente real y muestra los resultados |
+| **Firmar + Publicar** | `npm run build` (firma) + commit + push a GitHub, con un botón |
+| **Borrar** | Quita la extensión y regenera `index.json` |
+
+El **push** usa las credenciales git locales del mantenedor — que el código del Studio sea open source no le da acceso de publicación a nadie.
+
+---
+
 <a id="sdk"></a>
 
 ## 📦 Referencia del SDK
@@ -533,7 +618,7 @@ export async function watch(url: string): Promise<PrismWatch> {
 | `{ streams: [], reason: 'premium_required' }` si no hay stream | Lanzar errores no controlados |
 | `url` siempre string no vacío en PrismEpisode / PrismItem | Retornar IDs numéricos directamente |
 | Construir el slug completo si la fuente usa números (`${animeSlug}-${n}`) | Esperar que el cliente lo construya |
-| `watch()` retorna URLs directas reproducibles (m3u8, mp4) | Retornar URLs de páginas embed (vidmoly, streamtape, etc.) — el reproductor no puede abrirlas |
+| `watch()` retorna URLs directas (m3u8/mp4) **y** `pageUrl` para el [page-sniff](#video) | Omitir `pageUrl`: sin él, si los resolvers fallan, no hay fallback universal |
 | Encodear `[]` en query strings como `%5B%5D` — ej: `order%5Brating%5D=desc` | Usar `[]` literales en URLs — Dart/Dio puede codificarlos y causar rechazo de la API |
 
 ### Cómo manejar URLs de episodio construidas desde HTML
@@ -589,52 +674,17 @@ npm run build   # validate + typecheck + esbuild + test
 
 ## 📚 Catálogo de extensiones
 
-> 📦 Las siguientes extensiones vienen **incluidas por defecto** en Prism+. Son el punto de partida — cualquier desarrollador puede agregar nuevas extensiones en cualquier momento siguiendo el [paso a paso para crear una extensión](#extension).
+> 🧪 **Arranque limpio.** El catálogo se reinició para incluir **solo extensiones verificadas una por una** desde el [Studio](#studio). Las nuevas se agregan probadas; nada se shippea sin testear.
 
-**16 extensiones por defecto · 5 categorías**
+**3 extensiones verificadas**
 
-### 🎌 Anime — 8
+| Extensión | Idioma | Fuente | Tipo | Estado |
+|-----------|--------|--------|------|--------|
+| **TioAnime** | ES | tioanime.com | Anime | ✅ probada |
+| **MonosChinos** | ES | monoschinos.st | Anime | ✅ probada |
+| **MangaDex** | Multi | api.mangadex.org | Manga | ✅ probada |
 
-| Extensión | Idioma | Fuente | Estado |
-|-----------|--------|--------|--------|
-| **GoGoAnime** | EN | Consumet API | ✅ HLS streams |
-| **AniGoGo** | EN | amvstr.me + AniList | ✅ HLS streams |
-| **Animepahe** | EN | animepahe.ru + kwik.si | ✅ HLS — desobfuscado con P.A.C.K.E.R. |
-| **Enime** | EN | api.enime.moe | ✅ API abierta |
-| **MonosChinos** | ES | monoschinos.net | ✅ HTML scrape + m3u8 |
-| **TioAnime** | ES | tioanime.com | ✅ HTML scrape |
-| **AnimeFLV** | ES | animeflv.net | ✅ HTML scrape |
-| **Jikan Anime** | All | MyAnimeList via Jikan | 🔵 Solo metadatos |
-
-### 📖 Manga — 4
-
-| Extensión | Idioma | Fuente | Estado |
-|-----------|--------|--------|--------|
-| **MangaDex** | Multi | api.mangadex.org | ✅ API oficial, paralelo |
-| **Comick** | Multi | comick.fun | ✅ Multi-idioma |
-| **MangaBat** | EN | h.mangabat.com | ✅ HTML scrape |
-| **OmegaScans** | EN | omegascans.org | ✅ Manhwa / manhua |
-
-### 🎬 Películas — 2
-
-| Extensión | Idioma | Fuente | Estado |
-|-----------|--------|--------|--------|
-| **FlixHQ** | EN | Consumet API | ✅ Películas + series |
-| **YTS** | EN | yts.mx | ✅ Torrents magnet |
-
-### 📺 Series — 1
-
-| Extensión | Idioma | Fuente | Estado |
-|-----------|--------|--------|--------|
-| **Kisskh** | Multi | kisskh.co | ✅ Doramas, subtítulos paralelos |
-
-### 🎥 Video — 1
-
-| Extensión | Idioma | Fuente | Estado |
-|-----------|--------|--------|--------|
-| **Invidious** | All | cal1.iv.ggtyler.dev | ✅ YouTube-compatible |
-
-> ✅ Funcional completo · 🔵 Solo metadatos / catálogo
+> Las extensiones de anime usan el [page-sniff por WebView](#video) como fallback universal de reproducción.
 
 ---
 

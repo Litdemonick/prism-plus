@@ -239,7 +239,14 @@ export default class extends Extension {
     var r = await watch(url);
     if (!r || !Array.isArray(r.streams)) return r;
     var streams = r.streams.filter(function (s) { return s && s.url; });
+    // pageUrl: la URL de la página del episodio. La app la carga en un WebView
+    // oculto y sniffe el player que el propio sitio carga (fallback universal).
+    var pageUrl = r.pageUrl || '';
     if (streams.length === 0) {
+      if (pageUrl) {
+        return { type: 'hls', url: 'page://' + pageUrl,
+          headers: { 'X-Page-Url': pageUrl } };
+      }
       return { type: 'hls', url: 'error://Sin servidores disponibles', headers: {} };
     }
     var servers = {}, referers = {};
@@ -250,15 +257,17 @@ export default class extends Extension {
       if (s.headers && s.headers.Referer) referers[nm] = s.headers.Referer;
     }
     var p = streams[0];
+    var extra = {
+      'X-Servers': JSON.stringify(servers),
+      'X-Primary-Server': p.quality || p.server || 'Servidor 1',
+      'X-Server-Referers': JSON.stringify(referers)
+    };
+    if (pageUrl) extra['X-Page-Url'] = pageUrl;
     return {
       type: p.url.indexOf('.mp4') !== -1 ? 'mp4' : 'hls',
       url: p.url,
       subtitles: r.subtitles || [],
-      headers: Object.assign({}, p.headers || {}, {
-        'X-Servers': JSON.stringify(servers),
-        'X-Primary-Server': p.quality || p.server || 'Servidor 1',
-        'X-Server-Referers': JSON.stringify(referers)
-      })
+      headers: Object.assign({}, p.headers || {}, extra)
     };
   }
 }

@@ -66,16 +66,17 @@ export async function detail(url: string): Promise<PrismDetail> {
 
 /** Streams de video — resuelve embeds en paralelo; fallback a URL cruda si no */
 export async function watch(url: string): Promise<PrismWatch> {
-  const html = await get(`${BASE}/ver/${url}`);
+  const pageUrl = `${BASE}/ver/${url}`;
+  const html = await get(pageUrl);
 
   const match = /var\s+videos\s*=\s*(\[\[[\s\S]*?\]\])/.exec(html);
-  if (!match) return { streams: [] };
+  if (!match) return { streams: [], pageUrl };
 
   let raw: [string, string][];
   try {
     raw = JSON.parse(match[1]) as [string, string][];
   } catch {
-    return { streams: [] };
+    return { streams: [], pageUrl };
   }
 
   const candidates = raw.filter(([, u]) => u.startsWith('http'));
@@ -97,7 +98,7 @@ export async function watch(url: string): Promise<PrismWatch> {
     .filter(r => r.resolved === null)
     .map(r => ({ url: r.embedUrl, quality: r.server }));
 
-  return { streams: [...resolved, ...fallback] };
+  return { streams: [...resolved, ...fallback], pageUrl };
 }
 
 // Los resolvers (voe, streamtape, b64decode) viven en sdk/embeds.ts

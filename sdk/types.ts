@@ -131,6 +131,13 @@ export interface PrismWatch {
   /** Headers globales aplicados a todos los streams */
   headers?: Record<string, string>;
   /**
+   * URL de la página del episodio en el sitio (ej: animeflv.net/ver/xxx).
+   * El cliente la carga en un WebView oculto y captura el stream del player
+   * que el propio sitio reproduce — fallback universal cuando los resolvers
+   * nativos no logran extraer el stream directo.
+   */
+  pageUrl?: string;
+  /**
    * Razón por la que streams[] está vacío — ayuda al cliente a mostrar
    * un mensaje útil en vez de un error genérico.
    * Ejemplos: "region_blocked", "premium_required", "js_eval_required"

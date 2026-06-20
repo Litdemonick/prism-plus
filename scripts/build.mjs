@@ -22,6 +22,7 @@ import {
 } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
+import { createPrivateKey, sign, createHash } from 'crypto';
 
 // ─── Configuración ────────────────────────────────────────────────────────────
 
@@ -30,6 +31,27 @@ const EXT_DIR    = join(ROOT, 'extensions');
 const DIST_DIR   = join(ROOT, 'dist');
 const VENDOR_DIR = join(ROOT, 'vendored');
 const INDEX_PATH = join(ROOT, 'index.json');
+const PRIV_KEY_PATH = join(ROOT, '.keys', 'private.pem');
+
+// ─── Firma de extensiones (Ed25519) ───────────────────────────────────────────
+// Si existe la llave privada, cada bundle se firma. prism_hub verifica la firma
+// con la llave pública embebida y rechaza cualquier extensión no firmada/alterada.
+let signingKey = null;
+if (existsSync(PRIV_KEY_PATH)) {
+  try {
+    signingKey = createPrivateKey(readFileSync(PRIV_KEY_PATH));
+  } catch (e) {
+    console.warn(`⚠  No se pudo leer .keys/private.pem: ${e.message}`);
+  }
+}
+
+/** Devuelve { sha256, signature } del JS. signature=null si no hay llave. */
+function signJs(js) {
+  const sha256 = createHash('sha256').update(js, 'utf8').digest('hex');
+  if (!signingKey) return { sha256, signature: null };
+  const signature = sign(null, Buffer.from(js, 'utf8'), signingKey).toString('base64');
+  return { sha256, signature };
+}
 
 const REPO_OWNER = process.env.REPO_OWNER ?? 'Litdemonick';
 const REPO_NAME  = process.env.REPO_NAME  ?? 'prism-plus';
@@ -175,7 +197,14 @@ export default class extends Extension {
     var r = await watch(url);
     if (!r || !Array.isArray(r.streams)) return r;
     var streams = r.streams.filter(function (s) { return s && s.url; });
+    // pageUrl: la URL de la página del episodio. La app la carga en un WebView
+    // oculto y sniffe el player que el propio sitio carga (fallback universal).
+    var pageUrl = r.pageUrl || '';
     if (streams.length === 0) {
+      if (pageUrl) {
+        return { type: 'hls', url: 'page://' + pageUrl,
+          headers: { 'X-Page-Url': pageUrl } };
+      }
       return { type: 'hls', url: 'error://Sin servidores disponibles', headers: {} };
     }
     var servers = {}, referers = {};
@@ -186,15 +215,17 @@ export default class extends Extension {
       if (s.headers && s.headers.Referer) referers[nm] = s.headers.Referer;
     }
     var p = streams[0];
+    var extra = {
+      'X-Servers': JSON.stringify(servers),
+      'X-Primary-Server': p.quality || p.server || 'Servidor 1',
+      'X-Server-Referers': JSON.stringify(referers)
+    };
+    if (pageUrl) extra['X-Page-Url'] = pageUrl;
     return {
       type: p.url.indexOf('.mp4') !== -1 ? 'mp4' : 'hls',
       url: p.url,
       subtitles: r.subtitles || [],
-      headers: Object.assign({}, p.headers || {}, {
-        'X-Servers': JSON.stringify(servers),
-        'X-Primary-Server': p.quality || p.server || 'Servidor 1',
-        'X-Server-Referers': JSON.stringify(referers)
-      })
+      headers: Object.assign({}, p.headers || {}, extra)
     };
   }
 }
@@ -278,10 +309,13 @@ for (const name of entries) {
     const finalJs = makeHeader(manifest) + body + makeClassWrapper();
     writeFileSync(outFile, finalJs, 'utf8');
 
+    const { sha256, signature } = signJs(finalJs);
     builtManifests.push({
       ...manifest,
       type: mapType(manifest.type),
       script: rawUrl(name),
+      sha256,
+      signature,
     });
     console.log(`  ✓  ${name}.js  (${manifest.name}  v${manifest.version})`);
   } catch (err) {
@@ -364,6 +398,8 @@ if (existsSync(VENDOR_DIR)) {
       console.warn(`  ⚠  vendored/${file} — transpilado falló (${e.message}), copiada cruda`);
       copyFileSync(join(VENDOR_DIR, file), join(DIST_DIR, file));
     }
+    const { sha256: vsha, signature: vsig } =
+        signJs(readFileSync(join(DIST_DIR, file), 'utf8'));
     builtManifests.push({
       name: m.name ?? file.replace(/\.js$/, ''),
       package: m.package,
@@ -377,6 +413,8 @@ if (existsSync(VENDOR_DIR)) {
       description: m.description ?? m.name ?? '',
       nsfw: m.nsfw === 'true',
       script: `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}/dist/${file}`,
+      sha256: vsha,
+      signature: vsig,
     });
     vok++;
   }

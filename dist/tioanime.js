@@ -521,14 +521,15 @@ async function detail(url) {
   };
 }
 async function watch(url) {
-  const html = await get(`${BASE}/ver/${url}`);
+  const pageUrl = `${BASE}/ver/${url}`;
+  const html = await get(pageUrl);
   const match = /var\s+videos\s*=\s*(\[\[[\s\S]*?\]\])/.exec(html);
-  if (!match) return { streams: [] };
+  if (!match) return { streams: [], pageUrl };
   let raw;
   try {
     raw = JSON.parse(match[1]);
   } catch (e) {
-    return { streams: [] };
+    return { streams: [], pageUrl };
   }
   const candidates = raw.filter(([, u]) => u.startsWith("http"));
   const results = await Promise.all(
@@ -539,7 +540,7 @@ async function watch(url) {
   );
   const resolved = results.filter((r) => r.resolved !== null).map((r) => ({ url: r.resolved.url, quality: r.server, headers: r.resolved.headers }));
   const fallback = results.filter((r) => r.resolved === null).map((r) => ({ url: r.embedUrl, quality: r.server }));
-  return { streams: [...resolved, ...fallback] };
+  return { streams: [...resolved, ...fallback], pageUrl };
 }
 function _parseCards(html) {
   const pattern = /<article[^>]*class="[^"]*anime[^"]*"[\s\S]*?<a[^>]*href="\/anime\/([^"]+)"[^>]*>[\s\S]*?<img[^>]*src="([^"]+)"[\s\S]*?class="[^"]*title[^"]*"[^>]*>[\s\S]*?>([^<]+)<\/a>/gi;
@@ -619,7 +620,14 @@ export default class extends Extension {
     var r = await watch(url);
     if (!r || !Array.isArray(r.streams)) return r;
     var streams = r.streams.filter(function (s) { return s && s.url; });
+    // pageUrl: la URL de la página del episodio. La app la carga en un WebView
+    // oculto y sniffe el player que el propio sitio carga (fallback universal).
+    var pageUrl = r.pageUrl || '';
     if (streams.length === 0) {
+      if (pageUrl) {
+        return { type: 'hls', url: 'page://' + pageUrl,
+          headers: { 'X-Page-Url': pageUrl } };
+      }
       return { type: 'hls', url: 'error://Sin servidores disponibles', headers: {} };
     }
     var servers = {}, referers = {};
@@ -630,15 +638,17 @@ export default class extends Extension {
       if (s.headers && s.headers.Referer) referers[nm] = s.headers.Referer;
     }
     var p = streams[0];
+    var extra = {
+      'X-Servers': JSON.stringify(servers),
+      'X-Primary-Server': p.quality || p.server || 'Servidor 1',
+      'X-Server-Referers': JSON.stringify(referers)
+    };
+    if (pageUrl) extra['X-Page-Url'] = pageUrl;
     return {
       type: p.url.indexOf('.mp4') !== -1 ? 'mp4' : 'hls',
       url: p.url,
       subtitles: r.subtitles || [],
-      headers: Object.assign({}, p.headers || {}, {
-        'X-Servers': JSON.stringify(servers),
-        'X-Primary-Server': p.quality || p.server || 'Servidor 1',
-        'X-Server-Referers': JSON.stringify(referers)
-      })
+      headers: Object.assign({}, p.headers || {}, extra)
     };
   }
 }

@@ -130,7 +130,9 @@ export async function watch(url: string): Promise<PrismWatch> {
     if (m3u8Match) streams.push({ url: m3u8Match[1], quality: 'Directo' });
   }
 
-  return { streams };
+  // pageUrl = la propia URL del episodio: si todo lo anterior falla, la app la
+  // carga en WebView y sniffe el player del sitio.
+  return { streams, pageUrl: url };
 }
 
 function _guessServer(url: string): string {
