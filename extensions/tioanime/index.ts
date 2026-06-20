@@ -122,17 +122,21 @@ function _parseCards(html: string): PrismItem[] {
 }
 
 function _parseEpisodes(html: string, animeSlug: string): Array<{ title: string; url: string }> {
-  const match = /var\s+episodes\s*=\s*(\[[\s\S]*?\])/.exec(html);
+  // Intentar con distintos patrones: var/let/const + posibles espacios antes de '='
+  const match =
+    /(?:var|let|const)\s+episodes\s*=\s*(\[[\s\S]*?\]);/.exec(html) ||
+    /(?:var|let|const)\s+episodes\s*=\s*(\[[\s\S]*?\])/.exec(html);
   if (!match) return [];
 
   try {
     const raw = JSON.parse(match[1]) as (string | number)[];
-    return raw.reverse().map((ep, i) => {
+    if (!Array.isArray(raw) || raw.length === 0) return [];
+    return raw.map((ep, i) => {
       const slug =
         typeof ep === 'number' || /^\d+$/.test(String(ep))
           ? `${animeSlug}-${ep}`
           : String(ep);
-      return { title: `Episodio ${raw.length - i}`, url: slug };
+      return { title: `Episodio ${i + 1}`, url: slug };
     });
   } catch {
     return [];

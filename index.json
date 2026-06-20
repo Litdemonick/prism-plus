@@ -17,8 +17,8 @@
       "webSite": "https://monoschinos.st",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/monoschinos.js",
-      "sha256": "3b9f2a93483a5559368b5bf9db8c839af83cf9f72f4267ddd08ede54a0dc7332",
-      "signature": "EzttEFJ7PBnwQbX7HmsFlXL+yhnVPprpgQf/Pn/fFvh8er/rRuGO24dU3qYHMecBOi16BSPmZsoefnTteIeqDw=="
+      "sha256": "272bb86ea7a2a18dfa8b3a0128e46f582ba22be1c31507a36ed2778fa1bd9c43",
+      "signature": "DSPF6gNuj94HvxWvb6HtfsKOeh8tp7bW53rX05yXcbG5OhTHaqp6/XxI2D5dsTYoyxnF8gPVV/7Sqbu5u0RFDQ=="
     },
     {
       "name": "TioAnime",
@@ -32,8 +32,8 @@
       "webSite": "https://tioanime.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js",
-      "sha256": "57097b100f4bd618c768c141c941afc224458f17a895508edfc3e7c219d6b035",
-      "signature": "gBROQUOuptduv+DU21HMVq8mYd3BURpVvo0bhgDFQrPxI+AomYmFAj6zj3A82oN2DI1ohC5AdrR7DN8QGfmvAg=="
+      "sha256": "759b21c72c46bdfcb72caba1328372d0a477143112522af12628b7472f5b42fc",
+      "signature": "0vjIIGUnF2YF99OZfLJ5qBrG1cMNi3WOLMdYfbNZp7ciJmCfhb6Y1C/I1OwsL8tFJyPia+l2kwVgJL7UoFigCw=="
     }
   ]
 }

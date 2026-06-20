@@ -45,8 +45,9 @@ export async function detail(url: string): Promise<object> {
   const descBlock = between(html, '<div class="mb-3">', '</div>');
   const description = stripTags(between(descBlock, '<p>', '</p>'));
 
+  // Acepta tanto URLs absolutas como relativas para el link del episodio 1.
   const ep1Match = new RegExp(
-    `href="https?://monoschinos\\.st/ver/([^"]+)-episodio-1"`,
+    `href="(?:https?://monoschinos\\.st)?/ver/([^"]+)-episodio-1"`,
   ).exec(html);
   if (!ep1Match) {
     return { title: title || url, cover: cover || undefined, desc: description, episodes: [] };
@@ -56,11 +57,17 @@ export async function detail(url: string): Promise<object> {
   const escapedSlug = slug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/-/g, '[-]');
   const epRe = new RegExp(`/ver/${escapedSlug}-episodio-(\\d+)`, 'g');
 
-  let maxEp = 1;
+  // Recolectar todos los números de episodio encontrados (no solo el máximo)
+  // para cubrir el caso de episodios no consecutivos o páginas paginadas.
+  const epNums = new Set<number>([1]);
   for (const match of html.matchAll(epRe)) {
-    const n = parseInt(match[1], 10);
-    if (n > maxEp) maxEp = n;
+    epNums.add(parseInt(match[1], 10));
   }
+
+  // Intentar leer el total desde el texto de la página ("X episodios" / "X eps").
+  const totalMatch = html.match(/(\d+)\s*(?:episodios?|eps?)\b/i);
+  const totalFromText = totalMatch ? parseInt(totalMatch[1], 10) : 0;
+  const maxEp = Math.max(...epNums, totalFromText > 0 ? totalFromText : 1);
 
   const episodes = Array.from({ length: maxEp }, (_, i) => ({
     name: `Episodio ${i + 1}`,
@@ -90,8 +97,9 @@ export async function watch(url: string): Promise<object> {
     addServer('Pixeldrain', `https://pixeldrain.com/api/file/${m[1]}`);
   }
 
-  // 2. Links de descarga estáticos (la sección "Descargas" sí está en el HTML sin JS)
-  const DL_RE = /https?:\/\/(?:bysekoze\.com|luluvdo\.com|filemoon\.[a-z]{2,4}|voe\.sx|doodstream\.com|ds2play\.com|streamtape\.(?:com|net|to)|mixdrop\.(?:co|top|to|sx|ag)|mp4upload\.com|vidhide\.com|filelions\.com|streamwish\.(?:com|to))\/[^\s"'<>)]+/gi;
+  // 2. Links de descarga estáticos — solo hosts embed/stream, NO hosts de descarga directa
+  // (mega, savefiles, etc. abren pestañas de descarga en el WebView en lugar de reproducir).
+  const DL_RE = /https?:\/\/(?:bysekoze\.com|luluvdo\.com|filemoon\.[a-z]{2,4}|voe\.sx|doodstream\.com|ds2play\.com|streamtape\.(?:com|net|to)|mixdrop\.(?:co|top|to|sx|ag)|mp4upload\.com|vidhide\.com|filelions\.com|streamwish\.(?:com|to)|sendvid\.com|upstream\.to|uqload\.co|streamhide\.to)\/[^\s"'<>)]+/gi;
   for (const m of html.matchAll(DL_RE)) {
     const dlUrl = m[0].replace(/['"<>)\s]+$/, '');
     addServer(_guessServer(dlUrl), dlUrl);

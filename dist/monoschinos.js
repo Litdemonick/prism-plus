@@ -162,7 +162,7 @@ async function detail(url) {
   const descBlock = between(html, '<div class="mb-3">', "</div>");
   const description = stripTags(between(descBlock, "<p>", "</p>"));
   const ep1Match = new RegExp(
-    `href="https?://monoschinos\\.st/ver/([^"]+)-episodio-1"`
+    `href="(?:https?://monoschinos\\.st)?/ver/([^"]+)-episodio-1"`
   ).exec(html);
   if (!ep1Match) {
     return { title: title || url, cover: cover || void 0, desc: description, episodes: [] };
@@ -170,11 +170,13 @@ async function detail(url) {
   const slug = ep1Match[1];
   const escapedSlug = slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/-/g, "[-]");
   const epRe = new RegExp(`/ver/${escapedSlug}-episodio-(\\d+)`, "g");
-  let maxEp = 1;
+  const epNums = /* @__PURE__ */ new Set([1]);
   for (const match of html.matchAll(epRe)) {
-    const n = parseInt(match[1], 10);
-    if (n > maxEp) maxEp = n;
+    epNums.add(parseInt(match[1], 10));
   }
+  const totalMatch = html.match(/(\d+)\s*(?:episodios?|eps?)\b/i);
+  const totalFromText = totalMatch ? parseInt(totalMatch[1], 10) : 0;
+  const maxEp = Math.max(...epNums, totalFromText > 0 ? totalFromText : 1);
   const episodes = Array.from({ length: maxEp }, (_, i) => ({
     name: `Episodio ${i + 1}`,
     url: `${BASE}/ver/${slug}-episodio-${i + 1}`
@@ -196,7 +198,7 @@ async function watch(url) {
   for (const m of html.matchAll(/pixeldrain\.com\/(?:u|d)\/([A-Za-z0-9]+)/g)) {
     addServer("Pixeldrain", `https://pixeldrain.com/api/file/${m[1]}`);
   }
-  const DL_RE = /https?:\/\/(?:bysekoze\.com|luluvdo\.com|filemoon\.[a-z]{2,4}|voe\.sx|doodstream\.com|ds2play\.com|streamtape\.(?:com|net|to)|mixdrop\.(?:co|top|to|sx|ag)|mp4upload\.com|vidhide\.com|filelions\.com|streamwish\.(?:com|to))\/[^\s"'<>)]+/gi;
+  const DL_RE = /https?:\/\/(?:bysekoze\.com|luluvdo\.com|filemoon\.[a-z]{2,4}|voe\.sx|doodstream\.com|ds2play\.com|streamtape\.(?:com|net|to)|mixdrop\.(?:co|top|to|sx|ag)|mp4upload\.com|vidhide\.com|filelions\.com|streamwish\.(?:com|to)|sendvid\.com|upstream\.to|uqload\.co|streamhide\.to)\/[^\s"'<>)]+/gi;
   for (const m of html.matchAll(DL_RE)) {
     const dlUrl = m[0].replace(/['"<>)\s]+$/, "");
     addServer(_guessServer(dlUrl), dlUrl);
