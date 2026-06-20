@@ -18,7 +18,7 @@
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/mangadex.js",
       "sha256": "82a310f41466a904313c814ebe8b4024e7c7f49ee252189dff454120ca25f6cd",
-      "signature": "pAZxDX5xOt/wDDBpYFiyTI26s+CqMulW/ldzNRSxIQ6MpRKR2bAaGyNp6bKnHSmu5CWF8NhXcppyYBdxDRC3Dw=="
+      "signature": null
     },
     {
       "name": "MonosChinos",
@@ -33,7 +33,7 @@
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/monoschinos.js",
       "sha256": "17060e41c07d53d87a7466c10a8138e49978ad40cd8f4f0f7e9a407d6fdd6d9f",
-      "signature": "T+Z5i3TL3KktfbkG+6b2dRp5L0j8wpsDYYglCaNOcVMYbDyHXzZ+eCd3EP76ixSN0F3FDKeXZdyFfWe+hLRFDg=="
+      "signature": null
     },
     {
       "name": "TioAnime",
@@ -48,7 +48,7 @@
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js",
       "sha256": "38480aa37d11bc041b8539323609c96ab34ce70e737141b121a37fbacaa62d03",
-      "signature": "HPkqsjzp2sERD5Z18QuORAsbdor0744bKuBJX3194c69amuLaUDH+8ZYxxQko/B3aU49vIYXy+MKDcRL6d70CQ=="
+      "signature": null
     }
   ]
 }
