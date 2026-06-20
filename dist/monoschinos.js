@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         MonosChinos
-// @version      1.1.6
+// @version      1.1.7
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -530,57 +530,98 @@ async function detail(url) {
   return { title, cover: cover || void 0, description, episodes };
 }
 async function watch(url) {
-  var _a;
   const html = await get(url, { Referer: `${BASE}/` });
-  const direct = [];
-  const pdRe = /pixeldrain\.com\/u\/([A-Za-z0-9]+)/g;
-  const seenPd = /* @__PURE__ */ new Set();
-  for (const m of html.matchAll(pdRe)) {
-    if (seenPd.has(m[1])) continue;
-    seenPd.add(m[1]);
-    direct.push({
+  const streams = [];
+  const seen = /* @__PURE__ */ new Set();
+  const episodioMatch = /\/ver\/(.+)-episodio-(\d+)$/.exec(url);
+  if (episodioMatch) {
+    const epSlug = episodioMatch[1];
+    const epNum = episodioMatch[2];
+    const apiUrls = [
+      `${BASE}/api/episode?slug=${epSlug}&number=${epNum}`,
+      `${BASE}/api/servers?slug=${epSlug}-episodio-${epNum}`,
+      `${BASE}/api/episode/${epSlug}/${epNum}`
+    ];
+    for (const apiUrl of apiUrls) {
+      try {
+        const raw = await get(apiUrl, { "X-Requested-With": "XMLHttpRequest", Referer: url });
+        const data = JSON.parse(raw);
+        if ((data == null ? void 0 : data.url) && !seen.has(data.url)) {
+          seen.add(data.url);
+          streams.push({ url: data.url, quality: data.name || "MonosChinos" });
+        } else if (Array.isArray(data)) {
+          for (const s of data) {
+            if ((s == null ? void 0 : s.url) && !seen.has(s.url)) {
+              seen.add(s.url);
+              streams.push({ url: s.url, quality: s.name || "Server" });
+            }
+          }
+        }
+        if (streams.length > 0) break;
+      } catch (e) {
+      }
+    }
+  }
+  for (const m of html.matchAll(/pixeldrain\.com\/(?:u|d)\/([A-Za-z0-9]+)/g)) {
+    if (seen.has(m[1])) continue;
+    seen.add(m[1]);
+    streams.push({
       url: `https://pixeldrain.com/api/file/${m[1]}`,
       quality: "Pixeldrain",
       headers: { Referer: "https://pixeldrain.com/" }
     });
   }
-  const dpRe = /data-player=(?:"([^"]{10,})"|'([^']{10,})')/g;
-  const seenEmbed = /* @__PURE__ */ new Set();
+  const DL_RE = /https?:\/\/(?:bysekoze\.com|filemoon\.[a-z]{2,4}|voe\.sx|doodstream\.com|ds2play\.com|streamtape\.(?:com|net|to)|mixdrop\.(?:co|top|to|sx|ag)|mp4upload\.com)\/[^\s"'<>)]+/gi;
   const candidates = [];
-  for (const m of html.matchAll(dpRe)) {
-    try {
-      const raw = (m[1] !== void 0 ? m[1] : m[2]).replace(/[\s\r\n]/g, "");
-      const embedUrl = b64decode(raw);
-      if (!embedUrl.startsWith("http") || seenEmbed.has(embedUrl)) continue;
-      seenEmbed.add(embedUrl);
-      const ctx = html.slice(m.index, m.index + m[0].length + 100);
-      const nm = /["'][^"']{8,}["'][^>]*>([^<\r\n]{1,40})</.exec(ctx);
-      const name = ((_a = nm == null ? void 0 : nm[1]) == null ? void 0 : _a.trim()) || _guessServer(embedUrl);
-      candidates.push({ server: name, embedUrl });
-    } catch (e) {
-    }
+  for (const m of html.matchAll(DL_RE)) {
+    const dlUrl = m[0].replace(/['"<>)\s]+$/, "");
+    if (seen.has(dlUrl)) continue;
+    seen.add(dlUrl);
+    candidates.push({ name: _guessServer(dlUrl), embedUrl: dlUrl });
   }
-  if (candidates.length === 0) {
-    const ifrRe = /<iframe[^>]+src=["'](https?:\/\/(?:voe\.sx|streamtape\.|mixdrop\.|luluvdo\.|bysekoze\.|dsvplay\.|vidhide\.|filelions\.|streamwish\.|wishfast\.|vtube\.|filemoon\.|moon(?:player|video))[^"'\s>]+)["']/gi;
-    for (const m2 of html.matchAll(ifrRe)) {
-      const embedUrl = m2[1];
-      if (seenEmbed.has(embedUrl)) continue;
-      seenEmbed.add(embedUrl);
-      candidates.push({ server: _guessServer(embedUrl), embedUrl });
-    }
-  }
-  const results = await Promise.all(
-    candidates.map(async ({ server, embedUrl }) => {
-      const resolved2 = await resolveEmbed(server, embedUrl, `${BASE}/`);
-      return { server, embedUrl, resolved: resolved2 };
+  const resolved = await Promise.all(
+    candidates.map(async ({ name, embedUrl }) => {
+      const r = await resolveEmbed(name, embedUrl, `${BASE}/`);
+      return r ? { url: r.url, quality: name, headers: r.headers } : null;
     })
   );
-  const resolved = results.filter((r) => r.resolved !== null).map((r) => ({ url: r.resolved.url, quality: r.server, headers: r.resolved.headers }));
-  const fallback = results.filter((r) => r.resolved === null).map((r) => ({ url: r.embedUrl, quality: r.server }));
-  const streams = [...direct, ...resolved, ...fallback];
+  for (const r of resolved) {
+    if (r) streams.push(r);
+  }
+  const gofileIds = [];
+  for (const m of html.matchAll(/gofile\.io\/d\/([A-Za-z0-9]+)/g)) {
+    if (!gofileIds.includes(m[1])) gofileIds.push(m[1]);
+  }
+  const gofileStreams = await Promise.all(
+    gofileIds.map(async (gfId) => {
+      var _a, _b;
+      try {
+        const raw = await get(
+          `https://api.gofile.io/getContent?contentId=${gfId}&token=&websiteToken=7fd94ds12fds4`,
+          { Referer: "https://gofile.io/" }
+        );
+        const data = JSON.parse(raw);
+        if ((data == null ? void 0 : data.status) === "ok") {
+          const files = Object.values((_b = (_a = data.data) == null ? void 0 : _a.contents) != null ? _b : {});
+          const vid = files.find((f) => {
+            var _a2;
+            return (_a2 = f == null ? void 0 : f.mimetype) == null ? void 0 : _a2.includes("video");
+          });
+          if (vid == null ? void 0 : vid.directLink) {
+            return { url: vid.directLink, quality: "Gofile" };
+          }
+        }
+      } catch (e) {
+      }
+      return null;
+    })
+  );
+  for (const r of gofileStreams) {
+    if (r) streams.push(r);
+  }
   if (streams.length === 0) {
-    const m3u8Match = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
-    if (m3u8Match) streams.push({ url: m3u8Match[1], quality: "Directo" });
+    const m3u8 = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
+    if (m3u8) streams.push({ url: m3u8[1], quality: "Directo" });
   }
   return { streams, pageUrl: url };
 }
@@ -589,10 +630,9 @@ function _guessServer(url) {
   if (url.includes("streamtape")) return "Streamtape";
   if (url.includes("pixeldrain")) return "Pixeldrain";
   if (url.includes("mixdrop") || url.includes("mxdrop")) return "Mixdrop";
-  if (url.includes("luluvdo")) return "Luluvdo";
+  if (url.includes("doodstream") || url.includes("ds2play")) return "Doodstream";
   if (url.includes("bysekoze")) return "Bysekoze";
-  if (url.includes("dsvplay") || url.includes("dood")) return "Doodstream";
-  if (url.includes("streamwish") || url.includes("vidhide") || url.includes("filelions")) return "Streamwish";
+  if (url.includes("mp4upload")) return "Mp4Upload";
   if (url.includes("filemoon") || url.includes("moonplayer")) return "Filemoon";
   return "Embed";
 }

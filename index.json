@@ -8,7 +8,7 @@
     {
       "name": "MonosChinos",
       "package": "io.prismhub.monoschinos",
-      "version": "1.1.6",
+      "version": "1.1.7",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "https://monoschinos.st/img/2web.jpg",
@@ -17,8 +17,8 @@
       "webSite": "https://monoschinos.st",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/monoschinos.js",
-      "sha256": "aceb96b563fe1d3e9a4959b0dc89af4968c43691d4025032504b8d0d523db115",
-      "signature": "2vUaza/dTzy0+n7/lyiilIOb++5rjKvX2C9q52hmIdVsP+w7TAczdYWlYohGTojF+zSHGY/mILfvXZ0z5vfODQ=="
+      "sha256": "1f5ad40aa0210410fc587546d6fc44187becae8c26652c63bc9a0c93f83f99d5",
+      "signature": "pGKpUDygCZqz7z82ZJSQ3sW5zb26qJg8trLdY+mcqgN73a+mgcMkqpj5FXOlztbN28lJthQzeqoI8IdL8EjlCA=="
     },
     {
       "name": "TioAnime",

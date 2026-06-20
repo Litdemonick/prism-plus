@@ -5,9 +5,9 @@ import type { PrismDetail, PrismItem, PrismStream, PrismWatch } from '../../sdk/
 
 // ─── MonosChinos ──────────────────────────────────────────────────────────────
 // Fuente: https://monoschinos.st
-// Anime en español latino.
-// watch() decodifica atributos data-player (base64 → URL embed) y resuelve
-// los servers conocidos (voe, streamtape) a streams directos.
+// Los players se cargan vía AJAX/JS — no están en el HTML estático.
+// Estrategia: API interna → links de descarga en HTML (bysekoze, pixeldrain,
+// gofile, filemoon, voe…) → page-sniff como último recurso.
 
 const BASE = 'https://monoschinos.st';
 
@@ -77,78 +77,107 @@ export async function detail(url: string): Promise<PrismDetail> {
 export async function watch(url: string): Promise<PrismWatch> {
   const html = await get(url, { Referer: `${BASE}/` });
 
-  // 1. Descargas directas (sección "Descargas"): pixeldrain es un mp4 directo,
-  //    sin ofuscación ni token atado a IP → el server MÁS fiable. Va primero.
-  const direct: PrismStream[] = [];
-  const pdRe = /pixeldrain\.com\/u\/([A-Za-z0-9]+)/g;
-  const seenPd = new Set<string>();
-  for (const m of html.matchAll(pdRe)) {
-    if (seenPd.has(m[1])) continue;
-    seenPd.add(m[1]);
-    direct.push({
+  const streams: PrismStream[] = [];
+  const seen = new Set<string>();
+
+  // 1. API interna (los servers se cargan por AJAX — intentar antes que HTML)
+  const episodioMatch = /\/ver\/(.+)-episodio-(\d+)$/.exec(url);
+  if (episodioMatch) {
+    const epSlug = episodioMatch[1];
+    const epNum  = episodioMatch[2];
+    const apiUrls = [
+      `${BASE}/api/episode?slug=${epSlug}&number=${epNum}`,
+      `${BASE}/api/servers?slug=${epSlug}-episodio-${epNum}`,
+      `${BASE}/api/episode/${epSlug}/${epNum}`,
+    ];
+    for (const apiUrl of apiUrls) {
+      try {
+        const raw = await get(apiUrl, { 'X-Requested-With': 'XMLHttpRequest', Referer: url });
+        const data = JSON.parse(raw);
+        if (data?.url && !seen.has(data.url)) {
+          seen.add(data.url);
+          streams.push({ url: data.url, quality: data.name || 'MonosChinos' });
+        } else if (Array.isArray(data)) {
+          for (const s of data) {
+            if (s?.url && !seen.has(s.url)) {
+              seen.add(s.url);
+              streams.push({ url: s.url, quality: s.name || 'Server' });
+            }
+          }
+        }
+        if (streams.length > 0) break;
+      } catch { /* API no disponible o respuesta no JSON */ }
+    }
+  }
+
+  // 2. Pixeldrain — API directa sin ofuscación, mp4 reproducible de inmediato
+  for (const m of html.matchAll(/pixeldrain\.com\/(?:u|d)\/([A-Za-z0-9]+)/g)) {
+    if (seen.has(m[1])) continue;
+    seen.add(m[1]);
+    streams.push({
       url: `https://pixeldrain.com/api/file/${m[1]}`,
       quality: 'Pixeldrain',
       headers: { Referer: 'https://pixeldrain.com/' },
     });
   }
 
-  // 2. Servers embed: <... data-player="BASE64">NombreServer<...>
-  //    Soporta comillas simples y dobles; base64 estándar o URL-safe.
-  const dpRe = /data-player=(?:"([^"]{10,})"|'([^']{10,})')/g;
-  const seenEmbed = new Set<string>();
-  const candidates: Array<{ server: string; embedUrl: string }> = [];
-  for (const m of html.matchAll(dpRe)) {
-    try {
-      const raw = (m[1] !== undefined ? m[1] : m[2]).replace(/[\s\r\n]/g, '');
-      const embedUrl = b64decode(raw);
-      if (!embedUrl.startsWith('http') || seenEmbed.has(embedUrl)) continue;
-      seenEmbed.add(embedUrl);
-      // Nombre del servidor: texto en los ~100 caracteres tras el atributo
-      const ctx = html.slice(m.index!, m.index! + m[0].length + 100);
-      const nm = /["'][^"']{8,}["'][^>]*>([^<\r\n]{1,40})</.exec(ctx);
-      const name = nm?.[1]?.trim() || _guessServer(embedUrl);
-      candidates.push({ server: name, embedUrl });
-    } catch { /* ignorar */ }
+  // 3. Links de descarga estáticos: bysekoze, filemoon, voe, doodstream, etc.
+  //    La sección "Descargas" del HTML sí contiene estos links (sin JS).
+  const DL_RE = /https?:\/\/(?:bysekoze\.com|filemoon\.[a-z]{2,4}|voe\.sx|doodstream\.com|ds2play\.com|streamtape\.(?:com|net|to)|mixdrop\.(?:co|top|to|sx|ag)|mp4upload\.com)\/[^\s"'<>)]+/gi;
+  const candidates: Array<{ name: string; embedUrl: string }> = [];
+  for (const m of html.matchAll(DL_RE)) {
+    const dlUrl = m[0].replace(/['"<>)\s]+$/, '');
+    if (seen.has(dlUrl)) continue;
+    seen.add(dlUrl);
+    candidates.push({ name: _guessServer(dlUrl), embedUrl: dlUrl });
   }
 
-  // Fallback: si no hay data-player, buscar iframes de embeds conocidos en el HTML
-  if (candidates.length === 0) {
-    const ifrRe = /<iframe[^>]+src=["'](https?:\/\/(?:voe\.sx|streamtape\.|mixdrop\.|luluvdo\.|bysekoze\.|dsvplay\.|vidhide\.|filelions\.|streamwish\.|wishfast\.|vtube\.|filemoon\.|moon(?:player|video))[^"'\s>]+)["']/gi;
-    for (const m2 of html.matchAll(ifrRe)) {
-      const embedUrl = m2[1];
-      if (seenEmbed.has(embedUrl)) continue;
-      seenEmbed.add(embedUrl);
-      candidates.push({ server: _guessServer(embedUrl), embedUrl });
-    }
-  }
-
-  // Resolver todos los embeds en paralelo.
-  const results = await Promise.all(
-    candidates.map(async ({ server, embedUrl }) => {
-      const resolved = await resolveEmbed(server, embedUrl, `${BASE}/`);
-      return { server, embedUrl, resolved };
+  // Resolver todos los embeds/descargas en paralelo
+  const resolved = await Promise.all(
+    candidates.map(async ({ name, embedUrl }) => {
+      const r = await resolveEmbed(name, embedUrl, `${BASE}/`);
+      return r ? ({ url: r.url, quality: name, headers: r.headers } as PrismStream) : null;
     }),
   );
-
-  const resolved = results
-    .filter(r => r.resolved !== null)
-    .map(r => ({ url: r.resolved!.url, quality: r.server, headers: r.resolved!.headers }));
-  const fallback = results
-    .filter(r => r.resolved === null)
-    .map(r => ({ url: r.embedUrl, quality: r.server }));
-
-  // Orden: descargas directas (más fiables) → embeds resueltos → embeds crudos.
-  // PrismHub reproduce el primero y, si falla, hace auto-fallback al siguiente.
-  const streams = [...direct, ...resolved, ...fallback];
-
-  // Último recurso: m3u8 suelto en el HTML.
-  if (streams.length === 0) {
-    const m3u8Match = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
-    if (m3u8Match) streams.push({ url: m3u8Match[1], quality: 'Directo' });
+  for (const r of resolved) {
+    if (r) streams.push(r);
   }
 
-  // pageUrl = la propia URL del episodio: si todo lo anterior falla, la app la
-  // carga en WebView y sniffe el player del sitio.
+  // 4. Gofile — API pública para obtener link directo
+  const gofileIds: string[] = [];
+  for (const m of html.matchAll(/gofile\.io\/d\/([A-Za-z0-9]+)/g)) {
+    if (!gofileIds.includes(m[1])) gofileIds.push(m[1]);
+  }
+  const gofileStreams = await Promise.all(
+    gofileIds.map(async (gfId) => {
+      try {
+        const raw = await get(
+          `https://api.gofile.io/getContent?contentId=${gfId}&token=&websiteToken=7fd94ds12fds4`,
+          { Referer: 'https://gofile.io/' },
+        );
+        const data = JSON.parse(raw) as any;
+        if (data?.status === 'ok') {
+          const files = Object.values((data.data?.contents ?? {}) as object) as any[];
+          const vid = files.find((f: any) => f?.mimetype?.includes('video'));
+          if (vid?.directLink) {
+            return { url: vid.directLink, quality: 'Gofile' } as PrismStream;
+          }
+        }
+      } catch { /* ignorar */ }
+      return null;
+    }),
+  );
+  for (const r of gofileStreams) {
+    if (r) streams.push(r);
+  }
+
+  // Último recurso antes de page-sniff: m3u8 suelto en el HTML
+  if (streams.length === 0) {
+    const m3u8 = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
+    if (m3u8) streams.push({ url: m3u8[1], quality: 'Directo' });
+  }
+
+  // pageUrl = la URL del episodio para que la app la sniffe en WebView si todo falla
   return { streams, pageUrl: url };
 }
 
@@ -157,10 +186,9 @@ function _guessServer(url: string): string {
   if (url.includes('streamtape')) return 'Streamtape';
   if (url.includes('pixeldrain')) return 'Pixeldrain';
   if (url.includes('mixdrop') || url.includes('mxdrop')) return 'Mixdrop';
-  if (url.includes('luluvdo')) return 'Luluvdo';
+  if (url.includes('doodstream') || url.includes('ds2play')) return 'Doodstream';
   if (url.includes('bysekoze')) return 'Bysekoze';
-  if (url.includes('dsvplay') || url.includes('dood')) return 'Doodstream';
-  if (url.includes('streamwish') || url.includes('vidhide') || url.includes('filelions')) return 'Streamwish';
+  if (url.includes('mp4upload')) return 'Mp4Upload';
   if (url.includes('filemoon') || url.includes('moonplayer')) return 'Filemoon';
   return 'Embed';
 }
