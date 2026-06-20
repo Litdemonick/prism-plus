@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prism+ Studio</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="app">
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-9 4.5 9 4.5 9-4.5L12 3Z"/><path d="m3 12 9 4.5 9-4.5"/><path d="m3 16.5 9 4.5 9-4.5"/></svg>
+        </div>
+        <div>
+          <h1>Prism+ <small>Studio</small></h1>
+        </div>
+      </div>
+
+      <nav class="nav" id="nav">
+        <button data-view="extensions" class="active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
+          Extensiones
+        </button>
+        <button data-view="publish">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+          Publicar
+        </button>
+        <button data-view="keys">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777Zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          Seguridad / Llaves
+        </button>
+      </nav>
+
+      <div class="key-status" id="keyStatus">
+        <div class="row"><span class="dot" style="background:var(--muted)"></span><span>Verificando llave…</span></div>
+      </div>
+    </aside>
+
+    <!-- ── Main ── -->
+    <main class="main">
+      <!-- Extensiones -->
+      <section class="view" data-view="extensions">
+        <div class="topbar">
+          <div>
+            <h2>Extensiones</h2>
+            <p>Creá, probá y administrá las extensiones del catálogo de Prism+.</p>
+          </div>
+          <div class="actions">
+            <button class="btn" id="btnReload">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+              Refrescar
+            </button>
+            <button class="btn primary" id="btnNew">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+              Nueva extensión
+            </button>
+          </div>
+        </div>
+        <div class="grid" id="grid"></div>
+      </section>
+
+      <!-- Publicar -->
+      <section class="view" data-view="publish" hidden>
+        <div class="topbar">
+          <div>
+            <h2>Publicar</h2>
+            <p>Compilá (firma con tu llave) y subí los cambios a GitHub con un clic.</p>
+          </div>
+        </div>
+        <div class="panel">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18 22 12 16 6"/><path d="M8 6 2 12 8 18"/></svg>Compilar + firmar</h3>
+          <p class="hint">Ejecuta <code>npm run build</code>: valida, compila a <code>dist/</code>, firma cada bundle con tu llave privada y regenera <code>index.json</code>. Hacé esto antes de probar o publicar.</p>
+          <button class="btn primary" id="btnBuild">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>
+            Compilar y firmar
+          </button>
+        </div>
+        <div class="panel">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>Subir a GitHub</h3>
+          <p class="hint">Hace <code>git add/commit/push</code> a <code>main</code> con tu autoría. Los usuarios de PrismHub reciben las extensiones nuevas/actualizadas vía <code>index.json</code>.</p>
+          <div class="field full" style="margin-bottom:14px">
+            <label>Mensaje del commit</label>
+            <input id="commitMsg" placeholder="feat: nueva extensión / fix resolver…" />
+          </div>
+          <div class="actions" style="display:flex;gap:10px">
+            <button class="btn" id="btnGitStatus">Ver cambios</button>
+            <button class="btn primary" id="btnPublish">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+              Publicar
+            </button>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Salida</h3>
+          <div class="console" id="pubConsole"></div>
+        </div>
+      </section>
+
+      <!-- Llaves -->
+      <section class="view" data-view="keys" hidden>
+        <div class="topbar">
+          <div>
+            <h2>Seguridad / Llaves</h2>
+            <p>La firma garantiza que nadie pueda falsificar una extensión oficial de Prism+.</p>
+          </div>
+        </div>
+        <div class="panel">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Estado de la firma</h3>
+          <p class="hint">PrismHub trae embebida tu llave <b>pública</b> y rechaza cualquier extensión que no esté firmada con tu llave <b>privada</b>. La privada vive solo en tu máquina (<code>.keys/</code>, gitignored) — respaldala.</p>
+          <div id="keyDetail"></div>
+          <button class="btn" id="btnKeygen" style="margin-top:14px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+            Generar par de llaves
+          </button>
+        </div>
+        <div class="panel">
+          <h3>¿Cómo protege esto a PrismHub?</h3>
+          <p class="hint" style="margin:0">
+            • <b>Oficial</b> (firma válida) → se instala como verificada ✅<br>
+            • <b>Alterada</b> (firma inválida) → PrismHub la rechaza ❌<br>
+            • <b>Externa</b> (sin firma) → permitida pero marcada como no oficial ⚠️ (PrismHub es open source)<br>
+            • Un sideload que <b>duplica</b> una extensión oficial → bloqueado
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ── Modal editor ── -->
+  <div class="modal-bg" id="modal" hidden>
+    <div class="modal">
+      <div class="mh">
+        <h3 id="modalTitle">Nueva extensión</h3>
+        <button class="x" id="modalClose">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="form-grid">
+        <div class="field"><label>Carpeta (slug)</label><input id="fName" placeholder="mifuente" /></div>
+        <div class="field"><label>Package</label><input id="fPackage" placeholder="io.prismhub.mifuente" /></div>
+        <div class="field"><label>Nombre visible</label><input id="fTitle" placeholder="Mi Fuente" /></div>
+        <div class="field"><label>Versión</label><input id="fVersion" placeholder="1.0.0" /></div>
+        <div class="field">
+          <label>Tipo</label>
+          <select id="fType">
+            <option value="anime">anime</option>
+            <option value="manga">manga</option>
+            <option value="movie">movie</option>
+            <option value="series">series</option>
+            <option value="novel">novel</option>
+            <option value="video">video</option>
+          </select>
+        </div>
+        <div class="field"><label>Sitio web</label><input id="fWeb" placeholder="https://mifuente.com" /></div>
+        <div class="field full"><label>Icono (URL)</label><input id="fIcon" placeholder="https://mifuente.com/favicon.png" /></div>
+        <div class="field full"><label>Descripción</label><input id="fDesc" placeholder="Descripción corta" /></div>
+        <div class="field full">
+          <label>index.ts — código de la extensión</label>
+          <textarea id="fSource" spellcheck="false"></textarea>
+        </div>
+      </div>
+      <div class="actions" style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+        <button class="btn ghost" id="modalCancel">Cancelar</button>
+        <button class="btn primary" id="modalSave">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal test ── -->
+  <div class="modal-bg" id="testModal" hidden>
+    <div class="modal">
+      <div class="mh">
+        <h3 id="testTitle">Probar extensión</h3>
+        <button class="x" id="testClose">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <p class="hint" id="testHint">Ejecutando latest, search, detail y watch contra la fuente real…</p>
+      <div id="testResults"></div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

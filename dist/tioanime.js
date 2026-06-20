@@ -70,6 +70,7 @@ async function request(url, options = {}) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     const Ctrl = typeof AbortController !== "undefined" ? AbortController : null;
     const controller = Ctrl ? new Ctrl() : null;
+    let timer;
     try {
       const res = await Promise.race([
         fetch(url, {
@@ -78,15 +79,15 @@ async function request(url, options = {}) {
           body,
           signal: controller ? controller.signal : void 0
         }),
-        new Promise(
-          (_, reject) => setTimeout(() => {
+        new Promise((_, reject) => {
+          timer = setTimeout(() => {
             if (controller) controller.abort();
             reject(new TimeoutError(timeout, url));
-          }, timeout)
-        )
+          }, timeout);
+        })
       ]);
+      if (timer) clearTimeout(timer);
       if (acceptStatus || res.ok) {
-        if (controller) controller.abort();
         return res;
       } else {
         const err = new HttpError(res.status, res.statusText, url);
@@ -97,6 +98,7 @@ async function request(url, options = {}) {
         }
       }
     } catch (err) {
+      if (timer) clearTimeout(timer);
       if (err instanceof TimeoutError) throw err;
       if (err instanceof HttpError) throw err;
       lastError = new NetworkError(err, url);

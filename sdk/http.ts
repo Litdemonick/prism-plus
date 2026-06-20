@@ -92,6 +92,7 @@ export async function request(
     const Ctrl =
       typeof AbortController !== 'undefined' ? AbortController : null;
     const controller = Ctrl ? new Ctrl() : null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
     try {
       // Promise.race garantiza timeout aunque el runtime no soporte AbortSignal
@@ -102,19 +103,24 @@ export async function request(
           body,
           signal: controller ? controller.signal : undefined,
         }),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => {
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
             if (controller) controller.abort();
             reject(new TimeoutError(timeout, url));
-          }, timeout),
-        ),
+          }, timeout);
+        }),
       ]);
+
+      // Respuesta recibida: cancelar el timer del timeout SIN abortar. Abortar el
+      // controller acá cancelaría también la lectura del body (res.text()/json())
+      // con fetch nativo (Node/Studio) → "operation was aborted". clearTimeout
+      // detiene el timeout sin tocar la respuesta en curso.
+      if (timer) clearTimeout(timer);
 
       // acceptStatus: devolver la respuesta sea cual sea el código (para
       // resolución de embeds — muchos hosts traen el contenido útil en páginas
       // 403/404). Si no, errores 4xx/5xx lanzan HttpError.
       if (acceptStatus || res.ok) {
-        if (controller) controller.abort(); // cancelar el timer de timeout
         return res;
       } else {
         const err = new HttpError(res.status, res.statusText, url);
@@ -126,6 +132,7 @@ export async function request(
         }
       }
     } catch (err) {
+      if (timer) clearTimeout(timer);
       // Timeout — no reintentar
       if (err instanceof TimeoutError) throw err;
       // HttpError no-retryable — ya fue lanzado arriba, dejar pasar

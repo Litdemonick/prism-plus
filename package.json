@@ -20,6 +20,7 @@
   ],
   "scripts": {
     "keygen": "node scripts/keygen.mjs",
+    "studio": "node studio/server.mjs",
     "validate": "node scripts/validate.mjs",
     "build": "npm run validate && node scripts/build.mjs",
     "typecheck": "tsc --noEmit",

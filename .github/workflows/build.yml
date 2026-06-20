@@ -38,10 +38,8 @@ jobs:
       - name: Smoke tests
         run: npm test
 
-      - name: Commit dist/ e index.json
-        run: |
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-          git add dist/ index.json
-          git diff --staged --quiet || git commit -m "chore: build extensions [skip ci]"
-          git push
+      # NO se commitea dist/ ni index.json desde CI: el runner no tiene la llave
+      # privada de firma, así que un build de CI generaría bundles SIN firmar y
+      # PrismHub los rechazaría. El mantenedor compila y FIRMA en local
+      # (npm run build con .keys/private.pem) y commitea dist/ + index.json ya
+      # firmados. CI solo verifica que todo valide, tipe y compile.
