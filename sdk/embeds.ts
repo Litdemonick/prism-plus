@@ -93,7 +93,7 @@ export async function resolveVoe(
   // Timeout corto y sin reintento: si Voe está bloqueado por el ISP (sus
   // dominios espejo rotan y algunos ISP los filtran), hay que fallar rápido
   // para no demorar la apertura del episodio esperando a Voe.
-  const voeOpts = { timeout: 7000, retries: 0 };
+  const voeOpts = { timeout: 5000, retries: 0 };
   let html = await fetchEmbed(url, referer, voeOpts);
   if (!html) return null;
 
@@ -264,7 +264,7 @@ export async function resolveYourupload(
   url: string,
   referer: string,
 ): Promise<ResolvedEmbed | null> {
-  const html = await fetchEmbed(url, referer, { timeout: 12000, retries: 1 });
+  const html = await fetchEmbed(url, referer, { timeout: 5000, retries: 0 });
   if (!html) return null;
   const hdrs = { Referer: 'https://www.yourupload.com/' };
 
@@ -325,7 +325,7 @@ export async function resolveDoodstream(
 ): Promise<ResolvedEmbed | null> {
   const host = _hostOf(url);
   if (!host) return null;
-  const html = await fetchEmbed(url, referer, { timeout: 10000, retries: 1 });
+  const html = await fetchEmbed(url, referer, { timeout: 5000, retries: 0 });
   if (!html) return null;
 
   const md5 = /\/pass_md5\/[A-Za-z0-9\-]+\/[A-Za-z0-9]+/.exec(html);
@@ -337,7 +337,7 @@ export async function resolveDoodstream(
   const base = await fetchEmbed(
     `https://${host}${md5path}`,
     `https://${host}/`,
-    { timeout: 10000, retries: 1 },
+    { timeout: 5000, retries: 0 },
   );
   if (!base || !/^https?:\/\//.test(base.trim())) return null;
 
@@ -382,8 +382,8 @@ export async function resolveNetu(
   // hqq/netu responde 403 sin el header Origin del propio host — enviarlo es lo
   // que desbloquea la página del reproductor.
   const html = await fetchEmbed(url, referer, {
-    timeout: 12000,
-    retries: 1,
+    timeout: 5000,
+    retries: 0,
     headers: { Origin: `https://${host}` },
   });
   if (!html) return null;

@@ -6,34 +6,19 @@
   "website": "https://github.com/Litdemonick/prism-plus",
   "extensions": [
     {
-      "name": "MonosChinos",
-      "package": "io.prismhub.monoschinos",
-      "version": "1.1.7",
+      "name": "JKAnime",
+      "package": "io.prismhub.jkanime",
+      "version": "1.0.0",
       "author": "PrismHub",
       "type": "bangumi",
-      "icon": "https://monoschinos.st/img/2web.jpg",
-      "description": "Anime en español latino desde MonosChinos",
+      "icon": "",
+      "description": "Anime en español latino desde JKAnime — múltiples servidores confiables",
       "lang": "es",
-      "webSite": "https://monoschinos.st",
+      "webSite": "https://jkanime.net",
       "license": "MIT",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/monoschinos.js",
-      "sha256": "272bb86ea7a2a18dfa8b3a0128e46f582ba22be1c31507a36ed2778fa1bd9c43",
-      "signature": "DSPF6gNuj94HvxWvb6HtfsKOeh8tp7bW53rX05yXcbG5OhTHaqp6/XxI2D5dsTYoyxnF8gPVV/7Sqbu5u0RFDQ=="
-    },
-    {
-      "name": "TioAnime",
-      "package": "io.prismhub.tioanime",
-      "version": "1.1.9",
-      "author": "PrismHub",
-      "type": "bangumi",
-      "icon": "https://tioanime.com/favicon.ico",
-      "description": "Anime en español latino desde TioAnime",
-      "lang": "es",
-      "webSite": "https://tioanime.com",
-      "license": "MIT",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js",
-      "sha256": "759b21c72c46bdfcb72caba1328372d0a477143112522af12628b7472f5b42fc",
-      "signature": "0vjIIGUnF2YF99OZfLJ5qBrG1cMNi3WOLMdYfbNZp7ciJmCfhb6Y1C/I1OwsL8tFJyPia+l2kwVgJL7UoFigCw=="
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
+      "sha256": "74416ce2edee5f3c3150cf9e05ad05c94bc99bd250c99be2bd25851c6fad6f31",
+      "signature": "8tEGUrhnxqLwargqqY0byBusA2VG6Emw5w1uNp8T5fetAfc+7mWNXFikqX+XVphs/xfcLI4gxGbgpPD4KA+oCA=="
     }
   ]
 }

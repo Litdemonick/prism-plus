@@ -188,17 +188,63 @@ export default class extends Extension {
 
   // Adapta el formato de Prism+ ({streams:[{url,quality,headers}]}) al contrato
   // de watch de PrismHub ({type,url,headers} + X-Servers para el selector de
-  // servidores). Si llega una URL ya resuelta (cambio de servidor), se devuelve.
+  // servidores). Maneja 3 casos:
+  //   1. URL directa (.m3u8/.mp4) → fast-path, devolver inmediatamente.
+  //   2. URL de embed externo conocido (voe.sx, yourupload.com, netu, etc.) →
+  //      resolveEmbed on-demand (igual que JiruHub). Aplica a TODAS las extensiones.
+  //   3. URL de episodio normal → llamar watch() de la extensión.
   async watch(url) {
+    // Fast-path 1: URL ya resuelta (stream directo .m3u8 o .mp4).
+    // El wrapper del build script la devuelve sin llamar a la extensión.
     if (typeof url === 'string' && url.indexOf('http') === 0 &&
         (url.indexOf('.m3u8') !== -1 || url.indexOf('.mp4') !== -1)) {
       return { type: url.indexOf('.mp4') !== -1 ? 'mp4' : 'hls', url: url, headers: {} };
     }
+
+    // Fast-path 2: embed URL de host conocido — resolver on-demand con el SDK.
+    // PrismHub llama runtime.watch(embedUrl) desde switchServer() cuando el usuario
+    // elige un servidor cuya URL no es un stream directo. Aplica a todas las
+    // extensiones que bundleen el SDK (resolveEmbed disponible como global).
+    if (typeof url === 'string' && url.indexOf('http') === 0 &&
+        typeof resolveEmbed === 'function') {
+      var _lurl = url.toLowerCase();
+      var _embedMap = {
+        yourupload: 'YourUpload', yupload: 'YourUpload',
+        'voe.sx': 'Voe', 'voe.': 'Voe',
+        'hqq.': 'Netu', 'netu.': 'Netu',
+        streamtape: 'Streamtape', stape: 'Streamtape',
+        mixdrop: 'Mixdrop', mxdrop: 'Mixdrop',
+        mp4upload: 'Mp4Upload',
+        doodstream: 'Doodstream', ds2play: 'Doodstream', ds2video: 'Doodstream',
+        streamwish: 'Streamwish', wishfast: 'Streamwish',
+        vidhide: 'Streamwish', filelions: 'Streamwish',
+        filemoon: 'Filemoon', moonplayer: 'Filemoon',
+        luluvdo: 'Luluvdo', bysekoze: 'Bysekoze',
+        pixeldrain: 'Pixeldrain',
+        sendvid: 'Sendvid', uqload: 'Uqload',
+        upstream: 'Upstream',
+      };
+      var _sname = null;
+      for (var _k in _embedMap) {
+        if (_lurl.indexOf(_k) !== -1) { _sname = _embedMap[_k]; break; }
+      }
+      if (_sname) {
+        try {
+          var _res = await resolveEmbed(_sname, url, '');
+          if (_res && _res.url) {
+            return {
+              type: _res.url.indexOf('.mp4') !== -1 ? 'mp4' : 'hls',
+              url: _res.url,
+              headers: _res.headers || {}
+            };
+          }
+        } catch (_e) { /* resolveEmbed falló — continuar con la extensión */ }
+      }
+    }
+
     var r = await watch(url);
     if (!r || !Array.isArray(r.streams)) return r;
     var streams = r.streams.filter(function (s) { return s && s.url; });
-    // pageUrl: la URL de la página del episodio. La app la carga en un WebView
-    // oculto y sniffe el player que el propio sitio carga (fallback universal).
     var pageUrl = r.pageUrl || '';
     if (streams.length === 0) {
       if (pageUrl) {
