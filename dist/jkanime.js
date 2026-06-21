@@ -4,7 +4,6 @@
 // @author       PrismHub
 // @lang         es
 // @license      MIT
-// @icon         
 // @package      io.prismhub.jkanime
 // @type         bangumi
 // @webSite      https://jkanime.net

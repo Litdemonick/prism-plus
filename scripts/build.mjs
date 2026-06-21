@@ -129,7 +129,7 @@ function makeHeader(m) {
     `// @author       ${m.author}`,
     `// @lang         ${m.lang ?? 'all'}`,
     `// @license      ${m.license ?? 'MIT'}`,
-    `// @icon         ${m.icon ?? ''}`,
+    ...(m.icon ? [`// @icon         ${m.icon}`] : []),
     `// @package      ${m.package}`,
     `// @type         ${mapType(m.type)}`,
     `// @webSite      ${m.webSite ?? ''}`,
