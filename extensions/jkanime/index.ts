@@ -18,13 +18,13 @@ interface JKServer {
 
 /** Últimos animes actualizados */
 export async function latest(page: number): Promise<PrismItem[]> {
-  const html = await get(`${BASE}/directorio/${page}/desc/`);
+  const html = await get(`${BASE}/directorio/${page + 1}/desc/`);
   return _parseCards(html);
 }
 
 /** Búsqueda por título */
 export async function search(keyword: string, page: number): Promise<PrismItem[]> {
-  const html = await get(`${BASE}/buscar/${encodeURIComponent(keyword)}/${page}/`);
+  const html = await get(`${BASE}/buscar/${encodeURIComponent(keyword)}/${page + 1}/`);
   return _parseCards(html);
 }
 

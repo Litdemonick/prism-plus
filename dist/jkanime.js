@@ -483,11 +483,11 @@ function b64decode(s) {
 // extensions/jkanime/index.ts
 var BASE = "https://jkanime.net";
 async function latest(page) {
-  const html = await get(`${BASE}/directorio/${page}/desc/`);
+  const html = await get(`${BASE}/directorio/${page + 1}/desc/`);
   return _parseCards(html);
 }
 async function search(keyword, page) {
-  const html = await get(`${BASE}/buscar/${encodeURIComponent(keyword)}/${page}/`);
+  const html = await get(`${BASE}/buscar/${encodeURIComponent(keyword)}/${page + 1}/`);
   return _parseCards(html);
 }
 async function detail(url) {
