@@ -47,11 +47,22 @@ interface JKServer {
 // diferente episodio — filtrarlos vaciaría páginas 2, 3... dando "no hay datos".
 const _searchSeen = new Map<string, Set<string>>();
 
+// El directorio de jkanime es client-side (MixItUp/Vue): el HTML crudo no contiene
+// las cards de anime. Para browse real usamos el buscador por letra, que sí está
+// paginado server-side: /buscar/{letra}/?page=N devuelve 30 resultados distintos.
+const _BROWSE_KW = 'aknsbtdmheogiyrzcfpuwlj'.split('');
+const _BROWSE_PER_KW = 2; // cada letra tiene al menos 2 páginas confirmadas
+
 export async function latest(page: number): Promise<PrismItem[]> {
-  // Page 1: home (recientes). Page 2+: directorio catalog — uses ?p= pagination.
-  // Sin slash antes de ?p= para evitar que el servidor redirija y descarte el parámetro.
-  const url = page === 1 ? BASE + '/' : `${BASE}/directorio?p=${page - 1}`;
-  const html = await _get(url);
+  if (page === 1) {
+    const html = await _get(BASE + '/');
+    return _parseCards(html);
+  }
+  // Page 2+: mapear al buscador por letra
+  const idx = page - 2;
+  const kw = _BROWSE_KW[Math.floor(idx / _BROWSE_PER_KW) % _BROWSE_KW.length];
+  const kwPage = (idx % _BROWSE_PER_KW) + 1;
+  const html = await _get(`${BASE}/buscar/${kw}/?page=${kwPage}`);
   return _parseCards(html);
 }
 

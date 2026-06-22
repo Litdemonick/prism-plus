@@ -507,9 +507,17 @@ async function _post(url, token) {
 }
 var BASE = "https://jkanime.net";
 var _searchSeen = /* @__PURE__ */ new Map();
+var _BROWSE_KW = "aknsbtdmheogiyrzcfpuwlj".split("");
+var _BROWSE_PER_KW = 2;
 async function latest(page) {
-  const url = page === 1 ? BASE + "/" : `${BASE}/directorio?p=${page - 1}`;
-  const html = await _get(url);
+  if (page === 1) {
+    const html2 = await _get(BASE + "/");
+    return _parseCards(html2);
+  }
+  const idx = page - 2;
+  const kw = _BROWSE_KW[Math.floor(idx / _BROWSE_PER_KW) % _BROWSE_KW.length];
+  const kwPage = idx % _BROWSE_PER_KW + 1;
+  const html = await _get(`${BASE}/buscar/${kw}/?page=${kwPage}`);
   return _parseCards(html);
 }
 async function search(keyword, page) {
