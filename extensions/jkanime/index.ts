@@ -49,7 +49,8 @@ const _searchSeen = new Map<string, Set<string>>();
 
 export async function latest(page: number): Promise<PrismItem[]> {
   // Page 1: home (recientes). Page 2+: directorio catalog — uses ?p= pagination.
-  const url = page === 1 ? BASE + '/' : `${BASE}/directorio/?p=${page - 1}`;
+  // Sin slash antes de ?p= para evitar que el servidor redirija y descarte el parámetro.
+  const url = page === 1 ? BASE + '/' : `${BASE}/directorio?p=${page - 1}`;
   const html = await _get(url);
   return _parseCards(html);
 }

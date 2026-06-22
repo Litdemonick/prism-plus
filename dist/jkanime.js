@@ -508,7 +508,7 @@ async function _post(url, token) {
 var BASE = "https://jkanime.net";
 var _searchSeen = /* @__PURE__ */ new Map();
 async function latest(page) {
-  const url = page === 1 ? BASE + "/" : `${BASE}/directorio/?p=${page - 1}`;
+  const url = page === 1 ? BASE + "/" : `${BASE}/directorio?p=${page - 1}`;
   const html = await _get(url);
   return _parseCards(html);
 }
