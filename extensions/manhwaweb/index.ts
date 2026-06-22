@@ -1,4 +1,4 @@
-import type { PrismItem, PrismDetail, PrismWatch } from '../../sdk/types';
+import type { PrismItem, PrismDetail, PrismMangaWatch } from '../../sdk/types';
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
 
@@ -117,7 +117,7 @@ export async function detail(id: string): Promise<PrismDetail> {
   return { title, cover, description, episodes, genres, headers: HEADERS };
 }
 
-export async function watch(chapterId: string): Promise<PrismWatch> {
+export async function watch(chapterId: string): Promise<PrismMangaWatch> {
   const d = await _get<Record<string, unknown>>(`/chapters/see/${encodeURIComponent(chapterId)}`);
   const chapter = d['chapter'] as Record<string, unknown>;
   const imgs = (chapter?.['img'] as string[]) || [];

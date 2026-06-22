@@ -47,6 +47,10 @@ export interface PrismItem {
   cover?: string;
   description?: string;
   tags?: string[];
+  /** Texto de actualización reciente (ej: "Cap. 123", "Ep. 5") */
+  update?: string;
+  /** Headers HTTP para cargar la portada (Referer, Cookie, etc.) */
+  headers?: Record<string, string>;
   /** Año de estreno */
   year?: number;
   /** Puntuación de 0 a 10 */
@@ -99,9 +103,23 @@ export interface PrismDetail {
   rating?: number;
   /** Metadatos adicionales clave-valor (Estado, Estudio, Director, etc.) */
   extra?: Record<string, string>;
+  /** Headers HTTP globales para portada y recursos del detalle */
+  headers?: Record<string, string>;
 }
 
 // ─── Reproducción ─────────────────────────────────────────────────────────────
+
+/**
+ * Resultado de watch() para extensiones de tipo manga/cómic.
+ * Retorna las URLs de las páginas en orden de lectura.
+ * El build wrapper pasa este objeto sin modificar a PrismHub.
+ */
+export interface PrismMangaWatch {
+  /** URLs de las páginas del capítulo en orden */
+  urls: string[];
+  /** Headers HTTP para cargar las imágenes (Referer, Cookie, etc.) */
+  headers?: Record<string, string>;
+}
 
 /** Stream de vídeo, página de imagen o torrent */
 export interface PrismStream {
