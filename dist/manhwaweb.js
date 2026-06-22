@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ManhwaWeb
-// @version      1.0.0
+// @version      1.0.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -11,6 +11,7 @@
 // ==/PrismHubExtension==
 // extensions/manhwaweb/index.ts
 var API = "https://manhwawebbackend-production.up.railway.app";
+var HEADERS = { "Referer": "https://manhwaweb.com" };
 async function _get(path) {
   const raw = await sendMessage("request", JSON.stringify([`${API}${path}`, { method: "get", headers: {} }]));
   try {
@@ -25,7 +26,7 @@ function _item(m) {
   const title = m["the_real_name"] || m["name_esp"] || m["name_manhwa"] || id;
   const caps = m["_numero_cap"] || m["chapter"];
   const update = caps != null ? `Cap. ${caps}` : void 0;
-  return { title, url: id, cover, update };
+  return { title, url: id, cover, update, headers: HEADERS };
 }
 async function latest(page) {
   if (page === 1) {
@@ -106,13 +107,13 @@ async function detail(id) {
       number: typeof num === "number" ? num : void 0
     };
   });
-  return { title, cover, description, episodes, genres };
+  return { title, cover, description, episodes, genres, headers: HEADERS };
 }
 async function watch(chapterId) {
   const d = await _get(`/chapters/see/${encodeURIComponent(chapterId)}`);
   const chapter = d["chapter"];
   const imgs = (chapter == null ? void 0 : chapter["img"]) || [];
-  return { urls: imgs };
+  return { urls: imgs, headers: HEADERS };
 }
 
 export default class extends Extension {

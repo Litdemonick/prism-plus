@@ -23,7 +23,7 @@
     {
       "name": "ManhwaWeb",
       "package": "io.prismhub.manhwaweb",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "PrismHub",
       "type": "manga",
       "icon": "",
@@ -32,8 +32,8 @@
       "webSite": "https://manhwaweb.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/manhwaweb.js",
-      "sha256": "8d68a22c42e6afb836f35ef1bb13e80b6b3dc752c979e6a4d40f6388aa080ced",
-      "signature": "1sosxok7yx+MUxVbgCQ9xTObwD9EuQretBe8p9mg9Q6zD9cGFINYwl8x6LulN3mG30+mJiSGdlPsfJChbm7GBA=="
+      "sha256": "0ee2a8963c41a80c8658d9a86df9c6183fa5ad31c56a08e979b1542f82ece8d1",
+      "signature": "ePIGbE7RA86ysq2AHKVvnnFspPnafdEqOGaQYrxSCwy0gSSoNjb0Wgm61Lh3lYU5hGqGvi92TwS88yuBbxJhBQ=="
     }
   ]
 }

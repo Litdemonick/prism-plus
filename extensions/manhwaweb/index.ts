@@ -3,6 +3,7 @@ import type { PrismItem, PrismDetail, PrismWatch } from '../../sdk/types';
 declare function sendMessage(channel: string, data: string): Promise<string>;
 
 const API = 'https://manhwawebbackend-production.up.railway.app';
+const HEADERS = { 'Referer': 'https://manhwaweb.com' };
 
 async function _get<T = unknown>(path: string): Promise<T> {
   const raw = await sendMessage('request', JSON.stringify([`${API}${path}`, { method: 'get', headers: {} }]));
@@ -15,7 +16,7 @@ function _item(m: Record<string, unknown>): PrismItem {
   const title = (m['the_real_name'] || m['name_esp'] || m['name_manhwa']) as string || id;
   const caps = m['_numero_cap'] || m['chapter'];
   const update = caps != null ? `Cap. ${caps}` : undefined;
-  return { title, url: id, cover, update };
+  return { title, url: id, cover, update, headers: HEADERS };
 }
 
 export async function latest(page: number): Promise<PrismItem[]> {
@@ -113,12 +114,12 @@ export async function detail(id: string): Promise<PrismDetail> {
       };
     });
 
-  return { title, cover, description, episodes, genres };
+  return { title, cover, description, episodes, genres, headers: HEADERS };
 }
 
 export async function watch(chapterId: string): Promise<PrismWatch> {
   const d = await _get<Record<string, unknown>>(`/chapters/see/${encodeURIComponent(chapterId)}`);
   const chapter = d['chapter'] as Record<string, unknown>;
   const imgs = (chapter?.['img'] as string[]) || [];
-  return { urls: imgs };
+  return { urls: imgs, headers: HEADERS };
 }
