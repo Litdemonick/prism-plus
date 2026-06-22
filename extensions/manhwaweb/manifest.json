@@ -1,0 +1,12 @@
+{
+  "name": "ManhwaWeb",
+  "package": "io.prismhub.manhwaweb",
+  "version": "1.0.0",
+  "author": "PrismHub",
+  "type": "manga",
+  "icon": "",
+  "description": "Manhwa, manga y manhua en español desde ManhwaWeb",
+  "lang": "es",
+  "webSite": "https://manhwaweb.com",
+  "license": "MIT"
+}

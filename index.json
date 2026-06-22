@@ -19,6 +19,21 @@
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
       "sha256": "a852344c7fb2d7d5a9e47bff19951386288b4ea53f09fc2bff1c03f796ed5c8c",
       "signature": "F7kTsBdIB1leg/C1xp7/+FRKjltcuvr3zyIAP8NS9qy1mqPTKPqShBKyi47WNFmtVe5bcyT4/DVPP3RYs3zoCg=="
+    },
+    {
+      "name": "ManhwaWeb",
+      "package": "io.prismhub.manhwaweb",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "manga",
+      "icon": "",
+      "description": "Manhwa, manga y manhua en español desde ManhwaWeb",
+      "lang": "es",
+      "webSite": "https://manhwaweb.com",
+      "license": "MIT",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/manhwaweb.js",
+      "sha256": "8d68a22c42e6afb836f35ef1bb13e80b6b3dc752c979e6a4d40f6388aa080ced",
+      "signature": "1sosxok7yx+MUxVbgCQ9xTObwD9EuQretBe8p9mg9Q6zD9cGFINYwl8x6LulN3mG30+mJiSGdlPsfJChbm7GBA=="
     }
   ]
 }
