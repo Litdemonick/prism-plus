@@ -10,6 +10,8 @@
 // @description  Anime en español latino desde JKAnime — múltiples servidores confiables
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
 var __getOwnPropSymbols = Object.getOwnPropertySymbols;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __propIsEnum = Object.prototype.propertyIsEnumerable;
@@ -25,6 +27,25 @@ var __spreadValues = (a, b) => {
     }
   return a;
 };
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
+
+// sdk/html.ts
+function matchFirst(html, pattern) {
+  var _a, _b, _c;
+  return (_c = (_b = (_a = pattern.exec(html)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : "";
+}
+function matchGroups(html, pattern) {
+  const flags = pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g";
+  return [...html.matchAll(new RegExp(pattern.source, flags))].map(
+    (m) => [...m].slice(1).map((s) => {
+      var _a;
+      return (_a = s == null ? void 0 : s.trim()) != null ? _a : "";
+    })
+  );
+}
+function stripTags(html) {
+  return html.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+}
 
 // sdk/http.ts
 var NetworkError = class extends Error {
@@ -106,32 +127,8 @@ async function request(url, options = {}) {
   }
   throw lastError;
 }
-async function get(url, headers) {
-  return (await request(url, { headers })).text();
-}
-async function getJson(url, headers) {
-  return (await request(url, { headers })).json();
-}
 function _sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// sdk/html.ts
-function matchFirst(html, pattern) {
-  var _a, _b, _c;
-  return (_c = (_b = (_a = pattern.exec(html)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : "";
-}
-function matchGroups(html, pattern) {
-  const flags = pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g";
-  return [...html.matchAll(new RegExp(pattern.source, flags))].map(
-    (m) => [...m].slice(1).map((s) => {
-      var _a;
-      return (_a = s == null ? void 0 : s.trim()) != null ? _a : "";
-    })
-  );
-}
-function stripTags(html) {
-  return html.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 }
 
 // sdk/embeds.ts
@@ -481,74 +478,150 @@ function b64decode(s) {
 }
 
 // extensions/jkanime/index.ts
+async function _get(url, headers = {}) {
+  const raw = await sendMessage("request", JSON.stringify([url, { method: "get", headers }]));
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return raw;
+  }
+}
+async function _post(url, token) {
+  const raw = await sendMessage("request", JSON.stringify([url, {
+    method: "post",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "X-Requested-With": "XMLHttpRequest",
+      "Accept": "application/json"
+    },
+    data: "_token=" + encodeURIComponent(token)
+  }]));
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      throw e;
+    }
+  }
+  return raw;
+}
 var BASE = "https://jkanime.net";
+var _searchSeen = /* @__PURE__ */ new Map();
 async function latest(page) {
-  const html = await get(`${BASE}/directorio/${page + 1}/desc/`);
+  const url = page === 1 ? BASE + "/" : `${BASE}/directorio/?p=${page - 1}`;
+  const html = await _get(url);
   return _parseCards(html);
 }
 async function search(keyword, page) {
-  const html = await get(`${BASE}/buscar/${encodeURIComponent(keyword)}/${page + 1}/`);
-  return _parseCards(html);
+  if (page === 1) _searchSeen.delete(keyword);
+  if (!_searchSeen.has(keyword)) _searchSeen.set(keyword, /* @__PURE__ */ new Set());
+  const seen = _searchSeen.get(keyword);
+  const html = await _get(`${BASE}/buscar/${encodeURIComponent(keyword)}/?page=${page}`);
+  const cards = _parseCards(html);
+  const fresh = cards.filter((c) => !seen.has(c.url));
+  fresh.forEach((c) => seen.add(c.url));
+  return fresh;
 }
 async function detail(url) {
   const slug = _toSlug(url);
-  const html = await get(`${BASE}/${slug}/`);
-  const title = matchFirst(html, /class="[^"]*anime__details__title[^"]*"[\s\S]*?<h3[^>]*>\s*([^<]+?)\s*<\/h3>/i) || matchFirst(html, /<h3[^>]*class="[^"]*title[^"]*"[^>]*>\s*([^<]+?)\s*<\/h3>/i) || matchFirst(html, /<h3[^>]*>\s*([^<]{3,}?)\s*<\/h3>/i) || slug;
-  const rawCover = matchFirst(html, /data-setbg="([^"]+)"/i);
-  const cover = rawCover ? _absUrl(rawCover) : "";
+  const html = await _get(`${BASE}/${slug}/`);
+  const title = matchFirst(html, /<h1[^>]*>([^<]+)<\/h1>/i) || matchFirst(html, /<title>([^|<]+)/i) || slug;
+  const cover = matchFirst(html, /property="og:image"\s+content="([^"]+)"/i) || matchFirst(html, /class="card-img-top"\s+src="([^"]+)"/i) || "";
   const description = stripTags(
-    matchFirst(html, /class="[^"]*anime__details__text[^"]*"[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/i) || ""
+    matchFirst(html, /class="[^"]*sinopsis[^"]*"[^>]*>([\s\S]*?)<\/(?:div|p)>/i) || matchFirst(html, /class="[^"]*descripci[^"]*"[^>]*>([\s\S]*?)<\/(?:div|p)>/i) || ""
   ).trim();
-  const animeId = matchFirst(html, /data-anime="(\d+)"/i);
-  let totalEps = 0;
-  if (animeId) {
+  const animeId = matchFirst(html, /data-anime="(\d+)"/i) || matchFirst(html, /data-id="(\d+)"/i) || matchFirst(html, /"anime_id"\s*:\s*(\d+)/i) || matchFirst(html, /animeId\s*=\s*(\d+)/i);
+  const token = matchFirst(html, /name="csrf-token"\s+content="([^"]+)"/i) || matchFirst(html, /content="([^"]+)"\s+name="csrf-token"/i) || matchFirst(html, /"csrf[_-]token"\s*:\s*"([^"]+)"/i);
+  const episodes = [];
+  if (animeId && token) {
+    const allEps = [];
+    let lastPage = 1;
     try {
-      const data = await getJson(
-        `${BASE}/ajax/last_episode/${animeId}/`
-      );
-      totalEps = data.last_id || 0;
+      const first = await _post(`${BASE}/ajax/episodes/${animeId}/1`, token);
+      if (first && Array.isArray(first.data)) {
+        allEps.push(...first.data);
+        lastPage = first.last_page || 1;
+      }
     } catch (e) {
     }
+    if (lastPage > 1) {
+      const remaining = Array.from({ length: lastPage - 1 }, (_, i) => i + 2);
+      const BATCH = 10;
+      for (let i = 0; i < remaining.length; i += BATCH) {
+        const batch = remaining.slice(i, i + BATCH);
+        const results = await Promise.all(
+          batch.map(
+            (p) => _post(`${BASE}/ajax/episodes/${animeId}/${p}`, token).catch(() => null)
+          )
+        );
+        for (const res of results) {
+          if (res && Array.isArray(res.data)) allEps.push(...res.data);
+        }
+      }
+    }
+    for (const ep of allEps) {
+      episodes.push({ title: ep.title, url: `${slug}/${ep.number}`, number: ep.number });
+    }
+    episodes.sort((a, b) => (a.number || 0) - (b.number || 0));
   }
-  const episodes = [];
-  for (let i = 1; i <= totalEps; i++) {
-    episodes.push({ title: `Episodio ${i}`, url: `${slug}/${i}`, number: i });
-  }
-  const statusRaw = matchFirst(html, /class="[^"]*enemision[^"]*"[^>]*>\s*([^<]+)/i);
-  const status = statusRaw && statusRaw.indexOf("emision") !== -1 ? "ongoing" : statusRaw && statusRaw.indexOf("inalizado") !== -1 ? "completed" : void 0;
   const genres = matchGroups(
     html,
     /<a[^>]+href="[^"]*\/genero\/[^"]*"[^>]*>([^<]+)<\/a>/gi
   ).map((g) => g[0]);
-  return {
-    title,
-    cover,
-    description,
-    episodes,
-    genres,
-    status,
-    extra: { Estado: statusRaw ? statusRaw.trim() : "" }
-  };
+  return { title, cover, description, episodes, genres };
+}
+var _JS_ONLY_HOSTS = [
+  "voe.sx",
+  "voe.",
+  "streamwish",
+  "sfastwish",
+  "wishfast",
+  "swdyu",
+  "vidhide",
+  "filelions",
+  "filemoon",
+  "moonplayer",
+  "mixdrop",
+  "mxdrop"
+];
+function _isJkInternalEmbed(url) {
+  if (url.indexOf("jkanime.net") === -1) return false;
+  const path = url.replace(/^https?:\/\/jkanime\.net/, "").replace(/\/+$/, "");
+  const parts = path.split("/").filter(Boolean);
+  if (parts.length === 2 && /^\d+$/.test(parts[1])) return false;
+  const knownEmbeds = ["desu", "magi", "desuka", "embed", "player", "desudesuka"];
+  return knownEmbeds.some((e) => parts[0] === e || url.indexOf("desudesuka") !== -1);
 }
 async function watch(url) {
   if (url.indexOf("http") === 0 && url.indexOf("jkanime.net") === -1) {
-    const name = _guessServerName(url);
-    try {
-      const resolved2 = await resolveEmbed(name, url, `${BASE}/`);
-      if (resolved2 && resolved2.url) {
-        return {
-          streams: [{ url: resolved2.url, quality: name, headers: resolved2.headers }],
-          pageUrl: ""
-        };
-      }
-    } catch (e) {
+    const uLow = url.toLowerCase();
+    const isJsOnly = _JS_ONLY_HOSTS.some((h) => uLow.indexOf(h) !== -1);
+    if (!isJsOnly) {
+      const name = _guessServerName(url);
+      const stream = await _resolveEmbedDio(name, url, `${BASE}/`);
+      if (stream) return { streams: [stream], pageUrl: "" };
     }
-    return { streams: [], pageUrl: "" };
+    return { streams: [], pageUrl: url };
+  }
+  if (_isJkInternalEmbed(url)) {
+    const uLow = url.toLowerCase();
+    const isDesu = uLow.indexOf("/desu") !== -1 || uLow.indexOf("desudesuka") !== -1;
+    const isMagi = uLow.indexOf("/magi") !== -1;
+    if (isDesu) {
+      const stream = await _resolveDesu(url, `${BASE}/`, "Desu");
+      if (stream) return { streams: [stream], pageUrl: "" };
+    } else if (isMagi) {
+      const stream = await _resolveMagi(url, `${BASE}/`, "Magi");
+      if (stream) return { streams: [stream], pageUrl: "" };
+    }
+    return { streams: [], pageUrl: url };
   }
   const episodeUrl = url.indexOf("http") === 0 ? url : `${BASE}/${url.replace(/\/+$/, "")}/`;
-  const html = await get(episodeUrl);
+  const html = await _get(episodeUrl);
   const m = /(?:var|let|const)\s+servers\s*=\s*(\[[\s\S]*?\]);/.exec(html) || /(?:var|let|const)\s+video\s*=\s*(\[[\s\S]*?\]);/.exec(html);
-  if (!m) return { streams: [], pageUrl: episodeUrl };
+  if (!m) {
+    return { streams: [], pageUrl: episodeUrl };
+  }
   let servers;
   try {
     servers = JSON.parse(m[1]);
@@ -562,15 +635,15 @@ async function watch(url) {
   const resolved = await Promise.all(
     servers.map((s) => _resolveServer(s, episodeUrl))
   );
-  const streams = resolved.filter((s) => s !== null);
+  const direct = resolved.filter((s) => s !== null && _isDirect(s.url));
+  const embeds = resolved.filter((s) => s !== null && !_isDirect(s.url));
+  const streams = [...direct, ...embeds];
   const isMega = (u) => u.indexOf("mega.nz") !== -1 || u.indexOf("mega.co.nz") !== -1;
-  return {
-    streams: [
-      ...streams.filter((s) => !isMega(s.url)),
-      ...streams.filter((s) => isMega(s.url))
-    ],
-    pageUrl: episodeUrl
-  };
+  const ordered = [
+    ...streams.filter((s) => !isMega(s.url)),
+    ...streams.filter((s) => isMega(s.url))
+  ];
+  return { streams: ordered, pageUrl: episodeUrl };
 }
 async function _resolveServer(server, pageUrl) {
   let raw = "";
@@ -595,39 +668,264 @@ async function _resolveServer(server, pageUrl) {
   }
   if (nameLow === "desu" || raw.indexOf("desudesuka") !== -1 || raw.indexOf("desu.") !== -1) {
     const r = await _resolveDesu(raw, pageUrl, label);
-    return r !== null ? r : { url: raw, quality: label };
+    if (r) return r;
+    return { url: raw, quality: label };
   }
   if (nameLow === "magi" || raw.indexOf("magi") !== -1) {
     const r = await _resolveMagi(raw, pageUrl, label);
-    return r !== null ? r : { url: raw, quality: label };
+    if (r) return r;
+    return { url: raw, quality: label };
+  }
+  if (nameLow === "voe" || raw.indexOf("voe.sx") !== -1 || raw.indexOf("voe.") !== -1) {
+    const r = await _resolveVoeDio(raw, label);
+    if (r) return r;
+    return { url: raw, quality: label };
+  }
+  if (nameLow === "streamtape" || raw.indexOf("streamtape") !== -1 || raw.indexOf("stape") !== -1) {
+    const r = await _resolveStreamtapeDio(raw, label);
+    if (r) return r;
+    return { url: raw, quality: label };
+  }
+  if (nameLow === "streamwish" || raw.indexOf("streamwish") !== -1 || raw.indexOf("sfastwish") !== -1 || raw.indexOf("wishfast") !== -1 || raw.indexOf("vidhide") !== -1 || raw.indexOf("filelions") !== -1 || raw.indexOf("swdyu") !== -1) {
+    const r = await _resolveStreamwishDio(raw, label);
+    if (r) return r;
+    return { url: raw, quality: label };
+  }
+  if (raw.indexOf("mp4upload") !== -1) {
+    try {
+      const res = await resolveEmbed("Mp4Upload", raw, `${BASE}/`);
+      if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
+    } catch (e) {
+    }
+    return null;
+  }
+  if (nameLow === "mixdrop" || raw.indexOf("mixdrop") !== -1 || raw.indexOf("mxdrop") !== -1) {
+    try {
+      const res = await resolveEmbed("Mixdrop", raw, `${BASE}/`);
+      if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
+    } catch (e) {
+    }
+    return { url: raw, quality: label };
+  }
+  if (nameLow === "doodstream" || nameLow === "dood" || raw.indexOf("dood") !== -1 || raw.indexOf("ds2play") !== -1 || raw.indexOf("ds2video") !== -1) {
+    try {
+      const res = await resolveEmbed("Doodstream", raw, `${BASE}/`);
+      if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
+    } catch (e) {
+    }
+    return null;
   }
   const serverName = _guessServerName(raw) || name;
   try {
     const res = await resolveEmbed(serverName, raw, `${BASE}/`);
-    if (res && res.url) {
-      return { url: res.url, quality: label, headers: res.headers };
-    }
+    if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
   } catch (e) {
   }
-  return { url: raw, quality: label };
+  const rawLow = raw.toLowerCase();
+  if (rawLow.indexOf("yourupload") !== -1 || rawLow.indexOf("dood") !== -1 || rawLow.indexOf("ok.ru") !== -1 || rawLow.indexOf("mixdrop") !== -1 || rawLow.indexOf("filemoon") !== -1) {
+    return { url: raw, quality: label };
+  }
+  return null;
+}
+async function _resolveEmbedDio(name, url, referer) {
+  const label = name;
+  const u = url.toLowerCase();
+  if (u.indexOf("voe") !== -1) return _resolveVoeDio(url, label);
+  if (u.indexOf("streamtape") !== -1 || u.indexOf("stape") !== -1) return _resolveStreamtapeDio(url, label);
+  if (u.indexOf("streamwish") !== -1 || u.indexOf("sfastwish") !== -1 || u.indexOf("wishfast") !== -1 || u.indexOf("vidhide") !== -1) return _resolveStreamwishDio(url, label);
+  if (u.indexOf("mp4upload") !== -1) {
+    try {
+      const res = await resolveEmbed("Mp4Upload", url, referer);
+      if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
+    } catch (e) {
+    }
+    return null;
+  }
+  try {
+    const res = await resolveEmbed(name, url, referer);
+    if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
+  } catch (e) {
+  }
+  return null;
+}
+async function _resolveVoeDio(url, label) {
+  try {
+    let html = await _get(url, { "Referer": BASE + "/" });
+    if (!html) return null;
+    const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html);
+    if (redir) {
+      const mirror = await _get(redir[1], { "Referer": "https://voe.sx/" });
+      if (mirror) html = mirror;
+    }
+    const jsonScript = /<script[^>]*type=["']application\/json["'][^>]*>\s*\[\s*"([^"]+)"\s*\]\s*<\/script>/.exec(html);
+    if (jsonScript) {
+      const decoded = _voeDecode2(jsonScript[1]);
+      if (decoded) {
+        const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(decoded);
+        if (src) return { url: src[1].replace(/\\\//g, "/"), quality: label };
+        const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, "/"));
+        if (m3u8) return { url: m3u8[1], quality: label };
+        const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(decoded);
+        if (mp4) return { url: mp4[1].replace(/\\\//g, "/"), quality: label };
+      }
+    }
+    let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
+    if (m) return { url: m[1], quality: label };
+    const atobM = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
+    if (atobM) {
+      try {
+        const dec = _b64decode(atobM[1]);
+        const hls = /['"]hls['"]\s*:\s*['"]([^'"]+)['"]/.exec(dec);
+        if (hls) return { url: hls[1], quality: label };
+      } catch (e) {
+      }
+    }
+    m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
+    if (m) return { url: m[0], quality: label };
+  } catch (e) {
+  }
+  return null;
+}
+async function _resolveStreamtapeDio(url, label) {
+  try {
+    const html = await _get(url, { "Referer": BASE + "/" });
+    if (!html) return null;
+    const div = /id=["'](?:ideoolink|botlink|robotlink)["'][^>]*>\s*(\/\/?[^<]*get_video[^<]*)</.exec(html);
+    if (div) {
+      let path = div[1].trim();
+      if (path.startsWith("//")) path = "https:" + path;
+      else if (path.startsWith("/")) path = "https:/" + path;
+      if (!/[?&]stream=/.test(path)) path += "&stream=1";
+      return { url: path, quality: label, headers: { "Referer": "https://streamtape.com/" } };
+    }
+    const robot = /robotlink['"]\)[^'"]+(\/\/?streamtape[^'"]+)['"]/i.exec(html);
+    if (robot) {
+      const p = robot[1].startsWith("//") ? "https:" + robot[1] : robot[1];
+      return { url: p + "&stream=1", quality: label, headers: { "Referer": "https://streamtape.com/" } };
+    }
+    let m = /(https?:\/\/streamtape\.[a-z]+\/get_video[^"'\s<>]+)/.exec(html);
+    if (m) return { url: m[1], quality: label, headers: { "Referer": "https://streamtape.com/" } };
+    m = /(\/\/streamtape\.[a-z]+\/get_video[^"'\s<>]+)/.exec(html);
+    if (m) return { url: "https:" + m[1], quality: label, headers: { "Referer": "https://streamtape.com/" } };
+  } catch (e) {
+  }
+  return null;
+}
+async function _resolveStreamwishDio(url, label) {
+  var _a;
+  try {
+    const hostM = /^https?:\/\/([^/]+)/.exec(url);
+    const host = hostM ? hostM[1] : null;
+    if (!host) return null;
+    const hdrs = { "Referer": "https://" + host + "/" };
+    const idM = /\/(?:e|f|d|v)\/([A-Za-z0-9]+)/.exec(url);
+    if (idM) {
+      const id = idM[1];
+      try {
+        const json = await _get(
+          "https://" + host + "/api/file/" + id + "?json=1",
+          __spreadProps(__spreadValues({}, hdrs), { "X-Requested-With": "XMLHttpRequest", "Accept": "application/json" })
+        );
+        if (json) {
+          const fileM = /"file"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(json);
+          if (fileM) return { url: fileM[1].replace(/\\\//g, "/"), quality: label, headers: hdrs };
+          const mp4M = /"file"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(json);
+          if (mp4M) return { url: mp4M[1].replace(/\\\//g, "/"), quality: label, headers: hdrs };
+        }
+      } catch (e) {
+      }
+    }
+    const html = await _get(url, hdrs);
+    if (!html) return null;
+    const unpacked = _unpackEval(html);
+    const full = (html + "\n" + unpacked).replace(/\\\//g, "/");
+    const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(full);
+    if (m3u8) return { url: m3u8[1], quality: label, headers: hdrs };
+    const file = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/i.exec(full);
+    if (file) return { url: file[1], quality: label, headers: hdrs };
+    const atobM = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
+    if (atobM) {
+      try {
+        const dec = _b64decode(atobM[1]);
+        const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(dec.replace(/\\\//g, "/"));
+        if (src) return { url: src[1], quality: label, headers: hdrs };
+      } catch (e) {
+      }
+    }
+    const mp4s = (_a = full.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g)) != null ? _a : [];
+    const real = mp4s.find((u) => !/\.(?:css|js|jpg|png|woff)/.test(u));
+    if (real) return { url: real, quality: label, headers: hdrs };
+  } catch (e) {
+  }
+  return null;
 }
 async function _resolveDesu(url, referer, label) {
   try {
-    const html = await get(url, { Referer: referer });
+    const hdrs = { "Referer": referer || `${BASE}/` };
+    const html = await _get(url, hdrs);
     const stream = matchFirst(html, /"url"\s*:\s*"(https?:\/\/[^"]+\.m3u8[^"]*)"/i) || matchFirst(html, /"file"\s*:\s*"(https?:\/\/[^"]+\.m3u8[^"]*)"/i) || matchFirst(html, /"url"\s*:\s*"(https?:\/\/[^"]+\.mp4[^"]*)"/i) || matchFirst(html, /<source[^>]+src="(https?:\/\/[^"]+\.m3u8[^"]*)"/i);
-    if (stream) return { url: stream, quality: label };
+    if (stream) return { url: stream, quality: label, headers: hdrs };
   } catch (e) {
   }
   return null;
 }
 async function _resolveMagi(url, referer, label) {
   try {
-    const html = await get(url, { Referer: referer });
+    const hdrs = { "Referer": referer || `${BASE}/` };
+    const html = await _get(url, hdrs);
     const stream = matchFirst(html, /<source[^>]+src="(https?:\/\/[^"]+\.m3u8[^"]*)"/i) || matchFirst(html, /<source[^>]+src="(https?:\/\/[^"]+\.mp4[^"]*)"/i) || matchFirst(html, /source\s*:\s*['"]?(https?:\/\/[^'">\s]+\.m3u8)/i);
-    if (stream) return { url: stream, quality: label };
+    if (stream) return { url: stream, quality: label, headers: hdrs };
   } catch (e) {
   }
   return null;
+}
+function _rot132(s) {
+  return s.replace(/[a-zA-Z]/g, (c) => {
+    const base = c <= "Z" ? 65 : 97;
+    return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
+  });
+}
+function _voeDecode2(raw) {
+  try {
+    let r = _rot132(raw);
+    for (const p of ["@$", "^^", "#&", "~@", "%?", "*~", "!!", "`"]) {
+      r = r.split(p).join("");
+    }
+    const step3 = _b64decode(r);
+    let shifted = "";
+    for (let i = 0; i < step3.length; i++) {
+      shifted += String.fromCharCode(step3.charCodeAt(i) - 3);
+    }
+    const reversed = shifted.split("").reverse().join("");
+    return _b64decode(reversed);
+  } catch (e) {
+    return null;
+  }
+}
+function _unpackEval(html) {
+  let out = "";
+  const re = /eval\(function\(p,a,c,k,e,[dr]\)\{[\s\S]*?\.split\('\|'\)[^)]*\)\)/g;
+  for (const m of html.matchAll(re)) {
+    const inner = new RegExp("\\}\\s*\\(\\s*'(.*?)'\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*'(.*?)'\\.split\\('\\|'\\)", "s").exec(m[0]);
+    if (!inner) continue;
+    let payload = inner[1];
+    const radix = parseInt(inner[2], 10);
+    const count = parseInt(inner[3], 10);
+    const words = inner[4].split("|");
+    payload = payload.split("\\'").join("'");
+    const enc = (n) => (n < radix ? "" : enc(Math.floor(n / radix))) + ((n = n % radix) > 35 ? String.fromCharCode(n + 29) : n.toString(36));
+    const dict = {};
+    for (let i = count - 1; i >= 0; i--) dict[enc(i)] = words[i] || enc(i);
+    out += "\n" + payload.replace(/\b\w+\b/g, (w) => {
+      var _a;
+      return (_a = dict[w]) != null ? _a : w;
+    });
+  }
+  return out;
+}
+function _isDirect(url) {
+  const u = url.toLowerCase();
+  return u.indexOf(".m3u8") !== -1 || u.indexOf(".mp4") !== -1 || u.indexOf(".mkv") !== -1 || u.indexOf(".ts") !== -1;
 }
 function _resolveRedirect(url) {
   if (url.indexOf("/jkokru.php") !== -1) {
@@ -676,10 +974,8 @@ function _guessServerName(url) {
   if (u.indexOf("streamtape") !== -1 || u.indexOf("stape") !== -1) return "Streamtape";
   if (u.indexOf("mixdrop") !== -1 || u.indexOf("mxdrop") !== -1) return "Mixdrop";
   if (u.indexOf("mp4upload") !== -1) return "Mp4Upload";
-  if (u.indexOf("dood") !== -1 || u.indexOf("ds2play") !== -1 || u.indexOf("ds2video") !== -1)
-    return "Doodstream";
-  if (u.indexOf("streamwish") !== -1 || u.indexOf("sfastwish") !== -1 || u.indexOf("wishfast") !== -1 || u.indexOf("vidhide") !== -1)
-    return "Streamwish";
+  if (u.indexOf("dood") !== -1 || u.indexOf("ds2play") !== -1 || u.indexOf("ds2video") !== -1) return "Doodstream";
+  if (u.indexOf("streamwish") !== -1 || u.indexOf("sfastwish") !== -1 || u.indexOf("wishfast") !== -1 || u.indexOf("vidhide") !== -1) return "Streamwish";
   if (u.indexOf("filemoon") !== -1 || u.indexOf("moonplayer") !== -1) return "Filemoon";
   if (u.indexOf("yourupload") !== -1 || u.indexOf("yupload") !== -1) return "YourUpload";
   if (u.indexOf("hqq") !== -1 || u.indexOf("netu") !== -1) return "Netu";
@@ -690,42 +986,124 @@ function _toSlug(url) {
   if (url.indexOf("http") !== 0) return url.replace(/\/+$/, "");
   return url.replace(/^https?:\/\/jkanime\.net\//, "").replace(/\/+$/, "");
 }
-function _absUrl(url) {
-  return url.indexOf("http") === 0 ? url : `${BASE}${url}`;
+var _NAV_SLUGS = /* @__PURE__ */ new Set([
+  "genero",
+  "directorio",
+  "buscar",
+  "ajax",
+  "tag",
+  "temporada",
+  "anime",
+  "ver",
+  "episodio",
+  "wp-content",
+  "wp-includes",
+  // páginas de categoría de jkanime (no son animes)
+  "serie",
+  "pelicula",
+  "especial",
+  "ova",
+  "ona",
+  "music",
+  "peli",
+  "especiales",
+  "cortos"
+]);
+function _isNavSlug(s) {
+  return !s || s.length < 3 || _NAV_SLUGS.has(s) || /[?&#]/.test(s);
+}
+function _firstSegment(path) {
+  return path.split("/")[0];
 }
 function _parseCards(html) {
   const items = [];
-  const parts = html.split('data-setbg="');
-  for (let i = 1; i < parts.length; i++) {
-    const coverEnd = parts[i].indexOf('"');
-    if (coverEnd < 4) continue;
-    const cover = parts[i].slice(0, coverEnd);
-    const block = parts[i].slice(coverEnd + 1, coverEnd + 3001);
-    const slug = _firstAnimeSlug(block);
-    if (!slug) continue;
+  if (!html) return items;
+  const seen = /* @__PURE__ */ new Set();
+  const imgRe = /<img\b[^>]*>/gi;
+  let imgM;
+  while ((imgM = imgRe.exec(html)) !== null) {
+    const tag = imgM[0];
+    if (tag.indexOf("card-img-top") === -1) continue;
+    const setbgNearM = /\bdata-setbg=["'](https?:\/\/[^"']{10,})["']/i.exec(
+      html.slice(Math.max(0, imgM.index - 200), imgM.index + tag.length + 500)
+    );
+    const animePicM = /\bdata-animepic=["']([^"']+)["']/i.exec(tag);
+    const dataSrcM = /\bdata-src=["']([^"']+)["']/i.exec(tag);
+    const srcM = /\bsrc=["']([^"']+)["']/i.exec(tag);
+    const srcVal = srcM && srcM[1] && !/data:image|\.gif$|placeholder/i.test(srcM[1]) ? srcM[1] : "";
+    const cover = setbgNearM && setbgNearM[1] || animePicM && animePicM[1] || dataSrcM && dataSrcM[1] || srcVal;
+    const pos = imgM.index;
+    const beforeImg = html.slice(Math.max(0, pos - 700), pos);
+    const allHrefs = [...beforeImg.matchAll(/href=["']https?:\/\/jkanime\.net\/([a-z0-9][a-z0-9-]{1,80}(?:\/\d+)?)\/["']/gi)];
+    const validHrefs = allHrefs.filter((m) => !_isNavSlug(_firstSegment(m[1])));
+    if (validHrefs.length === 0) continue;
+    const hrefM = validHrefs[validHrefs.length - 1];
+    const slug = _firstSegment(hrefM[1]);
+    if (seen.has(slug)) continue;
+    seen.add(slug);
     let title = "";
-    const titleTagMatch = /class="[^"]*title[^"]*"[^>]*>([\s\S]{1,120}?)(?:<\/[a-z]|$)/i.exec(block);
-    if (titleTagMatch) {
-      title = stripTags(titleTagMatch[1]).trim();
+    const altM = /\balt=["']([^"']{2,})["']/i.exec(tag);
+    if (altM && altM[1].trim().length > 1) {
+      title = altM[1].trim();
+    } else {
+      const afterImg = html.slice(pos + tag.length, pos + tag.length + 500);
+      const hLinkM = /<h[4-6][^>]*>\s*<a[^>]*>([^<]{2,80})<\/a>/i.exec(afterImg);
+      const hPlainM = /<h[4-6][^>]*>([^<]{2,80})<\/h[4-6]>/i.exec(afterImg);
+      const cardTitleM = /class="[^"]*(?:card-title|anime-title)[^"]*"[^>]*>([^<]{2,80})</i.exec(afterImg);
+      title = hLinkM && hLinkM[1].trim() || hPlainM && hPlainM[1].trim() || cardTitleM && cardTitleM[1].trim() || slug.replace(/-/g, " ");
     }
-    if (!title) {
-      const h5Match = /<h[2-6][^>]*>[^<]*<a[^>]*>([^<]+)<\/a>/i.exec(block);
-      if (h5Match) title = h5Match[1].trim();
-    }
-    if (slug && title) {
-      items.push({ title, url: slug, cover: _absUrl(cover) });
+    items.push({ title, url: slug, cover });
+  }
+  if (items.length === 0) {
+    const hrefRe = /href=["'](?:https?:\/\/jkanime\.net)?\/([a-z0-9][a-z0-9-]{1,80})\/["']/gi;
+    let hrefMatch;
+    while ((hrefMatch = hrefRe.exec(html)) !== null) {
+      const slug = hrefMatch[1];
+      if (_isNavSlug(slug)) continue;
+      if (seen.has(slug)) continue;
+      const pos = hrefMatch.index;
+      const ctx = html.slice(Math.max(0, pos - 600), pos + 800);
+      let cover = "";
+      const setbgM = /\bdata-setbg=["'](https?:\/\/[^"']{10,})["']/i.exec(ctx);
+      if (setbgM) {
+        cover = setbgM[1];
+      }
+      if (!cover) {
+        const bgM = /background-image:\s*url\(['"]?(https?:\/\/[^'")\s]{10,})['"]?\)/i.exec(ctx);
+        if (bgM) cover = bgM[1];
+      }
+      if (!cover) {
+        const imgCtxRe = /<img\b[^>]*>/gi;
+        let imgCtxM;
+        while ((imgCtxM = imgCtxRe.exec(ctx)) !== null) {
+          const t = imgCtxM[0];
+          const s = /\b(?:data-lazy-src|data-lazy|data-original|data-src|src)=["']([^"']{20,})["']/i.exec(t);
+          if (s && !/\.gif$|data:image|\.js$|\.css$|\.svg$|logo|icon|sprite/i.test(s[1])) {
+            cover = s[1];
+            break;
+          }
+        }
+      }
+      let title = "";
+      const altM = /<img\b[^>]*\balt=["']([^"']{2,80})["'][^>]*>/i.exec(ctx);
+      if (altM && !/logo|icon|banner|avatar/i.test(altM[1])) title = altM[1].trim();
+      if (!title) {
+        const linkEndCtx = html.slice(pos, pos + hrefMatch[0].length + 300);
+        const linkTextM = /href=["'][^"']+["'][^>]*>([^<]{2,80})</i.exec(linkEndCtx);
+        if (linkTextM) title = linkTextM[1].trim().replace(/\s+/g, " ");
+      }
+      if (!title) {
+        const hLinkM = /<h[4-6][^>]*>\s*<a[^>]*>([^<]{2,80})<\/a>/i.exec(ctx);
+        const hPlainM = /<h[2-6][^>]*>([^<]{2,80})<\/h[2-6]>/i.exec(ctx);
+        const spanM = /class="[^"]*(?:title|name|anime)[^"]*"[^>]*>([^<]{2,80})</i.exec(ctx);
+        title = hLinkM && hLinkM[1].trim() || hPlainM && hPlainM[1].trim() || spanM && spanM[1].trim() || slug.replace(/-/g, " ");
+      }
+      if (!cover) continue;
+      seen.add(slug);
+      items.push({ title, url: slug, cover });
     }
   }
   return items;
-}
-function _firstAnimeSlug(block) {
-  for (const m of block.matchAll(/href="\/([^"/?#]{3,})\//gi)) {
-    const slug = m[1];
-    if (slug.indexOf("genero") === -1 && slug.indexOf("tipo") === -1 && slug.indexOf("directorio") === -1 && slug.indexOf("buscar") === -1 && slug.indexOf("ajax") === -1 && slug.indexOf("static") === -1) {
-      return slug;
-    }
-  }
-  return "";
 }
 
 export default class extends Extension {

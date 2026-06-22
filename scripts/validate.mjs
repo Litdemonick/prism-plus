@@ -97,8 +97,8 @@ for (const name of entries) {
       }
     }
 
-    // No debe usar window o document
-    if (/\bwindow\b|\bdocument\b/.test(src)) {
+    // No debe usar window o document (solo acceso real a propiedades, no palabras en regex/strings)
+    if (/\bwindow\s*[\.\[]|\bdocument\s*[\.\[]/.test(src)) {
       issues.push(`index.ts: usa 'window' o 'document' — no disponible en QuickJS`);
     }
   }
