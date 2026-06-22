@@ -8,7 +8,7 @@
     {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -17,8 +17,8 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "b23e930eb85b230b2a08758f9bfe097925d3d366b46a75ec70fb21a0fd314465",
-      "signature": "zKL9dgU2sV0yiOfWMCKcEIboU6TolJQagslrsLqQyUpJ+wff2WEt+KDJbK+9WWS4T8EJz48n+mSsxQ0YVi0YCA=="
+      "sha256": "a852344c7fb2d7d5a9e47bff19951386288b4ea53f09fc2bff1c03f796ed5c8c",
+      "signature": "F7kTsBdIB1leg/C1xp7/+FRKjltcuvr3zyIAP8NS9qy1mqPTKPqShBKyi47WNFmtVe5bcyT4/DVPP3RYs3zoCg=="
     }
   ]
 }
