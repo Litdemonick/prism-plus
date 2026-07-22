@@ -1,0 +1,12 @@
+{
+  "name": "Olympus",
+  "package": "io.prismhub.olympus",
+  "version": "1.0.0",
+  "author": "PrismHub",
+  "type": "manga",
+  "icon": "",
+  "description": "Manhwa, manga y manhua en español desde Olympus Scanlation",
+  "lang": "es",
+  "webSite": "https://olympusxyz.com",
+  "license": "MIT"
+}
