@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.1.0
+// @version      1.2.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -626,18 +626,23 @@ async function watch(url) {
   }
   const episodeUrl = url.indexOf("http") === 0 ? url : `${BASE}/${url.replace(/\/+$/, "")}/`;
   const html = await _get(episodeUrl);
+  const subEntries = _parseJkSubServers(html);
+  const subResolved = await Promise.all(
+    subEntries.map((e) => _resolveJkInternalPlayer(e.iframeSrc, episodeUrl, e.name))
+  );
+  const subStreams = subResolved.filter((s) => s !== null);
   const m = /(?:var|let|const)\s+servers\s*=\s*(\[[\s\S]*?\]);/.exec(html) || /(?:var|let|const)\s+video\s*=\s*(\[[\s\S]*?\]);/.exec(html);
   if (!m) {
-    return { streams: [], pageUrl: episodeUrl };
+    return { streams: subStreams, pageUrl: episodeUrl };
   }
   let servers;
   try {
     servers = JSON.parse(m[1]);
   } catch (e) {
-    return { streams: [], pageUrl: episodeUrl };
+    return { streams: subStreams, pageUrl: episodeUrl };
   }
   if (!Array.isArray(servers) || servers.length === 0) {
-    return { streams: [], pageUrl: episodeUrl };
+    return { streams: subStreams, pageUrl: episodeUrl };
   }
   servers.sort((a, b) => (a.lang || 0) - (b.lang || 0));
   const resolved = await Promise.all(
@@ -645,7 +650,7 @@ async function watch(url) {
   );
   const direct = resolved.filter((s) => s !== null && _isDirect(s.url));
   const embeds = resolved.filter((s) => s !== null && !_isDirect(s.url));
-  const streams = [...direct, ...embeds];
+  const streams = [...subStreams, ...direct, ...embeds];
   const isMega = (u) => u.indexOf("mega.nz") !== -1 || u.indexOf("mega.co.nz") !== -1;
   const ordered = [
     ...streams.filter((s) => !isMega(s.url)),
@@ -863,6 +868,40 @@ async function _resolveStreamwishDio(url, label) {
     const mp4s = (_a = full.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g)) != null ? _a : [];
     const real = mp4s.find((u) => !/\.(?:css|js|jpg|png|woff)/.test(u));
     if (real) return { url: real, quality: label, headers: hdrs };
+  } catch (e) {
+  }
+  return null;
+}
+function _parseJkSubServers(html) {
+  const nameByIndex = {};
+  const btnRe = /<a\s+id="btn-show-(\d+)"\s+data-id="\d+"\s+class="servers[^"]*"[^>]*>([^<]+)<\/a>/g;
+  for (const bm of html.matchAll(btnRe)) {
+    nameByIndex[parseInt(bm[1], 10)] = bm[2].trim();
+  }
+  const entries = [];
+  const videoRe = /video\[(\d+)\]\s*=\s*'<iframe[^']*?\ssrc="([^"]+)"/g;
+  for (const vm of html.matchAll(videoRe)) {
+    const idx = parseInt(vm[1], 10);
+    entries.push({ index: idx, name: nameByIndex[idx] || `Sub ${idx + 1}`, iframeSrc: vm[2] });
+  }
+  return entries;
+}
+async function _resolveJkInternalPlayer(iframeSrc, referer, label) {
+  try {
+    const hdrs = { "Referer": referer || `${BASE}/` };
+    const html = await _get(iframeSrc, hdrs);
+    const atobM = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
+    if (atobM) {
+      try {
+        const decoded = _b64decode(atobM[1]);
+        if (decoded.indexOf(".m3u8") !== -1 || decoded.indexOf(".mp4") !== -1) {
+          return { url: decoded, quality: label, headers: hdrs };
+        }
+      } catch (e) {
+      }
+    }
+    const plain = matchFirst(html, /url\s*:\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i) || matchFirst(html, /loadSource\(\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i) || matchFirst(html, /url\s*:\s*['"]([^'"]+\.mp4[^'"]*)['"]/i);
+    if (plain) return { url: plain, quality: label, headers: hdrs };
   } catch (e) {
   }
   return null;

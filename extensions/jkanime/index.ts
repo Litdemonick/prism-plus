@@ -218,23 +218,32 @@ export async function watch(url: string): Promise<PrismWatch> {
 
   const html = await _get(episodeUrl);
 
+  // Servidores SUB propios de JKAnime (Desu/Magi) — nunca viven en el array
+  // `servers` de abajo, así que se resuelven aparte y siempre se intentan,
+  // pase lo que pase con ese array (incluso si no existe o viene vacío).
+  const subEntries = _parseJkSubServers(html);
+  const subResolved = await Promise.all(
+    subEntries.map(e => _resolveJkInternalPlayer(e.iframeSrc, episodeUrl, e.name)),
+  );
+  const subStreams = subResolved.filter((s): s is PrismStream => s !== null);
+
   const m =
     /(?:var|let|const)\s+servers\s*=\s*(\[[\s\S]*?\]);/.exec(html) ||
     /(?:var|let|const)\s+video\s*=\s*(\[[\s\S]*?\]);/.exec(html);
 
   if (!m) {
-    return { streams: [], pageUrl: episodeUrl };
+    return { streams: subStreams, pageUrl: episodeUrl };
   }
 
   let servers: JKServer[];
   try {
     servers = JSON.parse(m[1]) as JKServer[];
   } catch {
-    return { streams: [], pageUrl: episodeUrl };
+    return { streams: subStreams, pageUrl: episodeUrl };
   }
 
   if (!Array.isArray(servers) || servers.length === 0) {
-    return { streams: [], pageUrl: episodeUrl };
+    return { streams: subStreams, pageUrl: episodeUrl };
   }
 
   // SUB primero, luego LAT, luego CAST
@@ -249,7 +258,9 @@ export async function watch(url: string): Promise<PrismWatch> {
   const direct = resolved.filter((s): s is PrismStream => s !== null && _isDirect(s.url));
   const embeds = resolved.filter((s): s is PrismStream => s !== null && !_isDirect(s.url));
 
-  const streams = [...direct, ...embeds];
+  // SUB (Desu/Magi, resueltos arriba) primero — es lo que la página muestra
+  // por default — luego LAT directos, luego embeds sin resolver.
+  const streams = [...subStreams, ...direct, ...embeds];
 
   // Mega siempre al final
   const isMega = (u: string) => u.indexOf('mega.nz') !== -1 || u.indexOf('mega.co.nz') !== -1;
@@ -552,7 +563,72 @@ async function _resolveStreamwishDio(url: string, label: string): Promise<PrismS
   return null;
 }
 
-// ─── Resolvers Desu / Magi ─────────────────────────────────────────────────────
+// ─── Servidores SUB propios de JKAnime (Desu/Magi vía jkplayer interno) ────────
+//
+// Estos NO viven en el array `servers` (ese solo trae el grupo LAT en la
+// mayoría de episodios). Son asignaciones sueltas tipo:
+//   video[0] = '<iframe ... src="https://jkanime.net/jkplayer/um?e=...&t=...">...';
+// correlacionadas con el nombre del servidor via los botones:
+//   <a id="btn-show-0" data-id="0" class="servers ...">Desu</a>
+// El iframe apunta al REPRODUCTOR PROPIO de JKAnime (dominio jkdesa.com/DPlayer),
+// no a un host externo — adentro, la URL real del .m3u8 está ofuscada en un
+// atob('base64...') (con un bloque viejo comentado que NO hay que usar).
+
+interface _JkSubEntry {
+  index: number;
+  name: string;
+  iframeSrc: string;
+}
+
+function _parseJkSubServers(html: string): _JkSubEntry[] {
+  const nameByIndex: Record<number, string> = {};
+  const btnRe = /<a\s+id="btn-show-(\d+)"\s+data-id="\d+"\s+class="servers[^"]*"[^>]*>([^<]+)<\/a>/g;
+  for (const bm of html.matchAll(btnRe)) {
+    nameByIndex[parseInt(bm[1], 10)] = bm[2].trim();
+  }
+
+  const entries: _JkSubEntry[] = [];
+  const videoRe = /video\[(\d+)\]\s*=\s*'<iframe[^']*?\ssrc="([^"]+)"/g;
+  for (const vm of html.matchAll(videoRe)) {
+    const idx = parseInt(vm[1], 10);
+    entries.push({ index: idx, name: nameByIndex[idx] || `Sub ${idx + 1}`, iframeSrc: vm[2] });
+  }
+  return entries;
+}
+
+async function _resolveJkInternalPlayer(
+  iframeSrc: string,
+  referer: string,
+  label: string,
+): Promise<PrismStream | null> {
+  try {
+    const hdrs = { 'Referer': referer || `${BASE}/` };
+    const html = await _get(iframeSrc, hdrs);
+
+    // Código activo: la URL viaja ofuscada en atob('...'). Probar esto
+    // primero — el bloque con la URL en texto plano está comentado (/* ... */)
+    // y puede quedar desactualizado.
+    const atobM = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
+    if (atobM) {
+      try {
+        const decoded = _b64decode(atobM[1]);
+        if (decoded.indexOf('.m3u8') !== -1 || decoded.indexOf('.mp4') !== -1) {
+          return { url: decoded, quality: label, headers: hdrs };
+        }
+      } catch {}
+    }
+
+    // Fallback: URL en texto plano (por si el sitio deja de ofuscarla).
+    const plain =
+      matchFirst(html, /url\s*:\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i) ||
+      matchFirst(html, /loadSource\(\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i) ||
+      matchFirst(html, /url\s*:\s*['"]([^'"]+\.mp4[^'"]*)['"]/i);
+    if (plain) return { url: plain, quality: label, headers: hdrs };
+  } catch {}
+  return null;
+}
+
+// ─── Resolvers Desu / Magi (formato legacy: URL con path /desu/, /magi/) ───────
 
 async function _resolveDesu(
   url: string,
