@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeYT
-// @version      1.1.0
+// @version      1.1.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -508,9 +508,8 @@ async function latest(page) {
   return _parseCards(html);
 }
 async function search(keyword, page) {
-  const params = new URLSearchParams({ s: keyword });
-  if (page > 1) params.set("paged", String(page));
-  const html = await _get(`${BASE}/?${params.toString()}`);
+  const query = `s=${encodeURIComponent(keyword)}${page > 1 ? `&paged=${page}` : ""}`;
+  const html = await _get(`${BASE}/?${query}`);
   return _parseCards(html);
 }
 function _parseEpisodes(html) {
@@ -586,17 +585,25 @@ function _parseMirrors(html) {
   return mirrors;
 }
 async function _expandMytsumi(iframeSrc) {
-  const idM = /[?&]value=([a-zA-Z0-9]+)/.exec(iframeSrc);
-  if (!idM) return [];
-  const html = await _get(`https://mytsumi.com/multiplayer/contenedor.php?id=${idM[1]}`);
-  const tabsM = /const\s+videoTabs\s*=\s*(\[[\s\S]*?\]);/.exec(html);
-  if (!tabsM) return [];
-  try {
-    const tabs = JSON.parse(tabsM[1]);
-    return tabs.filter((t) => t.url && t.tab_name.toLowerCase() !== "mytsumi").map((t) => ({ name: t.tab_name, iframeSrc: _absolutize(t.url) }));
-  } catch (e) {
-    return [];
+  const serverM = /[?&]server=([a-zA-Z0-9]+)/.exec(iframeSrc);
+  const fallbackName = serverM ? serverM[1] : "Servidor";
+  const html = await _get(iframeSrc);
+  const acceptM = /class="play">[\s\S]*?<a href=['"]([^'"]+)['"]/i.exec(html);
+  if (!acceptM) return [];
+  const acceptHref = _absolutize(decodeEntities(acceptM[1]));
+  if (acceptHref.indexOf("mytsumi.com") !== -1) {
+    const html2 = await _get(acceptHref);
+    const tabsM = /const\s+videoTabs\s*=\s*(\[[\s\S]*?\]);/.exec(html2);
+    if (tabsM) {
+      try {
+        const tabs = JSON.parse(tabsM[1]);
+        const parsed = tabs.filter((t) => t.url && t.tab_name.toLowerCase() !== "mytsumi").map((t) => ({ name: t.tab_name, iframeSrc: _absolutize(t.url) }));
+        if (parsed.length > 0) return parsed;
+      } catch (e) {
+      }
+    }
   }
+  return [{ name: fallbackName.charAt(0).toUpperCase() + fallbackName.slice(1), iframeSrc: acceptHref }];
 }
 async function watch(url) {
   const episodeUrl = url.indexOf("http") === 0 ? url : `${BASE}/${url}/`;

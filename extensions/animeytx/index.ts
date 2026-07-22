@@ -46,10 +46,10 @@ export async function latest(page: number): Promise<PrismItem[]> {
   return _parseCards(html);
 }
 
+// URLSearchParams no existe en el QuickJS de PrismHub — arma la query a mano.
 export async function search(keyword: string, page: number): Promise<PrismItem[]> {
-  const params = new URLSearchParams({ s: keyword });
-  if (page > 1) params.set('paged', String(page));
-  const html = await _get(`${BASE}/?${params.toString()}`);
+  const query = `s=${encodeURIComponent(keyword)}${page > 1 ? `&paged=${page}` : ''}`;
+  const html = await _get(`${BASE}/?${query}`);
   return _parseCards(html);
 }
 
@@ -156,28 +156,46 @@ function _parseMirrors(html: string): _Mirror[] {
   return mirrors;
 }
 
-// Algunos mirrors no son un embed directo: son un wrapper
-// "mytsumi.com/multiplayer/options.php?...&value=ID" que primero muestra un
-// disclaimer ("Algunos reproductores tienen publicidad...") y recién al
-// aceptar carga "contenedor.php?id=ID" — página que trae, en texto plano
-// dentro de un <script>, el array real de servidores:
-// `const videoTabs = [{"tab_name":"Moon","url":"..."}, ...]`.
-// El "value" del wrapper y el "id" del contenedor son el mismo ID, así que
-// nos salteamos el disclaimer y vamos directo a contenedor.php.
+// Algunos mirrors no son un embed directo: son un wrapper "mytsumi" que
+// primero muestra un disclaimer ("Algunos reproductores tienen
+// publicidad...") y recién al aceptar lleva al contenido real. Hay (al
+// menos) DOS variantes distintas vistas en vivo, con dominio/ruta diferente:
+//   1. mytsumi.com/multiplayer/options.php?server=multi&value=ID — el botón
+//      "Aceptar" apunta a otro mytsumi ("contenedor.php?id=ID"), página que
+//      trae un array `const videoTabs = [{"tab_name":"Moon","url":"..."},
+//      ...]` con VARIOS servidores reales.
+//   2. old.mytsumi.com/players/options.php?server=moon&value=ID — acá el
+//      botón "Aceptar" ya apunta DIRECTO al embed real (ej. filemoon.to),
+//      sin capa intermedia ni array de servidores.
+// En ambos casos alcanza con: pedir el wrapper, sacar el href de "Aceptar",
+// y si ESE resultado es a su vez otro mytsumi con array de servidores,
+// expandirlo; si no, ya es el embed final.
 async function _expandMytsumi(iframeSrc: string): Promise<_Mirror[]> {
-  const idM = /[?&]value=([a-zA-Z0-9]+)/.exec(iframeSrc);
-  if (!idM) return [];
-  const html = await _get(`https://mytsumi.com/multiplayer/contenedor.php?id=${idM[1]}`);
-  const tabsM = /const\s+videoTabs\s*=\s*(\[[\s\S]*?\]);/.exec(html);
-  if (!tabsM) return [];
-  try {
-    const tabs = JSON.parse(tabsM[1]) as { tab_name: string; url: string }[];
-    return tabs
-      .filter(t => t.url && t.tab_name.toLowerCase() !== 'mytsumi')
-      .map(t => ({ name: t.tab_name, iframeSrc: _absolutize(t.url) }));
-  } catch {
-    return [];
+  const serverM = /[?&]server=([a-zA-Z0-9]+)/.exec(iframeSrc);
+  const fallbackName = serverM ? serverM[1] : 'Servidor';
+
+  const html = await _get(iframeSrc);
+  const acceptM = /class="play">[\s\S]*?<a href=['"]([^'"]+)['"]/i.exec(html);
+  if (!acceptM) return [];
+  const acceptHref = _absolutize(decodeEntities(acceptM[1]));
+
+  // Variante 1: el "Aceptar" lleva a otro mytsumi con el array de servidores.
+  if (acceptHref.indexOf('mytsumi.com') !== -1) {
+    const html2 = await _get(acceptHref);
+    const tabsM = /const\s+videoTabs\s*=\s*(\[[\s\S]*?\]);/.exec(html2);
+    if (tabsM) {
+      try {
+        const tabs = JSON.parse(tabsM[1]) as { tab_name: string; url: string }[];
+        const parsed = tabs
+          .filter(t => t.url && t.tab_name.toLowerCase() !== 'mytsumi')
+          .map(t => ({ name: t.tab_name, iframeSrc: _absolutize(t.url) }));
+        if (parsed.length > 0) return parsed;
+      } catch {}
+    }
   }
+
+  // Variante 2 (o variante 1 sin array reconocible): el href ya es el embed final.
+  return [{ name: fallbackName.charAt(0).toUpperCase() + fallbackName.slice(1), iframeSrc: acceptHref }];
 }
 
 export async function watch(url: string): Promise<PrismWatch> {
