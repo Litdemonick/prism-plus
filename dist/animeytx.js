@@ -490,7 +490,7 @@ var BASE = "https://wwv.animeytx.net";
 function _parseCards(html) {
   const items = [];
   const seen = /* @__PURE__ */ new Set();
-  const re = /<a href="https?:\/\/[^"]*\/tv\/([a-z0-9-]+)\/?"[^>]*title="([^"]*)"[\s\S]{0,400}?<img[^>]+src="([^"]+)"/g;
+  const re = /<a href="https?:\/\/[^"]*\/tv\/([a-z0-9-]+)\/?"[^>]*title="([^"]*)"[\s\S]{0,500}?<img\b[^>]*\bsrc="([^"]+)"(?:[^>]*\bdata-src="([^"]+)")?/g;
   for (const m of html.matchAll(re)) {
     const slug = m[1];
     if (seen.has(slug)) continue;
@@ -498,32 +498,14 @@ function _parseCards(html) {
     items.push({
       title: decodeEntities(m[2]),
       url: slug,
-      cover: m[3]
-    });
-  }
-  return items;
-}
-function _parseFeedCards(html) {
-  const items = [];
-  const seen = /* @__PURE__ */ new Set();
-  const re = /<a href="https?:\/\/[^"]*\/anime\/([a-z0-9-]+)\/?"[^>]*>[\s\S]{0,250}?<div class="eggtitle2">\s*([^<]*)<\/div>[\s\S]{0,600}?(?:data-src|src)="(https?:[^"]+)"/g;
-  for (const m of html.matchAll(re)) {
-    const slug = m[1];
-    if (seen.has(slug)) continue;
-    seen.add(slug);
-    items.push({
-      title: decodeEntities(m[2].trim()),
-      // Prefijo "ep:" — detail() necesita saber que esto es un episodio
-      // puntual y resolver primero la serie real antes de mostrar detalle.
-      url: `ep:${slug}`,
-      cover: m[3]
+      cover: m[4] || m[3]
     });
   }
   return items;
 }
 async function latest(page) {
-  const html = await _get(page <= 1 ? `${BASE}/` : `${BASE}/page/${page}/`);
-  return _parseFeedCards(html);
+  const html = await _get(page <= 1 ? `${BASE}/anime/` : `${BASE}/anime/page/${page}/`);
+  return _parseCards(html);
 }
 async function search(keyword, page) {
   const params = new URLSearchParams({ s: keyword });

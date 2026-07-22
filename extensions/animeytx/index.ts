@@ -15,10 +15,13 @@ const BASE = 'https://wwv.animeytx.net';
 
 // ─── Listado (directorio + búsqueda comparten la misma card) ──────────────────
 
+// El cover viene lazy-loaded: <img src="data:image/svg+xml;base64,PLACEHOLDER"
+// data-src="https://real-cover.jpg">. Hay que preferir data-src siempre que
+// esté — si no, se termina guardando el placeholder base64 como portada.
 function _parseCards(html: string): PrismItem[] {
   const items: PrismItem[] = [];
   const seen = new Set<string>();
-  const re = /<a href="https?:\/\/[^"]*\/tv\/([a-z0-9-]+)\/?"[^>]*title="([^"]*)"[\s\S]{0,400}?<img[^>]+src="([^"]+)"/g;
+  const re = /<a href="https?:\/\/[^"]*\/tv\/([a-z0-9-]+)\/?"[^>]*title="([^"]*)"[\s\S]{0,500}?<img\b[^>]*\bsrc="([^"]+)"(?:[^>]*\bdata-src="([^"]+)")?/g;
   for (const m of html.matchAll(re)) {
     const slug = m[1];
     if (seen.has(slug)) continue;
@@ -26,40 +29,21 @@ function _parseCards(html: string): PrismItem[] {
     items.push({
       title: decodeEntities(m[2]),
       url: slug,
-      cover: m[3],
+      cover: m[4] || m[3],
     });
   }
   return items;
 }
 
-// El catálogo /tv/page/N/ tiene pocas páginas reales — se agota rápido y
-// termina repitiendo/mostrando "sin más datos". El feed principal
-// (home, /page/N/) sí tiene contenido de sobra (30+ páginas confirmadas en
-// vivo), pero cada card ahí apunta a un EPISODIO puntual, no a la serie, y
-// usa una estructura de card totalmente distinta (título limpio en
-// .eggtitle2, portada en data-src por el lazy-load).
-function _parseFeedCards(html: string): PrismItem[] {
-  const items: PrismItem[] = [];
-  const seen = new Set<string>();
-  const re = /<a href="https?:\/\/[^"]*\/anime\/([a-z0-9-]+)\/?"[^>]*>[\s\S]{0,250}?<div class="eggtitle2">\s*([^<]*)<\/div>[\s\S]{0,600}?(?:data-src|src)="(https?:[^"]+)"/g;
-  for (const m of html.matchAll(re)) {
-    const slug = m[1];
-    if (seen.has(slug)) continue;
-    seen.add(slug);
-    items.push({
-      title: decodeEntities(m[2].trim()),
-      // Prefijo "ep:" — detail() necesita saber que esto es un episodio
-      // puntual y resolver primero la serie real antes de mostrar detalle.
-      url: `ep:${slug}`,
-      cover: m[3],
-    });
-  }
-  return items;
-}
-
+// /tv/page/N/ (catálogo alfabético) tiene pocas páginas reales — se agotaba
+// rápido y terminaba en "sin más datos". /anime/page/N/ ("Anime reciente",
+// el que usa el sitio para su propio browse) es el equivalente al
+// /directorio de jkanime: mismas cards que /tv/ y búsqueda (article.bs con
+// link directo a /tv/{slug}/), pero con paginación real y profunda (17+
+// páginas confirmadas en vivo).
 export async function latest(page: number): Promise<PrismItem[]> {
-  const html = await _get(page <= 1 ? `${BASE}/` : `${BASE}/page/${page}/`);
-  return _parseFeedCards(html);
+  const html = await _get(page <= 1 ? `${BASE}/anime/` : `${BASE}/anime/page/${page}/`);
+  return _parseCards(html);
 }
 
 export async function search(keyword: string, page: number): Promise<PrismItem[]> {
