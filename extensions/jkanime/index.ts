@@ -300,17 +300,18 @@ export async function watch(url: string): Promise<PrismWatch> {
   // SUB primero, luego LAT, luego CAST
   servers.sort((a, b) => (a.lang || 0) - (b.lang || 0));
 
-  // Resolver todos en paralelo (con timeout individual para que un servidor
-  // colgado no retrase la respuesta completa)
-  const resolved = await Promise.all(
-    servers.map(s =>
-      _withTimeout(_resolveServer(s, episodeUrl), _SERVER_TIMEOUT, () => _rawServerStream(s)),
-    ),
-  );
+  // NO resolver estos servidores acá: Desu (arriba) ya es el default y carga
+  // solo, así que el resto se deja crudo/sin resolver (sin red, instantáneo)
+  // — switchServer() en la app ya pide la resolución real on-demand cuando
+  // el usuario elige uno de estos a mano, así que resolverlos acá de nuevo
+  // sería trabajo duplicado y lo único que logra es demorar el arranque.
+  const resolved = servers
+    .map(s => _rawServerStream(s))
+    .filter((s): s is PrismStream => s !== null);
 
   // Direct streams (mp4/m3u8) antes que embeds crudos
-  const direct = resolved.filter((s): s is PrismStream => s !== null && _isDirect(s.url));
-  const embeds = resolved.filter((s): s is PrismStream => s !== null && !_isDirect(s.url));
+  const direct = resolved.filter(s => _isDirect(s.url));
+  const embeds = resolved.filter(s => !_isDirect(s.url));
 
   // SUB (Desu/Magi, resueltos arriba) primero — es lo que la página muestra
   // por default — luego LAT directos, luego embeds sin resolver.
@@ -324,128 +325,6 @@ export async function watch(url: string): Promise<PrismWatch> {
   ];
 
   return { streams: ordered, pageUrl: episodeUrl };
-}
-
-// ─── Resolver de servidor ──────────────────────────────────────────────────────
-
-async function _resolveServer(
-  server: JKServer,
-  pageUrl: string,
-): Promise<PrismStream | null> {
-  let raw = '';
-  if (server.remote) {
-    try { raw = _b64decode(server.remote); } catch { raw = ''; }
-  }
-  if (!raw && server.slug) {
-    raw = server.slug.indexOf('http') === 0
-      ? server.slug
-      : `${BASE}${server.slug}`;
-  }
-  if (!raw) return null;
-
-  raw = _resolveRedirect(raw);
-
-  const name = server.server || 'Embed';
-  const langSuffix = server.lang === 1 ? ' LAT' : server.lang === 2 ? ' CAST' : '';
-  const label = `${name}${langSuffix}`;
-  const nameLow = name.toLowerCase();
-
-  // Mega: URL directa (se abre en WebView)
-  if (raw.indexOf('mega.nz') !== -1 || raw.indexOf('mega.co.nz') !== -1) {
-    return { url: raw, quality: label };
-  }
-
-  // Desu (servidor propio de jkanime)
-  if (nameLow === 'desu' || raw.indexOf('desudesuka') !== -1 || raw.indexOf('desu.') !== -1) {
-    const r = await _resolveDesu(raw, pageUrl, label);
-    if (r) return r;
-    return { url: raw, quality: label };
-  }
-
-  // Magi (servidor propio de jkanime)
-  if (nameLow === 'magi' || raw.indexOf('magi') !== -1) {
-    const r = await _resolveMagi(raw, pageUrl, label);
-    if (r) return r;
-    return { url: raw, quality: label };
-  }
-
-  // Voe — custom resolver usando dio
-  if (nameLow === 'voe' || raw.indexOf('voe.sx') !== -1 || raw.indexOf('voe.') !== -1) {
-    const r = await _resolveVoeDio(raw, label);
-    if (r) return r;
-    return { url: raw, quality: label };
-  }
-
-  // Streamtape — custom resolver usando dio
-  if (nameLow === 'streamtape' || raw.indexOf('streamtape') !== -1 || raw.indexOf('stape') !== -1) {
-    const r = await _resolveStreamtapeDio(raw, label);
-    if (r) return r;
-    return { url: raw, quality: label };
-  }
-
-  // Streamwish / sfastwish / wishfast / vidhide / filelions
-  if (
-    nameLow === 'streamwish' ||
-    raw.indexOf('streamwish') !== -1 ||
-    raw.indexOf('sfastwish') !== -1 ||
-    raw.indexOf('wishfast') !== -1 ||
-    raw.indexOf('vidhide') !== -1 ||
-    raw.indexOf('filelions') !== -1 ||
-    raw.indexOf('swdyu') !== -1
-  ) {
-    const r = await _resolveStreamwishDio(raw, label);
-    if (r) return r;
-    return { url: raw, quality: label };
-  }
-
-  // Mp4Upload
-  if (raw.indexOf('mp4upload') !== -1) {
-    try {
-      const res = await resolveEmbed('Mp4Upload', raw, `${BASE}/`);
-      if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
-    } catch {}
-    return null;
-  }
-
-  // Mixdrop y mirrors (nombre "Mixdrop" del servidor puede tener dominio espejo)
-  if (nameLow === 'mixdrop' || raw.indexOf('mixdrop') !== -1 || raw.indexOf('mxdrop') !== -1) {
-    try {
-      const res = await resolveEmbed('Mixdrop', raw, `${BASE}/`);
-      if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
-    } catch {}
-    return { url: raw, quality: label };
-  }
-
-  // Doodstream y mirrors
-  if (nameLow === 'doodstream' || nameLow === 'dood' ||
-      raw.indexOf('dood') !== -1 || raw.indexOf('ds2play') !== -1 || raw.indexOf('ds2video') !== -1) {
-    try {
-      const res = await resolveEmbed('Doodstream', raw, `${BASE}/`);
-      if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
-    } catch {}
-    return null;  // doodstream mirrors suelen fallar DNS
-  }
-
-  // Intentar con resolveEmbed del SDK como resolver genérico
-  const serverName = _guessServerName(raw) || name;
-  try {
-    const res = await resolveEmbed(serverName, raw, `${BASE}/`);
-    if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
-  } catch {}
-
-  // Fallback: URL cruda para hosts que el WebView sniffer puede manejar
-  const rawLow = raw.toLowerCase();
-  if (
-    rawLow.indexOf('yourupload') !== -1 ||
-    rawLow.indexOf('dood') !== -1 ||
-    rawLow.indexOf('ok.ru') !== -1 ||
-    rawLow.indexOf('mixdrop') !== -1 ||
-    rawLow.indexOf('filemoon') !== -1
-  ) {
-    return { url: raw, quality: label };
-  }
-
-  return null;
 }
 
 // ─── Resolvers con dio (_get) ─────────────────────────────────────────────────

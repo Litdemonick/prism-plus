@@ -17,8 +17,8 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "16ff57f19ff8c4af1c935c480edfd408bc2fbb9ad3b0f5fdd8c4245cab062e02",
-      "signature": "MzcBEnRJ+AzXrQffSZO33knNOABqoZAH3KKJVH3ig1+P8zRNufa3Fio7PqD5pajF0WOcC3RIA6RKE1QdZkSdDg=="
+      "sha256": "fed6c6e9080c706fd70688feb299074105937468412e7e2a8c1c7552552bbf4a",
+      "signature": "dm++ZZniEenH7UWORG1GgyHF3kGcoz87/JzMMyDG5oJMbtM38VDyk60iSnZRrkpSCP5hvcbGQyEDUVOM4hANDg=="
     },
     {
       "name": "ManhwaWeb",

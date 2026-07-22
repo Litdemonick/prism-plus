@@ -686,13 +686,9 @@ async function watch(url) {
     return { streams: subStreams, pageUrl: episodeUrl };
   }
   servers.sort((a, b) => (a.lang || 0) - (b.lang || 0));
-  const resolved = await Promise.all(
-    servers.map(
-      (s) => _withTimeout(_resolveServer(s, episodeUrl), _SERVER_TIMEOUT, () => _rawServerStream(s))
-    )
-  );
-  const direct = resolved.filter((s) => s !== null && _isDirect(s.url));
-  const embeds = resolved.filter((s) => s !== null && !_isDirect(s.url));
+  const resolved = servers.map((s) => _rawServerStream(s)).filter((s) => s !== null);
+  const direct = resolved.filter((s) => _isDirect(s.url));
+  const embeds = resolved.filter((s) => !_isDirect(s.url));
   const streams = [...subStreams, ...direct, ...embeds];
   const isMega = (u) => u.indexOf("mega.nz") !== -1 || u.indexOf("mega.co.nz") !== -1;
   const ordered = [
@@ -700,88 +696,6 @@ async function watch(url) {
     ...streams.filter((s) => isMega(s.url))
   ];
   return { streams: ordered, pageUrl: episodeUrl };
-}
-async function _resolveServer(server, pageUrl) {
-  let raw = "";
-  if (server.remote) {
-    try {
-      raw = _b64decode(server.remote);
-    } catch (e) {
-      raw = "";
-    }
-  }
-  if (!raw && server.slug) {
-    raw = server.slug.indexOf("http") === 0 ? server.slug : `${BASE}${server.slug}`;
-  }
-  if (!raw) return null;
-  raw = _resolveRedirect(raw);
-  const name = server.server || "Embed";
-  const langSuffix = server.lang === 1 ? " LAT" : server.lang === 2 ? " CAST" : "";
-  const label = `${name}${langSuffix}`;
-  const nameLow = name.toLowerCase();
-  if (raw.indexOf("mega.nz") !== -1 || raw.indexOf("mega.co.nz") !== -1) {
-    return { url: raw, quality: label };
-  }
-  if (nameLow === "desu" || raw.indexOf("desudesuka") !== -1 || raw.indexOf("desu.") !== -1) {
-    const r = await _resolveDesu(raw, pageUrl, label);
-    if (r) return r;
-    return { url: raw, quality: label };
-  }
-  if (nameLow === "magi" || raw.indexOf("magi") !== -1) {
-    const r = await _resolveMagi(raw, pageUrl, label);
-    if (r) return r;
-    return { url: raw, quality: label };
-  }
-  if (nameLow === "voe" || raw.indexOf("voe.sx") !== -1 || raw.indexOf("voe.") !== -1) {
-    const r = await _resolveVoeDio(raw, label);
-    if (r) return r;
-    return { url: raw, quality: label };
-  }
-  if (nameLow === "streamtape" || raw.indexOf("streamtape") !== -1 || raw.indexOf("stape") !== -1) {
-    const r = await _resolveStreamtapeDio(raw, label);
-    if (r) return r;
-    return { url: raw, quality: label };
-  }
-  if (nameLow === "streamwish" || raw.indexOf("streamwish") !== -1 || raw.indexOf("sfastwish") !== -1 || raw.indexOf("wishfast") !== -1 || raw.indexOf("vidhide") !== -1 || raw.indexOf("filelions") !== -1 || raw.indexOf("swdyu") !== -1) {
-    const r = await _resolveStreamwishDio(raw, label);
-    if (r) return r;
-    return { url: raw, quality: label };
-  }
-  if (raw.indexOf("mp4upload") !== -1) {
-    try {
-      const res = await resolveEmbed("Mp4Upload", raw, `${BASE}/`);
-      if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
-    } catch (e) {
-    }
-    return null;
-  }
-  if (nameLow === "mixdrop" || raw.indexOf("mixdrop") !== -1 || raw.indexOf("mxdrop") !== -1) {
-    try {
-      const res = await resolveEmbed("Mixdrop", raw, `${BASE}/`);
-      if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
-    } catch (e) {
-    }
-    return { url: raw, quality: label };
-  }
-  if (nameLow === "doodstream" || nameLow === "dood" || raw.indexOf("dood") !== -1 || raw.indexOf("ds2play") !== -1 || raw.indexOf("ds2video") !== -1) {
-    try {
-      const res = await resolveEmbed("Doodstream", raw, `${BASE}/`);
-      if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
-    } catch (e) {
-    }
-    return null;
-  }
-  const serverName = _guessServerName(raw) || name;
-  try {
-    const res = await resolveEmbed(serverName, raw, `${BASE}/`);
-    if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
-  } catch (e) {
-  }
-  const rawLow = raw.toLowerCase();
-  if (rawLow.indexOf("yourupload") !== -1 || rawLow.indexOf("dood") !== -1 || rawLow.indexOf("ok.ru") !== -1 || rawLow.indexOf("mixdrop") !== -1 || rawLow.indexOf("filemoon") !== -1) {
-    return { url: raw, quality: label };
-  }
-  return null;
 }
 async function _resolveEmbedDio(name, url, referer) {
   const label = name;
