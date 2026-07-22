@@ -181,6 +181,43 @@ function _isJkInternalEmbed(url: string): boolean {
   return knownEmbeds.some(e => parts[0] === e || url.indexOf('desudesuka') !== -1);
 }
 
+// ─── Timeout de resolución ─────────────────────────────────────────────────────
+// Evita que un solo servidor lento (LAT/CAST con host caído, DNS lento, etc.)
+// retrase toda la respuesta de watch(): si no resuelve a tiempo, se usa el
+// fallback (URL cruda sin resolver) para que el WebView sniffer pueda intentarlo.
+
+const _SERVER_TIMEOUT = 6_000;
+
+async function _withTimeout<T>(promise: Promise<T>, ms: number, fallback: () => T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>(resolve => {
+    timer = setTimeout(() => resolve(fallback()), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+// Fallback síncrono de _resolveServer: sólo calcula la URL cruda + etiqueta,
+// sin intentar ningún resolver de red. Se usa cuando el resolver real tarda
+// más de _SERVER_TIMEOUT.
+function _rawServerStream(server: JKServer): PrismStream | null {
+  let raw = '';
+  if (server.remote) {
+    try { raw = _b64decode(server.remote); } catch { raw = ''; }
+  }
+  if (!raw && server.slug) {
+    raw = server.slug.indexOf('http') === 0 ? server.slug : `${BASE}${server.slug}`;
+  }
+  if (!raw) return null;
+  raw = _resolveRedirect(raw);
+  const name = server.server || 'Embed';
+  const langSuffix = server.lang === 1 ? ' LAT' : server.lang === 2 ? ' CAST' : '';
+  return { url: raw, quality: `${name}${langSuffix}` };
+}
+
 export async function watch(url: string): Promise<PrismWatch> {
   // Fast-path A: embed URL externo (dominio != jkanime.net)
   if (url.indexOf('http') === 0 && url.indexOf('jkanime.net') === -1) {
@@ -222,8 +259,22 @@ export async function watch(url: string): Promise<PrismWatch> {
   // `servers` de abajo, así que se resuelven aparte y siempre se intentan,
   // pase lo que pase con ese array (incluso si no existe o viene vacío).
   const subEntries = _parseJkSubServers(html);
+  // Desu siempre primero: es el servidor default del propio sitio y el más
+  // confiable — garantiza que sea streams[0] (X-Primary-Server) sin depender
+  // del orden en que la página lo liste.
+  subEntries.sort((a, b) => {
+    const aDesu = a.name.toLowerCase() === 'desu' ? 0 : 1;
+    const bDesu = b.name.toLowerCase() === 'desu' ? 0 : 1;
+    return aDesu - bDesu;
+  });
   const subResolved = await Promise.all(
-    subEntries.map(e => _resolveJkInternalPlayer(e.iframeSrc, episodeUrl, e.name)),
+    subEntries.map(e =>
+      _withTimeout(
+        _resolveJkInternalPlayer(e.iframeSrc, episodeUrl, e.name),
+        _SERVER_TIMEOUT,
+        () => ({ url: e.iframeSrc, quality: e.name } as PrismStream | null),
+      ),
+    ),
   );
   const subStreams = subResolved.filter((s): s is PrismStream => s !== null);
 
@@ -249,9 +300,12 @@ export async function watch(url: string): Promise<PrismWatch> {
   // SUB primero, luego LAT, luego CAST
   servers.sort((a, b) => (a.lang || 0) - (b.lang || 0));
 
-  // Resolver todos en paralelo
+  // Resolver todos en paralelo (con timeout individual para que un servidor
+  // colgado no retrase la respuesta completa)
   const resolved = await Promise.all(
-    servers.map(s => _resolveServer(s, episodeUrl)),
+    servers.map(s =>
+      _withTimeout(_resolveServer(s, episodeUrl), _SERVER_TIMEOUT, () => _rawServerStream(s)),
+    ),
   );
 
   // Direct streams (mp4/m3u8) antes que embeds crudos

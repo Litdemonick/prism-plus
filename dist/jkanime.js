@@ -600,6 +600,36 @@ function _isJkInternalEmbed(url) {
   const knownEmbeds = ["desu", "magi", "desuka", "embed", "player", "desudesuka"];
   return knownEmbeds.some((e) => parts[0] === e || url.indexOf("desudesuka") !== -1);
 }
+var _SERVER_TIMEOUT = 6e3;
+async function _withTimeout(promise, ms, fallback) {
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(fallback()), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+function _rawServerStream(server) {
+  let raw = "";
+  if (server.remote) {
+    try {
+      raw = _b64decode(server.remote);
+    } catch (e) {
+      raw = "";
+    }
+  }
+  if (!raw && server.slug) {
+    raw = server.slug.indexOf("http") === 0 ? server.slug : `${BASE}${server.slug}`;
+  }
+  if (!raw) return null;
+  raw = _resolveRedirect(raw);
+  const name = server.server || "Embed";
+  const langSuffix = server.lang === 1 ? " LAT" : server.lang === 2 ? " CAST" : "";
+  return { url: raw, quality: `${name}${langSuffix}` };
+}
 async function watch(url) {
   if (url.indexOf("http") === 0 && url.indexOf("jkanime.net") === -1) {
     const uLow = url.toLowerCase();
@@ -627,8 +657,19 @@ async function watch(url) {
   const episodeUrl = url.indexOf("http") === 0 ? url : `${BASE}/${url.replace(/\/+$/, "")}/`;
   const html = await _get(episodeUrl);
   const subEntries = _parseJkSubServers(html);
+  subEntries.sort((a, b) => {
+    const aDesu = a.name.toLowerCase() === "desu" ? 0 : 1;
+    const bDesu = b.name.toLowerCase() === "desu" ? 0 : 1;
+    return aDesu - bDesu;
+  });
   const subResolved = await Promise.all(
-    subEntries.map((e) => _resolveJkInternalPlayer(e.iframeSrc, episodeUrl, e.name))
+    subEntries.map(
+      (e) => _withTimeout(
+        _resolveJkInternalPlayer(e.iframeSrc, episodeUrl, e.name),
+        _SERVER_TIMEOUT,
+        () => ({ url: e.iframeSrc, quality: e.name })
+      )
+    )
   );
   const subStreams = subResolved.filter((s) => s !== null);
   const m = /(?:var|let|const)\s+servers\s*=\s*(\[[\s\S]*?\]);/.exec(html) || /(?:var|let|const)\s+video\s*=\s*(\[[\s\S]*?\]);/.exec(html);
@@ -646,7 +687,9 @@ async function watch(url) {
   }
   servers.sort((a, b) => (a.lang || 0) - (b.lang || 0));
   const resolved = await Promise.all(
-    servers.map((s) => _resolveServer(s, episodeUrl))
+    servers.map(
+      (s) => _withTimeout(_resolveServer(s, episodeUrl), _SERVER_TIMEOUT, () => _rawServerStream(s))
+    )
   );
   const direct = resolved.filter((s) => s !== null && _isDirect(s.url));
   const embeds = resolved.filter((s) => s !== null && !_isDirect(s.url));
