@@ -1,0 +1,12 @@
+{
+  "name": "AnimeYT",
+  "package": "io.prismhub.animeytx",
+  "version": "1.0.0",
+  "author": "PrismHub",
+  "type": "anime",
+  "icon": "",
+  "description": "Anime en español latino desde AnimeYT",
+  "lang": "es",
+  "webSite": "https://wwv.animeytx.net",
+  "license": "MIT"
+}

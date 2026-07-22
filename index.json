@@ -6,6 +6,21 @@
   "website": "https://github.com/Litdemonick/prism-plus",
   "extensions": [
     {
+      "name": "AnimeYT",
+      "package": "io.prismhub.animeytx",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "bangumi",
+      "icon": "",
+      "description": "Anime en español latino desde AnimeYT",
+      "lang": "es",
+      "webSite": "https://wwv.animeytx.net",
+      "license": "MIT",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animeytx.js",
+      "sha256": "ddcc539759b0020d168f6613dd5d27c1e00f95b6d99bcad5ccd699f02d13271c",
+      "signature": "FE1Y5ObqgiXUJgZ5qaUjDLt6/AW6rTFVuj8ThsPjWm1UhBQDtDzZ7qLJ4xgmGj+ixuWDPsXJmUFa34keWQz6DQ=="
+    },
+    {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
       "version": "1.6.0",
