@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.4.0
+// @version      1.5.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -510,15 +510,24 @@ async function _post(url, token) {
 }
 var BASE = "https://jkanime.net";
 var _searchSeen = /* @__PURE__ */ new Map();
-var _BROWSE_KW = "aknsbtdmheogiyrzcfpuwlj".split("");
-async function latest(page) {
-  if (page === 1) {
-    const html2 = await _get(BASE + "/");
-    return _parseCards(html2);
+function _parseDirectoryPage(html) {
+  const m = /var animes = (\{[\s\S]*?\});\r?\n/.exec(html);
+  if (!m) return null;
+  try {
+    return JSON.parse(m[1]);
+  } catch (e) {
+    return null;
   }
-  const kw = _BROWSE_KW[(page - 2) % _BROWSE_KW.length];
-  const html = await _get(`${BASE}/buscar/${kw}/`);
-  return _parseCards(html);
+}
+async function latest(page) {
+  const html = await _get(`${BASE}/directorio?p=${page}`);
+  const dir = _parseDirectoryPage(html);
+  if (!dir || page > dir.last_page) return [];
+  return dir.data.map((a) => ({
+    title: decodeEntities(a.title),
+    url: a.slug,
+    cover: a.image
+  }));
 }
 async function search(keyword, page) {
   if (page === 1) _searchSeen.delete(keyword);

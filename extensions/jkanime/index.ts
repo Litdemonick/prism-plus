@@ -47,25 +47,42 @@ interface JKServer {
 // diferente episodio — filtrarlos vaciaría páginas 2, 3... dando "no hay datos".
 const _searchSeen = new Map<string, Set<string>>();
 
-// El directorio de jkanime es client-side (MixItUp/Vue): el HTML crudo no contiene
-// las cards de anime. Para browse real usamos el buscador por letra como proxy.
-// OJO: /buscar/{letra}/?page=N ignora el parámetro page por completo — se
-// comprobó en vivo que page=1 y page=2 devuelven bytes idénticos para
-// cualquier keyword. No hay "página 2" real: cada letra da UNA sola tanda de
-// resultados (máx. ~30, sin paginar), así que cada intento de más debe ser
-// una letra DISTINTA, no la misma letra con un page distinto (eso solo
-// desperdiciaba la mitad de los intentos en un fetch garantizado-duplicado).
-const _BROWSE_KW = 'aknsbtdmheogiyrzcfpuwlj'.split('');
+interface JKDirectoryItem {
+  title: string;
+  slug: string;
+  image: string;
+}
+
+interface JKDirectoryPage {
+  current_page: number;
+  last_page: number;
+  data: JKDirectoryItem[];
+}
+
+// /directorio parece client-side (MixItUp/Vue) a simple vista — el <body>
+// no trae cards armadas — pero en realidad SÍ es server-rendered: la data
+// completa de la página viaja como `var animes = {JSON de paginación
+// Laravel};` en un <script> inline, y un jQuery.each() la vuelca al DOM
+// recién en el browser. Como el HTML crudo YA trae el JSON, no hace falta
+// ejecutar ese JS — se parsea directo. Confirmado en vivo: 162 páginas
+// reales de 30 c/u (4832 animes), cada página con contenido distinto.
+// El corte en `};\r?\n` (no solo `};`) evita terminar el match antes de
+// tiempo si una sinopsis contuviera "};" de casualidad.
+function _parseDirectoryPage(html: string): JKDirectoryPage | null {
+  const m = /var animes = (\{[\s\S]*?\});\r?\n/.exec(html);
+  if (!m) return null;
+  try { return JSON.parse(m[1]) as JKDirectoryPage; } catch { return null; }
+}
 
 export async function latest(page: number): Promise<PrismItem[]> {
-  if (page === 1) {
-    const html = await _get(BASE + '/');
-    return _parseCards(html);
-  }
-  // Page 2+: una letra nueva por página, sin repetir la misma con distinto "page".
-  const kw = _BROWSE_KW[(page - 2) % _BROWSE_KW.length];
-  const html = await _get(`${BASE}/buscar/${kw}/`);
-  return _parseCards(html);
+  const html = await _get(`${BASE}/directorio?p=${page}`);
+  const dir = _parseDirectoryPage(html);
+  if (!dir || page > dir.last_page) return [];
+  return dir.data.map(a => ({
+    title: decodeEntities(a.title),
+    url: a.slug,
+    cover: a.image,
+  }));
 }
 
 export async function search(keyword: string, page: number): Promise<PrismItem[]> {
