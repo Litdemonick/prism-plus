@@ -503,9 +503,27 @@ function _parseCards(html) {
   }
   return items;
 }
+function _parseFeedCards(html) {
+  const items = [];
+  const seen = /* @__PURE__ */ new Set();
+  const re = /<a href="https?:\/\/[^"]*\/anime\/([a-z0-9-]+)\/?"[^>]*>[\s\S]{0,250}?<div class="eggtitle2">\s*([^<]*)<\/div>[\s\S]{0,600}?(?:data-src|src)="(https?:[^"]+)"/g;
+  for (const m of html.matchAll(re)) {
+    const slug = m[1];
+    if (seen.has(slug)) continue;
+    seen.add(slug);
+    items.push({
+      title: decodeEntities(m[2].trim()),
+      // Prefijo "ep:" — detail() necesita saber que esto es un episodio
+      // puntual y resolver primero la serie real antes de mostrar detalle.
+      url: `ep:${slug}`,
+      cover: m[3]
+    });
+  }
+  return items;
+}
 async function latest(page) {
-  const html = await _get(page <= 1 ? `${BASE}/tv/` : `${BASE}/tv/page/${page}/`);
-  return _parseCards(html);
+  const html = await _get(page <= 1 ? `${BASE}/` : `${BASE}/page/${page}/`);
+  return _parseFeedCards(html);
 }
 async function search(keyword, page) {
   const params = new URLSearchParams({ s: keyword });
@@ -526,7 +544,13 @@ function _parseEpisodes(html) {
   }
   return episodes.reverse();
 }
-async function detail(slug) {
+async function _resolveSeriesSlug(episodeSlug) {
+  const html = await _get(`${BASE}/anime/${episodeSlug}/`);
+  const listaM = /<div class="nvs nvsc"><a href=['"]([^'"]*\/tv\/([a-z0-9-]+)\/?)['"]/.exec(html);
+  return listaM ? listaM[2] : episodeSlug;
+}
+async function detail(url) {
+  const slug = url.indexOf("ep:") === 0 ? await _resolveSeriesSlug(url.slice(3)) : url;
   const html = await _get(`${BASE}/tv/${slug}/`);
   const title = matchFirst(html, /<h1[^>]*>([^<]+)<\/h1>/i) || slug.replace(/-/g, " ");
   const cover = matchFirst(html, /property="og:image"\s+content="([^"]+)"/i);

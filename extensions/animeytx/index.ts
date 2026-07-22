@@ -32,9 +32,34 @@ function _parseCards(html: string): PrismItem[] {
   return items;
 }
 
+// El catálogo /tv/page/N/ tiene pocas páginas reales — se agota rápido y
+// termina repitiendo/mostrando "sin más datos". El feed principal
+// (home, /page/N/) sí tiene contenido de sobra (30+ páginas confirmadas en
+// vivo), pero cada card ahí apunta a un EPISODIO puntual, no a la serie, y
+// usa una estructura de card totalmente distinta (título limpio en
+// .eggtitle2, portada en data-src por el lazy-load).
+function _parseFeedCards(html: string): PrismItem[] {
+  const items: PrismItem[] = [];
+  const seen = new Set<string>();
+  const re = /<a href="https?:\/\/[^"]*\/anime\/([a-z0-9-]+)\/?"[^>]*>[\s\S]{0,250}?<div class="eggtitle2">\s*([^<]*)<\/div>[\s\S]{0,600}?(?:data-src|src)="(https?:[^"]+)"/g;
+  for (const m of html.matchAll(re)) {
+    const slug = m[1];
+    if (seen.has(slug)) continue;
+    seen.add(slug);
+    items.push({
+      title: decodeEntities(m[2].trim()),
+      // Prefijo "ep:" — detail() necesita saber que esto es un episodio
+      // puntual y resolver primero la serie real antes de mostrar detalle.
+      url: `ep:${slug}`,
+      cover: m[3],
+    });
+  }
+  return items;
+}
+
 export async function latest(page: number): Promise<PrismItem[]> {
-  const html = await _get(page <= 1 ? `${BASE}/tv/` : `${BASE}/tv/page/${page}/`);
-  return _parseCards(html);
+  const html = await _get(page <= 1 ? `${BASE}/` : `${BASE}/page/${page}/`);
+  return _parseFeedCards(html);
 }
 
 export async function search(keyword: string, page: number): Promise<PrismItem[]> {
@@ -62,7 +87,19 @@ function _parseEpisodes(html: string): PrismEpisode[] {
   return episodes.reverse();
 }
 
-export async function detail(slug: string): Promise<PrismDetail> {
+// Los items del feed (latest) llegan como "ep:{slug-de-episodio}" — hay que
+// resolver primero cuál es la serie real. La propia página del episodio
+// trae el link "Lista" (todos los capítulos) que apunta a /tv/{slug}/.
+async function _resolveSeriesSlug(episodeSlug: string): Promise<string> {
+  const html = await _get(`${BASE}/anime/${episodeSlug}/`);
+  const listaM = /<div class="nvs nvsc"><a href=['"]([^'"]*\/tv\/([a-z0-9-]+)\/?)['"]/.exec(html);
+  return listaM ? listaM[2] : episodeSlug;
+}
+
+export async function detail(url: string): Promise<PrismDetail> {
+  const slug = url.indexOf('ep:') === 0
+    ? await _resolveSeriesSlug(url.slice(3))
+    : url;
   const html = await _get(`${BASE}/tv/${slug}/`);
 
   const title =
