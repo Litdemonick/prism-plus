@@ -100,8 +100,14 @@ export async function detail(url: string): Promise<PrismDetail> {
   const slug = _toSlug(url);
   const html = await _get(`${BASE}/${slug}/`);
 
+  // Ninguna página de jkanime trae <h1> (confirmado en vivo en varios
+  // animes) — siempre cae al <title>, que viene con el nombre duplicado y
+  // relleno SEO: "{título} - anime {título} online JkAnime". Cortar antes
+  // de " - anime " da el nombre limpio; sin eso, el título completo con
+  // basura terminaba mostrándose en toda la app (header, botón continuar, etc).
   const title =
     matchFirst(html, /<h1[^>]*>([^<]+)<\/h1>/i) ||
+    matchFirst(html, /<title>\s*([^<]*?)\s*-\s*anime\s/i) ||
     matchFirst(html, /<title>([^|<]+)/i) ||
     slug;
 

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.5.0
+// @version      1.6.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -542,7 +542,7 @@ async function search(keyword, page) {
 async function detail(url) {
   const slug = _toSlug(url);
   const html = await _get(`${BASE}/${slug}/`);
-  const title = matchFirst(html, /<h1[^>]*>([^<]+)<\/h1>/i) || matchFirst(html, /<title>([^|<]+)/i) || slug;
+  const title = matchFirst(html, /<h1[^>]*>([^<]+)<\/h1>/i) || matchFirst(html, /<title>\s*([^<]*?)\s*-\s*anime\s/i) || matchFirst(html, /<title>([^|<]+)/i) || slug;
   const cover = matchFirst(html, /property="og:image"\s+content="([^"]+)"/i) || matchFirst(html, /class="card-img-top"\s+src="([^"]+)"/i) || "";
   const description = stripTags(
     matchFirst(html, /class="[^"]*sinopsis[^"]*"[^>]*>([\s\S]*?)<\/(?:div|p)>/i) || matchFirst(html, /class="[^"]*descripci[^"]*"[^>]*>([\s\S]*?)<\/(?:div|p)>/i) || ""
