@@ -1,4 +1,4 @@
-import { matchFirst, matchGroups, stripTags } from '../../sdk/html';
+import { matchFirst, matchGroups, stripTags, decodeEntities } from '../../sdk/html';
 import { resolveEmbed } from '../../sdk/embeds';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream } from '../../sdk/types';
 
@@ -48,21 +48,23 @@ interface JKServer {
 const _searchSeen = new Map<string, Set<string>>();
 
 // El directorio de jkanime es client-side (MixItUp/Vue): el HTML crudo no contiene
-// las cards de anime. Para browse real usamos el buscador por letra, que sí está
-// paginado server-side: /buscar/{letra}/?page=N devuelve 30 resultados distintos.
+// las cards de anime. Para browse real usamos el buscador por letra como proxy.
+// OJO: /buscar/{letra}/?page=N ignora el parámetro page por completo — se
+// comprobó en vivo que page=1 y page=2 devuelven bytes idénticos para
+// cualquier keyword. No hay "página 2" real: cada letra da UNA sola tanda de
+// resultados (máx. ~30, sin paginar), así que cada intento de más debe ser
+// una letra DISTINTA, no la misma letra con un page distinto (eso solo
+// desperdiciaba la mitad de los intentos en un fetch garantizado-duplicado).
 const _BROWSE_KW = 'aknsbtdmheogiyrzcfpuwlj'.split('');
-const _BROWSE_PER_KW = 2; // cada letra tiene al menos 2 páginas confirmadas
 
 export async function latest(page: number): Promise<PrismItem[]> {
   if (page === 1) {
     const html = await _get(BASE + '/');
     return _parseCards(html);
   }
-  // Page 2+: mapear al buscador por letra
-  const idx = page - 2;
-  const kw = _BROWSE_KW[Math.floor(idx / _BROWSE_PER_KW) % _BROWSE_KW.length];
-  const kwPage = (idx % _BROWSE_PER_KW) + 1;
-  const html = await _get(`${BASE}/buscar/${kw}/?page=${kwPage}`);
+  // Page 2+: una letra nueva por página, sin repetir la misma con distinto "page".
+  const kw = _BROWSE_KW[(page - 2) % _BROWSE_KW.length];
+  const html = await _get(`${BASE}/buscar/${kw}/`);
   return _parseCards(html);
 }
 
@@ -800,7 +802,7 @@ function _parseCards(html: string): PrismItem[] {
               slug.replace(/-/g, ' ');
     }
 
-    items.push({ title, url: slug, cover });
+    items.push({ title: decodeEntities(title), url: slug, cover });
   }
 
   // ── Estrategia B: resultados de búsqueda y directorio (estructura diferente) ────
@@ -849,9 +851,19 @@ function _parseCards(html: string): PrismItem[] {
       }
 
       // Título: alt de imagen real > texto del link > headings > slug humanizado
+      // OJO: usar SOLO contexto hacia adelante (desde `pos`) acá. El `ctx` de
+      // arriba mira 600 chars hacia atrás para encontrar la portada (que a
+      // veces precede al href) — pero para el título eso reengancha el
+      // heading/card ANTERIOR (o el título de la página en el primer card),
+      // dejando cada anime con el título del que viene después.
+      // 1200, no 800: jkanime repite el mismo href para la imagen y para el
+      // <h5><a>título</a></h5> del card, y ese segundo href (con el título
+      // real) puede aparecer a ~800 chars del primero — con 800 la ventana
+      // cortaba el <h5> a la mitad y nunca llegaba a leer el título.
+      const titleCtx = html.slice(pos, pos + 1200);
       let title = '';
       // 1) alt de la imagen (si no es decorativo)
-      const altM = /<img\b[^>]*\balt=["']([^"']{2,80})["'][^>]*>/i.exec(ctx);
+      const altM = /<img\b[^>]*\balt=["']([^"']{2,80})["'][^>]*>/i.exec(titleCtx);
       if (altM && !/logo|icon|banner|avatar/i.test(altM[1])) title = altM[1].trim();
       // 2) texto directamente dentro del <a href="...slug...">TEXTO</a>
       if (!title) {
@@ -862,9 +874,9 @@ function _parseCards(html: string): PrismItem[] {
       // 3) headings y spans de título en el contexto
       if (!title) {
         // <h4/5/6><a>TÍTULO</a> — estructura más común en jkanime
-        const hLinkM = /<h[4-6][^>]*>\s*<a[^>]*>([^<]{2,80})<\/a>/i.exec(ctx);
-        const hPlainM = /<h[2-6][^>]*>([^<]{2,80})<\/h[2-6]>/i.exec(ctx);
-        const spanM = /class="[^"]*(?:title|name|anime)[^"]*"[^>]*>([^<]{2,80})</i.exec(ctx);
+        const hLinkM = /<h[4-6][^>]*>\s*<a[^>]*>([^<]{2,80})<\/a>/i.exec(titleCtx);
+        const hPlainM = /<h[2-6][^>]*>([^<]{2,80})<\/h[2-6]>/i.exec(titleCtx);
+        const spanM = /class="[^"]*(?:title|name|anime)[^"]*"[^>]*>([^<]{2,80})</i.exec(titleCtx);
         title = (hLinkM  && hLinkM[1].trim())  ||
                 (hPlainM && hPlainM[1].trim())  ||
                 (spanM   && spanM[1].trim())    ||
@@ -874,7 +886,7 @@ function _parseCards(html: string): PrismItem[] {
       // Solo incluir si tiene imagen — filtra enlaces de navegación falsos positivos
       if (!cover) continue;
       seen.add(slug);
-      items.push({ title, url: slug, cover });
+      items.push({ title: decodeEntities(title), url: slug, cover });
     }
   }
 

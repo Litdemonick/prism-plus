@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.3.0
+// @version      1.4.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -45,6 +45,9 @@ function matchGroups(html, pattern) {
 }
 function stripTags(html) {
   return html.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+}
+function decodeEntities(html) {
+  return html.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ");
 }
 
 // sdk/http.ts
@@ -508,16 +511,13 @@ async function _post(url, token) {
 var BASE = "https://jkanime.net";
 var _searchSeen = /* @__PURE__ */ new Map();
 var _BROWSE_KW = "aknsbtdmheogiyrzcfpuwlj".split("");
-var _BROWSE_PER_KW = 2;
 async function latest(page) {
   if (page === 1) {
     const html2 = await _get(BASE + "/");
     return _parseCards(html2);
   }
-  const idx = page - 2;
-  const kw = _BROWSE_KW[Math.floor(idx / _BROWSE_PER_KW) % _BROWSE_KW.length];
-  const kwPage = idx % _BROWSE_PER_KW + 1;
-  const html = await _get(`${BASE}/buscar/${kw}/?page=${kwPage}`);
+  const kw = _BROWSE_KW[(page - 2) % _BROWSE_KW.length];
+  const html = await _get(`${BASE}/buscar/${kw}/`);
   return _parseCards(html);
 }
 async function search(keyword, page) {
@@ -1056,7 +1056,7 @@ function _parseCards(html) {
       const cardTitleM = /class="[^"]*(?:card-title|anime-title)[^"]*"[^>]*>([^<]{2,80})</i.exec(afterImg);
       title = hLinkM && hLinkM[1].trim() || hPlainM && hPlainM[1].trim() || cardTitleM && cardTitleM[1].trim() || slug.replace(/-/g, " ");
     }
-    items.push({ title, url: slug, cover });
+    items.push({ title: decodeEntities(title), url: slug, cover });
   }
   if (items.length === 0) {
     const hrefRe = /href=["'](?:https?:\/\/jkanime\.net)?\/([a-z0-9][a-z0-9-]{1,80})\/["']/gi;
@@ -1088,8 +1088,9 @@ function _parseCards(html) {
           }
         }
       }
+      const titleCtx = html.slice(pos, pos + 1200);
       let title = "";
-      const altM = /<img\b[^>]*\balt=["']([^"']{2,80})["'][^>]*>/i.exec(ctx);
+      const altM = /<img\b[^>]*\balt=["']([^"']{2,80})["'][^>]*>/i.exec(titleCtx);
       if (altM && !/logo|icon|banner|avatar/i.test(altM[1])) title = altM[1].trim();
       if (!title) {
         const linkEndCtx = html.slice(pos, pos + hrefMatch[0].length + 300);
@@ -1097,14 +1098,14 @@ function _parseCards(html) {
         if (linkTextM) title = linkTextM[1].trim().replace(/\s+/g, " ");
       }
       if (!title) {
-        const hLinkM = /<h[4-6][^>]*>\s*<a[^>]*>([^<]{2,80})<\/a>/i.exec(ctx);
-        const hPlainM = /<h[2-6][^>]*>([^<]{2,80})<\/h[2-6]>/i.exec(ctx);
-        const spanM = /class="[^"]*(?:title|name|anime)[^"]*"[^>]*>([^<]{2,80})</i.exec(ctx);
+        const hLinkM = /<h[4-6][^>]*>\s*<a[^>]*>([^<]{2,80})<\/a>/i.exec(titleCtx);
+        const hPlainM = /<h[2-6][^>]*>([^<]{2,80})<\/h[2-6]>/i.exec(titleCtx);
+        const spanM = /class="[^"]*(?:title|name|anime)[^"]*"[^>]*>([^<]{2,80})</i.exec(titleCtx);
         title = hLinkM && hLinkM[1].trim() || hPlainM && hPlainM[1].trim() || spanM && spanM[1].trim() || slug.replace(/-/g, " ");
       }
       if (!cover) continue;
       seen.add(slug);
-      items.push({ title, url: slug, cover });
+      items.push({ title: decodeEntities(title), url: slug, cover });
     }
   }
   return items;
