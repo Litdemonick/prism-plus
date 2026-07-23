@@ -96,6 +96,77 @@ export async function search(keyword: string, page: number): Promise<PrismItem[]
   return fresh;
 }
 
+// ─── Top animes (/top) — filtros reales confirmados en vivo: form GET con
+// selects temporada (Primavera/Verano/Otoño/Invierno/"" = Top general) y
+// fecha (año 2000-2026). Ambos combinables en la misma URL.
+const _TOP_YEARS = Array.from({ length: 2026 - 2000 + 1 }, (_, i) => String(2026 - i));
+
+export async function createTopFilter(): Promise<Record<string, unknown>> {
+  return {
+    temporada: {
+      title: 'Temporada',
+      options: {
+        '': 'Top general',
+        Primavera: 'Primavera',
+        Verano: 'Verano',
+        Otoño: 'Otoño',
+        Invierno: 'Invierno',
+      },
+      defaultOption: '',
+      min: 1,
+      max: 1,
+    },
+    fecha: {
+      title: 'Año',
+      options: { '': 'Todos', ..._TOP_YEARS.reduce((acc, y) => ({ ...acc, [y]: y }), {}) },
+      defaultOption: '',
+      min: 1,
+      max: 1,
+    },
+  };
+}
+
+export async function top(
+  filter?: Record<string, string[]>,
+  _page?: number,
+): Promise<PrismItem[]> {
+  const temporada = filter?.['temporada']?.[0] ?? '';
+  const fecha = filter?.['fecha']?.[0] ?? '';
+  const params = new URLSearchParams();
+  if (temporada) params.set('temporada', temporada);
+  if (fecha) params.set('fecha', fecha);
+  const qs = params.toString();
+  const html = await _get(`${BASE}/top${qs ? '?' + qs : ''}`);
+  return _parseTopCards(html);
+}
+
+// Estructura confirmada en vivo (jkanime.net/top):
+// <div class="col toplist mb-4"><div class="card">
+//   <a href="https://jkanime.net/SLUG/"><div class="card-img">
+//     <img class="card-img-top" src="COVER" alt="TITLE"></div>
+//   <div class="card-badge"><i class="ti ti-thumb-up"></i> VOTOS</div>
+//   <div class="card-body"><div data-rank="N" class="ranking">...
+//   <h5 class="card-title">TITLE</h5>...
+function _parseTopCards(html: string): PrismItem[] {
+  const items: PrismItem[] = [];
+  const blocks = html.split('class="col toplist mb-4"').slice(1);
+  for (const block of blocks) {
+    const hrefM = /<a\s+href="https?:\/\/jkanime\.net\/([a-z0-9-]+)\/"/i.exec(block);
+    if (!hrefM) continue;
+    const coverM = /class="card-img-top"\s+src="([^"]+)"/i.exec(block);
+    const votesM = /class="card-badge">[\s\S]{0,40}?<\/i>\s*([\d.,]+)/i.exec(block);
+    const titleM = /class="card-title">([^<]+)<\/h5>/i.exec(block);
+    if (!titleM) continue;
+    items.push({
+      title: decodeEntities(titleM[1].trim()),
+      url: hrefM[1],
+      cover: coverM ? coverM[1] : undefined,
+      update: votesM ? `👍 ${votesM[1]}` : undefined,
+    });
+  }
+  return items;
+}
+
 export async function detail(url: string): Promise<PrismDetail> {
   const slug = _toSlug(url);
   const html = await _get(`${BASE}/${slug}/`);

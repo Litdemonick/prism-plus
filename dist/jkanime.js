@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.6.0
+// @version      1.7.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -538,6 +538,61 @@ async function search(keyword, page) {
   const fresh = cards.filter((c) => !seen.has(c.url));
   fresh.forEach((c) => seen.add(c.url));
   return fresh;
+}
+var _TOP_YEARS = Array.from({ length: 2026 - 2e3 + 1 }, (_, i) => String(2026 - i));
+async function createTopFilter() {
+  return {
+    temporada: {
+      title: "Temporada",
+      options: {
+        "": "Top general",
+        Primavera: "Primavera",
+        Verano: "Verano",
+        Oto\u00F1o: "Oto\xF1o",
+        Invierno: "Invierno"
+      },
+      defaultOption: "",
+      min: 1,
+      max: 1
+    },
+    fecha: {
+      title: "A\xF1o",
+      options: __spreadValues({ "": "Todos" }, _TOP_YEARS.reduce((acc, y) => __spreadProps(__spreadValues({}, acc), { [y]: y }), {})),
+      defaultOption: "",
+      min: 1,
+      max: 1
+    }
+  };
+}
+async function top(filter, _page) {
+  var _a, _b, _c, _d;
+  const temporada = (_b = (_a = filter == null ? void 0 : filter["temporada"]) == null ? void 0 : _a[0]) != null ? _b : "";
+  const fecha = (_d = (_c = filter == null ? void 0 : filter["fecha"]) == null ? void 0 : _c[0]) != null ? _d : "";
+  const params = new URLSearchParams();
+  if (temporada) params.set("temporada", temporada);
+  if (fecha) params.set("fecha", fecha);
+  const qs = params.toString();
+  const html = await _get(`${BASE}/top${qs ? "?" + qs : ""}`);
+  return _parseTopCards(html);
+}
+function _parseTopCards(html) {
+  const items = [];
+  const blocks = html.split('class="col toplist mb-4"').slice(1);
+  for (const block of blocks) {
+    const hrefM = /<a\s+href="https?:\/\/jkanime\.net\/([a-z0-9-]+)\/"/i.exec(block);
+    if (!hrefM) continue;
+    const coverM = /class="card-img-top"\s+src="([^"]+)"/i.exec(block);
+    const votesM = /class="card-badge">[\s\S]{0,40}?<\/i>\s*([\d.,]+)/i.exec(block);
+    const titleM = /class="card-title">([^<]+)<\/h5>/i.exec(block);
+    if (!titleM) continue;
+    items.push({
+      title: decodeEntities(titleM[1].trim()),
+      url: hrefM[1],
+      cover: coverM ? coverM[1] : void 0,
+      update: votesM ? `\u{1F44D} ${votesM[1]}` : void 0
+    });
+  }
+  return items;
 }
 async function detail(url) {
   const slug = _toSlug(url);
@@ -1124,6 +1179,8 @@ export default class extends Extension {
   async latest(page) { return latest(page); }
   async search(kw, page, filter) { return search(kw, page, filter); }
   async createFilter(filter) { return (typeof createFilter === 'function') ? createFilter(filter) : {}; }
+  async top(filter, page) { return (typeof top === 'function') ? top(filter, page) : []; }
+  async createTopFilter() { return (typeof createTopFilter === 'function') ? createTopFilter() : {}; }
 
   // Adapta el detail de Prism+ al de PrismHub: episodios planos [{title,url}] ->
   // grupos [{title, urls:[{name,url}]}], y description -> desc.

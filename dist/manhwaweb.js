@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ManhwaWeb
-// @version      1.0.1
+// @version      1.1.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -85,6 +85,26 @@ async function createFilter() {
     }
   };
 }
+async function createTopFilter() {
+  return {};
+}
+async function top(_filter, _page) {
+  const d = await _get("/manhwa/nuevos");
+  const topData = d["top"];
+  const list = (topData == null ? void 0 : topData["manhwas_esp"]) || [];
+  return list.map(_topItem);
+}
+function _topItem(m) {
+  const link = m["link"] || "";
+  const id = link.split("/").filter(Boolean).pop() || link;
+  return {
+    title: m["name"] || id,
+    url: id,
+    cover: m["imagen"] || "",
+    update: m["caps"] != null ? `Cap. ${m["caps"]}` : void 0,
+    headers: HEADERS
+  };
+}
 async function detail(id) {
   const d = await _get(`/manhwa/see/${encodeURIComponent(id)}`);
   const title = d["the_real_name"] || d["name_esp"] || d["_name"] || id;
@@ -120,6 +140,8 @@ export default class extends Extension {
   async latest(page) { return latest(page); }
   async search(kw, page, filter) { return search(kw, page, filter); }
   async createFilter(filter) { return (typeof createFilter === 'function') ? createFilter(filter) : {}; }
+  async top(filter, page) { return (typeof top === 'function') ? top(filter, page) : []; }
+  async createTopFilter() { return (typeof createTopFilter === 'function') ? createTopFilter() : {}; }
 
   // Adapta el detail de Prism+ al de PrismHub: episodios planos [{title,url}] ->
   // grupos [{title, urls:[{name,url}]}], y description -> desc.

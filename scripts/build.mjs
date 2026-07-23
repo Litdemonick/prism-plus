@@ -149,6 +149,8 @@ export default class extends Extension {
   async latest(page) { return latest(page); }
   async search(kw, page, filter) { return search(kw, page, filter); }
   async createFilter(filter) { return (typeof createFilter === 'function') ? createFilter(filter) : {}; }
+  async top(filter, page) { return (typeof top === 'function') ? top(filter, page) : []; }
+  async createTopFilter() { return (typeof createTopFilter === 'function') ? createTopFilter() : {}; }
 
   // Adapta el detail de Prism+ al de PrismHub: episodios planos [{title,url}] ->
   // grupos [{title, urls:[{name,url}]}], y description -> desc.

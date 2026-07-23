@@ -117,6 +117,58 @@ export async function createFilter(): Promise<Record<string, unknown>> {
   };
 }
 
+interface OlympusRankingItem {
+  id: number;
+  name: string;
+  slug: string;
+  cover?: string;
+  chapter_count?: number;
+  total_views: number;
+  monthly_views: number;
+}
+
+// Formatea vistas al estilo del sitio (22.0M vistas, 350k vistas).
+function _fmtViews(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
+
+// Ranking real (/api/rankings) — confirmado en vivo: ya trae total_views Y
+// monthly_views JUNTOS en cada ítem, sin parámetro de período — "Mensual"/
+// "Total" del sitio es solo un reordenamiento local de los mismos datos.
+export async function createTopFilter(): Promise<Record<string, unknown>> {
+  return {
+    periodo: {
+      title: 'Periodo',
+      options: { total: 'Total', mensual: 'Mensual' },
+      defaultOption: 'total',
+      min: 1,
+      max: 1,
+    },
+  };
+}
+
+export async function top(
+  filter?: Record<string, string[]>,
+  page?: number,
+): Promise<PrismItem[]> {
+  const periodo = filter?.['periodo']?.[0] ?? 'total';
+  const d = await _get<{ data: OlympusRankingItem[] }>(
+    `${BASE}/api/rankings?page=${page ?? 1}`,
+  );
+  const list = [...(d.data || [])];
+  list.sort((a, b) =>
+    periodo === 'mensual' ? b.monthly_views - a.monthly_views : b.total_views - a.total_views,
+  );
+  return list.map(s => ({
+    title: s.name,
+    url: s.slug,
+    cover: s.cover,
+    update: `${_fmtViews(periodo === 'mensual' ? s.monthly_views : s.total_views)} vistas`,
+  }));
+}
+
 async function _allChapters(slug: string): Promise<OlympusChapterRef[]> {
   const url = (page: number) =>
     `${BACKEND}/api/series/${encodeURIComponent(slug)}/chapters?page=${page}&direction=asc&type=comic`;

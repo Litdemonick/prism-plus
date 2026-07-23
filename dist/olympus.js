@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Olympus
-// @version      1.0.0
+// @version      1.1.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -79,6 +79,39 @@ async function createFilter() {
     estado: { title: "Estado", options: estadoOptions, defaultOption: "", min: 1, max: 1 }
   };
 }
+function _fmtViews(n) {
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+  return String(n);
+}
+async function createTopFilter() {
+  return {
+    periodo: {
+      title: "Periodo",
+      options: { total: "Total", mensual: "Mensual" },
+      defaultOption: "total",
+      min: 1,
+      max: 1
+    }
+  };
+}
+async function top(filter, page) {
+  var _a, _b;
+  const periodo = (_b = (_a = filter == null ? void 0 : filter["periodo"]) == null ? void 0 : _a[0]) != null ? _b : "total";
+  const d = await _get(
+    `${BASE}/api/rankings?page=${page != null ? page : 1}`
+  );
+  const list = [...d.data || []];
+  list.sort(
+    (a, b) => periodo === "mensual" ? b.monthly_views - a.monthly_views : b.total_views - a.total_views
+  );
+  return list.map((s) => ({
+    title: s.name,
+    url: s.slug,
+    cover: s.cover,
+    update: `${_fmtViews(periodo === "mensual" ? s.monthly_views : s.total_views)} vistas`
+  }));
+}
 async function _allChapters(slug) {
   var _a, _b;
   const url = (page) => `${BACKEND}/api/series/${encodeURIComponent(slug)}/chapters?page=${page}&direction=asc&type=comic`;
@@ -128,6 +161,8 @@ export default class extends Extension {
   async latest(page) { return latest(page); }
   async search(kw, page, filter) { return search(kw, page, filter); }
   async createFilter(filter) { return (typeof createFilter === 'function') ? createFilter(filter) : {}; }
+  async top(filter, page) { return (typeof top === 'function') ? top(filter, page) : []; }
+  async createTopFilter() { return (typeof createTopFilter === 'function') ? createTopFilter() : {}; }
 
   // Adapta el detail de Prism+ al de PrismHub: episodios planos [{title,url}] ->
   // grupos [{title, urls:[{name,url}]}], y description -> desc.

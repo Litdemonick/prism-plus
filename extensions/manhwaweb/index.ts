@@ -84,6 +84,40 @@ export async function createFilter(): Promise<Record<string, unknown>> {
   };
 }
 
+// "Lo más leído" — confirmado en vivo: /manhwa/nuevos (el mismo endpoint de
+// latest()) ya trae un campo `top` con el ranking real (top.manhwas_esp),
+// coincide exacto con lo que el sitio muestra en el widget. No se confirmó
+// un parámetro real de "Semanal"/"Total" separado en este endpoint — no se
+// inventa ese filtro, se deja el ranking tal cual viene.
+export async function createTopFilter(): Promise<Record<string, unknown>> {
+  return {};
+}
+
+export async function top(
+  _filter?: Record<string, string[]>,
+  _page?: number,
+): Promise<PrismItem[]> {
+  const d = await _get<Record<string, unknown>>('/manhwa/nuevos');
+  const topData = d['top'] as Record<string, unknown> | undefined;
+  const list = (topData?.['manhwas_esp'] as Record<string, unknown>[]) || [];
+  return list.map(_topItem);
+}
+
+// Los ítems de top() tienen forma distinta a los de latest()/search() (traen
+// `link`, no id_rel/id_manhwa) — confirmado en vivo contra /manhwa/see/{id}:
+// el último segmento del link es el mismo id que espera detail().
+function _topItem(m: Record<string, unknown>): PrismItem {
+  const link = (m['link'] as string) || '';
+  const id = link.split('/').filter(Boolean).pop() || link;
+  return {
+    title: (m['name'] as string) || id,
+    url: id,
+    cover: (m['imagen'] as string) || '',
+    update: m['caps'] != null ? `Cap. ${m['caps']}` : undefined,
+    headers: HEADERS,
+  };
+}
+
 export async function detail(id: string): Promise<PrismDetail> {
   const d = await _get<Record<string, unknown>>(`/manhwa/see/${encodeURIComponent(id)}`);
 
