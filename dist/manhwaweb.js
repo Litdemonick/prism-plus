@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ManhwaWeb
-// @version      1.1.0
+// @version      1.2.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -86,12 +86,23 @@ async function createFilter() {
   };
 }
 async function createTopFilter() {
-  return {};
+  return {
+    idioma: {
+      title: "Idioma",
+      options: { esp: "Traducido", raw: "Raw" },
+      defaultOption: "esp",
+      min: 1,
+      max: 1
+    }
+  };
 }
-async function top(_filter, _page) {
+async function top(filter, _page) {
+  var _a, _b;
+  const idioma = (_b = (_a = filter == null ? void 0 : filter["idioma"]) == null ? void 0 : _a[0]) != null ? _b : "esp";
   const d = await _get("/manhwa/nuevos");
   const topData = d["top"];
-  const list = (topData == null ? void 0 : topData["manhwas_esp"]) || [];
+  const key = idioma === "raw" ? "manhwas_raw" : "manhwas_esp";
+  const list = (topData == null ? void 0 : topData[key]) || [];
   return list.map(_topItem);
 }
 function _topItem(m) {

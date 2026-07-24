@@ -85,21 +85,32 @@ export async function createFilter(): Promise<Record<string, unknown>> {
 }
 
 // "Lo más leído" — confirmado en vivo: /manhwa/nuevos (el mismo endpoint de
-// latest()) ya trae un campo `top` con el ranking real (top.manhwas_esp),
-// coincide exacto con lo que el sitio muestra en el widget. No se confirmó
-// un parámetro real de "Semanal"/"Total" separado en este endpoint — no se
-// inventa ese filtro, se deja el ranking tal cual viene.
+// latest()) ya trae un campo `top` con DOS rankings reales y distintos:
+// manhwas_esp (traducido al español) y manhwas_raw (sin traducir). No es lo
+// mismo que el toggle "Semanal"/"Total" del sitio (ese parámetro no se pudo
+// confirmar), así que se expone la distinción real que sí existe —
+// traducido vs raw — en vez de fabricar semanal/total.
 export async function createTopFilter(): Promise<Record<string, unknown>> {
-  return {};
+  return {
+    idioma: {
+      title: 'Idioma',
+      options: { esp: 'Traducido', raw: 'Raw' },
+      defaultOption: 'esp',
+      min: 1,
+      max: 1,
+    },
+  };
 }
 
 export async function top(
-  _filter?: Record<string, string[]>,
+  filter?: Record<string, string[]>,
   _page?: number,
 ): Promise<PrismItem[]> {
+  const idioma = filter?.['idioma']?.[0] ?? 'esp';
   const d = await _get<Record<string, unknown>>('/manhwa/nuevos');
   const topData = d['top'] as Record<string, unknown> | undefined;
-  const list = (topData?.['manhwas_esp'] as Record<string, unknown>[]) || [];
+  const key = idioma === 'raw' ? 'manhwas_raw' : 'manhwas_esp';
+  const list = (topData?.[key] as Record<string, unknown>[]) || [];
   return list.map(_topItem);
 }
 
