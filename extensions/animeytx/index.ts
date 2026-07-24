@@ -408,12 +408,18 @@ export async function watch(url: string): Promise<PrismWatch> {
   //  - "Servidor": nombre genérico que _parseMirrors() usa cuando el
   //    <option> del sitio viene sin texto — confirmado en vivo que ese
   //    mirror no es un video, es una pantalla de "contenido VIP".
-  // Quedan: Mytsumi (URL real en texto plano, ver
-  // _resolveMytsumiPlayerPage), OK (resolveOkru extrae el hlsManifestUrl
-  // real cuando el video no está borrado), y cualquier mirror de un host
-  // con resolver propio en el SDK (Voe, Streamtape, Mixdrop, mp4upload,
-  // Streamwish y su familia) — esos si tienen chance real de nativo.
-  const _NEVER_NATIVE = new Set(['moon', 'epsilon', 'mega', 'abyss', 'servidor']);
+  //  - OK (ok.ru): probado en vivo con DOS episodios/videos distintos — los
+  //    dos devolvieron "Видео заблокировано из-за нарушений авторских прав"
+  //    (video bloqueado por derechos de autor). No hay ningún resolver acá
+  //    (nunca se llegó a escribir pese a lo que decía un comentario viejo);
+  //    aunque lo hubiera, el contenido de este sitio en ok.ru parece darse
+  //    de baja sistemáticamente, así que no vale la pena ofrecerlo.
+  // Queda: Mytsumi (URL real en texto plano, ver
+  // _resolveMytsumiPlayerPage — confirmado el servidor más confiable), y
+  // cualquier mirror de un host con resolver propio en el SDK (Voe,
+  // Streamtape, Mixdrop, mp4upload, Streamwish y su familia) si el sitio
+  // llega a listar alguno — esos sí tienen chance real de nativo.
+  const _NEVER_NATIVE = new Set(['moon', 'epsilon', 'mega', 'abyss', 'servidor', 'ok']);
   const usableMirrors = mirrors.filter(m => !_NEVER_NATIVE.has(m.name.toLowerCase()));
 
   // Ningún resolveEmbed acá — antes se resolvían los 5-6 mirrors en paralelo

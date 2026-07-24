@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeYT
-// @version      1.8.2
+// @version      1.8.3
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -737,7 +737,7 @@ async function watch(url) {
     }
     mirrors.push(m);
   }
-  const _NEVER_NATIVE = /* @__PURE__ */ new Set(["moon", "epsilon", "mega", "abyss", "servidor"]);
+  const _NEVER_NATIVE = /* @__PURE__ */ new Set(["moon", "epsilon", "mega", "abyss", "servidor", "ok"]);
   const usableMirrors = mirrors.filter((m) => !_NEVER_NATIVE.has(m.name.toLowerCase()));
   const streams = usableMirrors.map((m) => ({ url: m.iframeSrc, quality: m.name }));
   streams.sort((a, b) => {
