@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.7.2
+// @version      1.8.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -519,8 +519,27 @@ function _parseDirectoryPage(html) {
     return null;
   }
 }
-async function latest(page) {
-  const html = await _get(`${BASE}/directorio?p=${page}`);
+function _directorioQuery(page, filter) {
+  const f = filter != null ? filter : {};
+  const parts = [`p=${page}`];
+  const add = (key) => {
+    var _a;
+    const v = (_a = f[key]) == null ? void 0 : _a[0];
+    if (v) parts.push(`${key}=${encodeURIComponent(v)}`);
+  };
+  add("filtro");
+  add("orden");
+  add("genero");
+  add("demografia");
+  add("categoria");
+  add("tipo");
+  add("estado");
+  add("letra");
+  add("fecha");
+  return parts.join("&");
+}
+async function latest(page, filter) {
+  const html = await _get(`${BASE}/directorio?${_directorioQuery(page, filter)}`);
   const dir = _parseDirectoryPage(html);
   if (!dir || page > dir.last_page) return [];
   return dir.data.map((a) => ({
@@ -529,7 +548,9 @@ async function latest(page) {
     cover: a.image
   }));
 }
-async function search(keyword, page) {
+async function search(keyword, page, filter) {
+  const kw = keyword.trim();
+  if (!kw) return latest(page, filter);
   if (page === 1) _searchSeen.delete(keyword);
   if (!_searchSeen.has(keyword)) _searchSeen.set(keyword, /* @__PURE__ */ new Set());
   const seen = _searchSeen.get(keyword);
@@ -538,6 +559,141 @@ async function search(keyword, page) {
   const fresh = cards.filter((c) => !seen.has(c.url));
   fresh.forEach((c) => seen.add(c.url));
   return fresh;
+}
+var _GENRES = {
+  "": "Todos",
+  accion: "Acci\xF3n",
+  aventura: "Aventura",
+  autos: "Autos",
+  comedia: "Comedia",
+  dementia: "Dementia",
+  demonios: "Demonios",
+  misterio: "Misterio",
+  drama: "Drama",
+  ecchi: "Ecchi",
+  fantasia: "Fantas\xEDa",
+  juegos: "Juegos",
+  hentai: "Hentai",
+  historico: "Hist\xF3rico",
+  terror: "Terror",
+  "nios": "Ni\xF1os",
+  magia: "Magia",
+  "artes-marciales": "Artes Marciales",
+  mecha: "Mecha",
+  musica: "M\xFAsica",
+  parodia: "Parodia",
+  samurai: "Samurai",
+  romance: "Romance",
+  colegial: "Colegial",
+  "sci-fi": "Sci-Fi",
+  shoujo: "Shoujo",
+  "shoujo-ai": "Shoujo Ai",
+  shounen: "Shounen",
+  "shounen-ai": "Shounen Ai",
+  space: "Space",
+  deportes: "Deportes",
+  "super-poderes": "Super Poderes",
+  vampiros: "Vampiros",
+  yaoi: "Yaoi",
+  yuri: "Yuri",
+  harem: "Harem",
+  "cosas-de-la-vida": "Cosas de la vida",
+  sobrenatural: "Sobrenatural",
+  militar: "Militar",
+  policial: "Policial",
+  psicologico: "Psicol\xF3gico",
+  thriller: "Thriller",
+  seinen: "Seinen",
+  josei: "Josei",
+  latino: "Espa\xF1ol Latino",
+  isekai: "Isekai"
+};
+var _LETTERS = "abcdefghijklmnopqrstuvwxyz".split("");
+async function createFilter() {
+  return {
+    filtro: {
+      title: "Ordenar por",
+      options: { "": "Fecha", nombre: "Nombre", popularidad: "Popularidad" },
+      default: "",
+      min: 1,
+      max: 1
+    },
+    orden: {
+      title: "Direcci\xF3n",
+      options: { "": "Descendente", asc: "Ascendente" },
+      default: "",
+      min: 1,
+      max: 1
+    },
+    tipo: {
+      title: "Tipo",
+      options: {
+        "": "Todos",
+        animes: "Animes",
+        peliculas: "Pel\xEDculas",
+        especiales: "Especiales",
+        ovas: "Ovas",
+        onas: "Onas"
+      },
+      default: "",
+      min: 1,
+      max: 1
+    },
+    estado: {
+      title: "Estado",
+      options: {
+        "": "Todos",
+        emision: "En emisi\xF3n",
+        finalizados: "Finalizado",
+        estrenos: "Por estrenar"
+      },
+      default: "",
+      min: 1,
+      max: 1
+    },
+    categoria: {
+      title: "Categor\xEDa",
+      options: { "": "Todas", donghua: "Donghua", latino: "Latino" },
+      default: "",
+      min: 1,
+      max: 1
+    },
+    demografia: {
+      title: "Demograf\xEDa",
+      options: {
+        "": "Todas",
+        "nios": "Ni\xF1os",
+        shoujo: "Shoujo",
+        shounen: "Shounen",
+        seinen: "Seinen",
+        josei: "Josei"
+      },
+      default: "",
+      min: 1,
+      max: 1
+    },
+    genero: {
+      title: "G\xE9nero",
+      options: _GENRES,
+      default: "",
+      min: 1,
+      max: 1
+    },
+    letra: {
+      title: "Letra",
+      options: __spreadValues({ "": "Todas" }, _LETTERS.reduce((acc, l) => __spreadProps(__spreadValues({}, acc), { [l]: l.toUpperCase() }), {})),
+      default: "",
+      min: 1,
+      max: 1
+    },
+    fecha: {
+      title: "A\xF1o",
+      options: __spreadValues({ "": "Todos" }, _TOP_YEARS.reduce((acc, y) => __spreadProps(__spreadValues({}, acc), { [y]: y }), {})),
+      default: "",
+      min: 1,
+      max: 1
+    }
+  };
 }
 var _TOP_YEARS = Array.from({ length: 2026 - 2e3 + 1 }, (_, i) => String(2026 - i));
 async function createTopFilter() {

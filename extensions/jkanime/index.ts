@@ -74,8 +74,37 @@ function _parseDirectoryPage(html: string): JKDirectoryPage | null {
   try { return JSON.parse(m[1]) as JKDirectoryPage; } catch { return null; }
 }
 
-export async function latest(page: number): Promise<PrismItem[]> {
-  const html = await _get(`${BASE}/directorio?p=${page}`);
+// /directorio trae 9 selects reales — confirmados en vivo, uno por uno,
+// contra el sitio (no solo mirando el <select>, varios vienen vacíos en el
+// HTML crudo — genero/demografia/categoria/tipo/estado/orden SÍ traen
+// opciones estáticas, pero letra y fecha quedan en blanco ahí y solo se
+// llenan con JS del lado del sitio — igual el parámetro funciona pasado
+// directo por query, probado con letra=a y fecha=2020).
+// URLSearchParams no existe en el QuickJS de PrismHub — arma la query a mano.
+function _directorioQuery(page: number, filter?: Record<string, string[]>): string {
+  const f = filter ?? {};
+  const parts = [`p=${page}`];
+  const add = (key: string) => {
+    const v = f[key]?.[0];
+    if (v) parts.push(`${key}=${encodeURIComponent(v)}`);
+  };
+  add('filtro');
+  add('orden');
+  add('genero');
+  add('demografia');
+  add('categoria');
+  add('tipo');
+  add('estado');
+  add('letra');
+  add('fecha');
+  return parts.join('&');
+}
+
+export async function latest(
+  page: number,
+  filter?: Record<string, string[]>,
+): Promise<PrismItem[]> {
+  const html = await _get(`${BASE}/directorio?${_directorioQuery(page, filter)}`);
   const dir = _parseDirectoryPage(html);
   if (!dir || page > dir.last_page) return [];
   return dir.data.map(a => ({
@@ -85,7 +114,20 @@ export async function latest(page: number): Promise<PrismItem[]> {
   }));
 }
 
-export async function search(keyword: string, page: number): Promise<PrismItem[]> {
+export async function search(
+  keyword: string,
+  page: number,
+  filter?: Record<string, string[]>,
+): Promise<PrismItem[]> {
+  const kw = keyword.trim();
+  // Sin palabra clave: usar el directorio filtrable (mismo endpoint que
+  // latest(), pero con los filtros aplicados).
+  if (!kw) return latest(page, filter);
+
+  // /buscar NO soporta estos filtros — confirmado en vivo: la misma
+  // búsqueda con y sin "genero" en la query devuelve exactamente el mismo
+  // HTML (mismo tamaño en bytes). Se ignoran acá a propósito en vez de
+  // fingir que funcionan.
   if (page === 1) _searchSeen.delete(keyword);
   if (!_searchSeen.has(keyword)) _searchSeen.set(keyword, new Set());
   const seen = _searchSeen.get(keyword)!;
@@ -94,6 +136,116 @@ export async function search(keyword: string, page: number): Promise<PrismItem[]
   const fresh = cards.filter(c => !seen.has(c.url));
   fresh.forEach(c => seen.add(c.url));
   return fresh;
+}
+
+// Géneros reales (46) confirmados desde el <select name="genero"> del sitio.
+const _GENRES: Record<string, string> = {
+  '': 'Todos',
+  accion: 'Acción', aventura: 'Aventura', autos: 'Autos', comedia: 'Comedia',
+  dementia: 'Dementia', demonios: 'Demonios', misterio: 'Misterio', drama: 'Drama',
+  ecchi: 'Ecchi', fantasia: 'Fantasía', juegos: 'Juegos', hentai: 'Hentai',
+  historico: 'Histórico', terror: 'Terror', 'nios': 'Niños', magia: 'Magia',
+  'artes-marciales': 'Artes Marciales', mecha: 'Mecha', musica: 'Música',
+  parodia: 'Parodia', samurai: 'Samurai', romance: 'Romance', colegial: 'Colegial',
+  'sci-fi': 'Sci-Fi', shoujo: 'Shoujo', 'shoujo-ai': 'Shoujo Ai', shounen: 'Shounen',
+  'shounen-ai': 'Shounen Ai', space: 'Space', deportes: 'Deportes',
+  'super-poderes': 'Super Poderes', vampiros: 'Vampiros', yaoi: 'Yaoi', yuri: 'Yuri',
+  harem: 'Harem', 'cosas-de-la-vida': 'Cosas de la vida', sobrenatural: 'Sobrenatural',
+  militar: 'Militar', policial: 'Policial', psicologico: 'Psicológico',
+  thriller: 'Thriller', seinen: 'Seinen', josei: 'Josei', latino: 'Español Latino',
+  isekai: 'Isekai',
+};
+
+// Genera A-Z para "letra" — el <select> del sitio queda vacío en el HTML
+// crudo (se llena con JS propio), pero el parámetro sí funciona pasado
+// directo (confirmado en vivo con letra=a).
+const _LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('');
+
+export async function createFilter(): Promise<Record<string, unknown>> {
+  return {
+    filtro: {
+      title: 'Ordenar por',
+      options: { '': 'Fecha', nombre: 'Nombre', popularidad: 'Popularidad' },
+      default: '',
+      min: 1,
+      max: 1,
+    },
+    orden: {
+      title: 'Dirección',
+      options: { '': 'Descendente', asc: 'Ascendente' },
+      default: '',
+      min: 1,
+      max: 1,
+    },
+    tipo: {
+      title: 'Tipo',
+      options: {
+        '': 'Todos',
+        animes: 'Animes',
+        peliculas: 'Películas',
+        especiales: 'Especiales',
+        ovas: 'Ovas',
+        onas: 'Onas',
+      },
+      default: '',
+      min: 1,
+      max: 1,
+    },
+    estado: {
+      title: 'Estado',
+      options: {
+        '': 'Todos',
+        emision: 'En emisión',
+        finalizados: 'Finalizado',
+        estrenos: 'Por estrenar',
+      },
+      default: '',
+      min: 1,
+      max: 1,
+    },
+    categoria: {
+      title: 'Categoría',
+      options: { '': 'Todas', donghua: 'Donghua', latino: 'Latino' },
+      default: '',
+      min: 1,
+      max: 1,
+    },
+    demografia: {
+      title: 'Demografía',
+      options: {
+        '': 'Todas',
+        'nios': 'Niños',
+        shoujo: 'Shoujo',
+        shounen: 'Shounen',
+        seinen: 'Seinen',
+        josei: 'Josei',
+      },
+      default: '',
+      min: 1,
+      max: 1,
+    },
+    genero: {
+      title: 'Género',
+      options: _GENRES,
+      default: '',
+      min: 1,
+      max: 1,
+    },
+    letra: {
+      title: 'Letra',
+      options: { '': 'Todas', ..._LETTERS.reduce((acc, l) => ({ ...acc, [l]: l.toUpperCase() }), {}) },
+      default: '',
+      min: 1,
+      max: 1,
+    },
+    fecha: {
+      title: 'Año',
+      options: { '': 'Todos', ..._TOP_YEARS.reduce((acc, y) => ({ ...acc, [y]: y }), {}) },
+      default: '',
+      min: 1,
+      max: 1,
+    },
+  };
 }
 
 // ─── Top animes (/top) — filtros reales confirmados en vivo: form GET con
