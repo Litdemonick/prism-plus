@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeYT
-// @version      1.8.1
+// @version      1.8.2
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -529,10 +529,53 @@ async function latest(page) {
   const html = await _get(page <= 1 ? `${BASE}/anime/` : `${BASE}/anime/page/${page}/`);
   return _parseCards(html);
 }
-async function search(keyword, page) {
+async function search(keyword, page, filter) {
+  var _a, _b;
+  const genero = (_b = (_a = filter == null ? void 0 : filter["genero"]) == null ? void 0 : _a[0]) != null ? _b : "";
+  const q = keyword.trim();
+  if (!q && genero) {
+    const html2 = await _get(
+      page <= 1 ? `${BASE}/genres/${genero}/` : `${BASE}/genres/${genero}/page/${page}/`
+    );
+    return _parseCards(html2);
+  }
   const query = `s=${encodeURIComponent(keyword)}${page > 1 ? `&paged=${page}` : ""}`;
   const html = await _get(`${BASE}/?${query}`);
   return _parseCards(html);
+}
+var _GENRE_OPTIONS = {
+  "": "Todos",
+  "accion": "Acci\xF3n",
+  "aventura": "Aventura",
+  "comedia": "Comedia",
+  "drama": "Drama",
+  "ecchi": "Ecchi",
+  "erotica": "Er\xF3tica",
+  "escolar": "Escolar",
+  "fantasia": "Fantas\xEDa",
+  "harem": "Harem",
+  "hentai": "Hentai",
+  "historico": "Hist\xF3rico",
+  "horror": "Horror",
+  "isekai": "Isekai",
+  "psicologico": "Psicol\xF3gico",
+  "reencarnacion": "Reencarnaci\xF3n",
+  "recuentos-de-la-vida": "Recuentos de la vida",
+  "seinen": "Seinen",
+  "shounen": "Shounen",
+  "sobrenatural": "Sobrenatural",
+  "supernatural": "Supernatural",
+  "superpoderes": "Superpoderes",
+  "suspenso": "Suspenso",
+  "ciencia-ficcion": "Ciencia ficci\xF3n",
+  "deportes": "Deportes",
+  "viajes-en-el-tiempo": "Viajes en el tiempo",
+  "4k": "4K"
+};
+async function createFilter() {
+  return {
+    genero: { title: "G\xE9nero", options: _GENRE_OPTIONS, default: "", min: 1, max: 1 }
+  };
 }
 function _parseEpisodes(html) {
   const episodes = [];

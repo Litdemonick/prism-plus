@@ -54,10 +54,76 @@ export async function latest(page: number): Promise<PrismItem[]> {
 }
 
 // URLSearchParams no existe en el QuickJS de PrismHub — arma la query a mano.
-export async function search(keyword: string, page: number): Promise<PrismItem[]> {
+export async function search(
+  keyword: string,
+  page: number,
+  filter?: Record<string, string[]>,
+): Promise<PrismItem[]> {
+  const genero = filter?.['genero']?.[0] ?? '';
+  const q = keyword.trim();
+
+  // Sin palabra clave pero con género elegido: navega el archivo del género
+  // (/genres/{slug}/) en vez de la búsqueda de texto. Confirmado en vivo:
+  // la página 1 siempre funciona, pero /genres/{slug}/page/2/ (y también
+  // ?paged=2) devuelven 406 consistentemente incluso con delay entre
+  // pedidos — no es rate-limit, el WAF del sitio bloquea la paginación de
+  // este archivo en particular. _parseCards sobre esa respuesta de error
+  // no encuentra tarjetas, así que esto simplemente corta en "sin más
+  // datos" después de la página 1 en vez de romper — limitación real del
+  // sitio, no un bug de acá.
+  if (!q && genero) {
+    const html = await _get(
+      page <= 1 ? `${BASE}/genres/${genero}/` : `${BASE}/genres/${genero}/page/${page}/`,
+    );
+    return _parseCards(html);
+  }
+
   const query = `s=${encodeURIComponent(keyword)}${page > 1 ? `&paged=${page}` : ''}`;
   const html = await _get(`${BASE}/?${query}`);
   return _parseCards(html);
+}
+
+// Lista de géneros verificada EN VIVO contra /genres/{slug}/ (cada slug de
+// abajo devolvió 200 con tarjetas reales) — el sitio no expone ningún
+// índice/listado completo de géneros (sin nav "Géneros", sin dropdown, /wp-json/
+// bloqueado por el WAF), así que no hay forma de pedirlos dinámicamente. Se
+// arma a mano combinando lo visto en varias páginas de /anime/page/N/ más
+// pruebas directas de slugs candidatos — probablemente no sea el 100% de los
+// géneros del sitio, pero todos los de acá están confirmados reales.
+const _GENRE_OPTIONS: Record<string, string> = {
+  '': 'Todos',
+  'accion': 'Acción',
+  'aventura': 'Aventura',
+  'comedia': 'Comedia',
+  'drama': 'Drama',
+  'ecchi': 'Ecchi',
+  'erotica': 'Erótica',
+  'escolar': 'Escolar',
+  'fantasia': 'Fantasía',
+  'harem': 'Harem',
+  'hentai': 'Hentai',
+  'historico': 'Histórico',
+  'horror': 'Horror',
+  'isekai': 'Isekai',
+  'psicologico': 'Psicológico',
+  'reencarnacion': 'Reencarnación',
+  'recuentos-de-la-vida': 'Recuentos de la vida',
+  'seinen': 'Seinen',
+  'shounen': 'Shounen',
+  'sobrenatural': 'Sobrenatural',
+  'supernatural': 'Supernatural',
+  'superpoderes': 'Superpoderes',
+  'suspenso': 'Suspenso',
+  'ciencia-ficcion': 'Ciencia ficción',
+  'deportes': 'Deportes',
+  'viajes-en-el-tiempo': 'Viajes en el tiempo',
+  '4k': '4K',
+};
+
+export async function createFilter(): Promise<Record<string, unknown>> {
+  return {
+    genero: { title: 'Género', options: _GENRE_OPTIONS, default: '', min: 1, max: 1 },
+  };
 }
 
 // ─── Detalle ────────────────────────────────────────────────────────────────
