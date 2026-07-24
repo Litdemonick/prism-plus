@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.10.1
+// @version      1.10.2
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -948,7 +948,8 @@ async function watch(url) {
     "streamwish",
     "sfastwish",
     "wishfast",
-    "swdyu"
+    "swdyu",
+    "bysekoze"
   ];
   const usable = resolved.filter((s) => {
     const uLow = s.url.toLowerCase();

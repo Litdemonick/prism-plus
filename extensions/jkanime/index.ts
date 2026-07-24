@@ -623,10 +623,17 @@ export async function watch(url: string): Promise<PrismWatch> {
   //    subdominio distinto cada vez) — a veces el que te toca está roto
   //    ("End of file" repetido en los segmentos), a veces sano. Demasiado
   //    inestable para dejarlo habilitado por defecto.
+  //  - Filemoon (bysekoze.com, dominio rotativo — no coincide con el
+  //    'filemoon'/'moonplayer' de _JS_ONLY_HOSTS): confirmado en vivo que
+  //    resolveEmbed y el sniffer de WebView fallan los dos, sin reproducir.
+  // A pedido explícito: JKAnime queda con Desu, Magi, VOE y Doodstream — el
+  // resto se deja fuera por ahora, se puede reconsiderar más adelante si
+  // aparecen mejores resolutores o cambia el comportamiento de estos hosts.
   const isMega = (u: string) => u.indexOf('mega.nz') !== -1 || u.indexOf('mega.co.nz') !== -1;
   const _CONFIRMED_BROKEN = [
     'streamtape', 'mp4upload', 'mediafire',
     'streamwish', 'sfastwish', 'wishfast', 'swdyu',
+    'bysekoze',
   ];
   const usable = resolved.filter(s => {
     const uLow = s.url.toLowerCase();
