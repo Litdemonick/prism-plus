@@ -6,19 +6,19 @@
   "website": "https://github.com/Litdemonick/prism-plus",
   "extensions": [
     {
-      "name": "AnimeJara",
-      "package": "io.prismhub.animejara",
-      "version": "1.1.1",
+      "name": "AnimeFenix",
+      "package": "io.prismhub.animefenix",
+      "version": "1.0.0",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
-      "description": "Anime en español latino desde AnimeJara — catálogo con filtros y múltiples servidores confiables",
+      "description": "Anime en español latino desde AnimeFenix — catálogo con filtros y múltiples servidores confiables",
       "lang": "es",
-      "webSite": "https://animejara.com",
+      "webSite": "https://animefenix2.tv",
       "license": "MIT",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animejara.js",
-      "sha256": "c5cd7c2b8fb45fc8683001a969f35cfbcb672d26a6768e353327244e428392d9",
-      "signature": "nTc4mnFzz/g+xKpxnmdNCuMup9YhdsERIhcLrZq73A/ZVNSq6Rmxf5KRSg1ebm/GQGozdkPCggDVwaThQPUgBQ=="
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animefenix.js",
+      "sha256": "00e895d836dc9e27fcb0916a566307fac210987417d1b932a547f2da8f952b9a",
+      "signature": "5/vwtAQGrOqwM0qp1Sita0RUK4TLPzla8IAWqYe/RXPlMT7cqv9H/n1mwGhMvtp4oLMWhRfD+TMzRTPS5hbWBQ=="
     },
     {
       "name": "JKAnime",

@@ -1,13 +1,13 @@
 // ==PrismHubExtension==
-// @name         AnimeJara
-// @version      1.1.1
+// @name         AnimeFenix
+// @version      1.0.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
-// @package      io.prismhub.animejara
+// @package      io.prismhub.animefenix
 // @type         bangumi
-// @webSite      https://animejara.com
-// @description  Anime en español latino desde AnimeJara — catálogo con filtros y múltiples servidores confiables
+// @webSite      https://animefenix2.tv
+// @description  Anime en español latino desde AnimeFenix — catálogo con filtros y múltiples servidores confiables
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
 var __getOwnPropSymbols = Object.getOwnPropertySymbols;
@@ -414,15 +414,19 @@ function b64decode(s) {
   return result;
 }
 
-// extensions/animejara/index.ts
-var BASE = "https://animejara.com";
-function _decodeUrlEntities(s) {
-  return decodeEntities(s).replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
-}
-async function _get(url) {
+// extensions/animefenix/index.ts
+var BASE = "https://animefenix2.tv";
+var _BROWSER_ACCEPT = {
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+  "Accept-Language": "es-ES,es;q=0.9"
+};
+async function _get(url, extraHeaders) {
   const raw = await sendMessage(
     "request",
-    JSON.stringify([url, { method: "get", headers: { Referer: `${BASE}/` } }])
+    JSON.stringify([
+      url,
+      { method: "get", headers: __spreadValues({ Referer: `${BASE}/` }, extraHeaders != null ? extraHeaders : {}) }
+    ])
   );
   try {
     return JSON.parse(raw);
@@ -438,187 +442,161 @@ function _buildQuery(params) {
   }
   return parts.join("&");
 }
+function _fullUrl(url) {
+  if (url.indexOf("http") === 0) return url;
+  return `${BASE}${url.startsWith("/") ? "" : "/"}${url}`;
+}
 function _parseCatalog(html) {
+  var _a, _b;
   const items = [];
-  const re = /<a href="(https:\/\/animejara\.com\/anime\/[^"]+)" class="anime-card" data-anime="([^"]+)"/g;
+  const re = /<a href="(\/[a-z0-9-]+)">\s*<figure>\s*<span class="tipo">([^<]*)<\/span>\s*<span class="estreno">([^<]*)<\/span>[\s\S]*?<p class="gray">([^<]*)<\/p>[\s\S]*?<img[^>]*src="([^"]+)"[^>]*>[\s\S]*?<\/figure>\s*<p>([^<]+)<\/p>/g;
   for (const m of html.matchAll(re)) {
-    try {
-      const data = JSON.parse(decodeEntities(m[2]));
-      items.push({
-        title: data.titulo,
-        url: m[1],
-        cover: data.poster,
-        update: data.estado === "emision" ? "En emisi\xF3n" : void 0
-      });
-    } catch (e) {
-    }
+    const year = parseInt(m[3].trim(), 10);
+    items.push({
+      title: decodeEntities(m[6].trim()),
+      url: `${BASE}${m[1]}`,
+      cover: m[5],
+      update: ((_a = m[4]) == null ? void 0 : _a.trim()) ? decodeEntities(m[4].trim()) : void 0,
+      year: Number.isFinite(year) ? year : void 0,
+      tags: ((_b = m[2]) == null ? void 0 : _b.trim()) ? [decodeEntities(m[2].trim())] : void 0
+    });
   }
   return items;
 }
 async function latest(page) {
-  const query = _buildQuery({ paged: page > 1 ? String(page) : void 0 });
-  const html = await _get(`${BASE}/catalogo${query ? `?${query}` : ""}`);
+  const query = _buildQuery({ p: page > 1 ? String(page) : void 0 });
+  const html = await _get(`${BASE}/directorio/anime${query ? `?${query}` : ""}`);
   return _parseCatalog(html);
 }
 async function search(keyword, page, filter) {
-  var _a, _b, _c, _d, _e;
+  var _a, _b, _c;
   const query = _buildQuery({
     q: keyword.trim() || void 0,
-    tag: (_a = filter == null ? void 0 : filter["genero"]) == null ? void 0 : _a[0],
-    anio: (_b = filter == null ? void 0 : filter["anio"]) == null ? void 0 : _b[0],
-    tipo: (_c = filter == null ? void 0 : filter["tipo"]) == null ? void 0 : _c[0],
-    estado: (_d = filter == null ? void 0 : filter["estado"]) == null ? void 0 : _d[0],
-    idioma: (_e = filter == null ? void 0 : filter["idioma"]) == null ? void 0 : _e[0],
-    paged: page > 1 ? String(page) : void 0
+    genero: (_a = filter == null ? void 0 : filter["genero"]) == null ? void 0 : _a[0],
+    tipo: (_b = filter == null ? void 0 : filter["tipo"]) == null ? void 0 : _b[0],
+    estado: (_c = filter == null ? void 0 : filter["estado"]) == null ? void 0 : _c[0],
+    p: page > 1 ? String(page) : void 0
   });
-  const html = await _get(`${BASE}/catalogo${query ? `?${query}` : ""}`);
+  const html = await _get(`${BASE}/directorio/anime${query ? `?${query}` : ""}`);
   return _parseCatalog(html);
 }
 var _GENRE_OPTIONS = {
   "": "Todos",
-  "Accion": "Acci\xF3n",
-  "Amor": "Amor",
-  "Artes marciales": "Artes marciales",
-  "Aventura": "Aventura",
-  "Carreras": "Carreras",
-  "Ciencia ficcion": "Ciencia ficci\xF3n",
-  "Comedia": "Comedia",
-  "Comidas": "Comidas",
-  "Crimen": "Crimen",
-  "Demonios": "Demonios",
-  "Deportes": "Deportes",
-  "Drama": "Drama",
-  "Ecchi": "Ecchi",
-  "Escolar": "Escolar",
-  "Espacial": "Espacial",
-  "Espadachin": "Espadach\xEDn",
-  "Familia": "Familia",
-  "Fantasia": "Fantas\xEDa",
-  "Gore": "Gore",
-  "Harem": "Harem",
-  "Historico": "Hist\xF3rico",
-  "Isekai": "Isekai",
-  "Josei": "Josei",
-  "Juegos": "Juegos",
-  "Magia": "Magia",
-  "Mecha": "Mecha",
-  "Militar": "Militar",
-  "Misterio": "Misterio",
-  "Musica": "M\xFAsica",
-  "Parodia": "Parodia",
-  "Psicologico": "Psicol\xF3gico",
-  "Recuerdos": "Recuerdos",
-  "Robots": "Robots",
-  "Romance": "Romance",
-  "Samurai": "Samur\xE1i",
-  "Seinen": "Seinen",
-  "Shoujo": "Shoujo",
-  "Shounen": "Shounen",
-  "Sobrenatural": "Sobrenatural",
-  "Studio ghibli": "Studio Ghibli",
-  "Superpoderes": "Superpoderes",
-  "Suspenso": "Suspenso",
-  "Terror": "Terror",
-  "Vampiros": "Vampiros",
-  "Yaoi": "Yaoi",
-  "Yuri": "Yuri",
-  "Zombies": "Zombies"
+  "1": "Acci\xF3n",
+  "2": "Escolares",
+  "3": "Romance",
+  "4": "Shoujo",
+  "5": "Comedia",
+  "6": "Drama",
+  "7": "Seinen",
+  "8": "Deportes",
+  "9": "Shounen",
+  "10": "Recuentos de la vida",
+  "11": "Ecchi",
+  "12": "Sobrenatural",
+  "13": "Fantas\xEDa",
+  "14": "Magia",
+  "15": "Superpoderes",
+  "16": "Demencia",
+  "17": "Misterio",
+  "18": "Psicol\xF3gico",
+  "19": "Suspenso",
+  "20": "Ciencia Ficci\xF3n",
+  "21": "Mecha",
+  "22": "Militar",
+  "23": "Aventuras",
+  "24": "Historico",
+  "25": "Infantil",
+  "26": "Artes Marciales",
+  "27": "Terror",
+  "28": "Harem"
 };
-function _yearOptions() {
-  const options = { "": "Todos" };
-  const currentYear = 2026;
-  for (let y = currentYear; y >= 1983; y--) options[String(y)] = String(y);
-  return options;
-}
+var _TYPE_OPTIONS = {
+  "": "Todos",
+  "1": "TV Anime",
+  "2": "Pel\xEDcula",
+  "3": "OVA",
+  "4": "Especial",
+  "9": "Serie",
+  "11": "Dorama",
+  "14": "Corto",
+  "15": "Donghua"
+};
+var _STATUS_OPTIONS = {
+  "": "Todos",
+  "1": "Finalizado",
+  "2": "En emisi\xF3n",
+  "3": "Pr\xF3ximamente"
+};
 async function createFilter() {
   return {
     genero: { title: "G\xE9nero", options: _GENRE_OPTIONS, default: "", min: 1, max: 1 },
-    anio: { title: "A\xF1o", options: _yearOptions(), default: "", min: 1, max: 1 },
-    tipo: {
-      title: "Tipo",
-      options: { "": "Todos", serie: "Serie", pelicula: "Pel\xEDcula" },
-      default: "",
-      min: 1,
-      max: 1
-    },
-    estado: {
-      title: "Estado",
-      options: { "": "Todos", Emision: "En emisi\xF3n", Finalizado: "Finalizado" },
-      default: "",
-      min: 1,
-      max: 1
-    },
-    idioma: {
-      title: "Idioma",
-      options: { "": "Todos", latino: "Latino", japones: "Japon\xE9s", castellano: "Castellano" },
-      default: "",
-      min: 1,
-      max: 1
-    }
+    tipo: { title: "Tipo", options: _TYPE_OPTIONS, default: "", min: 1, max: 1 },
+    estado: { title: "Estado", options: _STATUS_OPTIONS, default: "", min: 1, max: 1 }
   };
 }
 async function detail(url) {
-  var _a, _b, _c, _d, _e, _f, _g, _h, _i;
-  const fullUrl = url.indexOf("http") === 0 ? url : `${BASE}/anime/${url}`;
+  var _a, _b, _c, _d, _e, _f;
+  const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
-  const title = (_f = (_e = (_b = (_a = /<h1[^>]*>([^<]+)<\/h1>/i.exec(html)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _e : (_d = (_c = /<title>([^<|]+)/i.exec(html)) == null ? void 0 : _c[1]) == null ? void 0 : _d.trim()) != null ? _f : "";
+  const slug = fullUrl.replace(`${BASE}/`, "").replace(/\/$/, "");
+  const title = (_c = (_b = (_a = /<h1[^>]*>([^<]+)<\/h1>/i.exec(html)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : "";
+  const cover = (_d = /property="og:image"\s+content="([^"]+)"/i.exec(html)) == null ? void 0 : _d[1];
   const description = stripTags(
-    (_h = (_g = /anime-sinopsis-contenedor[\s\S]*?<div[^>]*>([\s\S]*?)<\/div>/i.exec(html)) == null ? void 0 : _g[1]) != null ? _h : ""
+    (_f = (_e = /Sinopsis<\/h2>\s*<p[^>]*>([^<]*)<\/p>/i.exec(html)) == null ? void 0 : _e[1]) != null ? _f : ""
   ).trim();
   const genres = [];
-  const catBlockM = /anime-categorias[\s\S]*?<\/div>/i.exec(html);
-  if (catBlockM) {
-    for (const m of catBlockM[0].matchAll(/<span[^>]*>([^<]+)<\/span>/g)) {
-      genres.push(m[1].trim());
+  const generosBlockM = /Géneros<\/h2>([\s\S]*?)<!--/i.exec(html);
+  if (generosBlockM) {
+    for (const m of generosBlockM[1].matchAll(/genero=\d+"[^>]*>\s*([^<]+?)\s*</g)) {
+      genres.push(decodeEntities(m[1].trim()));
     }
   }
-  const slugM = /const\s+ANIME_SLUG\s*=\s*'([^']+)'/.exec(html);
-  const slug = slugM ? slugM[1] : fullUrl.replace(`${BASE}/anime/`, "").replace(/\/$/, "");
-  const dataM = /const\s+TEMPORADAS_DATA\s*=\s*(\[[\s\S]*?\]);/.exec(html);
-  const temporadas = dataM ? JSON.parse(dataM[1]) : [];
-  let cover = (_i = temporadas[0]) == null ? void 0 : _i.poster_temporada;
-  if (!cover) {
-    cover = matchFirstCover(html);
+  const episodes = [];
+  const epRe = /<a href="(\/ver\/[^"]+)" class="episode-card">[\s\S]*?<span class="ep-title">([^<]+)<\/span>/g;
+  let start = 0;
+  for (let page = 0; page < 60; page++) {
+    const chunk = await _get(`${fullUrl}?id=${slug}&load=episodes&start=${start}`);
+    let found = 0;
+    for (const m of chunk.matchAll(epRe)) {
+      episodes.push({ title: decodeEntities(m[2].trim()), url: `${BASE}${m[1]}` });
+      found++;
+    }
+    if (found === 0) break;
+    start += 16;
+    if (found < 16) break;
   }
-  const episodeGroups = temporadas.map((temp) => ({
-    title: `Temporada ${temp.numero_temporada}`,
-    urls: temp.episodios.map((ep) => {
-      var _a2;
-      return {
-        title: ((_a2 = ep.nombre_episodio) == null ? void 0 : _a2.trim()) ? `${ep.numero_episodio}. ${ep.nombre_episodio.trim()}` : `Episodio ${ep.numero_episodio}`,
-        url: `episode/${slug}-${temp.numero_temporada}x${ep.numero_episodio}`
-      };
-    })
-  }));
-  return {
-    title,
-    cover,
-    description,
-    genres,
-    // El tipo declarado pide PrismEpisode[] (title/url planos) pero el
-    // wrapper del build en runtime también acepta grupos (title/urls) para
-    // series con temporadas — confirmado leyendo scripts/build.mjs. No hay
-    // forma de tipar esto "correcto" sin romper el build de un tirón, así
-    // que se castea a propósito.
-    episodes: episodeGroups
-  };
+  return { title, cover, description, genres, episodes };
 }
-function matchFirstCover(html) {
-  const m = /property="og:image:secure_url"\s+content="([^"]+)"/i.exec(html);
-  return m && m[1] ? m[1] : void 0;
+var _NEVER_NATIVE = /* @__PURE__ */ new Set(["savefiles"]);
+var _NEVER_NATIVE_HOSTS = ["uqload.is"];
+async function _resolveIronhentai(url) {
+  const html = await _get(url, _BROWSER_ACCEPT);
+  const m = /eval\(atob\(atob\('([A-Za-z0-9+\/=]+)'\)\.split/.exec(html);
+  if (!m) return null;
+  const once = b64decode(m[1]);
+  const shifted = once.split("").map((c) => String.fromCharCode(c.charCodeAt(0) - 1)).join("");
+  const decoded = b64decode(shifted);
+  const hlsM = /loadSource\('([^']+\.m3u8[^']*)'\)/.exec(decoded);
+  if (hlsM) return { url: hlsM[1], quality: "Servidor", headers: { Referer: `${BASE}/` } };
+  const videoM = /videoId\s*=\s*'(https:\/\/re\.ironhentai\.com\/[^']+)'/.exec(decoded);
+  if (videoM) {
+    return {
+      url: videoM[1],
+      quality: "Servidor",
+      headers: __spreadValues({ Referer: url }, _BROWSER_ACCEPT)
+    };
+  }
+  return null;
 }
-var _NEVER_NATIVE = /* @__PURE__ */ new Set([
-  "savefiles",
-  "filemoon",
-  "netu",
-  "vidhide",
-  "streamtape",
-  "streamhg",
-  "mega"
-]);
 async function watch(url) {
   var _a;
-  if (url.indexOf("http") === 0 && url.indexOf("animejara.com") === -1) {
+  if (url.indexOf("http") === 0 && url.indexOf("animefenix2.tv") === -1) {
+    if (url.indexOf("ironhentai.com") !== -1) {
+      const res = await _resolveIronhentai(url);
+      if (res) return { streams: [res], pageUrl: "" };
+      return { streams: [{ url, quality: "Servidor" }], pageUrl: "" };
+    }
     try {
       const res = await resolveEmbed("Servidor", url, `${BASE}/`);
       if (res && res.url) {
@@ -628,42 +606,24 @@ async function watch(url) {
     }
     return { streams: [{ url, quality: "Servidor" }], pageUrl: "" };
   }
-  const episodeUrl = url.indexOf("http") === 0 ? url : `${BASE}/${url}`;
+  const episodeUrl = _fullUrl(url);
   const html = await _get(episodeUrl);
-  const enlacesM = /const\s+enlaces\s*=\s*(\[[\s\S]*?\]);/.exec(html);
-  let embedPageUrls = [];
-  if (enlacesM) {
-    try {
-      embedPageUrls = JSON.parse(enlacesM[1].replace(/\\\//g, "/"));
-    } catch (e) {
-    }
+  const labels = {};
+  for (const m of html.matchAll(/<a title="([^"]+)" href="#vid(\d+)">/g)) {
+    labels[m[2]] = m[1].trim();
   }
-  if (embedPageUrls.length === 0) {
-    const iframeM = /<iframe id="iframe-video" src="([^"]+)"/i.exec(html);
-    if (iframeM) embedPageUrls = [_decodeUrlEntities(iframeM[1])];
-  }
-  if (embedPageUrls.length === 0) return { streams: [], pageUrl: episodeUrl };
-  const langNames = Array.from(
-    html.matchAll(/<div class="lang-name">([^<]+)<\/div>/g),
-    (m) => _titleCase(m[1].trim())
-  );
   const streams = [];
-  const re = /playVideo\(&quot;\s*([^&]+?)\s*&quot;\)"[^>]*>[\s\S]*?alt="([^"]+)"/g;
-  for (let i = 0; i < embedPageUrls.length; i++) {
-    const embedHtml = await _get(embedPageUrls[i]);
-    const langSuffix = embedPageUrls.length > 1 ? ` (${(_a = langNames[i]) != null ? _a : `Idioma ${i + 1}`})` : "";
-    for (const m of embedHtml.matchAll(re)) {
-      const name = m[2].trim();
-      if (_NEVER_NATIVE.has(name.toLowerCase())) continue;
-      const goPhpM = /\/go\.php\?v=(.+)$/i.exec(m[1].trim());
-      const streamUrl = goPhpM ? goPhpM[1] : m[1].trim();
-      streams.push({ url: streamUrl, quality: `${_titleCase(name)}${langSuffix}` });
+  const tabRe = /tabsArray\['(\d+)'\]\s*=\s*"[^"]*?src='https:\/\/re\.animepelix\.net\/redirect\.php\?id=([^']+)'/g;
+  for (const m of html.matchAll(tabRe)) {
+    const num = m[1];
+    const targetUrl = m[2];
+    const name = (_a = labels[num]) != null ? _a : `Servidor ${num}`;
+    if (_NEVER_NATIVE.has(name.toLowerCase()) || targetUrl.indexOf("streamhls") !== -1 || _NEVER_NATIVE_HOSTS.some((h) => targetUrl.indexOf(h) !== -1)) {
+      continue;
     }
+    streams.push({ url: targetUrl, quality: name });
   }
   return { streams, pageUrl: episodeUrl };
-}
-function _titleCase(s) {
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
 // OJO: nunca usar url.indexOf('.mp4')/('.m3u8') suelto — algunos dominios de
