@@ -441,8 +441,9 @@ type PrismEpisode = { title: string; url: string; number?: number };
 // API da 403 de Cloudflare, pero la página del embed en sí no está
 // bloqueada y trae el eval(p,a,c,k) empaquetado con la URL real del m3u8.
 // Esta lista los excluía sin haberlo probado nunca de verdad.
+// voe.sx/voe. también se sacaron: _resolveVoeDio() funciona (verificado con
+// curl, direct_access_url real y reproducible).
 const _JS_ONLY_HOSTS = [
-  'voe.sx', 'voe.',
   'vidhide', 'filelions',
   'filemoon', 'moonplayer',
   'mixdrop', 'mxdrop',
@@ -710,12 +711,17 @@ async function _resolveVoeDio(url: string, label: string): Promise<PrismStream |
     if (jsonScript) {
       const decoded = _voeDecode(jsonScript[1]);
       if (decoded) {
+        // Preferir direct_access_url (mp4 plano) sobre el .m3u8: confirmado
+        // en vivo (Streamwish) que el HLS de estos hosts de terceros reparte
+        // los segmentos en un servidor de CDN elegido al azar en cada
+        // resolución, con episodios de inestabilidad real — un mp4 directo
+        // es una sola conexión, sin esa lotería de backend.
+        const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(decoded);
+        if (mp4) return { url: mp4[1].replace(/\\\//g, '/'), quality: label };
         const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(decoded);
         if (src) return { url: src[1].replace(/\\\//g, '/'), quality: label };
         const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, '/'));
         if (m3u8) return { url: m3u8[1], quality: label };
-        const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(decoded);
-        if (mp4) return { url: mp4[1].replace(/\\\//g, '/'), quality: label };
       }
     }
 

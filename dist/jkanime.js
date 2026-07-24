@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.10.0
+// @version      1.10.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -838,8 +838,6 @@ async function detail(url) {
   return { title, cover, description, episodes, genres };
 }
 var _JS_ONLY_HOSTS = [
-  "voe.sx",
-  "voe.",
   "vidhide",
   "filelions",
   "filemoon",
@@ -1004,12 +1002,12 @@ async function _resolveVoeDio(url, label) {
     if (jsonScript) {
       const decoded = _voeDecode2(jsonScript[1]);
       if (decoded) {
+        const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(decoded);
+        if (mp4) return { url: mp4[1].replace(/\\\//g, "/"), quality: label };
         const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(decoded);
         if (src) return { url: src[1].replace(/\\\//g, "/"), quality: label };
         const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, "/"));
         if (m3u8) return { url: m3u8[1], quality: label };
-        const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(decoded);
-        if (mp4) return { url: mp4[1].replace(/\\\//g, "/"), quality: label };
       }
     }
     let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
