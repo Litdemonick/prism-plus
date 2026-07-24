@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeYT
-// @version      1.2.1
+// @version      1.3.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -614,26 +614,34 @@ function _parseMirrors(html) {
   }
   return mirrors;
 }
-async function _expandMytsumi(iframeSrc) {
+async function _expandMytsumi(iframeSrc, depth = 0) {
+  if (depth > 3) return [];
   const serverM = /[?&]server=([a-zA-Z0-9]+)/.exec(iframeSrc);
   const fallbackName = serverM ? serverM[1] : "Servidor";
   const html = await _get(iframeSrc);
-  const acceptM = /class="play">[\s\S]*?<a href=['"]([^'"]+)['"]/i.exec(html);
-  if (!acceptM) return [];
-  const acceptHref = _absolutize(decodeEntities(acceptM[1]));
-  if (acceptHref.indexOf("mytsumi.com") !== -1) {
-    const html2 = await _get(acceptHref);
-    const tabsM = /const\s+videoTabs\s*=\s*(\[[\s\S]*?\]);/.exec(html2);
-    if (tabsM) {
-      try {
-        const tabs = JSON.parse(tabsM[1]);
-        const parsed = tabs.filter((t) => t.url && t.tab_name.toLowerCase() !== "mytsumi").map((t) => ({ name: t.tab_name, iframeSrc: _absolutize(t.url) }));
-        if (parsed.length > 0) return parsed;
-      } catch (e) {
-      }
+  const tabsM = /const\s+videoTabs\s*=\s*(\[[\s\S]*?\]);/.exec(html);
+  if (tabsM) {
+    try {
+      const tabs = JSON.parse(tabsM[1]);
+      const parsed = tabs.filter((t) => t.url && t.tab_name.toLowerCase() !== "mytsumi").map((t) => ({ name: t.tab_name, iframeSrc: _absolutize(t.url) }));
+      if (parsed.length > 0) return parsed;
+    } catch (e) {
     }
   }
-  return [{ name: fallbackName.charAt(0).toUpperCase() + fallbackName.slice(1), iframeSrc: acceptHref }];
+  const linkRe = /<a href=['"]([^'"]+)['"]>\s*<button[^>]*>([^<]*)<\/button>/gi;
+  const links = [...html.matchAll(linkRe)].map((m) => ({ href: _absolutize(decodeEntities(m[1])), label: m[2].trim() })).filter((l) => l.href.indexOf("mytsumi.com") !== -1);
+  if (links.length > 0) {
+    const results = [];
+    const prefix = links.length > 1;
+    for (const link of links) {
+      const expanded = await _expandMytsumi(link.href, depth + 1);
+      for (const e of expanded) {
+        results.push(prefix ? { name: `${link.label} ${e.name}`, iframeSrc: e.iframeSrc } : e);
+      }
+    }
+    if (results.length > 0) return results;
+  }
+  return [{ name: fallbackName.charAt(0).toUpperCase() + fallbackName.slice(1), iframeSrc }];
 }
 async function watch(url) {
   const episodeUrl = url.indexOf("http") === 0 ? url : `${BASE}/${url}/`;
@@ -645,7 +653,7 @@ async function watch(url) {
   }
   const mirrors = [];
   for (const m of rawMirrors) {
-    if (m.iframeSrc.indexOf("mytsumi.com/multiplayer/options.php") !== -1) {
+    if (m.iframeSrc.indexOf("mytsumi.com") !== -1) {
       const expanded = await _expandMytsumi(m.iframeSrc);
       if (expanded.length > 0) {
         mirrors.push(...expanded);
@@ -668,8 +676,8 @@ async function watch(url) {
   )).filter((s) => s !== null);
   resolved.sort((a, b) => {
     if (a.ok !== b.ok) return a.ok ? -1 : 1;
-    const aMoon = (a.quality || "").toLowerCase() === "moon" ? 0 : 1;
-    const bMoon = (b.quality || "").toLowerCase() === "moon" ? 0 : 1;
+    const aMoon = (a.quality || "").toLowerCase().includes("moon") ? 0 : 1;
+    const bMoon = (b.quality || "").toLowerCase().includes("moon") ? 0 : 1;
     return aMoon - bMoon;
   });
   const streams = resolved.map((_a) => {

@@ -163,46 +163,60 @@ function _parseMirrors(html: string): _Mirror[] {
   return mirrors;
 }
 
-// Algunos mirrors no son un embed directo: son un wrapper "mytsumi" que
-// primero muestra un disclaimer ("Algunos reproductores tienen
-// publicidad...") y recién al aceptar lleva al contenido real. Hay (al
-// menos) DOS variantes distintas vistas en vivo, con dominio/ruta diferente:
-//   1. mytsumi.com/multiplayer/options.php?server=multi&value=ID — el botón
-//      "Aceptar" apunta a otro mytsumi ("contenedor.php?id=ID"), página que
-//      trae un array `const videoTabs = [{"tab_name":"Moon","url":"..."},
-//      ...]` con VARIOS servidores reales.
-//   2. old.mytsumi.com/players/options.php?server=moon&value=ID — acá el
-//      botón "Aceptar" ya apunta DIRECTO al embed real (ej. filemoon.to),
-//      sin capa intermedia ni array de servidores.
-// En ambos casos alcanza con: pedir el wrapper, sacar el href de "Aceptar",
-// y si ESE resultado es a su vez otro mytsumi con array de servidores,
-// expandirlo; si no, ya es el embed final.
-async function _expandMytsumi(iframeSrc: string): Promise<_Mirror[]> {
+// Algunos mirrors no son un embed directo: son un wrapper "mytsumi" con una
+// página intermedia antes de llegar al contenido real. Hay (al menos) TRES
+// variantes distintas vistas en vivo:
+//   1. mytsumi.com/multiplayer/options.php?server=X&value=ID — disclaimer de
+//      ads ("Algunos reproductores tienen publicidad..."), UN solo botón
+//      "Aceptar".
+//   2. mytsumi.com/multiplayer/multi.php?server=multi&sub=IDsub&lat=IDlat —
+//      selector de idioma, DOS botones ("Sub Español" / "Latino").
+//   3. old.mytsumi.com/players/options.php?server=moon&value=ID — el botón
+//      ya apunta DIRECTO al embed real, sin capa intermedia.
+// En los tres casos el patrón es el mismo: <a href="..."><button>Label</button></a>.
+// Si el resultado es a su vez otro mytsumi, se expande recursivo (la
+// variante 2 necesita esto dos veces: multi.php → contenedor.php → array).
+// Si hay más de un link (variante 2, un idioma por botón), se prefija el
+// nombre de cada servidor con la etiqueta del botón para no perder esa
+// opción — sin esto, el idioma quedaba fijo en el que ganara la carrera.
+async function _expandMytsumi(iframeSrc: string, depth = 0): Promise<_Mirror[]> {
+  if (depth > 3) return []; // por si dos wrappers se referencian entre sí
   const serverM = /[?&]server=([a-zA-Z0-9]+)/.exec(iframeSrc);
   const fallbackName = serverM ? serverM[1] : 'Servidor';
 
   const html = await _get(iframeSrc);
-  const acceptM = /class="play">[\s\S]*?<a href=['"]([^'"]+)['"]/i.exec(html);
-  if (!acceptM) return [];
-  const acceptHref = _absolutize(decodeEntities(acceptM[1]));
 
-  // Variante 1: el "Aceptar" lleva a otro mytsumi con el array de servidores.
-  if (acceptHref.indexOf('mytsumi.com') !== -1) {
-    const html2 = await _get(acceptHref);
-    const tabsM = /const\s+videoTabs\s*=\s*(\[[\s\S]*?\]);/.exec(html2);
-    if (tabsM) {
-      try {
-        const tabs = JSON.parse(tabsM[1]) as { tab_name: string; url: string }[];
-        const parsed = tabs
-          .filter(t => t.url && t.tab_name.toLowerCase() !== 'mytsumi')
-          .map(t => ({ name: t.tab_name, iframeSrc: _absolutize(t.url) }));
-        if (parsed.length > 0) return parsed;
-      } catch {}
-    }
+  // Ya trae el array de servidores reales.
+  const tabsM = /const\s+videoTabs\s*=\s*(\[[\s\S]*?\]);/.exec(html);
+  if (tabsM) {
+    try {
+      const tabs = JSON.parse(tabsM[1]) as { tab_name: string; url: string }[];
+      const parsed = tabs
+        .filter(t => t.url && t.tab_name.toLowerCase() !== 'mytsumi')
+        .map(t => ({ name: t.tab_name, iframeSrc: _absolutize(t.url) }));
+      if (parsed.length > 0) return parsed;
+    } catch {}
   }
 
-  // Variante 2 (o variante 1 sin array reconocible): el href ya es el embed final.
-  return [{ name: fallbackName.charAt(0).toUpperCase() + fallbackName.slice(1), iframeSrc: acceptHref }];
+  const linkRe = /<a href=['"]([^'"]+)['"]>\s*<button[^>]*>([^<]*)<\/button>/gi;
+  const links = [...html.matchAll(linkRe)]
+    .map(m => ({ href: _absolutize(decodeEntities(m[1])), label: m[2].trim() }))
+    .filter(l => l.href.indexOf('mytsumi.com') !== -1);
+
+  if (links.length > 0) {
+    const results: _Mirror[] = [];
+    const prefix = links.length > 1;
+    for (const link of links) {
+      const expanded = await _expandMytsumi(link.href, depth + 1);
+      for (const e of expanded) {
+        results.push(prefix ? { name: `${link.label} ${e.name}`, iframeSrc: e.iframeSrc } : e);
+      }
+    }
+    if (results.length > 0) return results;
+  }
+
+  // Ninguna de las anteriores: ya es el embed final.
+  return [{ name: fallbackName.charAt(0).toUpperCase() + fallbackName.slice(1), iframeSrc }];
 }
 
 export async function watch(url: string): Promise<PrismWatch> {
@@ -219,11 +233,13 @@ export async function watch(url: string): Promise<PrismWatch> {
     if (defaultM) rawMirrors = [{ name: 'Default', iframeSrc: _absolutize(decodeEntities(defaultM[1])) }];
   }
 
-  // Expandir wrappers "mytsumi" a sus servidores reales (Moon, Alpha, Mega...);
+  // Expandir wrappers "mytsumi" a sus servidores reales (Moon, Mega, OK...);
   // los demás mirrors (Mega, Netu, etc. directos del <select>) se dejan igual.
+  // Cualquier URL de mytsumi.com se intenta expandir — _expandMytsumi ya
+  // resuelve sola cuál de sus variantes es (ver comentario ahí arriba).
   const mirrors: _Mirror[] = [];
   for (const m of rawMirrors) {
-    if (m.iframeSrc.indexOf('mytsumi.com/multiplayer/options.php') !== -1) {
+    if (m.iframeSrc.indexOf('mytsumi.com') !== -1) {
       const expanded = await _expandMytsumi(m.iframeSrc);
       if (expanded.length > 0) { mirrors.push(...expanded); continue; }
     }
@@ -256,8 +272,10 @@ export async function watch(url: string): Promise<PrismWatch> {
   // Entre los resueltos, Moon sigue siendo la preferencia del usuario.
   resolved.sort((a, b) => {
     if (a.ok !== b.ok) return a.ok ? -1 : 1;
-    const aMoon = (a.quality || '').toLowerCase() === 'moon' ? 0 : 1;
-    const bMoon = (b.quality || '').toLowerCase() === 'moon' ? 0 : 1;
+    // El nombre puede venir prefijado con el idioma (ej. "Latino Moon"), así
+    // que se busca "moon" como substring, no como nombre exacto.
+    const aMoon = (a.quality || '').toLowerCase().includes('moon') ? 0 : 1;
+    const bMoon = (b.quality || '').toLowerCase().includes('moon') ? 0 : 1;
     return aMoon - bMoon;
   });
 
