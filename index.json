@@ -8,7 +8,7 @@
     {
       "name": "AnimeYT",
       "package": "io.prismhub.animeytx",
-      "version": "1.8.0",
+      "version": "1.8.1",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -17,13 +17,13 @@
       "webSite": "https://wwv.animeytx.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animeytx.js",
-      "sha256": "207fb5e7e57aca371e02159f072c9179518a51ef574854e13401c953a0688f3c",
-      "signature": "pmI+QR+jf7HDHjPOuZB/Be4Y0HmTmINwtMeAnRpHCgab7i+922tMUPbmdgLO8y1r1N2na5JahCQWdvzgXCfXDw=="
+      "sha256": "c3ab662b38e41abe0337150cc9cb449a2ea05a34930cbc6646d7715bf3eef77f",
+      "signature": "+OVatlS3MOQrfBRquVPcyG6o9lUh5rUDkZ5Vgel7MoGu/AYgrfcucQ1dn/j39o8M5Ug68M3DwaVk6G8DNRHqDg=="
     },
     {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
-      "version": "1.9.4",
+      "version": "1.9.5",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -32,13 +32,13 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "e6f50ea5e5f022e6e8afe7bc41424bc31d7c627e19d9ed7fb2924bab3581ec0d",
-      "signature": "qgBKVzMhM85WzgveloEOm3EFwSXUIHNqfxNFn8+uIeNLBgUve9yRQecNoY4eDhpSFfzU5viOi734BMzxL0MhAA=="
+      "sha256": "568ffa029ec4136f2dd5e95d72da770bf2c38cbc9de75cb28a8a3d5abccc9d56",
+      "signature": "J94aNuDEBMf7O2g40Gh10v7zwaIGzMSn0+ovhUWJjd3SLHYW9A5314zs8MDr/xI9jzCOtYBD2ilKgy3L52/cAA=="
     },
     {
       "name": "ManhwaWeb",
       "package": "io.prismhub.manhwaweb",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "PrismHub",
       "type": "manga",
       "icon": "",
@@ -47,13 +47,13 @@
       "webSite": "https://manhwaweb.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/manhwaweb.js",
-      "sha256": "4cfebc13e89228614614ef7b745b430a90bcab95f22092ebef28cd73ea3f3fa4",
-      "signature": "77XNqq2I+Mz6eG0YCh3d1K7j7z8mB+QbSOfpRLoFiCrSO/JCPbd1DgJoEOmR3B0vKSlGE0++Wo0f/2vRhRyhAw=="
+      "sha256": "b8ad074b4eea92aa3329081e722dadf7387c21d5d88eed3976b90b21bc952843",
+      "signature": "9t2ZPFBz3A4AJsrKMB9DxLAQFn2Ha9DNkUWsBLKaywTQe75vtihuhMayetDGY2cBT1/dnA8zvtnR6Jjzcy5GDQ=="
     },
     {
       "name": "Olympus",
       "package": "io.prismhub.olympus",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "author": "PrismHub",
       "type": "manga",
       "icon": "",
@@ -62,8 +62,8 @@
       "webSite": "https://olympusxyz.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/olympus.js",
-      "sha256": "763acceb38f07a23c30fb151296d86ab8d974e91d88d2bbd24861b9b9744c2d4",
-      "signature": "MhSYnFCWNjhnZDkwY3uruEgKT7DZh+ryYrNC8fRxhIV1XWF1ulqfVG5Jx813hwtc+j8kAeuRDjJm0f0j+cJpCg=="
+      "sha256": "87e30239ddeb85cb2fc98e8baea2b959d63d7031f296eaf0e153060accc51a41",
+      "signature": "m8MKGqlRQFOjvnHKrVc5U660xKiYW/HqbwUw9GWR+PeY2iQNNH/GRwSmDoQE19J2ynUeufXq1QL2Ps/VnqNCBw=="
     }
   ]
 }

@@ -643,32 +643,26 @@ async function _resolveEmbedDio(
   if (u.indexOf('streamwish') !== -1 || u.indexOf('sfastwish') !== -1 ||
       u.indexOf('wishfast') !== -1 || u.indexOf('vidhide') !== -1) return _resolveStreamwishDio(url, label);
   if (u.indexOf('mp4upload') !== -1) {
-    // _get() (sendMessage/dio) en vez de resolveEmbed/fetchEmbed (flutter_js
-    // fetch): confirmado en vivo que esta página mete varios scripts de ads
-    // (milkdelirious.com, slavirappels.com, ...) que probablemente traen
-    // bytes inválidos como UTF-8 — el fetch de flutter_js revienta con
-    // FormatException y el catch de abajo lo tragaba en silencio, dejando
-    // media_kit intentando reproducir la página HTML cruda en vez del mp4
-    // real. La URL ya viene en texto plano en `player.src({ src: "..." })`,
-    // sin cifrar — mismo patrón que Mytsumi en animeytx.
+    // _get() (sendMessage/dio) en vez de resolveEmbed/fetchEmbed: la URL real
+    // ya viene en texto plano en `player.src({ src: "..." })`, sin cifrar —
+    // esta extracción está verificada en vivo con curl, funciona bien. El
+    // bug real que hacía fallar mp4upload SIEMPRE estaba en otro lado (ver
+    // build.mjs: el wrapper hacía url.indexOf('.mp4') suelto, y "mp4upload.com"
+    // como *nombre de dominio* ya contiene esa subcadena — el fast-path
+    // creía que la URL de embed ya era un archivo directo y ni llegaba a
+    // llamar watch(), mucho antes de que este código se ejecutara).
     try {
       const html = await _get(url, { Referer: referer });
-      console.log(`[mp4upload] fetched ${html?.length ?? 0} chars`);
       const candidates = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g) ?? [];
-      console.log(`[mp4upload] candidates: ${candidates.length}`);
       const real = candidates.find(c => !/\.(?:css|js|jpg|png)/.test(c));
       if (real) {
-        console.log(`[mp4upload] resolved: ${real.slice(0, 60)}`);
         return {
           url: real,
           quality: label,
           headers: { Referer: 'https://www.mp4upload.com/' },
         };
       }
-      console.log('[mp4upload] no direct mp4 found in page');
-    } catch (e) {
-      console.log(`[mp4upload] _get() threw: ${(e as Error)?.message ?? e}`);
-    }
+    } catch {}
     return null;
   }
   // Genérico con SDK

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Olympus
-// @version      1.2.1
+// @version      1.2.2
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -168,6 +168,19 @@ async function watch(chapterId) {
   return { urls: ((_a = d.chapter) == null ? void 0 : _a.pages) || [] };
 }
 
+// OJO: nunca usar url.indexOf('.mp4')/('.m3u8') suelto — algunos dominios de
+// hosts (ej. "mp4upload.com") contienen esa subcadena en el propio nombre
+// aunque la URL sea una página de embed, no un archivo directo (confirmado
+// en vivo: rompía mp4upload por completo, ni siquiera llegaba a llamar
+// watch() de la extensión). Exigir que la extensión esté al FINAL del path
+// (antes de ?query o #fragment).
+function _isDirectMediaUrl(u) {
+  return typeof u === 'string' && /\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(u);
+}
+function _mediaType(u) {
+  return /\.mp4(\?|#|$)/i.test(u) ? 'mp4' : 'hls';
+}
+
 export default class extends Extension {
   async latest(page) { return latest(page); }
   async search(kw, page, filter) { return search(kw, page, filter); }
@@ -222,8 +235,8 @@ export default class extends Extension {
     // Fast-path 1: URL ya resuelta (stream directo .m3u8 o .mp4).
     // El wrapper del build script la devuelve sin llamar a la extensión.
     if (typeof url === 'string' && url.indexOf('http') === 0 &&
-        (url.indexOf('.m3u8') !== -1 || url.indexOf('.mp4') !== -1)) {
-      return { type: url.indexOf('.mp4') !== -1 ? 'mp4' : 'hls', url: url, headers: {} };
+        _isDirectMediaUrl(url)) {
+      return { type: _mediaType(url), url: url, headers: {} };
     }
 
     // Fast-path 2: embed URL de host conocido — resolver on-demand con el SDK.
@@ -258,7 +271,7 @@ export default class extends Extension {
           var _res = await resolveEmbed(_sname, url, '');
           if (_res && _res.url) {
             return {
-              type: _res.url.indexOf('.mp4') !== -1 ? 'mp4' : 'hls',
+              type: _mediaType(_res.url),
               url: _res.url,
               headers: _res.headers || {}
             };
@@ -293,7 +306,7 @@ export default class extends Extension {
     };
     if (pageUrl) extra['X-Page-Url'] = pageUrl;
     return {
-      type: p.url.indexOf('.mp4') !== -1 ? 'mp4' : 'hls',
+      type: _mediaType(p.url),
       url: p.url,
       subtitles: r.subtitles || [],
       headers: Object.assign({}, p.headers || {}, extra)
