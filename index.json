@@ -8,7 +8,7 @@
     {
       "name": "AnimeFenix",
       "package": "io.prismhub.animefenix",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -17,13 +17,13 @@
       "webSite": "https://animefenix2.tv",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animefenix.js",
-      "sha256": "00e895d836dc9e27fcb0916a566307fac210987417d1b932a547f2da8f952b9a",
-      "signature": "5/vwtAQGrOqwM0qp1Sita0RUK4TLPzla8IAWqYe/RXPlMT7cqv9H/n1mwGhMvtp4oLMWhRfD+TMzRTPS5hbWBQ=="
+      "sha256": "a65c9b91ae724033b8e28fe246a256ee7081919b61c32359f87220cfd4760fd8",
+      "signature": "T7jDLhjhspC3OGNFNgrdMs1P03P7RFYjzZ232DJvDMr+ETheVFSL7IPd5DTIiBoCk3OExfOgXX0nzOkFsY+vCg=="
     },
     {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
-      "version": "1.10.8",
+      "version": "1.10.9",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -32,8 +32,8 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "d3b5172673b5b200d90505f766b453008d53fe04392830f2abe123af5d260dfb",
-      "signature": "vVh/iUln1RzoSnc9ZzWzXlIGuEwL7cYWG4+bEN90wGK2yPOEF06zRo40C3xG3enyatGnr0aIOZi/V005QqsoAg=="
+      "sha256": "7dc69cdb6273dea4e42a1ace3c344b25d159b17ccf9eace4876c12a70e98389a",
+      "signature": "CrYrXQFDvIxqPhE/1Mz++erPs93+y4VOUZ/Y4Pmq7TidSxyuPLlSgfkv41oYFFLIg4/9qMtsWKZ5OXBLRcBlBw=="
     },
     {
       "name": "ManhwaWeb",

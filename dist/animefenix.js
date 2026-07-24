@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeFenix
-// @version      1.0.0
+// @version      1.0.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -47,7 +47,7 @@ async function resolveEmbed(server, embedUrl, referer) {
     if (s.includes("voe")) result = await resolveVoe(embedUrl, referer);
     else if (s.includes("streamtape") || s.includes("stape") || s.includes("strtape"))
       result = await resolveStreamtape(embedUrl, referer);
-    else if (s.includes("mixdrop") || s.includes("mxdrop") || s.includes("mdrop"))
+    else if (s.includes("mixdrop") || s.includes("mxdrop") || s.includes("mdrop") || s.includes("xdrop"))
       result = await resolveMixdrop(embedUrl, referer);
     else if (s.includes("mp4upload")) result = await resolveMp4upload(embedUrl, referer);
     else if (s.includes("yourupload") || s.includes("yupload"))
@@ -65,6 +65,10 @@ async function resolveEmbed(server, embedUrl, referer) {
     else result = await resolveGeneric(embedUrl, referer);
   } catch (e) {
     console.log(`[resolveEmbed] ${server} THREW: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
+    return null;
+  }
+  if (result && result.url.includes("premilkyway.com")) {
+    console.log(`[resolveEmbed] ${server} -> NULL (premilkyway.com, bloqueo TLS conocido)`);
     return null;
   }
   console.log(

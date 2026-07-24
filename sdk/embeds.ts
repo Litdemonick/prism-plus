@@ -55,7 +55,13 @@ export async function resolveEmbed(
     if (s.includes('voe')) result = await resolveVoe(embedUrl, referer);
     else if (s.includes('streamtape') || s.includes('stape') || s.includes('strtape'))
       result = await resolveStreamtape(embedUrl, referer);
-    else if (s.includes('mixdrop') || s.includes('mxdrop') || s.includes('mdrop'))
+    else if (
+      s.includes('mixdrop') || s.includes('mxdrop') || s.includes('mdrop') || s.includes('xdrop')
+    )
+      // 'xdrop' es el fallback amplio: clones como "miiiixdrop.net" (confirmado
+      // en vivo, mismo MDCore.wurl que mixdrop.co) insertan letras extra en el
+      // nombre para esquivar bloqueos por dominio exacto, pero "xdrop" siempre
+      // sobrevive en el nombre.
       result = await resolveMixdrop(embedUrl, referer);
     else if (s.includes('mp4upload')) result = await resolveMp4upload(embedUrl, referer);
     else if (s.includes('yourupload') || s.includes('yupload'))
@@ -85,6 +91,18 @@ export async function resolveEmbed(
     else result = await resolveGeneric(embedUrl, referer);
   } catch (e) {
     console.log(`[resolveEmbed] ${server} THREW: ${(e as Error)?.message ?? e}`);
+    return null;
+  }
+
+  // premilkyway.com (el CDN detrás de streamhg Y de streamwish/flaswish, dos
+  // "frentes" distintos que confirmamos en vivo terminan en el mismo origen)
+  // rechaza el fingerprint TLS de mpv/libavformat — confirmado con curl/node
+  // (TLSV1_ALERT_ACCESS_DENIED) Y en la app real (mpv se cuelga en buffering
+  // 20s+ y falla). No tiene sentido devolver esa URL para que el usuario
+  // espere 20 segundos por algo que sabemos que nunca va a andar — se
+  // descarta acá mismo, para cualquier resolver que termine ahí.
+  if (result && result.url.includes('premilkyway.com')) {
+    console.log(`[resolveEmbed] ${server} -> NULL (premilkyway.com, bloqueo TLS conocido)`);
     return null;
   }
 
