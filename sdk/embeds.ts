@@ -69,6 +69,8 @@ export async function resolveEmbed(
       s.includes('uqload') || s.includes('flaxtv')
     )
       result = await resolveStreamwish(embedUrl, referer);
+    else if (s.includes('streamhg') || s.includes('hgcloud') || s.includes('vibuxer'))
+      result = await resolveStreamHg(embedUrl, referer);
     // Genérico como último recurso: desempaqueta eval y busca m3u8/mp4.
     else result = await resolveGeneric(embedUrl, referer);
   } catch (e) {
@@ -515,6 +517,40 @@ export async function resolveStreamwish(
 
   // Fallback: scraping + desempaquetado del embed
   return resolveGeneric(url, referer);
+}
+
+/**
+ * StreamHG (hgcloud.to) — el embed propio es una página "Loading..." vacía
+ * (71KB de JS fuertemente ofuscado, sin patrón de API legible por regex) que
+ * en realidad solo redirige client-side, con el MISMO id de video, a
+ * vibuxer.com — confirmado en vivo interceptando el tráfico real con un
+ * navegador headless (hgcloud.to/e/{id} → vibuxer.com/e/{id}, id idéntico).
+ * vibuxer.com sí trae el jwplayer().setup() con el m3u8 firmado en texto
+ * plano, pero empaquetado con el mismo Dean Edwards packer (`_unpackAll`) que
+ * ya se usa para netu/streamwish — no hace falta ejecutar ni desofuscar el JS
+ * de hgcloud.to en absoluto, alcanza con saltar directo a vibuxer.com.
+ */
+export async function resolveStreamHg(
+  url: string,
+  referer: string,
+): Promise<ResolvedEmbed | null> {
+  const idM = /\/e\/([A-Za-z0-9]+)/.exec(url);
+  if (!idM) return null;
+
+  const html = await fetchEmbed(`https://vibuxer.com/e/${idM[1]}`, referer, {
+    timeout: 8000,
+    headers: { Referer: 'https://hgcloud.to/' },
+  });
+  if (!html) return null;
+
+  const flat = `${html}\n${_unpackAll(html)}`.replace(/\\\//g, '/');
+  // El m3u8 firmado viene protocol-relative ("//host/..."), no "https://" —
+  // confirmado en vivo, por eso el "https?:" de acá es opcional.
+  const m3u8 = /((?:https?:)?\/\/[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(flat);
+  if (!m3u8) return null;
+
+  const streamUrl = m3u8[1].startsWith('//') ? `https:${m3u8[1]}` : m3u8[1];
+  return { url: streamUrl, headers: { Referer: 'https://vibuxer.com/' } };
 }
 
 /**

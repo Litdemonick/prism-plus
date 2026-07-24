@@ -274,9 +274,6 @@ function matchFirstCover(html: string): string | undefined {
 // ─── Reproducción ───────────────────────────────────────────────────────────
 
 // Servidores confirmados en vivo como imposibles de resolver por scraping:
-//  - streamhg (hgcloud.to): página "Loading..." vacía — el video real se
-//    arma recién con un bundle JS de 70KB fuertemente ofuscado, sin ningún
-//    patrón de API reconocible.
 //  - savefiles (savefiles.top): formulario POST a /dl (mismo estilo que los
 //    viejos clones de Openload) — mecanismo distinto al de Doodstream
 //    (pass_md5), no hay resolver del SDK que lo cubra.
@@ -301,12 +298,18 @@ function matchFirstCover(html: string): string | undefined {
 //    (resolver da NULL, media_kit no puede abrir la URL cruda tampoco) —
 //    coincide con el 404 consistente ya visto desde el entorno de prueba,
 //    con distintos user-agents y sin referer. No es mala suerte puntual.
+// streamhg (hgcloud.to) SÍ resuelve ahora (sdk/embeds.ts::resolveStreamHg) —
+// el CDN real detrás (premilkyway.com) devolvió TLSV1_ALERT_ACCESS_DENIED
+// desde este entorno de pruebas, el mismo síntoma exacto que tuvo vidhide acá
+// mismo antes de confirmarse igual de bloqueado en la app real — pero como
+// no está confirmado en la app real todavía, se deja HABILITADO a la espera
+// de esa prueba en vivo (si falla igual ahí, recién ahí se descarta).
 // Quedan uqload y mp4upload (y mixdrop/lulustream si el sitio los lista) —
 // confirmados resolviendo a streams reales cuando el archivo subido existe.
 // A veces un capítulo puntual falla (archivo caído/lento) — es variación
 // normal de sitios con espejos múltiples, no motivo para descartar el host.
 const _NEVER_NATIVE = new Set([
-  'streamhg', 'savefiles', 'filemoon', 'netu', 'vidhide', 'streamtape',
+  'savefiles', 'filemoon', 'netu', 'vidhide', 'streamtape',
 ]);
 
 export async function watch(url: string): Promise<PrismWatch> {

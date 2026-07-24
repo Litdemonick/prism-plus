@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.10.4
+// @version      1.10.5
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -160,6 +160,8 @@ async function resolveEmbed(server, embedUrl, referer) {
       result = await resolveOkru(embedUrl);
     else if (s.includes("streamwish") || s.includes("wishfast") || s.includes("vidhide") || s.includes("filelions") || s.includes("vhide") || s.includes("vtube") || s.includes("luluvdo") || s.includes("vidmoly") || s.includes("filemoon") || s.includes("moonplayer") || s.includes("swdyu") || s.includes("bysekoze") || s.includes("bestx") || s.includes("embedrise") || s.includes("ridoo") || s.includes("uqload") || s.includes("flaxtv"))
       result = await resolveStreamwish(embedUrl, referer);
+    else if (s.includes("streamhg") || s.includes("hgcloud") || s.includes("vibuxer"))
+      result = await resolveStreamHg(embedUrl, referer);
     else result = await resolveGeneric(embedUrl, referer);
   } catch (e) {
     console.log(`[resolveEmbed] ${server} THREW: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
@@ -407,6 +409,21 @@ async function resolveStreamwish(url, referer) {
     }
   }
   return resolveGeneric(url, referer);
+}
+async function resolveStreamHg(url, referer) {
+  const idM = /\/e\/([A-Za-z0-9]+)/.exec(url);
+  if (!idM) return null;
+  const html = await fetchEmbed(`https://vibuxer.com/e/${idM[1]}`, referer, {
+    timeout: 8e3,
+    headers: { Referer: "https://hgcloud.to/" }
+  });
+  if (!html) return null;
+  const flat = `${html}
+${_unpackAll(html)}`.replace(/\\\//g, "/");
+  const m3u8 = /((?:https?:)?\/\/[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(flat);
+  if (!m3u8) return null;
+  const streamUrl = m3u8[1].startsWith("//") ? `https:${m3u8[1]}` : m3u8[1];
+  return { url: streamUrl, headers: { Referer: "https://vibuxer.com/" } };
 }
 async function resolveGeneric(url, referer) {
   var _a;
