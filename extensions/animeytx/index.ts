@@ -199,9 +199,14 @@ async function _expandMytsumi(iframeSrc: string, depth = 0): Promise<_Mirror[]> 
   const tabsM = /const\s+videoTabs\s*=\s*(\[[\s\S]*?\]);/.exec(html);
   if (tabsM) {
     try {
-      const tabs = JSON.parse(tabsM[1]) as { tab_name: string; url: string }[];
+      const tabs = JSON.parse(tabsM[1]) as { tab_name: string; url: string; is_mp4?: boolean }[];
+      // OJO: "Mytsumi" se filtraba antes asumiendo que era solo otro wrapper
+      // — confirmado en vivo que en realidad suele ser un .mp4 DIRECTO
+      // (a veces alojado en archive.org, con is_mp4:true), sin ningún gate
+      // ni verificación: el servidor más confiable de todos, no uno para
+      // descartar.
       const parsed = tabs
-        .filter(t => t.url && t.tab_name.toLowerCase() !== 'mytsumi')
+        .filter(t => t.url)
         .map(t => ({ name: t.tab_name, iframeSrc: _absolutize(_stripWs(t.url)) }));
       if (parsed.length > 0) return parsed;
     } catch {}
@@ -263,6 +268,14 @@ export async function watch(url: string): Promise<PrismWatch> {
   const resolved = (
     await Promise.all(
       mirrors.map(async (mirror) => {
+        // Algunos mirrors (confirmado en vivo: "Mytsumi" suele apuntar a un
+        // .mp4 plano en archive.org) YA son la URL final directa — pasarlos
+        // por resolveEmbed sería descargar el video entero solo para buscar
+        // texto ".m3u8"/"file:" adentro de bytes binarios (nunca lo va a
+        // encontrar) y perder tiempo/ancho de banda de más.
+        if (/\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(mirror.iframeSrc)) {
+          return { url: mirror.iframeSrc, quality: mirror.name, ok: true };
+        }
         try {
           const res = await resolveEmbed(mirror.name, mirror.iframeSrc, `${BASE}/`);
           if (res && res.url) {

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeYT
-// @version      1.3.2
+// @version      1.4.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -630,7 +630,7 @@ async function _expandMytsumi(iframeSrc, depth = 0) {
   if (tabsM) {
     try {
       const tabs = JSON.parse(tabsM[1]);
-      const parsed = tabs.filter((t) => t.url && t.tab_name.toLowerCase() !== "mytsumi").map((t) => ({ name: t.tab_name, iframeSrc: _absolutize(_stripWs(t.url)) }));
+      const parsed = tabs.filter((t) => t.url).map((t) => ({ name: t.tab_name, iframeSrc: _absolutize(_stripWs(t.url)) }));
       if (parsed.length > 0) return parsed;
     } catch (e) {
     }
@@ -671,6 +671,9 @@ async function watch(url) {
   }
   const resolved = (await Promise.all(
     mirrors.map(async (mirror) => {
+      if (/\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(mirror.iframeSrc)) {
+        return { url: mirror.iframeSrc, quality: mirror.name, ok: true };
+      }
       try {
         const res = await resolveEmbed(mirror.name, mirror.iframeSrc, `${BASE}/`);
         if (res && res.url) {
