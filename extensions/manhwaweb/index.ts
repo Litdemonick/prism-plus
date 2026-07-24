@@ -232,9 +232,16 @@ export async function detail(id: string): Promise<PrismDetail> {
     })
     .filter((g): g is string => typeof g === 'string');
 
+  // Contenido agregado de otros sitios (ej. mangas.in, _plataforma !=
+  // "manual") trae capítulos "fantasma": el link existe pero `img` viene
+  // vacío — confirmado en vivo (Vinland Saga, 224 capítulos, todos con
+  // img:[]) — y /chapters/see/{id} tira 404 para esos, porque ManhwaWeb
+  // nunca tiene el contenido real, solo la referencia. Los títulos
+  // "manual" sí traen img poblado desde acá. Filtrar por img no vacío
+  // evita ofrecer capítulos que van a fallar al tocarlos.
   const rawChapters = (d['chapters'] as Record<string, unknown>[]) || [];
   const episodes = rawChapters
-    .filter(c => c['link'])
+    .filter(c => c['link'] && Array.isArray(c['img']) && (c['img'] as unknown[]).length > 0)
     .map((c) => {
       const link = c['link'] as string;
       // Extract chapter ID: last non-empty path segment of the link

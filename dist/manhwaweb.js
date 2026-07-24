@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ManhwaWeb
-// @version      1.3.0
+// @version      1.3.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -218,7 +218,7 @@ async function detail(id) {
     return null;
   }).filter((g) => typeof g === "string");
   const rawChapters = d["chapters"] || [];
-  const episodes = rawChapters.filter((c) => c["link"]).map((c) => {
+  const episodes = rawChapters.filter((c) => c["link"] && Array.isArray(c["img"]) && c["img"].length > 0).map((c) => {
     var _a;
     const link = c["link"];
     const chapterId = (_a = link.replace(/\/$/, "").split("/").pop()) != null ? _a : link;
