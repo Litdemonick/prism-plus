@@ -871,9 +871,15 @@ async function _resolveJkInternalPlayer(
     }
 
     // Fallback: URL en texto plano (por si el sitio deja de ofuscarla).
+    // Confirmado en vivo: Magi no usa atob() como Desu — trae la URL directo
+    // en un <source src='...'> HTML normal, sin ningún cifrado. Sin este
+    // patrón, Magi (que apunta al MISMO archivo que Desu en playmudos.com,
+    // igual de confiable) nunca se resolvía.
     const plain =
+      matchFirst(html, /<source\s+src=['"]([^'"]+\.m3u8[^'"]*)['"]/i) ||
       matchFirst(html, /url\s*:\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i) ||
       matchFirst(html, /loadSource\(\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i) ||
+      matchFirst(html, /<source\s+src=['"]([^'"]+\.mp4[^'"]*)['"]/i) ||
       matchFirst(html, /url\s*:\s*['"]([^'"]+\.mp4[^'"]*)['"]/i);
     if (plain) return { url: plain, quality: label, headers: hdrs };
   } catch {}

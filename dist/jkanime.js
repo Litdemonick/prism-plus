@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.9.6
+// @version      1.9.7
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -1126,7 +1126,7 @@ async function _resolveJkInternalPlayer(iframeSrc, referer, label) {
       } catch (e) {
       }
     }
-    const plain = matchFirst(html, /url\s*:\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i) || matchFirst(html, /loadSource\(\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i) || matchFirst(html, /url\s*:\s*['"]([^'"]+\.mp4[^'"]*)['"]/i);
+    const plain = matchFirst(html, /<source\s+src=['"]([^'"]+\.m3u8[^'"]*)['"]/i) || matchFirst(html, /url\s*:\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i) || matchFirst(html, /loadSource\(\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i) || matchFirst(html, /<source\s+src=['"]([^'"]+\.mp4[^'"]*)['"]/i) || matchFirst(html, /url\s*:\s*['"]([^'"]+\.mp4[^'"]*)['"]/i);
     if (plain) return { url: plain, quality: label, headers: hdrs };
   } catch (e) {
   }
