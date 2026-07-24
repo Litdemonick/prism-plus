@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.9.7
+// @version      1.9.8
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -840,10 +840,6 @@ async function detail(url) {
 var _JS_ONLY_HOSTS = [
   "voe.sx",
   "voe.",
-  "streamwish",
-  "sfastwish",
-  "wishfast",
-  "swdyu",
   "vidhide",
   "filelions",
   "filemoon",

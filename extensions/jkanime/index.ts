@@ -435,9 +435,14 @@ type PrismEpisode = { title: string; url: string; number?: number };
 
 // Servidores que solo funcionan con JS en el browser — dio nunca puede extraer su stream.
 // Para estos, saltamos directo al WebView sniffer sin perder tiempo con HTTP scraping.
+// OJO: streamwish/sfastwish/wishfast/swdyu se sacaron de esta lista —
+// confirmado en vivo con curl que _resolveStreamwishDio() (ya existía, con
+// API + fallback de desempaquetado del embed) SÍ funciona: el endpoint de
+// API da 403 de Cloudflare, pero la página del embed en sí no está
+// bloqueada y trae el eval(p,a,c,k) empaquetado con la URL real del m3u8.
+// Esta lista los excluía sin haberlo probado nunca de verdad.
 const _JS_ONLY_HOSTS = [
   'voe.sx', 'voe.',
-  'streamwish', 'sfastwish', 'wishfast', 'swdyu',
   'vidhide', 'filelions',
   'filemoon', 'moonplayer',
   'mixdrop', 'mxdrop',
