@@ -7,6 +7,23 @@
 
 import { request } from './http';
 
+// sendMessage("request", ...) usa el dio de PrismHub (UA/cookies/redirecciones
+// reales de la app) — a diferencia del fetch() global del runtime QuickJS
+// (polyfill de flutter_js sobre http.Client básico) que resolveStreamHg usaba
+// antes. Confirmado en vivo: vibuxer.com cuelga ese fetch() hasta el timeout
+// (15s, dos intentos) para el mismo usuario cuyo navegador real Y cuya propia
+// app (vía sendMessage, usado en el resto de la extensión) sí llegan sin
+// drama — indica un filtro anti-bot que distingue el fetch() del polyfill del
+// resto del tráfico "real" de la app, no un bloqueo del host en sí.
+declare function sendMessage(channel: string, data: string): Promise<string>;
+async function _dioGet(url: string, headers: Record<string, string>): Promise<string | null> {
+  try {
+    return await sendMessage('request', JSON.stringify([url, { method: 'get', headers }]));
+  } catch {
+    return null;
+  }
+}
+
 export interface ResolvedEmbed {
   url: string;
   headers?: Record<string, string>;
@@ -537,15 +554,14 @@ export async function resolveStreamHg(
   const idM = /\/e\/([A-Za-z0-9]+)/.exec(url);
   if (!idM) return null;
 
-  // vibuxer.com respondió rápido (~1.2s) desde el entorno de pruebas, pero un
-  // usuario real reportó un timeout de 8000ms superado — probablemente
-  // variación normal de latencia/ruta hacia este CDN en particular, no un
-  // bloqueo. Se sube el margen y se agrega un reintento antes de asumir lo
-  // peor.
-  const html = await fetchEmbed(`https://vibuxer.com/e/${idM[1]}`, referer, {
-    timeout: 15000,
-    retries: 1,
-    headers: { Referer: 'https://hgcloud.to/' },
+  // Confirmado en vivo: vibuxer.com anda perfecto por el navegador real Y por
+  // la app siguiendo la cadena real del sitio (que usa sendMessage/dio para
+  // TODO su tráfico) — el que se cuelga es específicamente el fetch() del
+  // polyfill que usaban fetchEmbed/resolveGeneric acá. Por eso este resolver,
+  // a diferencia de los demás de este archivo, pide con _dioGet en vez de
+  // fetchEmbed.
+  const html = await _dioGet(`https://vibuxer.com/e/${idM[1]}`, {
+    Referer: 'https://hgcloud.to/',
   });
   if (!html) return null;
 

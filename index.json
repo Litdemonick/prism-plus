@@ -8,7 +8,7 @@
     {
       "name": "AnimeJara",
       "package": "io.prismhub.animejara",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -17,13 +17,13 @@
       "webSite": "https://animejara.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animejara.js",
-      "sha256": "fb35879e10723c0ce9fcd1449ea48c4ccb20d9bd3aaf8c392a23dd63b316cdcd",
-      "signature": "XdthO3hhYVLlfTlgQe5N0zjVHIVq5/SfrGIb0aHDj9jLmi6HvfRC+6PfQqBuGD4ga0ezZIPFomFWe8UH15q9Dw=="
+      "sha256": "b73d93f3bf9a078630a62025a5f02747a422d7436caf92ce605b23bea1b297fb",
+      "signature": "yaqCGhy7iAmt4C74tUHeesZ/hBQq8o1rOvMk+SEbr4wK5cEnCfCgSwQkZPkYfaXAOoJB2qf/7fzx1P1z5fikBQ=="
     },
     {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
-      "version": "1.10.6",
+      "version": "1.10.7",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -32,8 +32,8 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "7c4711bc083a001321b47f05cae122bc65a34d323dce2dfc1a55f5ab8104356b",
-      "signature": "OWLHicV6Quc4A6vq+2rTVMj4DZ7rP5HS9i7vvMiN0y4+DW8fh6yqvSxKhOLxLu4af8smZgv5T2QRdOUsRBE6Dg=="
+      "sha256": "4855c5455181555307ddbc42f85c9c68c841e50974627dce545969ae83784033",
+      "signature": "cKKwrpTljja7L7RlVKvQsnTOmhrms609rkzF7TMmsnWPbZN1Luh4u4Ou7sLePufjzI0nLxv29BHZDvJ0WxdjBw=="
     },
     {
       "name": "ManhwaWeb",

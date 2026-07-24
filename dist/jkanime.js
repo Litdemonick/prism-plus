@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.10.6
+// @version      1.10.7
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -135,6 +135,13 @@ function _sleep(ms) {
 }
 
 // sdk/embeds.ts
+async function _dioGet(url, headers) {
+  try {
+    return await sendMessage("request", JSON.stringify([url, { method: "get", headers }]));
+  } catch (e) {
+    return null;
+  }
+}
 async function resolveEmbed(server, embedUrl, referer) {
   var _a;
   const s = `${server} ${embedUrl}`.toLowerCase();
@@ -413,10 +420,8 @@ async function resolveStreamwish(url, referer) {
 async function resolveStreamHg(url, referer) {
   const idM = /\/e\/([A-Za-z0-9]+)/.exec(url);
   if (!idM) return null;
-  const html = await fetchEmbed(`https://vibuxer.com/e/${idM[1]}`, referer, {
-    timeout: 15e3,
-    retries: 1,
-    headers: { Referer: "https://hgcloud.to/" }
+  const html = await _dioGet(`https://vibuxer.com/e/${idM[1]}`, {
+    Referer: "https://hgcloud.to/"
   });
   if (!html) return null;
   const flat = `${html}
