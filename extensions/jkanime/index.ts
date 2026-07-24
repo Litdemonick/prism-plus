@@ -616,8 +616,17 @@ export async function watch(url: string): Promise<PrismWatch> {
   //    manejan esta conexión puntual, sin herramientas para diagnosticar
   //    más a fondo desde acá. Vuelve a la lista de exclusión.
   //  - Mediafire: a pedido explícito, sacado de la lista.
+  //  - Streamwish/sfastwish/wishfast/swdyu: el resolver SÍ funciona (URL real
+  //    verificada con curl), pero confirmado en vivo con logs de ffmpeg que
+  //    cada resolución cae en un servidor de CDN random (premilkyway.com,
+  //    subdominio distinto cada vez) — a veces el que te toca está roto
+  //    ("End of file" repetido en los segmentos), a veces sano. Demasiado
+  //    inestable para dejarlo habilitado por defecto.
   const isMega = (u: string) => u.indexOf('mega.nz') !== -1 || u.indexOf('mega.co.nz') !== -1;
-  const _CONFIRMED_BROKEN = ['streamtape', 'mp4upload', 'mediafire'];
+  const _CONFIRMED_BROKEN = [
+    'streamtape', 'mp4upload', 'mediafire',
+    'streamwish', 'sfastwish', 'wishfast', 'swdyu',
+  ];
   const usable = resolved.filter(s => {
     const uLow = s.url.toLowerCase();
     return !isMega(uLow) &&
