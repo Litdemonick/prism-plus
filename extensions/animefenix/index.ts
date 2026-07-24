@@ -222,7 +222,14 @@ export async function detail(url: string): Promise<PrismDetail> {
 // resolveEmbed). sdk/embeds.ts ya descarta esa URL si CUALQUIER resolver
 // termina ahí, pero eso solo evita el cuelgue de 20s al clickear — el botón
 // no debería ni aparecer, ya que sabemos que nunca va a andar.
-const _NEVER_NATIVE = new Set(['savefiles', 'streamtape', 'premiunvip', 'streamwish']);
+//
+// Mp4upload: descartado a pedido del usuario — confirmado en la app real que
+// su servidor (a3.mp4upload.com, puerto 183) tiene ancho de banda
+// inconsistente para su conexión (a veces carga, después se traba y
+// rebufferea todo el tiempo). El servidor en sí funciona bien (headers,
+// soporte de rangos y velocidad de descarga verificados en vivo), es la ruta
+// de red hacia ese host puntual la que no es confiable.
+const _NEVER_NATIVE = new Set(['savefiles', 'streamtape', 'premiunvip', 'streamwish', 'mp4upload']);
 
 // El mirror uqload.is que usa este sitio (a diferencia de uqload.com, que sí
 // funciona en otras extensiones del repo) usa el MISMO formulario-gate POST
