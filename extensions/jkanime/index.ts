@@ -653,16 +653,22 @@ async function _resolveEmbedDio(
     // sin cifrar — mismo patrón que Mytsumi en animeytx.
     try {
       const html = await _get(url, { Referer: referer });
+      console.log(`[mp4upload] fetched ${html?.length ?? 0} chars`);
       const candidates = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g) ?? [];
+      console.log(`[mp4upload] candidates: ${candidates.length}`);
       const real = candidates.find(c => !/\.(?:css|js|jpg|png)/.test(c));
       if (real) {
+        console.log(`[mp4upload] resolved: ${real.slice(0, 60)}`);
         return {
           url: real,
           quality: label,
           headers: { Referer: 'https://www.mp4upload.com/' },
         };
       }
-    } catch {}
+      console.log('[mp4upload] no direct mp4 found in page');
+    } catch (e) {
+      console.log(`[mp4upload] _get() threw: ${(e as Error)?.message ?? e}`);
+    }
     return null;
   }
   // Genérico con SDK

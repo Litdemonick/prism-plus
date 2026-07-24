@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.9.3
+// @version      1.9.4
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -958,7 +958,7 @@ async function watch(url) {
   return { streams, pageUrl: episodeUrl };
 }
 async function _resolveEmbedDio(name, url, referer) {
-  var _a;
+  var _a, _b, _c;
   const label = name;
   const u = url.toLowerCase();
   if (u.indexOf("voe") !== -1) return _resolveVoeDio(url, label);
@@ -967,16 +967,21 @@ async function _resolveEmbedDio(name, url, referer) {
   if (u.indexOf("mp4upload") !== -1) {
     try {
       const html = await _get(url, { Referer: referer });
-      const candidates = (_a = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g)) != null ? _a : [];
+      console.log(`[mp4upload] fetched ${(_a = html == null ? void 0 : html.length) != null ? _a : 0} chars`);
+      const candidates = (_b = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g)) != null ? _b : [];
+      console.log(`[mp4upload] candidates: ${candidates.length}`);
       const real = candidates.find((c) => !/\.(?:css|js|jpg|png)/.test(c));
       if (real) {
+        console.log(`[mp4upload] resolved: ${real.slice(0, 60)}`);
         return {
           url: real,
           quality: label,
           headers: { Referer: "https://www.mp4upload.com/" }
         };
       }
+      console.log("[mp4upload] no direct mp4 found in page");
     } catch (e) {
+      console.log(`[mp4upload] _get() threw: ${(_c = e == null ? void 0 : e.message) != null ? _c : e}`);
     }
     return null;
   }
