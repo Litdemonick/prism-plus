@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.9.2
+// @version      1.9.3
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -958,6 +958,7 @@ async function watch(url) {
   return { streams, pageUrl: episodeUrl };
 }
 async function _resolveEmbedDio(name, url, referer) {
+  var _a;
   const label = name;
   const u = url.toLowerCase();
   if (u.indexOf("voe") !== -1) return _resolveVoeDio(url, label);
@@ -965,8 +966,16 @@ async function _resolveEmbedDio(name, url, referer) {
   if (u.indexOf("streamwish") !== -1 || u.indexOf("sfastwish") !== -1 || u.indexOf("wishfast") !== -1 || u.indexOf("vidhide") !== -1) return _resolveStreamwishDio(url, label);
   if (u.indexOf("mp4upload") !== -1) {
     try {
-      const res = await resolveEmbed("Mp4Upload", url, referer);
-      if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
+      const html = await _get(url, { Referer: referer });
+      const candidates = (_a = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g)) != null ? _a : [];
+      const real = candidates.find((c) => !/\.(?:css|js|jpg|png)/.test(c));
+      if (real) {
+        return {
+          url: real,
+          quality: label,
+          headers: { Referer: "https://www.mp4upload.com/" }
+        };
+      }
     } catch (e) {
     }
     return null;

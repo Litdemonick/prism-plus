@@ -643,9 +643,25 @@ async function _resolveEmbedDio(
   if (u.indexOf('streamwish') !== -1 || u.indexOf('sfastwish') !== -1 ||
       u.indexOf('wishfast') !== -1 || u.indexOf('vidhide') !== -1) return _resolveStreamwishDio(url, label);
   if (u.indexOf('mp4upload') !== -1) {
+    // _get() (sendMessage/dio) en vez de resolveEmbed/fetchEmbed (flutter_js
+    // fetch): confirmado en vivo que esta página mete varios scripts de ads
+    // (milkdelirious.com, slavirappels.com, ...) que probablemente traen
+    // bytes inválidos como UTF-8 — el fetch de flutter_js revienta con
+    // FormatException y el catch de abajo lo tragaba en silencio, dejando
+    // media_kit intentando reproducir la página HTML cruda en vez del mp4
+    // real. La URL ya viene en texto plano en `player.src({ src: "..." })`,
+    // sin cifrar — mismo patrón que Mytsumi en animeytx.
     try {
-      const res = await resolveEmbed('Mp4Upload', url, referer);
-      if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
+      const html = await _get(url, { Referer: referer });
+      const candidates = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g) ?? [];
+      const real = candidates.find(c => !/\.(?:css|js|jpg|png)/.test(c));
+      if (real) {
+        return {
+          url: real,
+          quality: label,
+          headers: { Referer: 'https://www.mp4upload.com/' },
+        };
+      }
     } catch {}
     return null;
   }
