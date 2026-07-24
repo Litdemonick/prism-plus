@@ -243,6 +243,37 @@ function _isDirectMedia(u: string): boolean {
   return /\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(u);
 }
 
+// mytsumi.com/multiplayer/play*/player.php — pese al nombre "cifrado" del
+// parámetro ?data=, la página YA trae la URL real sin ofuscar dentro de un
+// <script>: const qualities = {"1080p":"https://archive.org/..."}. No hace
+// falta descifrar nada. Lo que sí rompía esto antes era resolveEmbed(): usa
+// el fetch de flutter_js, que decodifica la respuesta como UTF-8 estricto —
+// y este PHP en particular sirve sus tildes/ñ con bytes inválidos como UTF-8
+// (aunque el header diga charset=UTF-8, confirmado con curl a nivel de
+// bytes), lo que tira FormatException y nunca llega a leer el HTML. _get()
+// (el mismo fetch vía sendMessage que usa el resto del archivo) sí lo tolera.
+function _isMytsumiPlayerPage(u: string): boolean {
+  return u.indexOf('mytsumi.com') !== -1 && u.indexOf('player.php') !== -1;
+}
+
+async function _resolveMytsumiPlayerPage(url: string): Promise<PrismStream | null> {
+  try {
+    const html = await _get(url);
+    const m = /const\s+qualities\s*=\s*(\{[\s\S]*?\});/.exec(html);
+    if (!m) return null;
+    const qualities = JSON.parse(m[1]) as Record<string, string>;
+    const keys = Object.keys(qualities);
+    if (keys.length === 0) return null;
+    // Preferir la de mayor resolución (1080p > 720p > ...); si el nombre no
+    // trae número, cualquiera sirve igual (es un solo servidor, no hay
+    // selector de calidad real en la mayoría de los casos).
+    keys.sort((a, b) => (parseInt(b, 10) || 0) - (parseInt(a, 10) || 0));
+    return { url: qualities[keys[0]], quality: 'Servidor' };
+  } catch {
+    return null;
+  }
+}
+
 export async function watch(url: string): Promise<PrismWatch> {
   // Fast-path: URL de embed externo (switchServer pidiendo resolver UN
   // servidor puntual, el que el usuario eligió a mano) — no una URL de
@@ -252,6 +283,12 @@ export async function watch(url: string): Promise<PrismWatch> {
   if (url.indexOf('http') === 0 && url.indexOf('animeytx.net') === -1) {
     if (_isDirectMedia(url)) {
       return { streams: [{ url, quality: 'Servidor' }], pageUrl: '' };
+    }
+    if (_isMytsumiPlayerPage(url)) {
+      const resolved = await _resolveMytsumiPlayerPage(url);
+      if (resolved) return { streams: [resolved], pageUrl: '' };
+      // No se encontró "qualities" (estructura distinta) — seguir con el
+      // flujo normal de abajo en vez de rendirse acá.
     }
     try {
       const res = await resolveEmbed('Servidor', url, `${BASE}/`);

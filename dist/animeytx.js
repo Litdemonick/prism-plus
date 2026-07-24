@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeYT
-// @version      1.5.0
+// @version      1.6.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -641,10 +641,31 @@ async function _expandMytsumi(iframeSrc, depth = 0) {
 function _isDirectMedia(u) {
   return /\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(u);
 }
+function _isMytsumiPlayerPage(u) {
+  return u.indexOf("mytsumi.com") !== -1 && u.indexOf("player.php") !== -1;
+}
+async function _resolveMytsumiPlayerPage(url) {
+  try {
+    const html = await _get(url);
+    const m = /const\s+qualities\s*=\s*(\{[\s\S]*?\});/.exec(html);
+    if (!m) return null;
+    const qualities = JSON.parse(m[1]);
+    const keys = Object.keys(qualities);
+    if (keys.length === 0) return null;
+    keys.sort((a, b) => (parseInt(b, 10) || 0) - (parseInt(a, 10) || 0));
+    return { url: qualities[keys[0]], quality: "Servidor" };
+  } catch (e) {
+    return null;
+  }
+}
 async function watch(url) {
   if (url.indexOf("http") === 0 && url.indexOf("animeytx.net") === -1) {
     if (_isDirectMedia(url)) {
       return { streams: [{ url, quality: "Servidor" }], pageUrl: "" };
+    }
+    if (_isMytsumiPlayerPage(url)) {
+      const resolved = await _resolveMytsumiPlayerPage(url);
+      if (resolved) return { streams: [resolved], pageUrl: "" };
     }
     try {
       const res = await resolveEmbed("Servidor", url, `${BASE}/`);
