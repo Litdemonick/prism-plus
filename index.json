@@ -8,7 +8,7 @@
     {
       "name": "AnimeYT",
       "package": "io.prismhub.animeytx",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -17,8 +17,8 @@
       "webSite": "https://wwv.animeytx.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animeytx.js",
-      "sha256": "592e98f9bb3a8126889c22aaa813a1346ed0303505e652889b5d1a4fae8d92c7",
-      "signature": "xvOwF77LC9YxtVH9isxaOS5+K0gSWJHF7Ln3ZgbUOOk56bXF4kgaI6ifPQROc955JCtVLMEmizPswL15KUeiDg=="
+      "sha256": "3b97f3830c9ac75c7e5edb3209da25f074d7b876c3b41360686d94f1b1443b44",
+      "signature": "mxk8ct7ih15SL9IebIdZq1WQhOisA8jxypDKig8D/dwHJYRzzfdRX4dE0NsSoRmU4JfmLlk0BJJY8h9+p1sKAw=="
     },
     {
       "name": "JKAnime",

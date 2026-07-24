@@ -1,6 +1,6 @@
 import { matchFirst, matchGroups, stripTags, decodeEntities } from '../../sdk/html';
 import { resolveEmbed } from '../../sdk/embeds';
-import type { PrismDetail, PrismItem, PrismWatch, PrismEpisode } from '../../sdk/types';
+import type { PrismDetail, PrismItem, PrismWatch, PrismEpisode, PrismStream } from '../../sdk/types';
 
 // sendMessage("request", ...) usa el dio de PrismHub (con UA, cookies y redirecciones),
 // a diferencia de fetch() que usa http.Client básico.
@@ -238,7 +238,32 @@ async function _expandMytsumi(iframeSrc: string, depth = 0): Promise<_Mirror[]> 
   return [{ name: fallbackName.charAt(0).toUpperCase() + fallbackName.slice(1), iframeSrc }];
 }
 
+// ¿Ya es una URL de media reproducible tal cual (sin resolver nada)?
+function _isDirectMedia(u: string): boolean {
+  return /\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(u);
+}
+
 export async function watch(url: string): Promise<PrismWatch> {
+  // Fast-path: URL de embed externo (switchServer pidiendo resolver UN
+  // servidor puntual, el que el usuario eligió a mano) — no una URL de
+  // episodio. Mismo patrón que ya usa jkanime. Esto es lo que permite NO
+  // resolver los 5-6 servidores de un capítulo de una: cada uno se resuelve
+  // recién acá, on-demand, cuando el usuario lo elige.
+  if (url.indexOf('http') === 0 && url.indexOf('animeytx.net') === -1) {
+    if (_isDirectMedia(url)) {
+      return { streams: [{ url, quality: 'Servidor' }], pageUrl: '' };
+    }
+    try {
+      const res = await resolveEmbed('Servidor', url, `${BASE}/`);
+      if (res && res.url) {
+        return { streams: [{ url: res.url, quality: 'Servidor', headers: res.headers }], pageUrl: '' };
+      }
+    } catch {}
+    // No se pudo resolver — devolver la URL cruda: el intento nativo falla
+    // limpio y la app ofrece "ir al navegador" (ver switchServer en la app).
+    return { streams: [{ url, quality: 'Servidor' }], pageUrl: '' };
+  }
+
   const episodeUrl = url.indexOf('http') === 0 ? url : `${BASE}/${url}/`;
   const html = await _get(episodeUrl);
 
@@ -252,10 +277,9 @@ export async function watch(url: string): Promise<PrismWatch> {
     if (defaultM) rawMirrors = [{ name: 'Default', iframeSrc: _absolutize(decodeEntities(_stripWs(defaultM[1]))) }];
   }
 
-  // Expandir wrappers "mytsumi" a sus servidores reales (Moon, Mega, OK...);
-  // los demás mirrors (Mega, Netu, etc. directos del <select>) se dejan igual.
-  // Cualquier URL de mytsumi.com se intenta expandir — _expandMytsumi ya
-  // resuelve sola cuál de sus variantes es (ver comentario ahí arriba).
+  // Expandir wrappers "mytsumi" a sus servidores reales (Moon, Mytsumi, Mega,
+  // OK...) — esto es solo DESCUBRIR la lista (1-2 pedidos a mytsumi.com para
+  // leer su array de servidores), no resolverlos.
   const mirrors: _Mirror[] = [];
   for (const m of rawMirrors) {
     if (m.iframeSrc.indexOf('mytsumi.com') !== -1) {
@@ -265,47 +289,22 @@ export async function watch(url: string): Promise<PrismWatch> {
     mirrors.push(m);
   }
 
-  const resolved = (
-    await Promise.all(
-      mirrors.map(async (mirror) => {
-        // Algunos mirrors (confirmado en vivo: "Mytsumi" suele apuntar a un
-        // .mp4 plano en archive.org) YA son la URL final directa — pasarlos
-        // por resolveEmbed sería descargar el video entero solo para buscar
-        // texto ".m3u8"/"file:" adentro de bytes binarios (nunca lo va a
-        // encontrar) y perder tiempo/ancho de banda de más.
-        if (/\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(mirror.iframeSrc)) {
-          return { url: mirror.iframeSrc, quality: mirror.name, ok: true };
-        }
-        try {
-          const res = await resolveEmbed(mirror.name, mirror.iframeSrc, `${BASE}/`);
-          if (res && res.url) {
-            return { url: res.url, quality: mirror.name, headers: res.headers, ok: true };
-          }
-        } catch {}
-        // Sin resolver nativo (o el resolver no encontró nada) — dejar la URL
-        // cruda del embed para que el WebView sniffer de PrismHub la intente
-        // igual. Casi nunca reproduce sola (ej. Moon pasó a ser un frontend
-        // SPA propio que ya no se puede scrapear con regex), así que se marca
-        // ok:false para no priorizarla sobre una que sí se resolvió de verdad.
-        return { url: mirror.iframeSrc, quality: mirror.name, ok: false };
-      }),
-    )
-  ).filter((s): s is NonNullable<typeof s> => s !== null);
+  // Ningún resolveEmbed acá — antes se resolvían los 5-6 mirrors en paralelo
+  // apenas se abría el capítulo (varios segundos de espera para servidores
+  // que ni siquiera se iban a usar). Ahora solo se detecta cuál YA es una
+  // URL de media directa (ej. Mytsumi, casi siempre un .mp4 de archive.org)
+  // sin ningún pedido de red — los demás quedan crudos, sin resolver, y
+  // recién se resuelven cuando el usuario elige ESE servidor puntual (cae en
+  // el fast-path de arriba).
+  const streams: PrismStream[] = mirrors.map(m => ({ url: m.iframeSrc, quality: m.name }));
 
-  // Primero los mirrors resueltos a una URL directa (m3u8/mp4) — antes se
-  // forzaba "Moon" siempre primero sin importar si en verdad se pudo
-  // resolver, lo que rompía la reproducción apenas Moon cambiaba de motor
-  // (confirmado en vivo: su nuevo frontend es una SPA sin nada scrapeable).
-  // Entre los resueltos, Moon sigue siendo la preferencia del usuario.
-  resolved.sort((a, b) => {
-    if (a.ok !== b.ok) return a.ok ? -1 : 1;
-    // El nombre puede venir prefijado con el idioma (ej. "Latino Moon"), así
-    // que se busca "moon" como substring, no como nombre exacto.
-    const aMoon = (a.quality || '').toLowerCase().includes('moon') ? 0 : 1;
-    const bMoon = (b.quality || '').toLowerCase().includes('moon') ? 0 : 1;
-    return aMoon - bMoon;
+  // Los ya-directos van primero (candidato natural para arrancar sin más
+  // trámite en cuanto el usuario lo elija).
+  streams.sort((a, b) => {
+    const aDirect = _isDirectMedia(a.url) ? 0 : 1;
+    const bDirect = _isDirectMedia(b.url) ? 0 : 1;
+    return aDirect - bDirect;
   });
 
-  const streams = resolved.map(({ ok: _ok, ...s }) => s);
   return { streams, pageUrl: episodeUrl };
 }

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeYT
-// @version      1.4.0
+// @version      1.5.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -24,18 +24,6 @@ var __spreadValues = (a, b) => {
         __defNormalProp(a, prop, b[prop]);
     }
   return a;
-};
-var __objRest = (source, exclude) => {
-  var target = {};
-  for (var prop in source)
-    if (__hasOwnProp.call(source, prop) && exclude.indexOf(prop) < 0)
-      target[prop] = source[prop];
-  if (source != null && __getOwnPropSymbols)
-    for (var prop of __getOwnPropSymbols(source)) {
-      if (exclude.indexOf(prop) < 0 && __propIsEnum.call(source, prop))
-        target[prop] = source[prop];
-    }
-  return target;
 };
 
 // sdk/html.ts
@@ -650,7 +638,23 @@ async function _expandMytsumi(iframeSrc, depth = 0) {
   }
   return [{ name: fallbackName.charAt(0).toUpperCase() + fallbackName.slice(1), iframeSrc }];
 }
+function _isDirectMedia(u) {
+  return /\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(u);
+}
 async function watch(url) {
+  if (url.indexOf("http") === 0 && url.indexOf("animeytx.net") === -1) {
+    if (_isDirectMedia(url)) {
+      return { streams: [{ url, quality: "Servidor" }], pageUrl: "" };
+    }
+    try {
+      const res = await resolveEmbed("Servidor", url, `${BASE}/`);
+      if (res && res.url) {
+        return { streams: [{ url: res.url, quality: "Servidor", headers: res.headers }], pageUrl: "" };
+      }
+    } catch (e) {
+    }
+    return { streams: [{ url, quality: "Servidor" }], pageUrl: "" };
+  }
   const episodeUrl = url.indexOf("http") === 0 ? url : `${BASE}/${url}/`;
   const html = await _get(episodeUrl);
   let rawMirrors = _parseMirrors(html);
@@ -669,30 +673,11 @@ async function watch(url) {
     }
     mirrors.push(m);
   }
-  const resolved = (await Promise.all(
-    mirrors.map(async (mirror) => {
-      if (/\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(mirror.iframeSrc)) {
-        return { url: mirror.iframeSrc, quality: mirror.name, ok: true };
-      }
-      try {
-        const res = await resolveEmbed(mirror.name, mirror.iframeSrc, `${BASE}/`);
-        if (res && res.url) {
-          return { url: res.url, quality: mirror.name, headers: res.headers, ok: true };
-        }
-      } catch (e) {
-      }
-      return { url: mirror.iframeSrc, quality: mirror.name, ok: false };
-    })
-  )).filter((s) => s !== null);
-  resolved.sort((a, b) => {
-    if (a.ok !== b.ok) return a.ok ? -1 : 1;
-    const aMoon = (a.quality || "").toLowerCase().includes("moon") ? 0 : 1;
-    const bMoon = (b.quality || "").toLowerCase().includes("moon") ? 0 : 1;
-    return aMoon - bMoon;
-  });
-  const streams = resolved.map((_a) => {
-    var _b = _a, { ok: _ok } = _b, s = __objRest(_b, ["ok"]);
-    return s;
+  const streams = mirrors.map((m) => ({ url: m.iframeSrc, quality: m.name }));
+  streams.sort((a, b) => {
+    const aDirect = _isDirectMedia(a.url) ? 0 : 1;
+    const bDirect = _isDirectMedia(b.url) ? 0 : 1;
+    return aDirect - bDirect;
   });
   return { streams, pageUrl: episodeUrl };
 }
