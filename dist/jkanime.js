@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.8.0
+// @version      1.8.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -536,6 +536,7 @@ function _directorioQuery(page, filter) {
   add("estado");
   add("letra");
   add("fecha");
+  add("temporada");
   return parts.join("&");
 }
 async function latest(page, filter) {
@@ -688,13 +689,32 @@ async function createFilter() {
     },
     fecha: {
       title: "A\xF1o",
-      options: __spreadValues({ "": "Todos" }, _TOP_YEARS.reduce((acc, y) => __spreadProps(__spreadValues({}, acc), { [y]: y }), {})),
+      options: __spreadValues({ "": "Todos" }, _DIRECTORIO_YEARS.reduce((acc, y) => __spreadProps(__spreadValues({}, acc), { [y]: y }), {})),
+      default: "",
+      min: 1,
+      max: 1
+    },
+    // Ojo: los valores reales del <select name="temporada"> de /directorio
+    // van en minúscula (invierno/primavera/verano/otoño) — confirmado en
+    // vivo que "Invierno" (mayúscula, como usa /top más abajo) es IGNORADO
+    // silenciosamente por este endpoint (misma cantidad de resultados que
+    // sin filtro), mientras que "invierno" sí filtra correctamente.
+    temporada: {
+      title: "Temporada",
+      options: {
+        "": "Todas",
+        invierno: "Invierno",
+        primavera: "Primavera",
+        verano: "Verano",
+        "oto\xF1o": "Oto\xF1o"
+      },
       default: "",
       min: 1,
       max: 1
     }
   };
 }
+var _DIRECTORIO_YEARS = Array.from({ length: 2026 - 1981 + 1 }, (_, i) => String(2026 - i));
 var _TOP_YEARS = Array.from({ length: 2026 - 2e3 + 1 }, (_, i) => String(2026 - i));
 async function createTopFilter() {
   return {

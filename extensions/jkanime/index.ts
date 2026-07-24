@@ -97,6 +97,7 @@ function _directorioQuery(page: number, filter?: Record<string, string[]>): stri
   add('estado');
   add('letra');
   add('fecha');
+  add('temporada');
   return parts.join('&');
 }
 
@@ -240,7 +241,25 @@ export async function createFilter(): Promise<Record<string, unknown>> {
     },
     fecha: {
       title: 'Año',
-      options: { '': 'Todos', ..._TOP_YEARS.reduce((acc, y) => ({ ...acc, [y]: y }), {}) },
+      options: { '': 'Todos', ..._DIRECTORIO_YEARS.reduce((acc, y) => ({ ...acc, [y]: y }), {}) },
+      default: '',
+      min: 1,
+      max: 1,
+    },
+    // Ojo: los valores reales del <select name="temporada"> de /directorio
+    // van en minúscula (invierno/primavera/verano/otoño) — confirmado en
+    // vivo que "Invierno" (mayúscula, como usa /top más abajo) es IGNORADO
+    // silenciosamente por este endpoint (misma cantidad de resultados que
+    // sin filtro), mientras que "invierno" sí filtra correctamente.
+    temporada: {
+      title: 'Temporada',
+      options: {
+        '': 'Todas',
+        invierno: 'Invierno',
+        primavera: 'Primavera',
+        verano: 'Verano',
+        'otoño': 'Otoño',
+      },
       default: '',
       min: 1,
       max: 1,
@@ -248,9 +267,16 @@ export async function createFilter(): Promise<Record<string, unknown>> {
   };
 }
 
+// <select name="fecha"> real de /directorio confirmado en vivo: 2026 hasta
+// 1981 (no 2000 — un tope inventado que se había puesto por error acá).
+const _DIRECTORIO_YEARS = Array.from({ length: 2026 - 1981 + 1 }, (_, i) => String(2026 - i));
+
 // ─── Top animes (/top) — filtros reales confirmados en vivo: form GET con
 // selects temporada (Primavera/Verano/Otoño/Invierno/"" = Top general) y
-// fecha (año 2000-2026). Ambos combinables en la misma URL.
+// fecha (año 2000-2026). Ambos combinables en la misma URL. Nota: /top usa
+// temporada en MAYÚSCULA — es un endpoint distinto de /directorio con su
+// propio casing, no unificar los dos _YEARS/temporada sin volver a probar
+// en vivo cada uno por separado.
 const _TOP_YEARS = Array.from({ length: 2026 - 2000 + 1 }, (_, i) => String(2026 - i));
 
 export async function createTopFilter(): Promise<Record<string, unknown>> {
