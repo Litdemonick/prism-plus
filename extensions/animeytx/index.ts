@@ -326,22 +326,29 @@ export async function watch(url: string): Promise<PrismWatch> {
     mirrors.push(m);
   }
 
-  // Se sacan de la lista los mirrors que no son servidores de video reales:
-  //  - Abyss: confirmado en vivo que su propio script "fuckadblock" se niega
-  //    a inicializar el reproductor si detecta un WebView/sandbox (el
-  //    mensaje literal en su HTML lo dice: "Due to certain reasons
-  //    (AdBlock/Sandbox), ads are not being displayed, which prevents the
-  //    player from functioning") — no hay forma de reproducirlo ni nativo ni
-  //    en el WebView de la app.
+  // A pedido explícito: solo ofrecer servidores con chance real de andar
+  // NATIVO en la app — nada de WebView como plan A. Se sacan los que ya
+  // confirmamos en vivo que NUNCA pueden ser nativos (ni resolverse por
+  // scraping):
+  //  - Moon (bysesukior.com): app JS completa (React), sin ningún dato de
+  //    video en el HTML estático — todo se arma recién cuando el navegador
+  //    ejecuta el JS.
+  //  - Epsilon (ytplay.rpmvid.com): misma historia, otra SPA propia.
+  //  - Mega: cifrado 100% client-side, sin URL interceptable.
+  //  - Abyss: su propio script "fuckadblock" se niega a inicializar el
+  //    reproductor si detecta un WebView/sandbox (mensaje literal en su
+  //    HTML: "Due to certain reasons (AdBlock/Sandbox), ads are not being
+  //    displayed, which prevents the player from functioning").
   //  - "Servidor": nombre genérico que _parseMirrors() usa cuando el
   //    <option> del sitio viene sin texto — confirmado en vivo que ese
-  //    mirror en particular no es un video, es una pantalla de "contenido
-  //    VIP" pidiendo suscribirse. No es un servidor real, es ruido del
-  //    propio selector del sitio.
-  const usableMirrors = mirrors.filter(m => {
-    const n = m.name.toLowerCase();
-    return n !== 'abyss' && n !== 'servidor';
-  });
+  //    mirror no es un video, es una pantalla de "contenido VIP".
+  // Quedan: Mytsumi (URL real en texto plano, ver
+  // _resolveMytsumiPlayerPage), OK (resolveOkru extrae el hlsManifestUrl
+  // real cuando el video no está borrado), y cualquier mirror de un host
+  // con resolver propio en el SDK (Voe, Streamtape, Mixdrop, mp4upload,
+  // Streamwish y su familia) — esos si tienen chance real de nativo.
+  const _NEVER_NATIVE = new Set(['moon', 'epsilon', 'mega', 'abyss', 'servidor']);
+  const usableMirrors = mirrors.filter(m => !_NEVER_NATIVE.has(m.name.toLowerCase()));
 
   // Ningún resolveEmbed acá — antes se resolvían los 5-6 mirrors en paralelo
   // apenas se abría el capítulo (varios segundos de espera para servidores
