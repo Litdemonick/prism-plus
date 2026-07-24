@@ -292,18 +292,22 @@ function matchFirstCover(html: string): string | undefined {
 //    diferencia de uqload/mp4upload, que sí resuelven cuando el archivo
 //    subido existe — acá directamente no hay nada que extraer con el
 //    formato actual de este sitio).
-// El resto (vidhide→filelions, uqload, streamtape, mp4upload, mixdrop,
-// lulustream→luluvdo) usa resolvers ya existentes del SDK compartido —
-// confirmados en vivo resolviendo a streams reales cuando el archivo
-// subido sigue disponible (algunos hosts individuales a veces tienen el
-// archivo borrado/caído — es variación normal de sitios con espejos
-// múltiples, no motivo para descartar el host entero). Vidhide y Streamtape
-// dieron error de red/404 consistente desde este entorno de prueba
-// (típico bloqueo por IP de datacenter que estos hosts aplican) — no se
-// pudo confirmar 100% desde acá, pero tampoco hay evidencia de que
-// necesiten WebView; quedan activos a la espera de confirmación real en
-// la app (IP residencial, no debería toparse con ese bloqueo).
-const _NEVER_NATIVE = new Set(['streamhg', 'savefiles', 'filemoon', 'netu']);
+//  - vidhide (filelions.top): confirmado en la app real (no solo en el
+//    entorno de prueba) — el propio handshake TLS lo rechaza
+//    (TLSV1_ALERT_ACCESS_DENIED). Es un rechazo a nivel de protocolo, antes
+//    de llegar siquiera a pedir el HTML — no hay nada que un resolver
+//    pueda hacer contra eso.
+//  - streamtape: confirmado en la app real que falla siempre al abrir
+//    (resolver da NULL, media_kit no puede abrir la URL cruda tampoco) —
+//    coincide con el 404 consistente ya visto desde el entorno de prueba,
+//    con distintos user-agents y sin referer. No es mala suerte puntual.
+// Quedan uqload y mp4upload (y mixdrop/lulustream si el sitio los lista) —
+// confirmados resolviendo a streams reales cuando el archivo subido existe.
+// A veces un capítulo puntual falla (archivo caído/lento) — es variación
+// normal de sitios con espejos múltiples, no motivo para descartar el host.
+const _NEVER_NATIVE = new Set([
+  'streamhg', 'savefiles', 'filemoon', 'netu', 'vidhide', 'streamtape',
+]);
 
 export async function watch(url: string): Promise<PrismWatch> {
   // Fast-path: embed externo (switchServer pidiendo resolver UN servidor

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeJara
-// @version      1.0.2
+// @version      1.0.3
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -676,7 +676,14 @@ function matchFirstCover(html) {
   const m = /property="og:image:secure_url"\s+content="([^"]+)"/i.exec(html);
   return m && m[1] ? m[1] : void 0;
 }
-var _NEVER_NATIVE = /* @__PURE__ */ new Set(["streamhg", "savefiles", "filemoon", "netu"]);
+var _NEVER_NATIVE = /* @__PURE__ */ new Set([
+  "streamhg",
+  "savefiles",
+  "filemoon",
+  "netu",
+  "vidhide",
+  "streamtape"
+]);
 async function watch(url) {
   if (url.indexOf("http") === 0 && url.indexOf("animejara.com") === -1) {
     try {
