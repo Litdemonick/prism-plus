@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.9.5
+// @version      1.9.6
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -947,7 +947,7 @@ async function watch(url) {
   servers.sort((a, b) => (a.lang || 0) - (b.lang || 0));
   const resolved = servers.map((s) => _rawServerStream(s)).filter((s) => s !== null);
   const isMega = (u) => u.indexOf("mega.nz") !== -1 || u.indexOf("mega.co.nz") !== -1;
-  const _CONFIRMED_BROKEN = ["streamtape"];
+  const _CONFIRMED_BROKEN = ["streamtape", "mp4upload"];
   const usable = resolved.filter((s) => {
     const uLow = s.url.toLowerCase();
     return !isMega(uLow) && !_JS_ONLY_HOSTS.some((h) => uLow.indexOf(h) !== -1) && !_CONFIRMED_BROKEN.some((h) => uLow.indexOf(h) !== -1);
