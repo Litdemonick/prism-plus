@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.10.2
+// @version      1.10.3
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -1389,8 +1389,17 @@ function _parseCards(html) {
 // en vivo: rompía mp4upload por completo, ni siquiera llegaba a llamar
 // watch() de la extensión). Exigir que la extensión esté al FINAL del path
 // (antes de ?query o #fragment).
+// Segundo caso confirmado en vivo (animeytx, host burstcloud.co): la
+// extensión SÍ está al final del path ("/embed/<hash>/Nombre.mp4") pero es
+// la página embed (HTML, jwplayer), no el archivo — el nombre real del
+// archivo subido se refleja en la URL de la página. Un "/embed/" real no
+// necesita servir el archivo así, así que cualquier URL con ese segmento se
+// trata como página, no como media directa, dejando que la extensión (que
+// sí sabe resolverla) se ocupe.
 function _isDirectMediaUrl(u) {
-  return typeof u === 'string' && /\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(u);
+  if (typeof u !== 'string') return false;
+  if (/\/embed\//i.test(u)) return false;
+  return /\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(u);
 }
 function _mediaType(u) {
   return /\.mp4(\?|#|$)/i.test(u) ? 'mp4' : 'hls';
