@@ -23,7 +23,7 @@
     {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
-      "version": "1.9.0",
+      "version": "1.9.1",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -32,8 +32,8 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "38c16d288bf70ffcb724f6d77b10da9cb60c565442d9b9379585da39cca83d8e",
-      "signature": "KOSV7jCeWrWdiWuw3wUDUT0CMJCLep4lUg72sZd2nzWAd5vI2j0qS8Hxd+3hwG/DnN4Ac97kOITs6vP1etscDw=="
+      "sha256": "2c69073c3692c8143351c4818c907bac3baebd4a103afc465077434026c64390",
+      "signature": "18irKjOfRx4k7YLzVNFlrreU2iOoNNxLqVeT6AejwwFGoi8IaAozt+lVkukHvj710R3VQUu0/ifz2Tx36wz0Bg=="
     },
     {
       "name": "ManhwaWeb",

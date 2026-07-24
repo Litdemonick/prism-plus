@@ -598,10 +598,16 @@ export async function watch(url: string): Promise<PrismWatch> {
   //    de "audio sí, video en negro" (agarra la URL de red equivocada,
   //    probablemente solo la del audio) — no un problema de decodificación,
   //    sino de estar resolviendo mal el servidor desde el vamos.
+  //  - Streamtape y Mp4upload: confirmado en vivo (probado en la app real)
+  //    que tampoco reproducen nativo pese a tener resolver propio — quedan
+  //    solo Desu, Magi y Doodstream, los únicos verificados de punta a punta.
   const isMega = (u: string) => u.indexOf('mega.nz') !== -1 || u.indexOf('mega.co.nz') !== -1;
+  const _CONFIRMED_BROKEN = ['streamtape', 'mp4upload'];
   const usable = resolved.filter(s => {
     const uLow = s.url.toLowerCase();
-    return !isMega(uLow) && !_JS_ONLY_HOSTS.some(h => uLow.indexOf(h) !== -1);
+    return !isMega(uLow) &&
+      !_JS_ONLY_HOSTS.some(h => uLow.indexOf(h) !== -1) &&
+      !_CONFIRMED_BROKEN.some(h => uLow.indexOf(h) !== -1);
   });
 
   // Direct streams (mp4/m3u8) antes que embeds crudos
