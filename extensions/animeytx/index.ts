@@ -6,12 +6,19 @@ import type { PrismDetail, PrismItem, PrismWatch, PrismEpisode } from '../../sdk
 // a diferencia de fetch() que usa http.Client básico.
 declare function sendMessage(channel: string, data: string): Promise<string>;
 
+const BASE = 'https://wwv.animeytx.net';
+
+// Sin Referer, un pedido directo se distingue fácil de una navegación real
+// del sitio (todo link interno del propio wwv.animeytx.net manda Referer) —
+// más aún en /?s= (búsqueda), la ruta que WAFs/anti-bot suelen vigilar más
+// de cerca que el listado normal.
 async function _get(url: string): Promise<string> {
-  const raw = await sendMessage('request', JSON.stringify([url, { method: 'get', headers: {} }]));
+  const raw = await sendMessage(
+    'request',
+    JSON.stringify([url, { method: 'get', headers: { Referer: `${BASE}/` } }]),
+  );
   try { return JSON.parse(raw); } catch { return raw; }
 }
-
-const BASE = 'https://wwv.animeytx.net';
 
 // ─── Listado (directorio + búsqueda comparten la misma card) ──────────────────
 

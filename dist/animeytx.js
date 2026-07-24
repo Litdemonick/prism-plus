@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeYT
-// @version      1.2.0
+// @version      1.2.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -505,15 +505,18 @@ function b64decode(s) {
 }
 
 // extensions/animeytx/index.ts
+var BASE = "https://wwv.animeytx.net";
 async function _get(url) {
-  const raw = await sendMessage("request", JSON.stringify([url, { method: "get", headers: {} }]));
+  const raw = await sendMessage(
+    "request",
+    JSON.stringify([url, { method: "get", headers: { Referer: `${BASE}/` } }])
+  );
   try {
     return JSON.parse(raw);
   } catch (e) {
     return raw;
   }
 }
-var BASE = "https://wwv.animeytx.net";
 function _parseCards(html) {
   const items = [];
   const seen = /* @__PURE__ */ new Set();
