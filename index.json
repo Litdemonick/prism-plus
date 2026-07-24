@@ -23,7 +23,7 @@
     {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
-      "version": "1.7.1",
+      "version": "1.7.2",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -32,8 +32,8 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "8b5de6cc14dc05dfd4b1ff6432f2a73ac4e5c8a520c621fbc80a858c8f47743f",
-      "signature": "hR1TBkq3jcTuS7DkiDJgqXEbjxlC/YlIrZF/LKV68V9bML+TX3JhjkM/HkBxJgLMBf8EU98BgfyKaZ0kp0GgCw=="
+      "sha256": "780304bda695fd5d43ab5b832d133190851c6d0ddce16b424e345fb543bcdcdd",
+      "signature": "md9sQq8nvxFkwCcTtesLzndw1+fNPMdkbdwXA4I5KUbzH3zoHfzQ/6UIpn1n5EyEYbak9cXhPEeFZXYsyInsAg=="
     },
     {
       "name": "ManhwaWeb",
@@ -53,7 +53,7 @@
     {
       "name": "Olympus",
       "package": "io.prismhub.olympus",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "author": "PrismHub",
       "type": "manga",
       "icon": "",
@@ -62,8 +62,8 @@
       "webSite": "https://olympusxyz.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/olympus.js",
-      "sha256": "974769e9c8942488de5910c049717fbe4bf2ec002d776f7178289c9214ed81db",
-      "signature": "n1QnfKuE215zAqxWsSw0QqYKqYMKjgQDIENyt/PJV4r1UMt6RMRVeJqOigN0iwomxKc6sfE7JrgttbXMr1lAAA=="
+      "sha256": "763acceb38f07a23c30fb151296d86ab8d974e91d88d2bbd24861b9b9744c2d4",
+      "signature": "MhSYnFCWNjhnZDkwY3uruEgKT7DZh+ryYrNC8fRxhIV1XWF1ulqfVG5Jx813hwtc+j8kAeuRDjJm0f0j+cJpCg=="
     }
   ]
 }

@@ -87,11 +87,15 @@ export async function search(
   const q = keyword.trim();
 
   if (!q) {
-    const params = new URLSearchParams({ page: String(page), direction, type: 'comic' });
-    if (genero) params.set('genres', genero);
-    if (estado) params.set('status', estado);
+    // URLSearchParams no existe en el QuickJS de PrismHub — arma la query a
+    // mano (confirmado en vivo: "ReferenceError: 'URLSearchParams' is not
+    // defined" apenas se ejercita esta rama con un filtro puesto y sin
+    // palabra clave).
+    const parts = [`page=${page}`, `direction=${direction}`, 'type=comic'];
+    if (genero) parts.push(`genres=${encodeURIComponent(genero)}`);
+    if (estado) parts.push(`status=${encodeURIComponent(estado)}`);
     const d = await _get<{ data: { series: { data: OlympusListItem[] } } }>(
-      `${BASE}/api/series?${params.toString()}`,
+      `${BASE}/api/series?${parts.join('&')}`,
     );
     return (d.data?.series?.data || []).map(_item);
   }

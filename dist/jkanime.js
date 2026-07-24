@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.7.1
+// @version      1.7.2
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -568,10 +568,10 @@ async function top(filter, _page) {
   var _a, _b, _c, _d;
   const temporada = (_b = (_a = filter == null ? void 0 : filter["temporada"]) == null ? void 0 : _a[0]) != null ? _b : "";
   const fecha = (_d = (_c = filter == null ? void 0 : filter["fecha"]) == null ? void 0 : _c[0]) != null ? _d : "";
-  const params = new URLSearchParams();
-  if (temporada) params.set("temporada", temporada);
-  if (fecha) params.set("fecha", fecha);
-  const qs = params.toString();
+  const parts = [];
+  if (temporada) parts.push(`temporada=${encodeURIComponent(temporada)}`);
+  if (fecha) parts.push(`fecha=${encodeURIComponent(fecha)}`);
+  const qs = parts.join("&");
   const html = await _get(`${BASE}/top${qs ? "?" + qs : ""}`);
   return _parseTopCards(html);
 }

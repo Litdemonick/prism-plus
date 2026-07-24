@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Olympus
-// @version      1.2.0
+// @version      1.2.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -54,11 +54,11 @@ async function search(keyword, page, filter) {
   const direction = (_f = (_e = filter == null ? void 0 : filter["direction"]) == null ? void 0 : _e[0]) != null ? _f : "asc";
   const q = keyword.trim();
   if (!q) {
-    const params = new URLSearchParams({ page: String(page), direction, type: "comic" });
-    if (genero) params.set("genres", genero);
-    if (estado) params.set("status", estado);
+    const parts = [`page=${page}`, `direction=${direction}`, "type=comic"];
+    if (genero) parts.push(`genres=${encodeURIComponent(genero)}`);
+    if (estado) parts.push(`status=${encodeURIComponent(estado)}`);
     const d = await _get(
-      `${BASE}/api/series?${params.toString()}`
+      `${BASE}/api/series?${parts.join("&")}`
     );
     return (((_h = (_g = d.data) == null ? void 0 : _g.series) == null ? void 0 : _h.data) || []).map(_item);
   }

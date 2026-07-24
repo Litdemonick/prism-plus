@@ -132,10 +132,13 @@ export async function top(
 ): Promise<PrismItem[]> {
   const temporada = filter?.['temporada']?.[0] ?? '';
   const fecha = filter?.['fecha']?.[0] ?? '';
-  const params = new URLSearchParams();
-  if (temporada) params.set('temporada', temporada);
-  if (fecha) params.set('fecha', fecha);
-  const qs = params.toString();
+  // URLSearchParams no existe en el QuickJS de PrismHub — arma la query a
+  // mano (confirmado en vivo: "ReferenceError: 'URLSearchParams' is not
+  // defined" apenas se ejercita este código con un filtro puesto).
+  const parts: string[] = [];
+  if (temporada) parts.push(`temporada=${encodeURIComponent(temporada)}`);
+  if (fecha) parts.push(`fecha=${encodeURIComponent(fecha)}`);
+  const qs = parts.join('&');
   const html = await _get(`${BASE}/top${qs ? '?' + qs : ''}`);
   return _parseTopCards(html);
 }
