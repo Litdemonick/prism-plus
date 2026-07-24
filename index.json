@@ -8,7 +8,7 @@
     {
       "name": "AnimeFenix",
       "package": "io.prismhub.animefenix",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -17,8 +17,8 @@
       "webSite": "https://animefenix2.tv",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animefenix.js",
-      "sha256": "fac8aeb41da6e067f9fbbfe4dd448a4608b6018c857b9c29736bbfaeaaa8e5e9",
-      "signature": "T4ZpKU3OAhty7JsDVp0UchYyIAqvn60mtl/JG4mL6TNTB3WBKxRbDDY9GjPUu4BB93IDZTL3rUaMPb1LabMZCw=="
+      "sha256": "3f6810264834cd07ceeac2e82bf5d4e728309ddf9ae8a017d347884ccaa669cc",
+      "signature": "0JlEnNASrcgHX5he7uptNRS5jzbQYc4VUgvN1ktajKHoL9zOF9dP9EfqKtaDJ/VDbbcxZ6FOQVbKvs0i40uPBw=="
     },
     {
       "name": "JKAnime",

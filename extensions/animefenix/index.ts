@@ -215,7 +215,14 @@ export async function detail(url: string): Promise<PrismDetail> {
 // de ahí el cuelgue eterno. Es una incompatibilidad estructural entre el
 // backend de Hugging Face y el streaming progresivo por rangos que hace
 // cualquier reproductor nativo — no hay resolver que pueda arreglarlo.
-const _NEVER_NATIVE = new Set(['savefiles', 'streamtape', 'premiunvip']);
+//
+// StreamWish (flaswish.com en este sitio): confirmado en vivo que termina en
+// premilkyway.com — el mismo CDN bloqueado por fingerprint TLS que streamhg
+// (rechaza cualquier cliente que no sea un navegador real, ver sdk/embeds.ts
+// resolveEmbed). sdk/embeds.ts ya descarta esa URL si CUALQUIER resolver
+// termina ahí, pero eso solo evita el cuelgue de 20s al clickear — el botón
+// no debería ni aparecer, ya que sabemos que nunca va a andar.
+const _NEVER_NATIVE = new Set(['savefiles', 'streamtape', 'premiunvip', 'streamwish']);
 
 // El mirror uqload.is que usa este sitio (a diferencia de uqload.com, que sí
 // funciona en otras extensiones del repo) usa el MISMO formulario-gate POST

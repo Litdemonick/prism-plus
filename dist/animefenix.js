@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeFenix
-// @version      1.0.2
+// @version      1.0.3
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -572,7 +572,7 @@ async function detail(url) {
   }
   return { title, cover, description, genres, episodes };
 }
-var _NEVER_NATIVE = /* @__PURE__ */ new Set(["savefiles", "streamtape", "premiunvip"]);
+var _NEVER_NATIVE = /* @__PURE__ */ new Set(["savefiles", "streamtape", "premiunvip", "streamwish"]);
 var _NEVER_NATIVE_HOSTS = ["uqload.is"];
 async function _resolveIronhentai(url) {
   const html = await _get(url, _BROWSER_ACCEPT);
