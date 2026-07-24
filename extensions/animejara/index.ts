@@ -285,13 +285,25 @@ function matchFirstCover(html: string): string | undefined {
 //    "Moon" en animeytx — sin ningún dato de video en el HTML estático, todo
 //    se arma client-side. Es el mismo servicio con otro dominio, no una
 //    coincidencia de nombre.
-// El resto (vidhide→filelions, netu, uqload, streamtape, mp4upload, mixdrop,
+//  - netu (netuplayer.top): probado en vivo contra 3 episodios distintos —
+//    el único ".m3u8" que trae el HTML está DENTRO de un comentario
+//    "/* ... */" con código de ejemplo viejo, no el stream real; el
+//    resolver no encuentra nada usable en ninguno de los 3 casos (a
+//    diferencia de uqload/mp4upload, que sí resuelven cuando el archivo
+//    subido existe — acá directamente no hay nada que extraer con el
+//    formato actual de este sitio).
+// El resto (vidhide→filelions, uqload, streamtape, mp4upload, mixdrop,
 // lulustream→luluvdo) usa resolvers ya existentes del SDK compartido —
 // confirmados en vivo resolviendo a streams reales cuando el archivo
 // subido sigue disponible (algunos hosts individuales a veces tienen el
 // archivo borrado/caído — es variación normal de sitios con espejos
-// múltiples, no motivo para descartar el host entero).
-const _NEVER_NATIVE = new Set(['streamhg', 'savefiles', 'filemoon']);
+// múltiples, no motivo para descartar el host entero). Vidhide y Streamtape
+// dieron error de red/404 consistente desde este entorno de prueba
+// (típico bloqueo por IP de datacenter que estos hosts aplican) — no se
+// pudo confirmar 100% desde acá, pero tampoco hay evidencia de que
+// necesiten WebView; quedan activos a la espera de confirmación real en
+// la app (IP residencial, no debería toparse con ese bloqueo).
+const _NEVER_NATIVE = new Set(['streamhg', 'savefiles', 'filemoon', 'netu']);
 
 export async function watch(url: string): Promise<PrismWatch> {
   // Fast-path: embed externo (switchServer pidiendo resolver UN servidor
