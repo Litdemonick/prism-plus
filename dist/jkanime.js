@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.10.3
+// @version      1.10.4
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -1396,9 +1396,37 @@ function _parseCards(html) {
 // necesita servir el archivo así, así que cualquier URL con ese segmento se
 // trata como página, no como media directa, dejando que la extensión (que
 // sí sabe resolverla) se ocupe.
+// Tercer caso confirmado en vivo (animejara, host streamtape.com): el mismo
+// truco pero sin "/embed/" — streamtape sirve sus páginas como
+// "/e/{id}/{nombre-original}.mp4" (content-type: text/html real, confirmado
+// con curl). Cualquier host de esta lista (todos con resolver propio en el
+// SDK, ver Fast-path 2 más abajo) NUNCA cuenta como media directa, sin
+// importar cómo termine la URL — si sabemos resolverlo, que lo resuelva el
+// SDK en vez de asumir que la extensión final "por casualidad" ya es el
+// archivo real.
+var _KNOWN_EMBED_HOSTS = {
+  yourupload: 'YourUpload', yupload: 'YourUpload',
+  'voe.sx': 'Voe', 'voe.': 'Voe',
+  'hqq.': 'Netu', 'netu.': 'Netu',
+  streamtape: 'Streamtape', stape: 'Streamtape',
+  mixdrop: 'Mixdrop', mxdrop: 'Mixdrop',
+  mp4upload: 'Mp4Upload',
+  doodstream: 'Doodstream', ds2play: 'Doodstream', ds2video: 'Doodstream',
+  streamwish: 'Streamwish', wishfast: 'Streamwish',
+  vidhide: 'Streamwish', filelions: 'Streamwish',
+  filemoon: 'Filemoon', moonplayer: 'Filemoon',
+  luluvdo: 'Luluvdo', bysekoze: 'Bysekoze',
+  pixeldrain: 'Pixeldrain',
+  sendvid: 'Sendvid', uqload: 'Uqload',
+  upstream: 'Upstream',
+};
 function _isDirectMediaUrl(u) {
   if (typeof u !== 'string') return false;
   if (/\/embed\//i.test(u)) return false;
+  var lower = u.toLowerCase();
+  for (var _k in _KNOWN_EMBED_HOSTS) {
+    if (lower.indexOf(_k) !== -1) return false;
+  }
   return /\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(u);
 }
 function _mediaType(u) {
@@ -1470,25 +1498,9 @@ export default class extends Extension {
     if (typeof url === 'string' && url.indexOf('http') === 0 &&
         typeof resolveEmbed === 'function') {
       var _lurl = url.toLowerCase();
-      var _embedMap = {
-        yourupload: 'YourUpload', yupload: 'YourUpload',
-        'voe.sx': 'Voe', 'voe.': 'Voe',
-        'hqq.': 'Netu', 'netu.': 'Netu',
-        streamtape: 'Streamtape', stape: 'Streamtape',
-        mixdrop: 'Mixdrop', mxdrop: 'Mixdrop',
-        mp4upload: 'Mp4Upload',
-        doodstream: 'Doodstream', ds2play: 'Doodstream', ds2video: 'Doodstream',
-        streamwish: 'Streamwish', wishfast: 'Streamwish',
-        vidhide: 'Streamwish', filelions: 'Streamwish',
-        filemoon: 'Filemoon', moonplayer: 'Filemoon',
-        luluvdo: 'Luluvdo', bysekoze: 'Bysekoze',
-        pixeldrain: 'Pixeldrain',
-        sendvid: 'Sendvid', uqload: 'Uqload',
-        upstream: 'Upstream',
-      };
       var _sname = null;
-      for (var _k in _embedMap) {
-        if (_lurl.indexOf(_k) !== -1) { _sname = _embedMap[_k]; break; }
+      for (var _k in _KNOWN_EMBED_HOSTS) {
+        if (_lurl.indexOf(_k) !== -1) { _sname = _KNOWN_EMBED_HOSTS[_k]; break; }
       }
       if (_sname) {
         try {

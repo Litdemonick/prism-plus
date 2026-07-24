@@ -1,13 +1,13 @@
 // ==PrismHubExtension==
-// @name         AnimeYT
-// @version      1.8.5
+// @name         AnimeJara
+// @version      1.0.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
-// @package      io.prismhub.animeytx
+// @package      io.prismhub.animejara
 // @type         bangumi
-// @webSite      https://wwv.animeytx.net
-// @description  Anime en español latino desde AnimeYT
+// @webSite      https://animejara.com
+// @description  Anime en español latino desde AnimeJara — catálogo con filtros y múltiples servidores confiables
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
 var __getOwnPropSymbols = Object.getOwnPropertySymbols;
@@ -27,19 +27,6 @@ var __spreadValues = (a, b) => {
 };
 
 // sdk/html.ts
-function matchFirst(html, pattern) {
-  var _a, _b, _c;
-  return (_c = (_b = (_a = pattern.exec(html)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : "";
-}
-function matchGroups(html, pattern) {
-  const flags = pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g";
-  return [...html.matchAll(new RegExp(pattern.source, flags))].map(
-    (m) => [...m].slice(1).map((s) => {
-      var _a;
-      return (_a = s == null ? void 0 : s.trim()) != null ? _a : "";
-    })
-  );
-}
 function stripTags(html) {
   return html.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -496,8 +483,11 @@ function b64decode(s) {
   return result;
 }
 
-// extensions/animeytx/index.ts
-var BASE = "https://wwv.animeytx.net";
+// extensions/animejara/index.ts
+var BASE = "https://animejara.com";
+function _decodeUrlEntities(s) {
+  return decodeEntities(s).replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+}
 async function _get(url) {
   const raw = await sendMessage(
     "request",
@@ -509,240 +499,186 @@ async function _get(url) {
     return raw;
   }
 }
-function _parseCards(html) {
+function _buildQuery(params) {
+  const parts = [];
+  for (const key of Object.keys(params)) {
+    const value = params[key];
+    if (value) parts.push(`${key}=${encodeURIComponent(value)}`);
+  }
+  return parts.join("&");
+}
+function _parseCatalog(html) {
   const items = [];
-  const seen = /* @__PURE__ */ new Set();
-  const re = /<a href="https?:\/\/[^"]*\/tv\/([a-z0-9-]+)\/?"[^>]*title="([^"]*)"[\s\S]{0,500}?<img\b[^>]*\bsrc="([^"]+)"(?:[^>]*\bdata-src="([^"]+)")?/g;
+  const re = /<a href="(https:\/\/animejara\.com\/anime\/[^"]+)" class="anime-card" data-anime="([^"]+)"/g;
   for (const m of html.matchAll(re)) {
-    const slug = m[1];
-    if (seen.has(slug)) continue;
-    seen.add(slug);
-    items.push({
-      title: decodeEntities(m[2]),
-      url: slug,
-      cover: m[4] || m[3]
-    });
+    try {
+      const data = JSON.parse(decodeEntities(m[2]));
+      items.push({
+        title: data.titulo,
+        url: m[1],
+        cover: data.poster,
+        update: data.estado === "emision" ? "En emisi\xF3n" : void 0
+      });
+    } catch (e) {
+    }
   }
   return items;
 }
 async function latest(page) {
-  const html = await _get(page <= 1 ? `${BASE}/anime/` : `${BASE}/anime/page/${page}/`);
-  return _parseCards(html);
+  const query = _buildQuery({ paged: page > 1 ? String(page) : void 0 });
+  const html = await _get(`${BASE}/catalogo${query ? `?${query}` : ""}`);
+  return _parseCatalog(html);
 }
 async function search(keyword, page, filter) {
-  var _a, _b;
-  const genero = (_b = (_a = filter == null ? void 0 : filter["genero"]) == null ? void 0 : _a[0]) != null ? _b : "";
-  const q = keyword.trim();
-  if (!q && genero) {
-    const html2 = await _get(
-      page <= 1 ? `${BASE}/genres/${genero}/` : `${BASE}/genres/${genero}/page/${page}/`
-    );
-    return _parseCards(html2);
-  }
-  const query = `s=${encodeURIComponent(keyword)}${page > 1 ? `&paged=${page}` : ""}`;
-  const html = await _get(`${BASE}/?${query}`);
-  return _parseCards(html);
+  var _a, _b, _c, _d, _e;
+  const query = _buildQuery({
+    q: keyword.trim() || void 0,
+    tag: (_a = filter == null ? void 0 : filter["genero"]) == null ? void 0 : _a[0],
+    anio: (_b = filter == null ? void 0 : filter["anio"]) == null ? void 0 : _b[0],
+    tipo: (_c = filter == null ? void 0 : filter["tipo"]) == null ? void 0 : _c[0],
+    estado: (_d = filter == null ? void 0 : filter["estado"]) == null ? void 0 : _d[0],
+    idioma: (_e = filter == null ? void 0 : filter["idioma"]) == null ? void 0 : _e[0],
+    paged: page > 1 ? String(page) : void 0
+  });
+  const html = await _get(`${BASE}/catalogo${query ? `?${query}` : ""}`);
+  return _parseCatalog(html);
 }
 var _GENRE_OPTIONS = {
   "": "Todos",
-  "accion": "Acci\xF3n",
-  "aventura": "Aventura",
-  "comedia": "Comedia",
-  "drama": "Drama",
-  "ecchi": "Ecchi",
-  "erotica": "Er\xF3tica",
-  "escolar": "Escolar",
-  "fantasia": "Fantas\xEDa",
-  "harem": "Harem",
-  "hentai": "Hentai",
-  "historico": "Hist\xF3rico",
-  "horror": "Horror",
-  "isekai": "Isekai",
-  "psicologico": "Psicol\xF3gico",
-  "reencarnacion": "Reencarnaci\xF3n",
-  "recuentos-de-la-vida": "Recuentos de la vida",
-  "seinen": "Seinen",
-  "shounen": "Shounen",
-  "sobrenatural": "Sobrenatural",
-  "supernatural": "Supernatural",
-  "superpoderes": "Superpoderes",
-  "suspenso": "Suspenso",
-  "ciencia-ficcion": "Ciencia ficci\xF3n",
-  "deportes": "Deportes",
-  "viajes-en-el-tiempo": "Viajes en el tiempo",
-  "4k": "4K"
+  "Accion": "Acci\xF3n",
+  "Amor": "Amor",
+  "Artes marciales": "Artes marciales",
+  "Aventura": "Aventura",
+  "Carreras": "Carreras",
+  "Ciencia ficcion": "Ciencia ficci\xF3n",
+  "Comedia": "Comedia",
+  "Comidas": "Comidas",
+  "Crimen": "Crimen",
+  "Demonios": "Demonios",
+  "Deportes": "Deportes",
+  "Drama": "Drama",
+  "Ecchi": "Ecchi",
+  "Escolar": "Escolar",
+  "Espacial": "Espacial",
+  "Espadachin": "Espadach\xEDn",
+  "Familia": "Familia",
+  "Fantasia": "Fantas\xEDa",
+  "Gore": "Gore",
+  "Harem": "Harem",
+  "Historico": "Hist\xF3rico",
+  "Isekai": "Isekai",
+  "Josei": "Josei",
+  "Juegos": "Juegos",
+  "Magia": "Magia",
+  "Mecha": "Mecha",
+  "Militar": "Militar",
+  "Misterio": "Misterio",
+  "Musica": "M\xFAsica",
+  "Parodia": "Parodia",
+  "Psicologico": "Psicol\xF3gico",
+  "Recuerdos": "Recuerdos",
+  "Robots": "Robots",
+  "Romance": "Romance",
+  "Samurai": "Samur\xE1i",
+  "Seinen": "Seinen",
+  "Shoujo": "Shoujo",
+  "Shounen": "Shounen",
+  "Sobrenatural": "Sobrenatural",
+  "Studio ghibli": "Studio Ghibli",
+  "Superpoderes": "Superpoderes",
+  "Suspenso": "Suspenso",
+  "Terror": "Terror",
+  "Vampiros": "Vampiros",
+  "Yaoi": "Yaoi",
+  "Yuri": "Yuri",
+  "Zombies": "Zombies"
 };
+function _yearOptions() {
+  const options = { "": "Todos" };
+  const currentYear = 2026;
+  for (let y = currentYear; y >= 1983; y--) options[String(y)] = String(y);
+  return options;
+}
 async function createFilter() {
   return {
-    genero: { title: "G\xE9nero", options: _GENRE_OPTIONS, default: "", min: 1, max: 1 }
+    genero: { title: "G\xE9nero", options: _GENRE_OPTIONS, default: "", min: 1, max: 1 },
+    anio: { title: "A\xF1o", options: _yearOptions(), default: "", min: 1, max: 1 },
+    tipo: {
+      title: "Tipo",
+      options: { "": "Todos", serie: "Serie", pelicula: "Pel\xEDcula" },
+      default: "",
+      min: 1,
+      max: 1
+    },
+    estado: {
+      title: "Estado",
+      options: { "": "Todos", Emision: "En emisi\xF3n", Finalizado: "Finalizado" },
+      default: "",
+      min: 1,
+      max: 1
+    },
+    idioma: {
+      title: "Idioma",
+      options: { "": "Todos", latino: "Latino", japones: "Japon\xE9s", castellano: "Castellano" },
+      default: "",
+      min: 1,
+      max: 1
+    }
   };
 }
-function _parseEpisodes(html) {
-  const episodes = [];
-  const re = /<a href="(https?:\/\/[^"]+)"><div class="epl-num">([^<]*)<\/div><div class="epl-title">([^<]*)<\/div>/g;
-  for (const m of html.matchAll(re)) {
-    const number = m[2].trim();
-    episodes.push({
-      title: `Cap\xEDtulo ${number}`,
-      url: m[1].replace(`${BASE}/`, "").replace(/\/$/, ""),
-      number: Number(number) || void 0
-    });
-  }
-  return episodes.reverse();
-}
-async function _resolveSeriesSlug(episodeSlug) {
-  const html = await _get(`${BASE}/anime/${episodeSlug}/`);
-  const listaM = /<div class="nvs nvsc"><a href=['"]([^'"]*\/tv\/([a-z0-9-]+)\/?)['"]/.exec(html);
-  return listaM ? listaM[2] : episodeSlug;
-}
 async function detail(url) {
-  const slug = url.indexOf("ep:") === 0 ? await _resolveSeriesSlug(url.slice(3)) : url;
-  const html = await _get(`${BASE}/tv/${slug}/`);
-  const title = matchFirst(html, /<h1[^>]*>([^<]+)<\/h1>/i) || slug.replace(/-/g, " ");
-  const cover = matchFirst(html, /property="og:image"\s+content="([^"]+)"/i);
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i;
+  const fullUrl = url.indexOf("http") === 0 ? url : `${BASE}/anime/${url}`;
+  const html = await _get(fullUrl);
+  const title = (_f = (_e = (_b = (_a = /<h1[^>]*>([^<]+)<\/h1>/i.exec(html)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _e : (_d = (_c = /<title>([^<|]+)/i.exec(html)) == null ? void 0 : _c[1]) == null ? void 0 : _d.trim()) != null ? _f : "";
   const description = stripTags(
-    matchFirst(html, /itemprop="description"[^>]*>([\s\S]*?)<\/div>/i) || ""
+    (_h = (_g = /anime-sinopsis-contenedor[\s\S]*?<div[^>]*>([\s\S]*?)<\/div>/i.exec(html)) == null ? void 0 : _g[1]) != null ? _h : ""
   ).trim();
-  const genres = matchGroups(
-    html,
-    /<a[^>]+href="[^"]*\/genres\/[^"]*"[^>]*>([^<]+)<\/a>/gi
-  ).map((g) => g[0]);
-  const episodes = _parseEpisodes(html);
-  return { title, cover, description, episodes, genres };
-}
-function _b64decode(s) {
-  const T = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  let r = "";
-  s = s.replace(/[^A-Za-z0-9+/]/g, "");
-  for (let i = 0; i < s.length; i += 4) {
-    const a = T.indexOf(s[i]);
-    const b = T.indexOf(s[i + 1]);
-    const c = T.indexOf(s[i + 2]);
-    const d = T.indexOf(s[i + 3]);
-    if (a < 0 || b < 0) break;
-    r += String.fromCharCode(a << 2 | b >> 4);
-    if (c >= 0) r += String.fromCharCode((b & 15) << 4 | c >> 2);
-    if (d >= 0) r += String.fromCharCode((c & 3) << 6 | d);
-  }
-  return r;
-}
-function _absolutize(src) {
-  if (src.indexOf("http") === 0) return src;
-  if (src.indexOf("//") === 0) return `https:${src}`;
-  return `${BASE}${src.indexOf("/") === 0 ? "" : "/"}${src}`;
-}
-function _stripWs(s) {
-  return s.replace(/\s+/g, "");
-}
-function _parseMirrors(html) {
-  const mirrors = [];
-  const re = /<option value="([A-Za-z0-9+/=]{20,})"\s+data-index="\d+">\s*([^<]*)<\/option>/g;
-  for (const m of html.matchAll(re)) {
-    try {
-      const decoded = _b64decode(m[1]);
-      const srcM = /<iframe[^>]+src=['"]([^'"]+)['"]/i.exec(decoded);
-      if (srcM) {
-        mirrors.push({
-          name: m[2].trim() || "Servidor",
-          iframeSrc: _absolutize(decodeEntities(_stripWs(srcM[1])))
-        });
-      }
-    } catch (e) {
+  const genres = [];
+  const catBlockM = /anime-categorias[\s\S]*?<\/div>/i.exec(html);
+  if (catBlockM) {
+    for (const m of catBlockM[0].matchAll(/<span[^>]*>([^<]+)<\/span>/g)) {
+      genres.push(m[1].trim());
     }
   }
-  return mirrors;
-}
-async function _expandMytsumi(iframeSrc, depth = 0) {
-  if (depth > 3) return [];
-  const serverM = /[?&]server=([a-zA-Z0-9]+)/.exec(iframeSrc);
-  const fallbackName = serverM ? serverM[1] : "Servidor";
-  const html = await _get(iframeSrc);
-  const tabsM = /const\s+videoTabs\s*=\s*(\[[\s\S]*?\]);/.exec(html);
-  if (tabsM) {
-    try {
-      const tabs = JSON.parse(tabsM[1]);
-      const parsed = tabs.filter((t) => t.url).map((t) => ({ name: t.tab_name, iframeSrc: _absolutize(_stripWs(t.url)) }));
-      if (parsed.length > 0) return parsed;
-    } catch (e) {
-    }
+  const slugM = /const\s+ANIME_SLUG\s*=\s*'([^']+)'/.exec(html);
+  const slug = slugM ? slugM[1] : fullUrl.replace(`${BASE}/anime/`, "").replace(/\/$/, "");
+  const dataM = /const\s+TEMPORADAS_DATA\s*=\s*(\[[\s\S]*?\]);/.exec(html);
+  const temporadas = dataM ? JSON.parse(dataM[1]) : [];
+  let cover = (_i = temporadas[0]) == null ? void 0 : _i.poster_temporada;
+  if (!cover) {
+    cover = matchFirstCover(html);
   }
-  const linkRe = /<a href=['"]([^'"]+)['"]>\s*<button[^>]*>([^<]*)<\/button>/gi;
-  const links = [...html.matchAll(linkRe)].map((m) => ({ href: _absolutize(decodeEntities(_stripWs(m[1]))), label: m[2].trim() })).filter((l) => l.href.indexOf("mytsumi.com") !== -1 && !l.href.endsWith("id="));
-  if (links.length > 0) {
-    const results = [];
-    const prefix = links.length > 1;
-    for (const link of links) {
-      const expanded = await _expandMytsumi(link.href, depth + 1);
-      for (const e of expanded) {
-        results.push(prefix ? { name: `${link.label} ${e.name}`, iframeSrc: e.iframeSrc } : e);
-      }
-    }
-    if (results.length > 0) return results;
-  }
-  return [{ name: fallbackName.charAt(0).toUpperCase() + fallbackName.slice(1), iframeSrc }];
+  const episodeGroups = temporadas.map((temp) => ({
+    title: `Temporada ${temp.numero_temporada}`,
+    urls: temp.episodios.map((ep) => {
+      var _a2;
+      return {
+        title: ((_a2 = ep.nombre_episodio) == null ? void 0 : _a2.trim()) ? `${ep.numero_episodio}. ${ep.nombre_episodio.trim()}` : `Episodio ${ep.numero_episodio}`,
+        url: `episode/${slug}-${temp.numero_temporada}x${ep.numero_episodio}`
+      };
+    })
+  }));
+  return {
+    title,
+    cover,
+    description,
+    genres,
+    // El tipo declarado pide PrismEpisode[] (title/url planos) pero el
+    // wrapper del build en runtime también acepta grupos (title/urls) para
+    // series con temporadas — confirmado leyendo scripts/build.mjs. No hay
+    // forma de tipar esto "correcto" sin romper el build de un tirón, así
+    // que se castea a propósito.
+    episodes: episodeGroups
+  };
 }
-function _isDirectMedia(u) {
-  return /\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(u);
+function matchFirstCover(html) {
+  const m = /property="og:image:secure_url"\s+content="([^"]+)"/i.exec(html);
+  return m && m[1] ? m[1] : void 0;
 }
-function _isBurstCloud(u) {
-  return u.indexOf("burstcloud.co") !== -1;
-}
-async function _resolveBurstCloud(url) {
-  var _a;
-  try {
-    const html = await _get(url);
-    const idM = /data-file-id="(\d+)"/.exec(html);
-    if (!idM) return null;
-    const raw = await sendMessage("request", JSON.stringify([
-      "https://www.burstcloud.co/file/play-request/",
-      {
-        method: "post",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "X-Requested-With": "XMLHttpRequest",
-          Referer: url
-        },
-        data: `fileId=${encodeURIComponent(idM[1])}`
-      }
-    ]));
-    const data = typeof raw === "string" ? JSON.parse(raw) : raw;
-    const cdnUrl = (_a = data.purchase) == null ? void 0 : _a.cdnUrl;
-    if (!cdnUrl) return null;
-    return { url: cdnUrl, quality: "Servidor" };
-  } catch (e) {
-    return null;
-  }
-}
-function _isMytsumiPlayerPage(u) {
-  return u.indexOf("mytsumi.com") !== -1 && u.indexOf("player.php") !== -1;
-}
-async function _resolveMytsumiPlayerPage(url) {
-  try {
-    const html = await _get(url);
-    const m = /const\s+qualities\s*=\s*(\{[\s\S]*?\});/.exec(html);
-    if (!m) return null;
-    const qualities = JSON.parse(m[1]);
-    const keys = Object.keys(qualities);
-    if (keys.length === 0) return null;
-    keys.sort((a, b) => (parseInt(b, 10) || 0) - (parseInt(a, 10) || 0));
-    return { url: qualities[keys[0]], quality: "Servidor" };
-  } catch (e) {
-    return null;
-  }
-}
+var _NEVER_NATIVE = /* @__PURE__ */ new Set(["streamhg", "savefiles", "filemoon"]);
 async function watch(url) {
-  if (url.indexOf("http") === 0 && url.indexOf("animeytx.net") === -1) {
-    if (_isBurstCloud(url)) {
-      const resolved = await _resolveBurstCloud(url);
-      if (resolved) return { streams: [resolved], pageUrl: "" };
-    }
-    if (_isDirectMedia(url)) {
-      return { streams: [{ url, quality: "Servidor" }], pageUrl: "" };
-    }
-    if (_isMytsumiPlayerPage(url)) {
-      const resolved = await _resolveMytsumiPlayerPage(url);
-      if (resolved) return { streams: [resolved], pageUrl: "" };
-    }
+  if (url.indexOf("http") === 0 && url.indexOf("animejara.com") === -1) {
     try {
       const res = await resolveEmbed("Servidor", url, `${BASE}/`);
       if (res && res.url) {
@@ -752,36 +688,19 @@ async function watch(url) {
     }
     return { streams: [{ url, quality: "Servidor" }], pageUrl: "" };
   }
-  const episodeUrl = url.indexOf("http") === 0 ? url : `${BASE}/${url}/`;
+  const episodeUrl = url.indexOf("http") === 0 ? url : `${BASE}/${url}`;
   const html = await _get(episodeUrl);
-  let rawMirrors = _parseMirrors(html);
-  if (rawMirrors.length === 0) {
-    const defaultM = /data-litespeed-src="([^"]+)"/i.exec(html) || /<iframe[^>]+src=['"]([^'"]+)['"]/i.exec(html);
-    if (defaultM) rawMirrors = [{ name: "Default", iframeSrc: _absolutize(decodeEntities(_stripWs(defaultM[1]))) }];
+  const iframeM = /<iframe id="iframe-video" src="([^"]+)"/i.exec(html);
+  if (!iframeM) return { streams: [], pageUrl: episodeUrl };
+  const embedPageUrl = _decodeUrlEntities(iframeM[1]);
+  const embedHtml = await _get(embedPageUrl);
+  const streams = [];
+  const re = /playVideo\(&quot;\s*([^&]+?)\s*&quot;\)"[^>]*>[\s\S]*?alt="([^"]+)"/g;
+  for (const m of embedHtml.matchAll(re)) {
+    const name = m[2].trim();
+    if (_NEVER_NATIVE.has(name.toLowerCase())) continue;
+    streams.push({ url: m[1].trim(), quality: name.charAt(0).toUpperCase() + name.slice(1) });
   }
-  const mirrors = [];
-  for (const m of rawMirrors) {
-    if (m.iframeSrc.indexOf("mytsumi.com") !== -1) {
-      const expanded = await _expandMytsumi(m.iframeSrc);
-      if (expanded.length > 0) {
-        mirrors.push(...expanded);
-        continue;
-      }
-    }
-    mirrors.push(m);
-  }
-  const _NEVER_NATIVE = /* @__PURE__ */ new Set(["moon", "epsilon", "mega", "abyss", "servidor", "ok"]);
-  const usableMirrors = mirrors.filter((m) => !_NEVER_NATIVE.has(m.name.toLowerCase()));
-  const streams = usableMirrors.map((m) => ({ url: m.iframeSrc, quality: m.name }));
-  streams.sort((a, b) => {
-    var _a, _b;
-    const aMytsumi = ((_a = a.quality) != null ? _a : "").toLowerCase() === "mytsumi" ? 0 : 1;
-    const bMytsumi = ((_b = b.quality) != null ? _b : "").toLowerCase() === "mytsumi" ? 0 : 1;
-    if (aMytsumi !== bMytsumi) return aMytsumi - bMytsumi;
-    const aDirect = _isDirectMedia(a.url) ? 0 : 1;
-    const bDirect = _isDirectMedia(b.url) ? 0 : 1;
-    return aDirect - bDirect;
-  });
   return { streams, pageUrl: episodeUrl };
 }
 
@@ -798,9 +717,37 @@ async function watch(url) {
 // necesita servir el archivo así, así que cualquier URL con ese segmento se
 // trata como página, no como media directa, dejando que la extensión (que
 // sí sabe resolverla) se ocupe.
+// Tercer caso confirmado en vivo (animejara, host streamtape.com): el mismo
+// truco pero sin "/embed/" — streamtape sirve sus páginas como
+// "/e/{id}/{nombre-original}.mp4" (content-type: text/html real, confirmado
+// con curl). Cualquier host de esta lista (todos con resolver propio en el
+// SDK, ver Fast-path 2 más abajo) NUNCA cuenta como media directa, sin
+// importar cómo termine la URL — si sabemos resolverlo, que lo resuelva el
+// SDK en vez de asumir que la extensión final "por casualidad" ya es el
+// archivo real.
+var _KNOWN_EMBED_HOSTS = {
+  yourupload: 'YourUpload', yupload: 'YourUpload',
+  'voe.sx': 'Voe', 'voe.': 'Voe',
+  'hqq.': 'Netu', 'netu.': 'Netu',
+  streamtape: 'Streamtape', stape: 'Streamtape',
+  mixdrop: 'Mixdrop', mxdrop: 'Mixdrop',
+  mp4upload: 'Mp4Upload',
+  doodstream: 'Doodstream', ds2play: 'Doodstream', ds2video: 'Doodstream',
+  streamwish: 'Streamwish', wishfast: 'Streamwish',
+  vidhide: 'Streamwish', filelions: 'Streamwish',
+  filemoon: 'Filemoon', moonplayer: 'Filemoon',
+  luluvdo: 'Luluvdo', bysekoze: 'Bysekoze',
+  pixeldrain: 'Pixeldrain',
+  sendvid: 'Sendvid', uqload: 'Uqload',
+  upstream: 'Upstream',
+};
 function _isDirectMediaUrl(u) {
   if (typeof u !== 'string') return false;
   if (/\/embed\//i.test(u)) return false;
+  var lower = u.toLowerCase();
+  for (var _k in _KNOWN_EMBED_HOSTS) {
+    if (lower.indexOf(_k) !== -1) return false;
+  }
   return /\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(u);
 }
 function _mediaType(u) {
@@ -872,25 +819,9 @@ export default class extends Extension {
     if (typeof url === 'string' && url.indexOf('http') === 0 &&
         typeof resolveEmbed === 'function') {
       var _lurl = url.toLowerCase();
-      var _embedMap = {
-        yourupload: 'YourUpload', yupload: 'YourUpload',
-        'voe.sx': 'Voe', 'voe.': 'Voe',
-        'hqq.': 'Netu', 'netu.': 'Netu',
-        streamtape: 'Streamtape', stape: 'Streamtape',
-        mixdrop: 'Mixdrop', mxdrop: 'Mixdrop',
-        mp4upload: 'Mp4Upload',
-        doodstream: 'Doodstream', ds2play: 'Doodstream', ds2video: 'Doodstream',
-        streamwish: 'Streamwish', wishfast: 'Streamwish',
-        vidhide: 'Streamwish', filelions: 'Streamwish',
-        filemoon: 'Filemoon', moonplayer: 'Filemoon',
-        luluvdo: 'Luluvdo', bysekoze: 'Bysekoze',
-        pixeldrain: 'Pixeldrain',
-        sendvid: 'Sendvid', uqload: 'Uqload',
-        upstream: 'Upstream',
-      };
       var _sname = null;
-      for (var _k in _embedMap) {
-        if (_lurl.indexOf(_k) !== -1) { _sname = _embedMap[_k]; break; }
+      for (var _k in _KNOWN_EMBED_HOSTS) {
+        if (_lurl.indexOf(_k) !== -1) { _sname = _KNOWN_EMBED_HOSTS[_k]; break; }
       }
       if (_sname) {
         try {

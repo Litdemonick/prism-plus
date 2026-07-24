@@ -1,0 +1,12 @@
+{
+  "name": "AnimeJara",
+  "package": "io.prismhub.animejara",
+  "version": "1.0.0",
+  "author": "PrismHub",
+  "type": "anime",
+  "icon": "",
+  "description": "Anime en español latino desde AnimeJara — catálogo con filtros y múltiples servidores confiables",
+  "lang": "es",
+  "webSite": "https://animejara.com",
+  "license": "MIT"
+}
