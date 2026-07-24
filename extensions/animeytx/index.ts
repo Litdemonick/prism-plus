@@ -326,14 +326,22 @@ export async function watch(url: string): Promise<PrismWatch> {
     mirrors.push(m);
   }
 
-  // Abyss se saca directo de la lista: confirmado en vivo que su propio
-  // script "fuckadblock" se niega a inicializar el reproductor si detecta
-  // un WebView/sandbox (el mensaje literal en su HTML lo dice: "Due to
-  // certain reasons (AdBlock/Sandbox), ads are not being displayed, which
-  // prevents the player from functioning") — no hay forma de reproducirlo ni
-  // nativo ni en el WebView de la app, así que no tiene sentido ofrecerlo
-  // como opción.
-  const usableMirrors = mirrors.filter(m => m.name.toLowerCase() !== 'abyss');
+  // Se sacan de la lista los mirrors que no son servidores de video reales:
+  //  - Abyss: confirmado en vivo que su propio script "fuckadblock" se niega
+  //    a inicializar el reproductor si detecta un WebView/sandbox (el
+  //    mensaje literal en su HTML lo dice: "Due to certain reasons
+  //    (AdBlock/Sandbox), ads are not being displayed, which prevents the
+  //    player from functioning") — no hay forma de reproducirlo ni nativo ni
+  //    en el WebView de la app.
+  //  - "Servidor": nombre genérico que _parseMirrors() usa cuando el
+  //    <option> del sitio viene sin texto — confirmado en vivo que ese
+  //    mirror en particular no es un video, es una pantalla de "contenido
+  //    VIP" pidiendo suscribirse. No es un servidor real, es ruido del
+  //    propio selector del sitio.
+  const usableMirrors = mirrors.filter(m => {
+    const n = m.name.toLowerCase();
+    return n !== 'abyss' && n !== 'servidor';
+  });
 
   // Ningún resolveEmbed acá — antes se resolvían los 5-6 mirrors en paralelo
   // apenas se abría el capítulo (varios segundos de espera para servidores
