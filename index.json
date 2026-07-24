@@ -8,7 +8,7 @@
     {
       "name": "AnimeJara",
       "package": "io.prismhub.animejara",
-      "version": "1.0.7",
+      "version": "1.1.0",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -17,8 +17,8 @@
       "webSite": "https://animejara.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animejara.js",
-      "sha256": "d3bf75622faea31be8ba56ae9b9d0f12463c9b501403a3bc48e4b1b8a1f1d097",
-      "signature": "lqOQEztviWCa9q8M0N0JccS2+CeNf0/v71XpLSZBTPj8dCM8gLTMPqDbA8OJrbYqA1X41y+YwdezfNRs3A3GBw=="
+      "sha256": "e502578a8f29a2c15ae9bd74edd49a66b714c8bbb05d1eb1d3dc8bf9e3da6b14",
+      "signature": "Q4Z7URtYdXWHnxi3WYY0D8Dr3Su5ETmKNdMIzXl/5pYM4gEYTTzTLgVdbW6VyH0Q1yi9H2lxvqu/eY08iUYSBg=="
     },
     {
       "name": "JKAnime",

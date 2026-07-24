@@ -309,12 +309,15 @@ function matchFirstCover(html: string): string | undefined {
 //    en sí). Un navegador real SÍ reproduce siguiendo la cadena completa del
 //    sitio — pero eso no ayuda: PrismHub usa mpv, no un navegador, para
 //    reproducir nativamente. No hay resolver que pueda arreglar esto.
-// Quedan uqload y mp4upload (y mixdrop/lulustream si el sitio los lista) —
-// confirmados resolviendo a streams reales cuando el archivo subido existe.
-// A veces un capítulo puntual falla (archivo caído/lento) — es variación
-// normal de sitios con espejos múltiples, no motivo para descartar el host.
+//  - mega (mega.nz): todo el contenido va cifrado client-side con una key
+//    propia del enlace — no hay URL de video interceptable por scraping, el
+//    propio sdk/embeds.ts lo rechaza de entrada sin intentar nada.
+// Quedan uqload, mp4upload (Latino) y yourupload (Japonés) — confirmados
+// resolviendo a streams reales cuando el archivo subido existe. A veces un
+// capítulo puntual falla (archivo caído/lento) — es variación normal de
+// sitios con espejos múltiples, no motivo para descartar el host.
 const _NEVER_NATIVE = new Set([
-  'savefiles', 'filemoon', 'netu', 'vidhide', 'streamtape', 'streamhg',
+  'savefiles', 'filemoon', 'netu', 'vidhide', 'streamtape', 'streamhg', 'mega',
 ]);
 
 export async function watch(url: string): Promise<PrismWatch> {
@@ -335,19 +338,54 @@ export async function watch(url: string): Promise<PrismWatch> {
   const episodeUrl = url.indexOf('http') === 0 ? url : `${BASE}/${url}`;
   const html = await _get(episodeUrl);
 
-  const iframeM = /<iframe id="iframe-video" src="([^"]+)"/i.exec(html);
-  if (!iframeM) return { streams: [], pageUrl: episodeUrl };
+  // Latino y Japonés tienen listas de servidores DISTINTAS (confirmado en
+  // vivo: idanime distinto por idioma) — el propio HTML ya trae ambas URLs
+  // de embed.php en un array JS ("const enlaces = [...]"), en el mismo orden
+  // que los botones de idioma ("lang-name"). Antes solo se usaba el iframe
+  // src por defecto (el primer idioma), perdiendo servidores exclusivos de
+  // Japonés como Yourupload (confirmado resolviendo a un mp4 real, sin
+  // ningún bloqueo, a diferencia de streamhg/vidhide).
+  const enlacesM = /const\s+enlaces\s*=\s*(\[[\s\S]*?\]);/.exec(html);
+  let embedPageUrls: string[] = [];
+  if (enlacesM) {
+    try {
+      embedPageUrls = JSON.parse(enlacesM[1].replace(/\\\//g, '/'));
+    } catch {
+      /* cae al fallback de abajo */
+    }
+  }
+  if (embedPageUrls.length === 0) {
+    const iframeM = /<iframe id="iframe-video" src="([^"]+)"/i.exec(html);
+    if (iframeM) embedPageUrls = [_decodeUrlEntities(iframeM[1])];
+  }
+  if (embedPageUrls.length === 0) return { streams: [], pageUrl: episodeUrl };
 
-  const embedPageUrl = _decodeUrlEntities(iframeM[1]);
-  const embedHtml = await _get(embedPageUrl);
+  const langNames = Array.from(
+    html.matchAll(/<div class="lang-name">([^<]+)<\/div>/g),
+    (m) => _titleCase(m[1].trim()),
+  );
 
   const streams: PrismStream[] = [];
   const re = /playVideo\(&quot;\s*([^&]+?)\s*&quot;\)"[^>]*>[\s\S]*?alt="([^"]+)"/g;
-  for (const m of embedHtml.matchAll(re)) {
-    const name = m[2].trim();
-    if (_NEVER_NATIVE.has(name.toLowerCase())) continue;
-    streams.push({ url: m[1].trim(), quality: name.charAt(0).toUpperCase() + name.slice(1) });
+  for (let i = 0; i < embedPageUrls.length; i++) {
+    const embedHtml = await _get(embedPageUrls[i]);
+    const langSuffix = embedPageUrls.length > 1 ? ` (${langNames[i] ?? `Idioma ${i + 1}`})` : '';
+    for (const m of embedHtml.matchAll(re)) {
+      const name = m[2].trim();
+      if (_NEVER_NATIVE.has(name.toLowerCase())) continue;
+      // El servidor Yourupload de la pestaña Japonés viene envuelto en un
+      // gate propio del sitio ("go.php?v=<url real>") en vez de la URL
+      // directa — el valor real ya está ahí mismo en la query string, no
+      // hace falta pedir esa página intermedia para sacarlo.
+      const goPhpM = /\/go\.php\?v=(.+)$/i.exec(m[1].trim());
+      const streamUrl = goPhpM ? goPhpM[1] : m[1].trim();
+      streams.push({ url: streamUrl, quality: `${_titleCase(name)}${langSuffix}` });
+    }
   }
 
   return { streams, pageUrl: episodeUrl };
+}
+
+function _titleCase(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeJara
-// @version      1.0.7
+// @version      1.1.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -705,9 +705,11 @@ var _NEVER_NATIVE = /* @__PURE__ */ new Set([
   "netu",
   "vidhide",
   "streamtape",
-  "streamhg"
+  "streamhg",
+  "mega"
 ]);
 async function watch(url) {
+  var _a;
   if (url.indexOf("http") === 0 && url.indexOf("animejara.com") === -1) {
     try {
       const res = await resolveEmbed("Servidor", url, `${BASE}/`);
@@ -720,18 +722,40 @@ async function watch(url) {
   }
   const episodeUrl = url.indexOf("http") === 0 ? url : `${BASE}/${url}`;
   const html = await _get(episodeUrl);
-  const iframeM = /<iframe id="iframe-video" src="([^"]+)"/i.exec(html);
-  if (!iframeM) return { streams: [], pageUrl: episodeUrl };
-  const embedPageUrl = _decodeUrlEntities(iframeM[1]);
-  const embedHtml = await _get(embedPageUrl);
+  const enlacesM = /const\s+enlaces\s*=\s*(\[[\s\S]*?\]);/.exec(html);
+  let embedPageUrls = [];
+  if (enlacesM) {
+    try {
+      embedPageUrls = JSON.parse(enlacesM[1].replace(/\\\//g, "/"));
+    } catch (e) {
+    }
+  }
+  if (embedPageUrls.length === 0) {
+    const iframeM = /<iframe id="iframe-video" src="([^"]+)"/i.exec(html);
+    if (iframeM) embedPageUrls = [_decodeUrlEntities(iframeM[1])];
+  }
+  if (embedPageUrls.length === 0) return { streams: [], pageUrl: episodeUrl };
+  const langNames = Array.from(
+    html.matchAll(/<div class="lang-name">([^<]+)<\/div>/g),
+    (m) => _titleCase(m[1].trim())
+  );
   const streams = [];
   const re = /playVideo\(&quot;\s*([^&]+?)\s*&quot;\)"[^>]*>[\s\S]*?alt="([^"]+)"/g;
-  for (const m of embedHtml.matchAll(re)) {
-    const name = m[2].trim();
-    if (_NEVER_NATIVE.has(name.toLowerCase())) continue;
-    streams.push({ url: m[1].trim(), quality: name.charAt(0).toUpperCase() + name.slice(1) });
+  for (let i = 0; i < embedPageUrls.length; i++) {
+    const embedHtml = await _get(embedPageUrls[i]);
+    const langSuffix = embedPageUrls.length > 1 ? ` (${(_a = langNames[i]) != null ? _a : `Idioma ${i + 1}`})` : "";
+    for (const m of embedHtml.matchAll(re)) {
+      const name = m[2].trim();
+      if (_NEVER_NATIVE.has(name.toLowerCase())) continue;
+      const goPhpM = /\/go\.php\?v=(.+)$/i.exec(m[1].trim());
+      const streamUrl = goPhpM ? goPhpM[1] : m[1].trim();
+      streams.push({ url: streamUrl, quality: `${_titleCase(name)}${langSuffix}` });
+    }
   }
   return { streams, pageUrl: episodeUrl };
+}
+function _titleCase(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
 // OJO: nunca usar url.indexOf('.mp4')/('.m3u8') suelto — algunos dominios de
