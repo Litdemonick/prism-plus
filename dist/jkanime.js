@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.8.3
+// @version      1.9.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -946,15 +946,15 @@ async function watch(url) {
   }
   servers.sort((a, b) => (a.lang || 0) - (b.lang || 0));
   const resolved = servers.map((s) => _rawServerStream(s)).filter((s) => s !== null);
-  const direct = resolved.filter((s) => _isDirect(s.url));
-  const embeds = resolved.filter((s) => !_isDirect(s.url));
-  const streams = [...subStreams, ...direct, ...embeds];
   const isMega = (u) => u.indexOf("mega.nz") !== -1 || u.indexOf("mega.co.nz") !== -1;
-  const ordered = [
-    ...streams.filter((s) => !isMega(s.url)),
-    ...streams.filter((s) => isMega(s.url))
-  ];
-  return { streams: ordered, pageUrl: episodeUrl };
+  const usable = resolved.filter((s) => {
+    const uLow = s.url.toLowerCase();
+    return !isMega(uLow) && !_JS_ONLY_HOSTS.some((h) => uLow.indexOf(h) !== -1);
+  });
+  const direct = usable.filter((s) => _isDirect(s.url));
+  const embeds = usable.filter((s) => !_isDirect(s.url));
+  const streams = [...subStreams, ...direct, ...embeds];
+  return { streams, pageUrl: episodeUrl };
 }
 async function _resolveEmbedDio(name, url, referer) {
   const label = name;

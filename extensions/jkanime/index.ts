@@ -586,22 +586,33 @@ export async function watch(url: string): Promise<PrismWatch> {
     .map(s => _rawServerStream(s))
     .filter((s): s is PrismStream => s !== null);
 
+  // A pedido explícito: solo servidores con chance real de nativo, nada de
+  // WebView como plan A. Se sacan:
+  //  - Mega: cifrado client-side, sin URL interceptable (igual que en
+  //    animeytx).
+  //  - _JS_ONLY_HOSTS (VOE, Streamwish/Vidhide/Filemoon, Mixdrop): el propio
+  //    fast-path de arriba ya los marca como "dio nunca puede extraer su
+  //    stream" y los manda directo al sniffer de WebView — confirmado en
+  //    vivo con curl que Streamwish devuelve 403 de Cloudflare al intentar
+  //    resolverlo por scraping. Ese sniffer es justo lo que causaba el bug
+  //    de "audio sí, video en negro" (agarra la URL de red equivocada,
+  //    probablemente solo la del audio) — no un problema de decodificación,
+  //    sino de estar resolviendo mal el servidor desde el vamos.
+  const isMega = (u: string) => u.indexOf('mega.nz') !== -1 || u.indexOf('mega.co.nz') !== -1;
+  const usable = resolved.filter(s => {
+    const uLow = s.url.toLowerCase();
+    return !isMega(uLow) && !_JS_ONLY_HOSTS.some(h => uLow.indexOf(h) !== -1);
+  });
+
   // Direct streams (mp4/m3u8) antes que embeds crudos
-  const direct = resolved.filter(s => _isDirect(s.url));
-  const embeds = resolved.filter(s => !_isDirect(s.url));
+  const direct = usable.filter(s => _isDirect(s.url));
+  const embeds = usable.filter(s => !_isDirect(s.url));
 
   // SUB (Desu/Magi, resueltos arriba) primero — es lo que la página muestra
   // por default — luego LAT directos, luego embeds sin resolver.
   const streams = [...subStreams, ...direct, ...embeds];
 
-  // Mega siempre al final
-  const isMega = (u: string) => u.indexOf('mega.nz') !== -1 || u.indexOf('mega.co.nz') !== -1;
-  const ordered = [
-    ...streams.filter(s => !isMega(s.url)),
-    ...streams.filter(s => isMega(s.url)),
-  ];
-
-  return { streams: ordered, pageUrl: episodeUrl };
+  return { streams, pageUrl: episodeUrl };
 }
 
 // ─── Resolvers con dio (_get) ─────────────────────────────────────────────────
