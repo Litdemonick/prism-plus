@@ -326,6 +326,15 @@ export async function watch(url: string): Promise<PrismWatch> {
     mirrors.push(m);
   }
 
+  // Abyss se saca directo de la lista: confirmado en vivo que su propio
+  // script "fuckadblock" se niega a inicializar el reproductor si detecta
+  // un WebView/sandbox (el mensaje literal en su HTML lo dice: "Due to
+  // certain reasons (AdBlock/Sandbox), ads are not being displayed, which
+  // prevents the player from functioning") — no hay forma de reproducirlo ni
+  // nativo ni en el WebView de la app, así que no tiene sentido ofrecerlo
+  // como opción.
+  const usableMirrors = mirrors.filter(m => m.name.toLowerCase() !== 'abyss');
+
   // Ningún resolveEmbed acá — antes se resolvían los 5-6 mirrors en paralelo
   // apenas se abría el capítulo (varios segundos de espera para servidores
   // que ni siquiera se iban a usar). Ahora solo se detecta cuál YA es una
@@ -333,7 +342,7 @@ export async function watch(url: string): Promise<PrismWatch> {
   // sin ningún pedido de red — los demás quedan crudos, sin resolver, y
   // recién se resuelven cuando el usuario elige ESE servidor puntual (cae en
   // el fast-path de arriba).
-  const streams: PrismStream[] = mirrors.map(m => ({ url: m.iframeSrc, quality: m.name }));
+  const streams: PrismStream[] = usableMirrors.map(m => ({ url: m.iframeSrc, quality: m.name }));
 
   // Mytsumi siempre primero (a pedido explícito), sin importar el orden con
   // que el sitio original lo liste — es el servidor más confiable en la
