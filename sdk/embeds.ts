@@ -5,24 +5,17 @@
 // Uso en extensiones:
 //   import { resolveEmbed, b64decode } from '../../sdk/embeds';
 
-import { request } from './http';
-
 // sendMessage("request", ...) usa el dio de PrismHub (UA/cookies/redirecciones
-// reales de la app) — a diferencia del fetch() global del runtime QuickJS
-// (polyfill de flutter_js sobre http.Client básico) que resolveStreamHg usaba
-// antes. Confirmado en vivo: vibuxer.com cuelga ese fetch() hasta el timeout
-// (15s, dos intentos) para el mismo usuario cuyo navegador real Y cuya propia
-// app (vía sendMessage, usado en el resto de la extensión) sí llegan sin
-// drama — indica un filtro anti-bot que distingue el fetch() del polyfill del
-// resto del tráfico "real" de la app, no un bloqueo del host en sí.
+// reales de la app, mismo mecanismo que usan todas las extensiones para su
+// propio sitio) — a diferencia del fetch() global del runtime QuickJS
+// (polyfill de flutter_js sobre http.Client básico) que fetchEmbed usaba
+// antes. Confirmado en vivo en la app real: ese fetch() se cuelga hasta el
+// timeout contra MÚLTIPLES hosts (vibuxer.com, uqload.com, mp4upload.com),
+// mientras el mismo pedido vía dio responde en menos de 1s — no es un
+// bloqueo puntual de un host, es un problema del propio cliente HTTP del
+// polyfill. Por eso fetchEmbed (y con ella TODOS los resolvers de este
+// archivo) pide con sendMessage/dio en vez de fetch().
 declare function sendMessage(channel: string, data: string): Promise<string>;
-async function _dioGet(url: string, headers: Record<string, string>): Promise<string | null> {
-  try {
-    return await sendMessage('request', JSON.stringify([url, { method: 'get', headers }]));
-  } catch {
-    return null;
-  }
-}
 
 export interface ResolvedEmbed {
   url: string;
@@ -554,14 +547,8 @@ export async function resolveStreamHg(
   const idM = /\/e\/([A-Za-z0-9]+)/.exec(url);
   if (!idM) return null;
 
-  // Confirmado en vivo: vibuxer.com anda perfecto por el navegador real Y por
-  // la app siguiendo la cadena real del sitio (que usa sendMessage/dio para
-  // TODO su tráfico) — el que se cuelga es específicamente el fetch() del
-  // polyfill que usaban fetchEmbed/resolveGeneric acá. Por eso este resolver,
-  // a diferencia de los demás de este archivo, pide con _dioGet en vez de
-  // fetchEmbed.
-  const html = await _dioGet(`https://vibuxer.com/e/${idM[1]}`, {
-    Referer: 'https://hgcloud.to/',
+  const html = await fetchEmbed(`https://vibuxer.com/e/${idM[1]}`, referer, {
+    headers: { Referer: 'https://hgcloud.to/' },
   });
   if (!html) return null;
 
@@ -657,7 +644,12 @@ function _hostOf(url: string): string | null {
   return m ? m[1] : null;
 }
 
-/** Fetch para páginas embed externas. Acepta timeout/retries para hosts lentos. */
+/**
+ * Fetch para páginas embed externas, vía sendMessage/dio. `timeout` ya no
+ * aplica (dio maneja su propio límite interno) — se deja en la firma solo
+ * para no romper a quien todavía lo pase. `retries` sí se respeta con un
+ * loop manual, porque sendMessage no reintenta por su cuenta.
+ */
 export async function fetchEmbed(
   url: string,
   referer: string,
@@ -667,18 +659,18 @@ export async function fetchEmbed(
     headers?: Record<string, string>;
   } = {},
 ): Promise<string | null> {
-  try {
-    const res = await request(url, {
-      headers: { Referer: referer, ...(opts.headers ?? {}) },
-      timeout: opts.timeout ?? 8000,
-      retries: opts.retries ?? 0,
-      acceptStatus: true, // muchos embeds traen el contenido útil en 403/404
-    });
-    return res.text();
-  } catch (e) {
-    console.log(`[fetchEmbed] FAIL ${url.slice(0, 45)} :: ${(e as Error)?.message ?? e}`);
-    return null;
+  const headers = { Referer: referer, ...(opts.headers ?? {}) };
+  const retries = opts.retries ?? 0;
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await sendMessage('request', JSON.stringify([url, { method: 'get', headers }]));
+    } catch (e) {
+      lastErr = e;
+    }
   }
+  console.log(`[fetchEmbed] FAIL ${url.slice(0, 45)} :: ${(lastErr as Error)?.message ?? lastErr}`);
+  return null;
 }
 
 /** Decodificador base64 puro JS — no depende de atob() del entorno */

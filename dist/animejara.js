@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeJara
-// @version      1.1.0
+// @version      1.1.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -34,98 +34,7 @@ function decodeEntities(html) {
   return html.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ");
 }
 
-// sdk/http.ts
-var NetworkError = class extends Error {
-  constructor(cause, url) {
-    var _a;
-    super(`Error de red en ${url}: ${(_a = cause == null ? void 0 : cause.message) != null ? _a : cause}`);
-    this.name = "NetworkError";
-  }
-};
-var HttpError = class extends Error {
-  constructor(status, statusText, url) {
-    super(`HTTP ${status} ${statusText} \u2014 ${url}`);
-    this.status = status;
-    this.statusText = statusText;
-    this.url = url;
-    this.name = "HttpError";
-  }
-};
-var TimeoutError = class extends Error {
-  constructor(ms, url) {
-    super(`Timeout de ${ms}ms superado \u2014 ${url}`);
-    this.name = "TimeoutError";
-  }
-};
-var DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-var DEFAULT_TIMEOUT = 15e3;
-var DEFAULT_RETRIES = 2;
-function isRetryable(status) {
-  return status === 429 || status >= 500 && status < 600;
-}
-async function request(url, options = {}) {
-  const {
-    method = "GET",
-    headers = {},
-    body,
-    retries = DEFAULT_RETRIES,
-    timeout = DEFAULT_TIMEOUT,
-    acceptStatus = false
-  } = options;
-  const merged = __spreadValues({ "User-Agent": DEFAULT_UA }, headers);
-  let lastError;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const Ctrl = typeof AbortController !== "undefined" ? AbortController : null;
-    const controller = Ctrl ? new Ctrl() : null;
-    let timer;
-    try {
-      const res = await Promise.race([
-        fetch(url, {
-          method,
-          headers: merged,
-          body,
-          signal: controller ? controller.signal : void 0
-        }),
-        new Promise((_, reject) => {
-          timer = setTimeout(() => {
-            if (controller) controller.abort();
-            reject(new TimeoutError(timeout, url));
-          }, timeout);
-        })
-      ]);
-      if (timer) clearTimeout(timer);
-      if (acceptStatus || res.ok) {
-        return res;
-      } else {
-        const err = new HttpError(res.status, res.statusText, url);
-        if (isRetryable(res.status) && attempt < retries) {
-          lastError = err;
-        } else {
-          throw err;
-        }
-      }
-    } catch (err) {
-      if (timer) clearTimeout(timer);
-      if (err instanceof TimeoutError) throw err;
-      if (err instanceof HttpError) throw err;
-      lastError = new NetworkError(err, url);
-    }
-    if (attempt < retries) await _sleep(300 * 2 ** attempt);
-  }
-  throw lastError;
-}
-function _sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 // sdk/embeds.ts
-async function _dioGet(url, headers) {
-  try {
-    return await sendMessage("request", JSON.stringify([url, { method: "get", headers }]));
-  } catch (e) {
-    return null;
-  }
-}
 async function resolveEmbed(server, embedUrl, referer) {
   var _a;
   const s = `${server} ${embedUrl}`.toLowerCase();
@@ -404,8 +313,8 @@ async function resolveStreamwish(url, referer) {
 async function resolveStreamHg(url, referer) {
   const idM = /\/e\/([A-Za-z0-9]+)/.exec(url);
   if (!idM) return null;
-  const html = await _dioGet(`https://vibuxer.com/e/${idM[1]}`, {
-    Referer: "https://hgcloud.to/"
+  const html = await fetchEmbed(`https://vibuxer.com/e/${idM[1]}`, referer, {
+    headers: { Referer: "https://hgcloud.to/" }
   });
   if (!html) return null;
   const flat = `${html}
@@ -474,20 +383,19 @@ function _hostOf(url) {
   return m ? m[1] : null;
 }
 async function fetchEmbed(url, referer, opts = {}) {
-  var _a, _b, _c, _d;
-  try {
-    const res = await request(url, {
-      headers: __spreadValues({ Referer: referer }, (_a = opts.headers) != null ? _a : {}),
-      timeout: (_b = opts.timeout) != null ? _b : 8e3,
-      retries: (_c = opts.retries) != null ? _c : 0,
-      acceptStatus: true
-      // muchos embeds traen el contenido útil en 403/404
-    });
-    return res.text();
-  } catch (e) {
-    console.log(`[fetchEmbed] FAIL ${url.slice(0, 45)} :: ${(_d = e == null ? void 0 : e.message) != null ? _d : e}`);
-    return null;
+  var _a, _b, _c;
+  const headers = __spreadValues({ Referer: referer }, (_a = opts.headers) != null ? _a : {});
+  const retries = (_b = opts.retries) != null ? _b : 0;
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await sendMessage("request", JSON.stringify([url, { method: "get", headers }]));
+    } catch (e) {
+      lastErr = e;
+    }
   }
+  console.log(`[fetchEmbed] FAIL ${url.slice(0, 45)} :: ${(_c = lastErr == null ? void 0 : lastErr.message) != null ? _c : lastErr}`);
+  return null;
 }
 function b64decode(s) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
