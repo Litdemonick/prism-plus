@@ -335,9 +335,15 @@ export async function watch(url: string): Promise<PrismWatch> {
   // el fast-path de arriba).
   const streams: PrismStream[] = mirrors.map(m => ({ url: m.iframeSrc, quality: m.name }));
 
-  // Los ya-directos van primero (candidato natural para arrancar sin más
+  // Mytsumi siempre primero (a pedido explícito), sin importar el orden con
+  // que el sitio original lo liste — es el servidor más confiable en la
+  // práctica (URL real en texto plano, ver _resolveMytsumiPlayerPage). Recién
+  // después, los ya-directos (candidato natural para arrancar sin más
   // trámite en cuanto el usuario lo elija).
   streams.sort((a, b) => {
+    const aMytsumi = a.quality.toLowerCase() === 'mytsumi' ? 0 : 1;
+    const bMytsumi = b.quality.toLowerCase() === 'mytsumi' ? 0 : 1;
+    if (aMytsumi !== bMytsumi) return aMytsumi - bMytsumi;
     const aDirect = _isDirectMedia(a.url) ? 0 : 1;
     const bDirect = _isDirectMedia(b.url) ? 0 : 1;
     return aDirect - bDirect;
