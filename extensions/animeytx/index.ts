@@ -341,8 +341,8 @@ export async function watch(url: string): Promise<PrismWatch> {
   // después, los ya-directos (candidato natural para arrancar sin más
   // trámite en cuanto el usuario lo elija).
   streams.sort((a, b) => {
-    const aMytsumi = a.quality.toLowerCase() === 'mytsumi' ? 0 : 1;
-    const bMytsumi = b.quality.toLowerCase() === 'mytsumi' ? 0 : 1;
+    const aMytsumi = (a.quality ?? '').toLowerCase() === 'mytsumi' ? 0 : 1;
+    const bMytsumi = (b.quality ?? '').toLowerCase() === 'mytsumi' ? 0 : 1;
     if (aMytsumi !== bMytsumi) return aMytsumi - bMytsumi;
     const aDirect = _isDirectMedia(a.url) ? 0 : 1;
     const bDirect = _isDirectMedia(b.url) ? 0 : 1;

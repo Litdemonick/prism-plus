@@ -696,8 +696,9 @@ async function watch(url) {
   }
   const streams = mirrors.map((m) => ({ url: m.iframeSrc, quality: m.name }));
   streams.sort((a, b) => {
-    const aMytsumi = a.quality.toLowerCase() === "mytsumi" ? 0 : 1;
-    const bMytsumi = b.quality.toLowerCase() === "mytsumi" ? 0 : 1;
+    var _a, _b;
+    const aMytsumi = ((_a = a.quality) != null ? _a : "").toLowerCase() === "mytsumi" ? 0 : 1;
+    const bMytsumi = ((_b = b.quality) != null ? _b : "").toLowerCase() === "mytsumi" ? 0 : 1;
     if (aMytsumi !== bMytsumi) return aMytsumi - bMytsumi;
     const aDirect = _isDirectMedia(a.url) ? 0 : 1;
     const bDirect = _isDirectMedia(b.url) ? 0 : 1;
