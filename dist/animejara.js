@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeJara
-// @version      1.0.6
+// @version      1.0.7
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -704,7 +704,8 @@ var _NEVER_NATIVE = /* @__PURE__ */ new Set([
   "filemoon",
   "netu",
   "vidhide",
-  "streamtape"
+  "streamtape",
+  "streamhg"
 ]);
 async function watch(url) {
   if (url.indexOf("http") === 0 && url.indexOf("animejara.com") === -1) {

@@ -298,18 +298,23 @@ function matchFirstCover(html: string): string | undefined {
 //    (resolver da NULL, media_kit no puede abrir la URL cruda tampoco) —
 //    coincide con el 404 consistente ya visto desde el entorno de prueba,
 //    con distintos user-agents y sin referer. No es mala suerte puntual.
-// streamhg (hgcloud.to) SÍ resuelve ahora (sdk/embeds.ts::resolveStreamHg) —
-// el CDN real detrás (premilkyway.com) devolvió TLSV1_ALERT_ACCESS_DENIED
-// desde este entorno de pruebas, el mismo síntoma exacto que tuvo vidhide acá
-// mismo antes de confirmarse igual de bloqueado en la app real — pero como
-// no está confirmado en la app real todavía, se deja HABILITADO a la espera
-// de esa prueba en vivo (si falla igual ahí, recién ahí se descarta).
+//  - streamhg (hgcloud.to → vibuxer.com → premilkyway.com): CONFIRMADO en la
+//    app real que la extracción funciona perfecto (resolveStreamHg saca el
+//    m3u8 firmado en ~1.5s, sin timeout) pero media_kit/mpv falla con
+//    "Failed to open" al intentar reproducir esa URL — el motor de red de
+//    mpv (libavformat) es un cliente HTTP/TLS totalmente distinto al de un
+//    navegador o al dio de la app, y premilkyway.com lo rechaza igual que
+//    rechazó curl/node desde el entorno de pruebas (mismo síntoma que
+//    vidhide: bloqueo a nivel de fingerprint TLS del cliente, no del scraping
+//    en sí). Un navegador real SÍ reproduce siguiendo la cadena completa del
+//    sitio — pero eso no ayuda: PrismHub usa mpv, no un navegador, para
+//    reproducir nativamente. No hay resolver que pueda arreglar esto.
 // Quedan uqload y mp4upload (y mixdrop/lulustream si el sitio los lista) —
 // confirmados resolviendo a streams reales cuando el archivo subido existe.
 // A veces un capítulo puntual falla (archivo caído/lento) — es variación
 // normal de sitios con espejos múltiples, no motivo para descartar el host.
 const _NEVER_NATIVE = new Set([
-  'savefiles', 'filemoon', 'netu', 'vidhide', 'streamtape',
+  'savefiles', 'filemoon', 'netu', 'vidhide', 'streamtape', 'streamhg',
 ]);
 
 export async function watch(url: string): Promise<PrismWatch> {
