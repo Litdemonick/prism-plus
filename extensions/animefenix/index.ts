@@ -198,7 +198,24 @@ export async function detail(url: string): Promise<PrismDetail> {
 // formulario POST a /dl estilo Openload (op/file_code/referer), sin resolver
 // del SDK que lo cubra. Confirmado en vivo (misma imagen "img.savefiles.com"
 // referenciada en su propio JS).
-const _NEVER_NATIVE = new Set(['savefiles']);
+//
+// StreamTape: descartado a pedido del usuario (falla siempre al abrir en la
+// app real, mismo error intermitente ya visto en otras extensiones de este
+// repo desde este entorno).
+//
+// PremiunVIP (re.ironhentai.com/hugging.php → huggingface.co): confirmado en
+// vivo en la app real (2 animes distintos, mismo síntoma exacto ambas veces)
+// que arranca — llega a determinar la resolución del video — pero después
+// se queda cargando para siempre. La causa: huggingface.co firma la URL
+// final del CDN (xet-bridge-us) con el rango de bytes EXACTO de la primera
+// petición ("ByteRange" queda grabado en el Policy firmado, confirmado
+// inspeccionando la redirección con curl). mpv reutiliza esa misma URL
+// firmada para pedir el resto del archivo, pero la firma solo autoriza el
+// rango inicial — cualquier pedido de rango distinto queda sin autorizar,
+// de ahí el cuelgue eterno. Es una incompatibilidad estructural entre el
+// backend de Hugging Face y el streaming progresivo por rangos que hace
+// cualquier reproductor nativo — no hay resolver que pueda arreglarlo.
+const _NEVER_NATIVE = new Set(['savefiles', 'streamtape', 'premiunvip']);
 
 // El mirror uqload.is que usa este sitio (a diferencia de uqload.com, que sí
 // funciona en otras extensiones del repo) usa el MISMO formulario-gate POST
