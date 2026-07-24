@@ -44,6 +44,8 @@ export async function resolveEmbed(
     )
       result = await resolveDoodstream(embedUrl, referer);
     else if (s.includes('hqq') || s.includes('netu')) result = await resolveNetu(embedUrl, referer);
+    else if (s.includes('ok.ru') || s.includes('okru') || s.includes('odnoklassniki'))
+      result = await resolveOkru(embedUrl);
     else if (
       s.includes('streamwish') || s.includes('wishfast') || s.includes('vidhide') ||
       s.includes('filelions') || s.includes('vhide') || s.includes('vtube') ||
@@ -426,6 +428,37 @@ function _cdnReferer(
   const h = _hostOf(streamUrl);
   if (!h) return fallback;
   return { Referer: `https://${h}/`, Origin: `https://${h}` };
+}
+
+/**
+ * ok.ru (Odnoklassniki) — embed `ok.ru/videoembed/{id}`.
+ *
+ * La página trae un blob JSON incrustado en el atributo `data-options` con
+ * TRES capas de escapado superpuestas (confirmado en vivo, byte a byte):
+ *   1. El HTML-atributo escapa las comillas como `&quot;`.
+ *   2. Dentro va un objeto JSON cuyo campo "metadata" es a su vez un STRING ya
+ *      JSON.stringify-eado una vez (por eso sus comillas internas llevan un
+ *      backslash extra: `\&quot;`).
+ *   3. Ese "metadata" stringificado escapó además cada "&" como `&` antes
+ *      de volver a stringificarse, así que en el texto crudo aparece como
+ *      `\\u0026` (dos backslashes reales + "u0026").
+ * No hace falta reconstruir todo el JSON: `hlsManifestUrl` no contiene "&"
+ * reales en esta etapa (todos están escapados), así que se puede capturar el
+ * valor completo cortando en el primer `&quot;` (delimitador) y luego
+ * colapsar cada `\\u0026` directo a "&" en un solo paso.
+ */
+export async function resolveOkru(url: string): Promise<ResolvedEmbed | null> {
+  const html = await fetchEmbed(url, 'https://ok.ru/');
+  if (!html) return null;
+  const marker = 'hlsManifestUrl\\&quot;:\\&quot;';
+  const start = html.indexOf(marker);
+  if (start === -1) return null;
+  const from = start + marker.length;
+  const end = html.indexOf('\\&quot;', from);
+  if (end === -1) return null;
+  const url2 = html.slice(from, end).split('\\\\u0026').join('&');
+  if (!/^https?:\/\//.test(url2)) return null;
+  return { url: url2 };
 }
 
 /**

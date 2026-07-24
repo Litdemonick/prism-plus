@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeYT
-// @version      1.1.1
+// @version      1.2.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -24,6 +24,18 @@ var __spreadValues = (a, b) => {
         __defNormalProp(a, prop, b[prop]);
     }
   return a;
+};
+var __objRest = (source, exclude) => {
+  var target = {};
+  for (var prop in source)
+    if (__hasOwnProp.call(source, prop) && exclude.indexOf(prop) < 0)
+      target[prop] = source[prop];
+  if (source != null && __getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(source)) {
+      if (exclude.indexOf(prop) < 0 && __propIsEnum.call(source, prop))
+        target[prop] = source[prop];
+    }
+  return target;
 };
 
 // sdk/html.ts
@@ -149,6 +161,8 @@ async function resolveEmbed(server, embedUrl, referer) {
     else if (s.includes("dood") || s.includes("dsvplay") || s.includes("playmogo") || s.includes("d000d") || s.includes("ds2play") || s.includes("ds2video") || s.includes("vidply") || s.includes("do0od") || s.includes("all3do"))
       result = await resolveDoodstream(embedUrl, referer);
     else if (s.includes("hqq") || s.includes("netu")) result = await resolveNetu(embedUrl, referer);
+    else if (s.includes("ok.ru") || s.includes("okru") || s.includes("odnoklassniki"))
+      result = await resolveOkru(embedUrl);
     else if (s.includes("streamwish") || s.includes("wishfast") || s.includes("vidhide") || s.includes("filelions") || s.includes("vhide") || s.includes("vtube") || s.includes("luluvdo") || s.includes("vidmoly") || s.includes("filemoon") || s.includes("moonplayer") || s.includes("swdyu") || s.includes("bysekoze") || s.includes("bestx") || s.includes("embedrise") || s.includes("ridoo") || s.includes("uqload") || s.includes("flaxtv"))
       result = await resolveStreamwish(embedUrl, referer);
     else result = await resolveGeneric(embedUrl, referer);
@@ -364,6 +378,19 @@ function _cdnReferer(streamUrl, fallback) {
   const h = _hostOf(streamUrl);
   if (!h) return fallback;
   return { Referer: `https://${h}/`, Origin: `https://${h}` };
+}
+async function resolveOkru(url) {
+  const html = await fetchEmbed(url, "https://ok.ru/");
+  if (!html) return null;
+  const marker = "hlsManifestUrl\\&quot;:\\&quot;";
+  const start = html.indexOf(marker);
+  if (start === -1) return null;
+  const from = start + marker.length;
+  const end = html.indexOf("\\&quot;", from);
+  if (end === -1) return null;
+  const url2 = html.slice(from, end).split("\\\\u0026").join("&");
+  if (!/^https?:\/\//.test(url2)) return null;
+  return { url: url2 };
 }
 async function resolveStreamwish(url, referer) {
   const host = _hostOf(url);
@@ -624,20 +651,27 @@ async function watch(url) {
     }
     mirrors.push(m);
   }
-  const streams = (await Promise.all(
+  const resolved = (await Promise.all(
     mirrors.map(async (mirror) => {
       try {
         const res = await resolveEmbed(mirror.name, mirror.iframeSrc, `${BASE}/`);
-        if (res && res.url) return { url: res.url, quality: mirror.name, headers: res.headers };
+        if (res && res.url) {
+          return { url: res.url, quality: mirror.name, headers: res.headers, ok: true };
+        }
       } catch (e) {
       }
-      return { url: mirror.iframeSrc, quality: mirror.name };
+      return { url: mirror.iframeSrc, quality: mirror.name, ok: false };
     })
   )).filter((s) => s !== null);
-  streams.sort((a, b) => {
+  resolved.sort((a, b) => {
+    if (a.ok !== b.ok) return a.ok ? -1 : 1;
     const aMoon = (a.quality || "").toLowerCase() === "moon" ? 0 : 1;
     const bMoon = (b.quality || "").toLowerCase() === "moon" ? 0 : 1;
     return aMoon - bMoon;
+  });
+  const streams = resolved.map((_a) => {
+    var _b = _a, { ok: _ok } = _b, s = __objRest(_b, ["ok"]);
+    return s;
   });
   return { streams, pageUrl: episodeUrl };
 }

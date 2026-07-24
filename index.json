@@ -8,7 +8,7 @@
     {
       "name": "AnimeYT",
       "package": "io.prismhub.animeytx",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -17,13 +17,13 @@
       "webSite": "https://wwv.animeytx.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animeytx.js",
-      "sha256": "8fbbcce3d7ac6ae543ccfdae2655c87b8930b6e49de37b3a2c80341fcb6a9518",
-      "signature": "NpuUe2A6wW0THGa2AaMAx3ikj9SKwigbQbU23Ib5J6wbyaBYzymhetXJjbCkpnj0oTyjaGJR31mmigw7Cqj/Cw=="
+      "sha256": "d8ebec77c1b54dd9dd6d158c54ae991d7ec839d3e896c21c97d627ff552ab0b8",
+      "signature": "fisedUS7pXHKX5cgs1PunAKR4sSfCvtE9z3txqM/K3y924nkJnAys6Gn84/ek0XEAVtKjFTTzzvyrldcF34aCw=="
     },
     {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
-      "version": "1.8.1",
+      "version": "1.8.2",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -32,8 +32,8 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "860163fd861bb334ce271d751139b0d4af1a7e394801166f5dec1721953b3f60",
-      "signature": "cICmEQl8IYoW5x3UDvF5T+zlTSWo2dexPvWWxw7oObGDA7DW5ijYzuuYJdZ6TZlGoC2sy3e/l+U6RZv5HPJyCg=="
+      "sha256": "e86541ce3967a4d18b83eebad054692afe37024a5e38af7a97906bfa92a75ce4",
+      "signature": "xJGzgrzceOSp2B7L9vhQzpMj50GKX35yd0NQz5NIGqYlXrDN958w7e/yO8F2c2BgjiKA6iz8EGs62dshYuyFAQ=="
     },
     {
       "name": "ManhwaWeb",

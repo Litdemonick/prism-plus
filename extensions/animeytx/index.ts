@@ -223,27 +223,37 @@ export async function watch(url: string): Promise<PrismWatch> {
     mirrors.push(m);
   }
 
-  const streams = (
+  const resolved = (
     await Promise.all(
       mirrors.map(async (mirror) => {
         try {
           const res = await resolveEmbed(mirror.name, mirror.iframeSrc, `${BASE}/`);
-          if (res && res.url) return { url: res.url, quality: mirror.name, headers: res.headers };
+          if (res && res.url) {
+            return { url: res.url, quality: mirror.name, headers: res.headers, ok: true };
+          }
         } catch {}
-        // Sin resolver nativo — dejar la URL cruda del embed para que el
-        // WebView sniffer de PrismHub la intente igual.
-        return { url: mirror.iframeSrc, quality: mirror.name };
+        // Sin resolver nativo (o el resolver no encontró nada) — dejar la URL
+        // cruda del embed para que el WebView sniffer de PrismHub la intente
+        // igual. Casi nunca reproduce sola (ej. Moon pasó a ser un frontend
+        // SPA propio que ya no se puede scrapear con regex), así que se marca
+        // ok:false para no priorizarla sobre una que sí se resolvió de verdad.
+        return { url: mirror.iframeSrc, quality: mirror.name, ok: false };
       }),
     )
   ).filter((s): s is NonNullable<typeof s> => s !== null);
 
-  // Moon es el servidor default más confiable (a pedido del usuario) — se
-  // fuerza siempre primero, sin depender del orden en que la página lo liste.
-  streams.sort((a, b) => {
+  // Primero los mirrors resueltos a una URL directa (m3u8/mp4) — antes se
+  // forzaba "Moon" siempre primero sin importar si en verdad se pudo
+  // resolver, lo que rompía la reproducción apenas Moon cambiaba de motor
+  // (confirmado en vivo: su nuevo frontend es una SPA sin nada scrapeable).
+  // Entre los resueltos, Moon sigue siendo la preferencia del usuario.
+  resolved.sort((a, b) => {
+    if (a.ok !== b.ok) return a.ok ? -1 : 1;
     const aMoon = (a.quality || '').toLowerCase() === 'moon' ? 0 : 1;
     const bMoon = (b.quality || '').toLowerCase() === 'moon' ? 0 : 1;
     return aMoon - bMoon;
   });
 
+  const streams = resolved.map(({ ok: _ok, ...s }) => s);
   return { streams, pageUrl: episodeUrl };
 }
