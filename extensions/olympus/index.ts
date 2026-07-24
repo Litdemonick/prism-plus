@@ -79,10 +79,15 @@ export async function search(
 ): Promise<PrismItem[]> {
   const genero = filter?.['genero']?.[0] ?? '';
   const estado = filter?.['estado']?.[0] ?? '';
+  // Confirmado en vivo contra /api/series: direction=asc/desc sí cambia el
+  // orden (alfabético A-Z / Z-A) — antes quedaba fijo en "asc". `sort=views`
+  // (u otros nombres probados) no tuvo ningún efecto, así que no hay un
+  // "ordenar por popularidad" real acá (eso ya lo cubre top()/Rankings).
+  const direction = filter?.['direction']?.[0] ?? 'asc';
   const q = keyword.trim();
 
   if (!q) {
-    const params = new URLSearchParams({ page: String(page), direction: 'asc', type: 'comic' });
+    const params = new URLSearchParams({ page: String(page), direction, type: 'comic' });
     if (genero) params.set('genres', genero);
     if (estado) params.set('status', estado);
     const d = await _get<{ data: { series: { data: OlympusListItem[] } } }>(
@@ -91,9 +96,16 @@ export async function search(
     return (d.data?.series?.data || []).map(_item);
   }
 
+  // /api/series/list (usado para buscar por texto) no trae género ni
+  // estado por ítem — solo id/name/slug/cover/type — así que género/estado
+  // no se pueden aplicar acá sin pedir el detalle de cada uno de los ~850
+  // resultados (demasiado costoso). Orden sí se puede, es local.
   const all = await _fullList();
   const kw = q.toLowerCase();
   const matches = all.filter(s => s.type === 'comic' && s.name.toLowerCase().includes(kw));
+  matches.sort((a, b) =>
+    direction === 'desc' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name),
+  );
   const perPage = 24;
   const start = (page - 1) * perPage;
   return matches.slice(start, start + perPage).map(_item);
@@ -114,6 +126,13 @@ export async function createFilter(): Promise<Record<string, unknown>> {
   return {
     genero: { title: 'Género', options: generoOptions, default: '', min: 1, max: 1 },
     estado: { title: 'Estado', options: estadoOptions, default: '', min: 1, max: 1 },
+    direction: {
+      title: 'Orden',
+      options: { asc: 'A-Z', desc: 'Z-A' },
+      default: 'asc',
+      min: 1,
+      max: 1,
+    },
   };
 }
 

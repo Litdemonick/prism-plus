@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Olympus
-// @version      1.1.1
+// @version      1.2.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -48,22 +48,26 @@ async function _fullList() {
   return _listCache;
 }
 async function search(keyword, page, filter) {
-  var _a, _b, _c, _d, _e, _f;
+  var _a, _b, _c, _d, _e, _f, _g, _h;
   const genero = (_b = (_a = filter == null ? void 0 : filter["genero"]) == null ? void 0 : _a[0]) != null ? _b : "";
   const estado = (_d = (_c = filter == null ? void 0 : filter["estado"]) == null ? void 0 : _c[0]) != null ? _d : "";
+  const direction = (_f = (_e = filter == null ? void 0 : filter["direction"]) == null ? void 0 : _e[0]) != null ? _f : "asc";
   const q = keyword.trim();
   if (!q) {
-    const params = new URLSearchParams({ page: String(page), direction: "asc", type: "comic" });
+    const params = new URLSearchParams({ page: String(page), direction, type: "comic" });
     if (genero) params.set("genres", genero);
     if (estado) params.set("status", estado);
     const d = await _get(
       `${BASE}/api/series?${params.toString()}`
     );
-    return (((_f = (_e = d.data) == null ? void 0 : _e.series) == null ? void 0 : _f.data) || []).map(_item);
+    return (((_h = (_g = d.data) == null ? void 0 : _g.series) == null ? void 0 : _h.data) || []).map(_item);
   }
   const all = await _fullList();
   const kw = q.toLowerCase();
   const matches = all.filter((s) => s.type === "comic" && s.name.toLowerCase().includes(kw));
+  matches.sort(
+    (a, b) => direction === "desc" ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)
+  );
   const perPage = 24;
   const start = (page - 1) * perPage;
   return matches.slice(start, start + perPage).map(_item);
@@ -76,7 +80,14 @@ async function createFilter() {
   for (const s of d.statuses || []) estadoOptions[String(s.id)] = s.name.trim();
   return {
     genero: { title: "G\xE9nero", options: generoOptions, default: "", min: 1, max: 1 },
-    estado: { title: "Estado", options: estadoOptions, default: "", min: 1, max: 1 }
+    estado: { title: "Estado", options: estadoOptions, default: "", min: 1, max: 1 },
+    direction: {
+      title: "Orden",
+      options: { asc: "A-Z", desc: "Z-A" },
+      default: "asc",
+      min: 1,
+      max: 1
+    }
   };
 }
 function _fmtViews(n) {
