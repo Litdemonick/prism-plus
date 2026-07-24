@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeYT
-// @version      1.3.1
+// @version      1.3.2
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -147,6 +147,10 @@ function _sleep(ms) {
 async function resolveEmbed(server, embedUrl, referer) {
   var _a;
   const s = `${server} ${embedUrl}`.toLowerCase();
+  if (s.includes("mega.nz") || s.includes("mega.co.nz") || s.includes("abyssplayer.com") || s.includes("abyss.to") || s.includes("short.icu")) {
+    console.log(`[resolveEmbed] ${server} -> NULL (host conocido irresoluble, sin fetch)`);
+    return null;
+  }
   let result;
   try {
     if (s.includes("voe")) result = await resolveVoe(embedUrl, referer);

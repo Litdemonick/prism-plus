@@ -26,6 +26,20 @@ export async function resolveEmbed(
 ): Promise<ResolvedEmbed | null> {
   const s = `${server} ${embedUrl}`.toLowerCase();
 
+  // Rechazo rápido para hosts confirmados irresolubles por scraping — sin
+  // esto, cada uno igual dispara un fetchEmbed real (Abyss llegó a quemar
+  // los 8000ms completos del timeout antes de rendirse) solo para terminar
+  // devolviendo null de todos modos. Mega cifra todo client-side (no hay URL
+  // interceptable); Abyss usa un cifrado propio + detección anti-adblock que
+  // ya se investigó y no vale la pena perseguir.
+  if (
+    s.includes('mega.nz') || s.includes('mega.co.nz') ||
+    s.includes('abyssplayer.com') || s.includes('abyss.to') || s.includes('short.icu')
+  ) {
+    console.log(`[resolveEmbed] ${server} -> NULL (host conocido irresoluble, sin fetch)`);
+    return null;
+  }
+
   let result: ResolvedEmbed | null;
   try {
     if (s.includes('voe')) result = await resolveVoe(embedUrl, referer);
