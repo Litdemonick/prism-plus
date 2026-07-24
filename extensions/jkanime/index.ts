@@ -615,8 +615,9 @@ export async function watch(url: string): Promise<PrismWatch> {
   //    problema) — es una diferencia real entre cómo el navegador y mpv
   //    manejan esta conexión puntual, sin herramientas para diagnosticar
   //    más a fondo desde acá. Vuelve a la lista de exclusión.
+  //  - Mediafire: a pedido explícito, sacado de la lista.
   const isMega = (u: string) => u.indexOf('mega.nz') !== -1 || u.indexOf('mega.co.nz') !== -1;
-  const _CONFIRMED_BROKEN = ['streamtape', 'mp4upload'];
+  const _CONFIRMED_BROKEN = ['streamtape', 'mp4upload', 'mediafire'];
   const usable = resolved.filter(s => {
     const uLow = s.url.toLowerCase();
     return !isMega(uLow) &&
