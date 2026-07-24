@@ -140,6 +140,15 @@ function _absolutize(src: string): string {
   return `${BASE}${src.indexOf('/') === 0 ? '' : '/'}${src}`;
 }
 
+// El sitio mete espacios/saltos de línea sueltos DENTRO de atributos con
+// URLs bastante seguido (confirmado en vivo: un "\r\n" pegado al final de un
+// href de contenedor.php, y también espacios entre parámetros de una query
+// completa en otro mirror) — nunca son válidos en una URL real, así que se
+// sacan todos (no solo los de los extremos, por eso no alcanza con .trim()).
+function _stripWs(s: string): string {
+  return s.replace(/\s+/g, '');
+}
+
 // El selector de servidores no trae los embeds directo en el HTML: cada
 // <option> es un iframe completo codificado en base64 (name + src ofuscados
 // para que el scraping básico no los vea). Se decodifica cada uno acá.
@@ -155,7 +164,7 @@ function _parseMirrors(html: string): _Mirror[] {
       if (srcM) {
         mirrors.push({
           name: m[2].trim() || 'Servidor',
-          iframeSrc: _absolutize(decodeEntities(srcM[1])),
+          iframeSrc: _absolutize(decodeEntities(_stripWs(srcM[1]))),
         });
       }
     } catch {}
@@ -193,15 +202,20 @@ async function _expandMytsumi(iframeSrc: string, depth = 0): Promise<_Mirror[]> 
       const tabs = JSON.parse(tabsM[1]) as { tab_name: string; url: string }[];
       const parsed = tabs
         .filter(t => t.url && t.tab_name.toLowerCase() !== 'mytsumi')
-        .map(t => ({ name: t.tab_name, iframeSrc: _absolutize(t.url) }));
+        .map(t => ({ name: t.tab_name, iframeSrc: _absolutize(_stripWs(t.url)) }));
       if (parsed.length > 0) return parsed;
     } catch {}
   }
 
+  // _stripWs en el href es necesario: confirmado en vivo que algunas páginas
+  // de selección de idioma traen un "\r\n" pegado DENTRO de las comillas del
+  // href (bug del propio sitio, plantilla server-side con espacio/salto de
+  // línea de sobra) — sin sacarlo, el id de contenedor.php queda corrupto
+  // (id=xxxxx%0D%0A) y esa página nunca encuentra su videoTabs real.
   const linkRe = /<a href=['"]([^'"]+)['"]>\s*<button[^>]*>([^<]*)<\/button>/gi;
   const links = [...html.matchAll(linkRe)]
-    .map(m => ({ href: _absolutize(decodeEntities(m[1])), label: m[2].trim() }))
-    .filter(l => l.href.indexOf('mytsumi.com') !== -1);
+    .map(m => ({ href: _absolutize(decodeEntities(_stripWs(m[1]))), label: m[2].trim() }))
+    .filter(l => l.href.indexOf('mytsumi.com') !== -1 && !l.href.endsWith('id='));
 
   if (links.length > 0) {
     const results: _Mirror[] = [];
@@ -230,7 +244,7 @@ export async function watch(url: string): Promise<PrismWatch> {
   if (rawMirrors.length === 0) {
     const defaultM = /data-litespeed-src="([^"]+)"/i.exec(html) ||
       /<iframe[^>]+src=['"]([^'"]+)['"]/i.exec(html);
-    if (defaultM) rawMirrors = [{ name: 'Default', iframeSrc: _absolutize(decodeEntities(defaultM[1])) }];
+    if (defaultM) rawMirrors = [{ name: 'Default', iframeSrc: _absolutize(decodeEntities(_stripWs(defaultM[1]))) }];
   }
 
   // Expandir wrappers "mytsumi" a sus servidores reales (Moon, Mega, OK...);

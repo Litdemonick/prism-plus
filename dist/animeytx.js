@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeYT
-// @version      1.3.0
+// @version      1.3.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -596,6 +596,9 @@ function _absolutize(src) {
   if (src.indexOf("//") === 0) return `https:${src}`;
   return `${BASE}${src.indexOf("/") === 0 ? "" : "/"}${src}`;
 }
+function _stripWs(s) {
+  return s.replace(/\s+/g, "");
+}
 function _parseMirrors(html) {
   const mirrors = [];
   const re = /<option value="([A-Za-z0-9+/=]{20,})"\s+data-index="\d+">\s*([^<]*)<\/option>/g;
@@ -606,7 +609,7 @@ function _parseMirrors(html) {
       if (srcM) {
         mirrors.push({
           name: m[2].trim() || "Servidor",
-          iframeSrc: _absolutize(decodeEntities(srcM[1]))
+          iframeSrc: _absolutize(decodeEntities(_stripWs(srcM[1])))
         });
       }
     } catch (e) {
@@ -623,13 +626,13 @@ async function _expandMytsumi(iframeSrc, depth = 0) {
   if (tabsM) {
     try {
       const tabs = JSON.parse(tabsM[1]);
-      const parsed = tabs.filter((t) => t.url && t.tab_name.toLowerCase() !== "mytsumi").map((t) => ({ name: t.tab_name, iframeSrc: _absolutize(t.url) }));
+      const parsed = tabs.filter((t) => t.url && t.tab_name.toLowerCase() !== "mytsumi").map((t) => ({ name: t.tab_name, iframeSrc: _absolutize(_stripWs(t.url)) }));
       if (parsed.length > 0) return parsed;
     } catch (e) {
     }
   }
   const linkRe = /<a href=['"]([^'"]+)['"]>\s*<button[^>]*>([^<]*)<\/button>/gi;
-  const links = [...html.matchAll(linkRe)].map((m) => ({ href: _absolutize(decodeEntities(m[1])), label: m[2].trim() })).filter((l) => l.href.indexOf("mytsumi.com") !== -1);
+  const links = [...html.matchAll(linkRe)].map((m) => ({ href: _absolutize(decodeEntities(_stripWs(m[1]))), label: m[2].trim() })).filter((l) => l.href.indexOf("mytsumi.com") !== -1 && !l.href.endsWith("id="));
   if (links.length > 0) {
     const results = [];
     const prefix = links.length > 1;
@@ -649,7 +652,7 @@ async function watch(url) {
   let rawMirrors = _parseMirrors(html);
   if (rawMirrors.length === 0) {
     const defaultM = /data-litespeed-src="([^"]+)"/i.exec(html) || /<iframe[^>]+src=['"]([^'"]+)['"]/i.exec(html);
-    if (defaultM) rawMirrors = [{ name: "Default", iframeSrc: _absolutize(decodeEntities(defaultM[1])) }];
+    if (defaultM) rawMirrors = [{ name: "Default", iframeSrc: _absolutize(decodeEntities(_stripWs(defaultM[1]))) }];
   }
   const mirrors = [];
   for (const m of rawMirrors) {
