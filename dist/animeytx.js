@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeYT
-// @version      1.8.3
+// @version      1.8.4
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -684,6 +684,35 @@ async function _expandMytsumi(iframeSrc, depth = 0) {
 function _isDirectMedia(u) {
   return /\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(u);
 }
+function _isBurstCloud(u) {
+  return u.indexOf("burstcloud.co") !== -1;
+}
+async function _resolveBurstCloud(url) {
+  var _a;
+  try {
+    const html = await _get(url);
+    const idM = /data-file-id="(\d+)"/.exec(html);
+    if (!idM) return null;
+    const raw = await sendMessage("request", JSON.stringify([
+      "https://www.burstcloud.co/file/play-request/",
+      {
+        method: "post",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "X-Requested-With": "XMLHttpRequest",
+          Referer: url
+        },
+        data: `fileId=${encodeURIComponent(idM[1])}`
+      }
+    ]));
+    const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const cdnUrl = (_a = data.purchase) == null ? void 0 : _a.cdnUrl;
+    if (!cdnUrl) return null;
+    return { url: cdnUrl, quality: "Servidor" };
+  } catch (e) {
+    return null;
+  }
+}
 function _isMytsumiPlayerPage(u) {
   return u.indexOf("mytsumi.com") !== -1 && u.indexOf("player.php") !== -1;
 }
@@ -703,6 +732,10 @@ async function _resolveMytsumiPlayerPage(url) {
 }
 async function watch(url) {
   if (url.indexOf("http") === 0 && url.indexOf("animeytx.net") === -1) {
+    if (_isBurstCloud(url)) {
+      const resolved = await _resolveBurstCloud(url);
+      if (resolved) return { streams: [resolved], pageUrl: "" };
+    }
     if (_isDirectMedia(url)) {
       return { streams: [{ url, quality: "Servidor" }], pageUrl: "" };
     }

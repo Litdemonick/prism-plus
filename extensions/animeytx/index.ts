@@ -309,6 +309,44 @@ function _isDirectMedia(u: string): boolean {
   return /\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(u);
 }
 
+// burstcloud.co ("Alpha" en la app) — el iframe termina en ".mp4" pero es
+// una página HTML (jwplayer + Vue), no el video: confirmado en vivo con
+// curl, content-type: text/html. Su propio JS (lib/Embed.js) resuelve el
+// real haciendo POST a /file/play-request/ con el fileId (data-file-id del
+// <div id="player">) y toma result.purchase.cdnUrl de la respuesta —
+// confirmado en vivo que ese cdnUrl sí sirve video/mp4 real.
+function _isBurstCloud(u: string): boolean {
+  return u.indexOf('burstcloud.co') !== -1;
+}
+
+async function _resolveBurstCloud(url: string): Promise<PrismStream | null> {
+  try {
+    const html = await _get(url);
+    const idM = /data-file-id="(\d+)"/.exec(html);
+    if (!idM) return null;
+    const raw = await sendMessage('request', JSON.stringify([
+      'https://www.burstcloud.co/file/play-request/',
+      {
+        method: 'post',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Requested-With': 'XMLHttpRequest',
+          Referer: url,
+        },
+        data: `fileId=${encodeURIComponent(idM[1])}`,
+      },
+    ]));
+    const data = (typeof raw === 'string' ? JSON.parse(raw) : raw) as {
+      purchase?: { cdnUrl?: string };
+    };
+    const cdnUrl = data.purchase?.cdnUrl;
+    if (!cdnUrl) return null;
+    return { url: cdnUrl, quality: 'Servidor' };
+  } catch {
+    return null;
+  }
+}
+
 // mytsumi.com/multiplayer/play*/player.php — pese al nombre "cifrado" del
 // parámetro ?data=, la página YA trae la URL real sin ofuscar dentro de un
 // <script>: const qualities = {"1080p":"https://archive.org/..."}. No hace
@@ -347,6 +385,13 @@ export async function watch(url: string): Promise<PrismWatch> {
   // resolver los 5-6 servidores de un capítulo de una: cada uno se resuelve
   // recién acá, on-demand, cuando el usuario lo elige.
   if (url.indexOf('http') === 0 && url.indexOf('animeytx.net') === -1) {
+    // ANTES que _isDirectMedia: burstcloud.co ("Alpha") termina en ".mp4" en
+    // su URL de embed pero es HTML, no video — si _isDirectMedia lo mirara
+    // primero lo devolvería crudo y media_kit fallaría igual que con OK.ru.
+    if (_isBurstCloud(url)) {
+      const resolved = await _resolveBurstCloud(url);
+      if (resolved) return { streams: [resolved], pageUrl: '' };
+    }
     if (_isDirectMedia(url)) {
       return { streams: [{ url, quality: 'Servidor' }], pageUrl: '' };
     }
