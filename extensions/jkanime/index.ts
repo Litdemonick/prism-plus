@@ -598,11 +598,16 @@ export async function watch(url: string): Promise<PrismWatch> {
   //    de "audio sí, video en negro" (agarra la URL de red equivocada,
   //    probablemente solo la del audio) — no un problema de decodificación,
   //    sino de estar resolviendo mal el servidor desde el vamos.
-  //  - Streamtape y Mp4upload: confirmado en vivo (probado en la app real)
-  //    que tampoco reproducen nativo pese a tener resolver propio — quedan
-  //    solo Desu, Magi y Doodstream, los únicos verificados de punta a punta.
+  //  - Streamtape: falló en vivo en la app; a diferencia de Mp4upload (ver
+  //    abajo), todavía no se re-verificó con datos frescos, así que se
+  //    mantiene afuera hasta confirmar si fue algo puntual o real.
+  // Mp4upload SÍ vuelve a la lista: confirmado con curl fresco que la URL
+  // real ya viene en texto plano en la página del embed (sin cifrar), y el
+  // regex del resolver la extrae bien — el fallo que se vio en la app fue
+  // más probable una demora/timeout puntual de red, no un problema real de
+  // extracción (mismo patrón que se confirmó con Mixdrop).
   const isMega = (u: string) => u.indexOf('mega.nz') !== -1 || u.indexOf('mega.co.nz') !== -1;
-  const _CONFIRMED_BROKEN = ['streamtape', 'mp4upload'];
+  const _CONFIRMED_BROKEN = ['streamtape'];
   const usable = resolved.filter(s => {
     const uLow = s.url.toLowerCase();
     return !isMega(uLow) &&
