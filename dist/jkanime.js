@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.7.0
+// @version      1.7.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -551,14 +551,14 @@ async function createTopFilter() {
         Oto\u00F1o: "Oto\xF1o",
         Invierno: "Invierno"
       },
-      defaultOption: "",
+      default: "",
       min: 1,
       max: 1
     },
     fecha: {
       title: "A\xF1o",
       options: __spreadValues({ "": "Todos" }, _TOP_YEARS.reduce((acc, y) => __spreadProps(__spreadValues({}, acc), { [y]: y }), {})),
-      defaultOption: "",
+      default: "",
       min: 1,
       max: 1
     }

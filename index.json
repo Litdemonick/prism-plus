@@ -23,7 +23,7 @@
     {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
-      "version": "1.7.0",
+      "version": "1.7.1",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -32,13 +32,13 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "fd12748376e6a11f869ed0859d47c038b9b1c24b95fe24b32ba1daa8462a22b3",
-      "signature": "BZEz9pGpzS1gV3dF9bVCWSDAujiMCxZEAHfqN/Y/nq7R0npS+LIDcgi2DeMrrk4J0lY3GTpBX5S9CgABtBpQCw=="
+      "sha256": "8b5de6cc14dc05dfd4b1ff6432f2a73ac4e5c8a520c621fbc80a858c8f47743f",
+      "signature": "hR1TBkq3jcTuS7DkiDJgqXEbjxlC/YlIrZF/LKV68V9bML+TX3JhjkM/HkBxJgLMBf8EU98BgfyKaZ0kp0GgCw=="
     },
     {
       "name": "ManhwaWeb",
       "package": "io.prismhub.manhwaweb",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "author": "PrismHub",
       "type": "manga",
       "icon": "",
@@ -47,13 +47,13 @@
       "webSite": "https://manhwaweb.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/manhwaweb.js",
-      "sha256": "893aa071a4248148bdd22305d73b54b15e7b03d6b01a752054f9cbe66a3ca50f",
-      "signature": "gGK1D2kREYfy+4uORpmPbdmiPy3oFv3s+iFAREo3KWl1PgHrVL130VhMy6AqgvGqjULRXxItpjMbhLdGJ+JmCg=="
+      "sha256": "1b8f57368afde74d7a9e4d49db1669a4e4e3809fc5f883b969b18dcf47757b96",
+      "signature": "A/4GVbCi+J9pPJW16C5NX/VU3xwoloAniSWFbjINu6tPG7WTvG9SLxZp0X9P1Ysqtmgd6+R5cqnndIekgB3NCQ=="
     },
     {
       "name": "Olympus",
       "package": "io.prismhub.olympus",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "PrismHub",
       "type": "manga",
       "icon": "",
@@ -62,8 +62,8 @@
       "webSite": "https://olympusxyz.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/olympus.js",
-      "sha256": "b782aaa1ead6968d21f382bfb570f33d1519e584a95beb30fc3af82f13f1fb40",
-      "signature": "Fb3FQuLn2/GLvUERQaZoSC6AK2mv8mw7Hmnu19NZeP54z0/WIK6MD7JxxFVI6Sp6VnvuDev1p0s3MGJ23iXkAQ=="
+      "sha256": "eb3e767f8bd493acb0da526c0a6214ea2ebea4653f4c9b8d7e4c6c1b58fdd816",
+      "signature": "C+pELiD5E3e+W9qkF2pKCb5F8GCGKgqkxQpu34cuDAJ9TkgQPmCMeTTkLGXliMUS8zZDEbNN9WKzqACxHLXfCA=="
     }
   ]
 }

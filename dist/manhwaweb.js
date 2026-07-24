@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ManhwaWeb
-// @version      1.2.0
+// @version      1.3.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -28,6 +28,47 @@ function _item(m) {
   const update = caps != null ? `Cap. ${caps}` : void 0;
   return { title, url: id, cover, update, headers: HEADERS };
 }
+var GENRES = {
+  "3": "Acci\xF3n",
+  "29": "Aventura",
+  "18": "Comedia",
+  "1": "Drama",
+  "42": "Recuentos de la vida",
+  "2": "Romance",
+  "5": "Venganza",
+  "6": "Harem",
+  "23": "Fantas\xEDa",
+  "31": "Sobrenatural",
+  "25": "Tragedia",
+  "43": "Psicol\xF3gico",
+  "32": "Horror",
+  "44": "Thriller",
+  "28": "Historias cortas",
+  "30": "Ecchi",
+  "34": "Gore",
+  "27": "Girls love",
+  "45": "Boys love",
+  "41": "Reencarnaci\xF3n",
+  "37": "Sistema de niveles",
+  "33": "Ciencia ficci\xF3n",
+  "38": "Apocal\xEDptico",
+  "39": "Artes marciales",
+  "40": "Superpoderes",
+  "35": "Cultivaci\xF3n (cultivo)",
+  "8": "Milf"
+};
+function _libraryQuery(page, buscar, filter) {
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m;
+  const f = filter != null ? filter : {};
+  const estado = (_b = (_a = f["estado"]) == null ? void 0 : _a[0]) != null ? _b : "";
+  const tipo = (_d = (_c = f["tipo"]) == null ? void 0 : _c[0]) != null ? _d : "";
+  const erotico = (_f = (_e = f["erotico"]) == null ? void 0 : _e[0]) != null ? _f : "";
+  const demografia = (_h = (_g = f["demografia"]) == null ? void 0 : _g[0]) != null ? _h : "";
+  const orderItem = (_j = (_i = f["order_item"]) == null ? void 0 : _i[0]) != null ? _j : "alfabetico";
+  const orderDir = (_l = (_k = f["order_dir"]) == null ? void 0 : _k[0]) != null ? _l : "desc";
+  const generes = ((_m = f["generos"]) != null ? _m : []).filter((id) => id !== "").join("a");
+  return `buscar=${encodeURIComponent(buscar)}&estado=${estado}&tipo=${tipo}&erotico=${erotico}&demografia=${demografia}&order_item=${orderItem}&order_dir=${orderDir}&page=${page}&generes=${generes}`;
+}
 async function latest(page) {
   if (page === 1) {
     const d2 = await _get("/manhwa/nuevos");
@@ -44,20 +85,43 @@ async function latest(page) {
     }
     return items;
   }
-  const d = await _get(`/manhwa/library?buscar=&estado=&page=${page - 2}`);
+  const d = await _get(`/manhwa/library?${_libraryQuery(page - 2, "")}`);
   return (d["data"] || []).map(_item);
 }
 async function search(keyword, page, filter) {
-  var _a, _b, _c, _d;
-  const estado = (_b = (_a = filter == null ? void 0 : filter["estado"]) == null ? void 0 : _a[0]) != null ? _b : "";
-  const tipo = (_d = (_c = filter == null ? void 0 : filter["tipo"]) == null ? void 0 : _c[0]) != null ? _d : "";
-  const q = encodeURIComponent(keyword);
-  const params = `buscar=${q}&estado=${estado}&tipo=${tipo}&page=${page - 1}`;
-  const d = await _get(`/manhwa/library?${params}`);
+  const d = await _get(`/manhwa/library?${_libraryQuery(page - 1, keyword, filter)}`);
   return (d["data"] || []).map(_item);
 }
 async function createFilter() {
   return {
+    tipo: {
+      title: "Tipo",
+      options: {
+        "": "Todos",
+        manhwa: "Manhwa",
+        manga: "Manga",
+        manhua: "Manhua",
+        doujinshi: "Doujinshi",
+        novela: "Novela",
+        one_shot: "One shot"
+      },
+      default: "",
+      min: 1,
+      max: 1
+    },
+    demografia: {
+      title: "Demograf\xEDa",
+      options: {
+        "": "Todas",
+        seinen: "Seinen",
+        shonen: "Shonen",
+        josei: "Josei",
+        shojo: "Shojo"
+      },
+      default: "",
+      min: 1,
+      max: 1
+    },
     estado: {
       title: "Estado",
       options: {
@@ -66,22 +130,49 @@ async function createFilter() {
         finalizado: "Finalizado",
         pausado: "Pausado"
       },
-      defaultOption: "",
+      default: "",
       min: 1,
       max: 1
     },
-    tipo: {
-      title: "Tipo",
+    erotico: {
+      title: "Er\xF3tico",
       options: {
         "": "Todos",
-        manhwa: "Manhwa",
-        manga: "Manga",
-        manhua: "Manhua",
-        novela: "Novela"
+        si: "S\xED",
+        no: "No"
       },
-      defaultOption: "",
+      default: "",
       min: 1,
       max: 1
+    },
+    order_item: {
+      title: "Ordenar por",
+      options: {
+        alfabetico: "Alfab\xE9tico",
+        creacion: "Creaci\xF3n",
+        popularidad: "Popularidad",
+        num_chapter: "N\xFAm. cap\xEDtulos"
+      },
+      default: "alfabetico",
+      min: 1,
+      max: 1
+    },
+    order_dir: {
+      title: "Direcci\xF3n",
+      options: {
+        desc: "Descendente",
+        asc: "Ascendente"
+      },
+      default: "desc",
+      min: 1,
+      max: 1
+    },
+    generos: {
+      title: "G\xE9neros",
+      options: GENRES,
+      default: "",
+      min: 0,
+      max: Object.keys(GENRES).length
     }
   };
 }
@@ -90,7 +181,7 @@ async function createTopFilter() {
     idioma: {
       title: "Idioma",
       options: { esp: "Traducido", raw: "Raw" },
-      defaultOption: "esp",
+      default: "esp",
       min: 1,
       max: 1
     }

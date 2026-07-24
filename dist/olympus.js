@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Olympus
-// @version      1.1.0
+// @version      1.1.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -75,8 +75,8 @@ async function createFilter() {
   const estadoOptions = { "": "Todos" };
   for (const s of d.statuses || []) estadoOptions[String(s.id)] = s.name.trim();
   return {
-    genero: { title: "G\xE9nero", options: generoOptions, defaultOption: "", min: 1, max: 1 },
-    estado: { title: "Estado", options: estadoOptions, defaultOption: "", min: 1, max: 1 }
+    genero: { title: "G\xE9nero", options: generoOptions, default: "", min: 1, max: 1 },
+    estado: { title: "Estado", options: estadoOptions, default: "", min: 1, max: 1 }
   };
 }
 function _fmtViews(n) {
@@ -89,7 +89,7 @@ async function createTopFilter() {
     periodo: {
       title: "Periodo",
       options: { total: "Total", mensual: "Mensual" },
-      defaultOption: "total",
+      default: "total",
       min: 1,
       max: 1
     }

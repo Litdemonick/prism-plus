@@ -112,8 +112,8 @@ export async function createFilter(): Promise<Record<string, unknown>> {
   for (const s of d.statuses || []) estadoOptions[String(s.id)] = s.name.trim();
 
   return {
-    genero: { title: 'Género', options: generoOptions, defaultOption: '', min: 1, max: 1 },
-    estado: { title: 'Estado', options: estadoOptions, defaultOption: '', min: 1, max: 1 },
+    genero: { title: 'Género', options: generoOptions, default: '', min: 1, max: 1 },
+    estado: { title: 'Estado', options: estadoOptions, default: '', min: 1, max: 1 },
   };
 }
 
@@ -142,7 +142,7 @@ export async function createTopFilter(): Promise<Record<string, unknown>> {
     periodo: {
       title: 'Periodo',
       options: { total: 'Total', mensual: 'Mensual' },
-      defaultOption: 'total',
+      default: 'total',
       min: 1,
       max: 1,
     },

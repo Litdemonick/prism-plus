@@ -19,6 +19,43 @@ function _item(m: Record<string, unknown>): PrismItem {
   return { title, url: id, cover, update, headers: HEADERS };
 }
 
+// Géneros reales del sitio (id -> nombre) — confirmado desde el bundle JS
+// (no hay endpoint que los liste, están hardcodeados ahí). El backend los
+// recibe bajo el nombre "generes" (typo propio del sitio, no nuestro),
+// unidos con la letra "a" como separador literal — confirmado en vivo
+// contra la API real (generes=3a29 filtra por Acción+Aventura).
+const GENRES: Record<string, string> = {
+  '3': 'Acción', '29': 'Aventura', '18': 'Comedia', '1': 'Drama',
+  '42': 'Recuentos de la vida', '2': 'Romance', '5': 'Venganza', '6': 'Harem',
+  '23': 'Fantasía', '31': 'Sobrenatural', '25': 'Tragedia', '43': 'Psicológico',
+  '32': 'Horror', '44': 'Thriller', '28': 'Historias cortas', '30': 'Ecchi',
+  '34': 'Gore', '27': 'Girls love', '45': 'Boys love', '41': 'Reencarnación',
+  '37': 'Sistema de niveles', '33': 'Ciencia ficción', '38': 'Apocalíptico',
+  '39': 'Artes marciales', '40': 'Superpoderes', '35': 'Cultivación (cultivo)',
+  '8': 'Milf',
+};
+
+// Arma el query de /manhwa/library con todos los filtros reales del sitio
+// (confirmados en vivo contra el backend, uno por uno) — no solo
+// estado/tipo como antes.
+function _libraryQuery(page: number, buscar: string, filter?: Record<string, string[]>): string {
+  const f = filter ?? {};
+  const estado = f['estado']?.[0] ?? '';
+  const tipo = f['tipo']?.[0] ?? '';
+  const erotico = f['erotico']?.[0] ?? '';
+  const demografia = f['demografia']?.[0] ?? '';
+  const orderItem = f['order_item']?.[0] ?? 'alfabetico';
+  const orderDir = f['order_dir']?.[0] ?? 'desc';
+  // Filtra cualquier entrada vacía antes de unir — el mecanismo genérico de
+  // filtros de la app arranca cada filtro con [defaultOption] (acá ''),
+  // que para un multi-selección como este no es un género real; sin
+  // filtrarlo se colaría como generes=a3 en vez de generes=3.
+  const generes = (f['generos'] ?? []).filter((id) => id !== '').join('a');
+  return `buscar=${encodeURIComponent(buscar)}&estado=${estado}&tipo=${tipo}` +
+    `&erotico=${erotico}&demografia=${demografia}&order_item=${orderItem}` +
+    `&order_dir=${orderDir}&page=${page}&generes=${generes}`;
+}
+
 export async function latest(page: number): Promise<PrismItem[]> {
   if (page === 1) {
     const d = await _get<Record<string, unknown>>('/manhwa/nuevos');
@@ -37,7 +74,7 @@ export async function latest(page: number): Promise<PrismItem[]> {
     return items;
   }
   // Page 2+ → library paginated (0-indexed)
-  const d = await _get<Record<string, unknown>>(`/manhwa/library?buscar=&estado=&page=${page - 2}`);
+  const d = await _get<Record<string, unknown>>(`/manhwa/library?${_libraryQuery(page - 2, '')}`);
   return ((d['data'] as Record<string, unknown>[]) || []).map(_item);
 }
 
@@ -46,16 +83,40 @@ export async function search(
   page: number,
   filter?: Record<string, string[]>,
 ): Promise<PrismItem[]> {
-  const estado = filter?.['estado']?.[0] ?? '';
-  const tipo = filter?.['tipo']?.[0] ?? '';
-  const q = encodeURIComponent(keyword);
-  const params = `buscar=${q}&estado=${estado}&tipo=${tipo}&page=${page - 1}`;
-  const d = await _get<Record<string, unknown>>(`/manhwa/library?${params}`);
+  const d = await _get<Record<string, unknown>>(`/manhwa/library?${_libraryQuery(page - 1, keyword, filter)}`);
   return ((d['data'] as Record<string, unknown>[]) || []).map(_item);
 }
 
 export async function createFilter(): Promise<Record<string, unknown>> {
   return {
+    tipo: {
+      title: 'Tipo',
+      options: {
+        '': 'Todos',
+        manhwa: 'Manhwa',
+        manga: 'Manga',
+        manhua: 'Manhua',
+        doujinshi: 'Doujinshi',
+        novela: 'Novela',
+        one_shot: 'One shot',
+      },
+      default: '',
+      min: 1,
+      max: 1,
+    },
+    demografia: {
+      title: 'Demografía',
+      options: {
+        '': 'Todas',
+        seinen: 'Seinen',
+        shonen: 'Shonen',
+        josei: 'Josei',
+        shojo: 'Shojo',
+      },
+      default: '',
+      min: 1,
+      max: 1,
+    },
     estado: {
       title: 'Estado',
       options: {
@@ -64,22 +125,49 @@ export async function createFilter(): Promise<Record<string, unknown>> {
         finalizado: 'Finalizado',
         pausado: 'Pausado',
       },
-      defaultOption: '',
+      default: '',
       min: 1,
       max: 1,
     },
-    tipo: {
-      title: 'Tipo',
+    erotico: {
+      title: 'Erótico',
       options: {
         '': 'Todos',
-        manhwa: 'Manhwa',
-        manga: 'Manga',
-        manhua: 'Manhua',
-        novela: 'Novela',
+        si: 'Sí',
+        no: 'No',
       },
-      defaultOption: '',
+      default: '',
       min: 1,
       max: 1,
+    },
+    order_item: {
+      title: 'Ordenar por',
+      options: {
+        alfabetico: 'Alfabético',
+        creacion: 'Creación',
+        popularidad: 'Popularidad',
+        num_chapter: 'Núm. capítulos',
+      },
+      default: 'alfabetico',
+      min: 1,
+      max: 1,
+    },
+    order_dir: {
+      title: 'Dirección',
+      options: {
+        desc: 'Descendente',
+        asc: 'Ascendente',
+      },
+      default: 'desc',
+      min: 1,
+      max: 1,
+    },
+    generos: {
+      title: 'Géneros',
+      options: GENRES,
+      default: '',
+      min: 0,
+      max: Object.keys(GENRES).length,
     },
   };
 }
@@ -95,7 +183,7 @@ export async function createTopFilter(): Promise<Record<string, unknown>> {
     idioma: {
       title: 'Idioma',
       options: { esp: 'Traducido', raw: 'Raw' },
-      defaultOption: 'esp',
+      default: 'esp',
       min: 1,
       max: 1,
     },
