@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeJara
-// @version      1.0.4
+// @version      1.0.5
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -398,7 +398,8 @@ async function resolveStreamHg(url, referer) {
   const idM = /\/e\/([A-Za-z0-9]+)/.exec(url);
   if (!idM) return null;
   const html = await fetchEmbed(`https://vibuxer.com/e/${idM[1]}`, referer, {
-    timeout: 8e3,
+    timeout: 15e3,
+    retries: 1,
     headers: { Referer: "https://hgcloud.to/" }
   });
   if (!html) return null;

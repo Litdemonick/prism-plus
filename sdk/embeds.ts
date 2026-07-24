@@ -537,8 +537,14 @@ export async function resolveStreamHg(
   const idM = /\/e\/([A-Za-z0-9]+)/.exec(url);
   if (!idM) return null;
 
+  // vibuxer.com respondió rápido (~1.2s) desde el entorno de pruebas, pero un
+  // usuario real reportó un timeout de 8000ms superado — probablemente
+  // variación normal de latencia/ruta hacia este CDN en particular, no un
+  // bloqueo. Se sube el margen y se agrega un reintento antes de asumir lo
+  // peor.
   const html = await fetchEmbed(`https://vibuxer.com/e/${idM[1]}`, referer, {
-    timeout: 8000,
+    timeout: 15000,
+    retries: 1,
     headers: { Referer: 'https://hgcloud.to/' },
   });
   if (!html) return null;
