@@ -88,5 +88,10 @@ export function decodeEntities(html: string): string {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ');
+    .replace(/&nbsp;/g, ' ')
+    // Entidades numéricas genéricas (ej. &#8217; comilla tipográfica, muy
+    // común en nombres de reparto/directores) — confirmado en vivo que
+    // faltaba, dejaba el código crudo sin decodificar en vez del carácter.
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
 }

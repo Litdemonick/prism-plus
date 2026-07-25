@@ -1,13 +1,13 @@
 // ==PrismHubExtension==
-// @name         TioAnime
+// @name         Cinemitas
 // @version      1.0.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
-// @package      io.prismhub.tioanime
+// @package      io.prismhub.cinemitas
 // @type         bangumi
-// @webSite      https://tioanime.com
-// @description  Anime en español latino desde TioAnime — catálogo con filtros y servidores confiables
+// @webSite      https://cinemitas.org
+// @description  Películas y series en español desde Cinemitas — catálogo con búsqueda y múltiples servidores
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
 var __getOwnPropSymbols = Object.getOwnPropertySymbols;
@@ -418,8 +418,8 @@ function b64decode(s) {
   return result;
 }
 
-// extensions/tioanime/index.ts
-var BASE = "https://tioanime.com";
+// extensions/cinemitas/index.ts
+var BASE = "https://cinemitas.org";
 async function _get(url) {
   const raw = await sendMessage(
     "request",
@@ -431,143 +431,267 @@ async function _get(url) {
     return raw;
   }
 }
-function _buildQuery(params) {
-  const parts = [];
-  for (const key of Object.keys(params)) {
-    const value = params[key];
-    if (!value) continue;
-    if (Array.isArray(value)) {
-      for (const v of value) if (v) parts.push(`${key}=${encodeURIComponent(v)}`);
-    } else {
-      parts.push(`${key}=${encodeURIComponent(value)}`);
-    }
-  }
-  return parts.join("&");
-}
 function _fullUrl(url) {
   if (url.indexOf("http") === 0) return url;
   return `${BASE}${url.startsWith("/") ? "" : "/"}${url}`;
 }
-function _parseCatalog(html) {
+function _parseCatalog(html, forceType) {
+  var _a;
   const items = [];
-  const re = /<a href="(\/anime\/[a-z0-9-]+)">\s*<div class="thumb">[\s\S]*?<img src="([^"]+)"[^>]*>[\s\S]*?<\/div>\s*<h3 class="title">([^<]+)<\/h3>/g;
+  const re = /<article id="post-\d+"[^>]*>\s*<div class="poster">\s*<img src="([^"]+)"[^>]*alt="([^"]*)">(?:\s*<div class="rating">([^<]*)<\/div>)?[\s\S]*?<a href="(https:\/\/cinemitas\.org\/(?:movies|tvshows)\/[a-z0-9-]+\/)">[\s\S]*?<\/article>/g;
   for (const m of html.matchAll(re)) {
+    const rating = parseFloat((_a = m[3]) != null ? _a : "");
     items.push({
-      title: decodeEntities(m[3].trim()),
-      url: `${BASE}${m[1]}`,
-      cover: _fullUrl(m[2])
+      title: decodeEntities(m[2].trim()),
+      url: m[4],
+      cover: m[1],
+      rating: Number.isFinite(rating) && rating > 0 ? rating : void 0,
+      type: forceType
     });
   }
   return items;
 }
 async function latest(page) {
-  const query = _buildQuery({ p: page > 1 ? String(page) : void 0 });
-  const html = await _get(`${BASE}/directorio${query ? `?${query}` : ""}`);
-  return _parseCatalog(html);
+  const [moviesHtml, seriesHtml] = await Promise.all([
+    _get(`${BASE}/movies/page/${page}/`),
+    _get(`${BASE}/tvshows/page/${page}/`)
+  ]);
+  const movies = _parseCatalog(moviesHtml);
+  const series = _parseCatalog(seriesHtml, "series");
+  const merged = [];
+  const max = Math.max(movies.length, series.length);
+  for (let i = 0; i < max; i++) {
+    if (movies[i]) merged.push(movies[i]);
+    if (series[i]) merged.push(series[i]);
+  }
+  return merged;
 }
-async function search(keyword, page, filter) {
+var _cachedNonce = null;
+async function _fetchNonce() {
   var _a;
-  const query = _buildQuery({
-    q: keyword.trim() || void 0,
-    "genero[]": filter == null ? void 0 : filter["genero"],
-    "type[]": filter == null ? void 0 : filter["tipo"],
-    status: (_a = filter == null ? void 0 : filter["estado"]) == null ? void 0 : _a[0],
-    p: page > 1 ? String(page) : void 0
-  });
-  const html = await _get(`${BASE}/directorio${query ? `?${query}` : ""}`);
-  return _parseCatalog(html);
+  const home = await _get(`${BASE}/`);
+  if (typeof home !== "string") return null;
+  const b64M = /id="live_search-js-extra"\s+src="data:text\/javascript;base64,([A-Za-z0-9+/=]+)"/.exec(
+    home
+  );
+  if (!b64M) return null;
+  try {
+    const decoded = b64decode(b64M[1]);
+    const nonceM = /"nonce":"([a-f0-9]+)"/.exec(decoded);
+    return (_a = nonceM == null ? void 0 : nonceM[1]) != null ? _a : null;
+  } catch (e) {
+    return null;
+  }
 }
-var _GENRE_OPTIONS = {
-  "": "Todos",
-  "accion": "Acci\xF3n",
-  "artes-marciales": "Artes Marciales",
-  "aventura": "Aventuras",
-  "carreras": "Carreras",
-  "ciencia-ficcion": "Ciencia Ficci\xF3n",
-  "comedia": "Comedia",
-  "demencia": "Demencia",
-  "demonios": "Demonios",
-  "deportes": "Deportes",
-  "drama": "Drama",
-  "ecchi": "Ecchi",
-  "escolares": "Escolares",
-  "espacial": "Espacial",
-  "fantasia": "Fantas\xEDa",
-  "harem": "Harem",
-  "historico": "Hist\xF3rico",
-  "infantil": "Infantil",
-  "josei": "Josei",
-  "juegos": "Juegos",
-  "magia": "Magia",
-  "mecha": "Mecha",
-  "militar": "Militar",
-  "misterio": "Misterio",
-  "musica": "M\xFAsica",
-  "parodia": "Parodia",
-  "policia": "Polic\xEDa",
-  "psicologico": "Psicol\xF3gico",
-  "recuentos-de-la-vida": "Recuentos de la vida",
-  "romance": "Romance",
-  "samurai": "Samur\xE1i",
-  "seinen": "Seinen",
-  "shoujo": "Shoujo",
-  "shounen": "Shounen",
-  "sobrenatural": "Sobrenatural",
-  "superpoderes": "Superpoderes",
-  "suspenso": "Suspenso",
-  "terror": "Terror",
-  "vampiros": "Vampiros",
-  "yaoi": "Yaoi",
-  "yuri": "Yuri"
-};
+async function _getNonce() {
+  if (_cachedNonce) return _cachedNonce;
+  _cachedNonce = await _fetchNonce();
+  return _cachedNonce;
+}
+function _dooplayResultsToItems(obj) {
+  var _a, _b, _c;
+  const items = [];
+  for (const key of Object.keys(obj)) {
+    const r = obj[key];
+    if (!(r == null ? void 0 : r.title) || !(r == null ? void 0 : r.url)) continue;
+    const year = parseInt((_b = (_a = r.extra) == null ? void 0 : _a.date) != null ? _b : "", 10);
+    const ratingRaw = (_c = r.extra) == null ? void 0 : _c.imdb;
+    const rating = typeof ratingRaw === "string" ? parseFloat(ratingRaw) : void 0;
+    items.push({
+      title: decodeEntities(r.title),
+      url: r.url,
+      cover: r.img,
+      year: Number.isFinite(year) ? year : void 0,
+      rating: rating !== void 0 && Number.isFinite(rating) ? rating : void 0,
+      type: r.url.indexOf("/tvshows/") !== -1 ? "series" : void 0
+    });
+  }
+  return items;
+}
+async function _dooplaySearch(keyword) {
+  const nonce = await _getNonce();
+  if (!nonce) return [];
+  const query = `keyword=${encodeURIComponent(keyword)}&nonce=${nonce}`;
+  let res = await _get(`${BASE}/wp-json/dooplay/search/?${query}`);
+  if (typeof res !== "string" && (res == null ? void 0 : res.error)) {
+    _cachedNonce = null;
+    const fresh = await _getNonce();
+    if (!fresh) return [];
+    res = await _get(`${BASE}/wp-json/dooplay/search/?keyword=${encodeURIComponent(keyword)}&nonce=${fresh}`);
+  }
+  if (typeof res === "string" || (res == null ? void 0 : res.error)) return [];
+  return _dooplayResultsToItems(res);
+}
 var _TYPE_OPTIONS = {
   "": "Todos",
-  "0": "TV",
-  "1": "Pel\xEDcula",
-  "2": "OVA",
-  "3": "Especial"
-};
-var _STATUS_OPTIONS = {
-  "": "Todos",
-  "2": "Finalizado",
-  "1": "En emisi\xF3n",
-  "3": "Pr\xF3ximamente"
+  movies: "Pel\xEDculas",
+  tvshows: "Series"
 };
 async function createFilter() {
   return {
-    genero: { title: "G\xE9nero", options: _GENRE_OPTIONS, default: "", min: 1, max: 1 },
-    tipo: { title: "Tipo", options: _TYPE_OPTIONS, default: "", min: 1, max: 1 },
-    estado: { title: "Estado", options: _STATUS_OPTIONS, default: "", min: 1, max: 1 }
+    tipo: { title: "Tipo", options: _TYPE_OPTIONS, default: "", min: 1, max: 1 }
   };
 }
+async function search(keyword, page, filter) {
+  var _a;
+  const tipo = (_a = filter == null ? void 0 : filter["tipo"]) == null ? void 0 : _a[0];
+  if (!keyword.trim()) {
+    if (tipo === "movies") return _parseCatalog(await _get(`${BASE}/movies/page/${page}/`));
+    if (tipo === "tvshows") {
+      return _parseCatalog(await _get(`${BASE}/tvshows/page/${page}/`), "series");
+    }
+    return latest(page);
+  }
+  if (page > 1) return [];
+  const results = await _dooplaySearch(keyword.trim());
+  if (tipo === "movies") return results.filter((i) => i.url.indexOf("/movies/") !== -1);
+  if (tipo === "tvshows") return results.filter((i) => i.url.indexOf("/tvshows/") !== -1);
+  return results;
+}
+var _REAL_GENRES = /* @__PURE__ */ new Set([
+  "acci\xF3n",
+  "accion",
+  "acci\xF3n y aventura",
+  "aventura",
+  "animaci\xF3n",
+  "animacion",
+  "comedia",
+  "crimen",
+  "documental",
+  "drama",
+  "familia",
+  "fantas\xEDa",
+  "fantasia",
+  "historia",
+  "terror",
+  "m\xFAsica",
+  "musica",
+  "misterio",
+  "romance",
+  "ciencia ficci\xF3n",
+  "ciencia ficcion",
+  "ciencia ficci\xF3n y fantas\xEDa",
+  "pel\xEDcula de tv",
+  "pelicula de tv",
+  "suspense",
+  "suspenso",
+  "b\xE9lica",
+  "belica",
+  "guerra",
+  "guerra y pol\xEDtica",
+  "guerra y politica",
+  "western",
+  "w\xE9stern",
+  "reality",
+  "kids",
+  "infantil",
+  "soap",
+  "talk",
+  "news"
+]);
+function _isSeriesUrl(url) {
+  return url.indexOf("/tvshows/") !== -1 || url.indexOf("/episodes/") !== -1;
+}
 async function detail(url) {
-  var _a, _b, _c, _d, _e, _f, _g, _h;
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
   const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
-  const slug = fullUrl.replace(`${BASE}/anime/`, "").replace(/\/$/, "");
-  const title = (_c = (_b = (_a = /<h1 class="title">([^<]+)<\/h1>/i.exec(html)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : "";
-  const coverM = (_d = /<figure><img src="([^"]+)"/i.exec(html)) == null ? void 0 : _d[1];
-  const cover = coverM ? _fullUrl(coverM) : void 0;
-  const statusText = (_f = (_e = /class="[^"]*status"[^>]*>(?:<i[^>]*><\/i>)?([^<]+)</i.exec(html)) == null ? void 0 : _e[1]) == null ? void 0 : _f.trim();
-  const description = stripTags(
-    (_h = (_g = /<p class="sinopsis">([\s\S]*?)<\/p>/i.exec(html)) == null ? void 0 : _g[1]) != null ? _h : ""
-  ).trim();
+  const isSeries = _isSeriesUrl(fullUrl);
+  const title = (_c = (_b = (_a = /<h1[^>]*>\s*([^<]+?)\s*<\/h1>/i.exec(html)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : "";
+  let cover = (_d = /<div class="poster">\s*<img[^>]*itemprop="image"\s+src="([^"]+)"/i.exec(html)) == null ? void 0 : _d[1];
+  if (cover) cover = cover.replace("/w185/", "/w500/");
+  const description = stripTags((_f = (_e = /<\/h3>\s*<p>([^<]+)<\/p>/i.exec(html)) == null ? void 0 : _e[1]) != null ? _f : "").trim();
   const genres = [];
-  const generosBlockM = /<p class="genres">([\s\S]*?)<\/p>/i.exec(html);
-  if (generosBlockM) {
-    for (const m of generosBlockM[1].matchAll(/class="btn btn-sm btn-light rounded-pill">([^<]+)</g)) {
-      genres.push(decodeEntities(m[1].trim()));
-    }
+  const generosBlock = (_h = (_g = /class="sgeneros">([\s\S]*?)<\/div>/i.exec(html)) == null ? void 0 : _g[1]) != null ? _h : "";
+  for (const m of generosBlock.matchAll(/rel="tag">\s*([^<]+?)\s*</g)) {
+    const name = decodeEntities(m[1].trim());
+    if (_REAL_GENRES.has(name.toLowerCase())) genres.push(name);
   }
-  const episodesM = /var episodes\s*=\s*(\[[\d,\s]*\])/.exec(html);
-  const episodeNumbers = episodesM ? JSON.parse(episodesM[1]) : [];
-  const episodes = episodeNumbers.slice().reverse().map((n) => ({ title: `Episodio ${n}`, url: `${BASE}/ver/${slug}-${n}` }));
-  const status = statusText === "En emision" ? "ongoing" : statusText === "Finalizado" ? "completed" : statusText === "Proximamente" ? "upcoming" : void 0;
-  return { title, cover, description, genres, episodes, status };
+  const yearM = /class='date'[^>]*>([^<]*(\d{4}))?[^<]*</i.exec(html);
+  const year = yearM ? parseInt((_j = ((_i = yearM[0].match(/\d{4}/)) != null ? _i : [])[0]) != null ? _j : "", 10) : void 0;
+  const ratingM = /id="repimdb"><strong>([\d.]+)<\/strong>/i.exec(html);
+  const rating = ratingM ? parseFloat(ratingM[1]) : void 0;
+  const extra = {};
+  const durM = /itemprop='duration'[^>]*>([^<]+)</i.exec(html);
+  if (durM) extra["Duraci\xF3n"] = durM[1].trim();
+  const countryM = /<span class='country'>([^<]+)</i.exec(html);
+  if (countryM) extra["Pa\xEDs"] = countryM[1].trim();
+  const dirM = /<strong>Dirección:<\/strong>\s*([^<]+)</i.exec(html);
+  if (dirM) extra["Direcci\xF3n"] = decodeEntities(dirM[1].trim());
+  const castM = /<strong>Estrellas:<\/strong>\s*([^<]+)</i.exec(html);
+  if (castM) extra["Reparto"] = decodeEntities(castM[1].trim());
+  const episodes = [];
+  const seasons = [];
+  if (isSeries) {
+    const seasonBlockRe = /<span class='se-t[^']*'>(\d+)<\/span>[\s\S]*?<div class='se-a'[^>]*>([\s\S]*?)<\/div>\s*<\/div>/g;
+    for (const sm of html.matchAll(seasonBlockRe)) {
+      const seasonNum = sm[1];
+      const seasonHtml = sm[2];
+      const seasonEpisodes = [];
+      const epRe = /<div class='numerando'>[^<]*<\/div><div class='episodiotitle'><a href='([^']+)'>([^<]+)<\/a>/g;
+      for (const em of seasonHtml.matchAll(epRe)) {
+        seasonEpisodes.push({ title: decodeEntities(em[2].trim()), url: em[1] });
+      }
+      if (seasonEpisodes.length > 0) {
+        seasons.push({ title: `Temporada ${seasonNum}`, episodes: seasonEpisodes });
+        episodes.push(...seasonEpisodes);
+      }
+    }
+  } else {
+    episodes.push({ title: "Pel\xEDcula completa", url: fullUrl });
+  }
+  return {
+    title,
+    cover,
+    description,
+    genres,
+    episodes,
+    seasons: seasons.length > 0 ? seasons : void 0,
+    year: Number.isFinite(year) ? year : void 0,
+    rating: rating !== void 0 && Number.isFinite(rating) ? rating : void 0,
+    extra: Object.keys(extra).length > 0 ? extra : void 0
+  };
 }
-var _NEVER_NATIVE = /* @__PURE__ */ new Set(["mega", "netu"]);
+var _NEVER_NATIVE_HOSTS = ["bysezoxexe.com"];
+async function _fetchServerEmbeds(postId, type, labels) {
+  const streams = [];
+  for (const nume of Object.keys(labels)) {
+    if (nume === "trailer") continue;
+    let raw;
+    try {
+      raw = await sendMessage(
+        "request",
+        JSON.stringify([
+          `${BASE}/wp-admin/admin-ajax.php`,
+          {
+            method: "post",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              "X-Requested-With": "XMLHttpRequest",
+              Referer: `${BASE}/`
+            },
+            data: `action=doo_player_ajax&post=${postId}&type=${type}&nume=${nume}`
+          }
+        ])
+      );
+    } catch (e) {
+      continue;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      continue;
+    }
+    const embedUrl = parsed == null ? void 0 : parsed.embed_url;
+    if (!embedUrl || typeof embedUrl !== "string") continue;
+    if (_NEVER_NATIVE_HOSTS.some((h) => embedUrl.indexOf(h) !== -1)) continue;
+    streams.push({ url: embedUrl, quality: labels[nume] });
+  }
+  return streams;
+}
 async function watch(url) {
-  if (url.indexOf("http") === 0 && url.indexOf("tioanime.com") === -1) {
+  if (url.indexOf("http") === 0 && url.indexOf("cinemitas.org") === -1) {
     try {
       const res = await resolveEmbed("Servidor", url, `${BASE}/`);
       if (res && res.url) {
@@ -577,18 +701,19 @@ async function watch(url) {
     }
     return { streams: [{ url, quality: "Servidor" }], pageUrl: "" };
   }
-  const episodeUrl = _fullUrl(url);
-  const html = await _get(episodeUrl);
-  const videosM = /var videos\s*=\s*(\[[\s\S]*?\]);/.exec(html);
-  const streams = [];
-  if (videosM) {
-    const videos = JSON.parse(videosM[1].replace(/\\\//g, "/"));
-    for (const [name, embedUrl] of videos) {
-      if (_NEVER_NATIVE.has(name.toLowerCase())) continue;
-      streams.push({ url: embedUrl, quality: name });
-    }
+  const fullUrl = _fullUrl(url);
+  const html = await _get(fullUrl);
+  const isSeries = fullUrl.indexOf("/episodes/") !== -1;
+  const postM = /id='playeroptionsul'[\s\S]*?data-post='(\d+)'/.exec(html);
+  const postId = postM == null ? void 0 : postM[1];
+  if (!postId) return { streams: [], pageUrl: fullUrl };
+  const labels = {};
+  const optRe = /<li id='player-option-(\w+)' class='dooplay_player_option'[^>]*data-nume='(\w+)'[^>]*>[\s\S]*?<span class='title'>([^<]+)<\/span>/g;
+  for (const m of html.matchAll(optRe)) {
+    labels[m[2]] = decodeEntities(m[3].trim());
   }
-  return { streams, pageUrl: episodeUrl };
+  const streams = await _fetchServerEmbeds(postId, isSeries ? "tv" : "movie", labels);
+  return { streams, pageUrl: fullUrl };
 }
 
 // OJO: nunca usar url.indexOf('.mp4')/('.m3u8') suelto — algunos dominios de
