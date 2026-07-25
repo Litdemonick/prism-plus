@@ -600,7 +600,7 @@ async function detail(url) {
     extra: Object.keys(extra).length > 0 ? extra : void 0
   };
 }
-var _NEVER_NATIVE_HOSTS = ["drive.google.com", "upns.online"];
+var _NEVER_NATIVE_HOSTS = ["drive.google.com"];
 async function _resolveFinal(url) {
   if (/\.(mp4|mkv|webm|m3u8)(\?|$)/i.test(url) || url.indexOf("rumble.cloud") !== -1) {
     return { url, quality: "Servidor" };

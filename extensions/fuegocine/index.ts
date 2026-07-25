@@ -263,9 +263,13 @@ export async function detail(url: string): Promise<PrismDetail> {
 //    "direct":"https://sN.vimeos.net/hls2/.../master.m3u8?..." — mismo estilo
 //    de CDN firmado que uqload, sin necesidad de desempaquetar nada.
 // drive.google.com (requiere sesión/token, muy inestable para streaming
-// directo) y upns.online (SPA React, sin datos en el HTML estático — misma
-// categoría irresoluble que se documentó para braflix.win) se descartan.
-const _NEVER_NATIVE_HOSTS = ['drive.google.com', 'upns.online'];
+// directo) se descarta. upns.online (US) es una SPA sin datos en el HTML
+// estático — no resoluble por regex acá — PERO se deja pasar sin resolver
+// en vez de ocultarlo: confirmado en vivo que cuando el resolver nativo
+// falla, PrismHub reintenta ESE mismo servidor con su propio WebView-sniffer
+// (ejecuta JS real), que sí puede lograrlo donde este scraping estático no
+// puede. Ocultarlo de la lista solo le quita esa segunda oportunidad.
+const _NEVER_NATIVE_HOSTS = ['drive.google.com'];
 
 async function _resolveFinal(url: string): Promise<PrismStream | null> {
   if (/\.(mp4|mkv|webm|m3u8)(\?|$)/i.test(url) || url.indexOf('rumble.cloud') !== -1) {
