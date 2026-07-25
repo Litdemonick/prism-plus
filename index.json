@@ -64,6 +64,21 @@
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/olympus.js",
       "sha256": "ef8c6ff63455ca1540843999bd482a6712d25b8c54392fef82e3780599c7d6e8",
       "signature": "fxYr7T5evjpW5/T1BNfMsQjyUUt7MQDEBlN7OyMzLHudFSHrz1cKusIgL/UVXC+GUIdex+KBpbxCC9qSjvxNDw=="
+    },
+    {
+      "name": "TioAnime",
+      "package": "io.prismhub.tioanime",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "bangumi",
+      "icon": "",
+      "description": "Anime en español latino desde TioAnime — catálogo con filtros y servidores confiables",
+      "lang": "es",
+      "webSite": "https://tioanime.com",
+      "license": "MIT",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js",
+      "sha256": "a248854e8b5cbc9ede53e9cdc41257a84de9f2911f7da2c68336203a9f3ef438",
+      "signature": "8f+fuXKkpTjfDoCFWGNCrNyXBCVyjG+eQMgEYo3SRVfDCzF7vfjdwPHow43j/prvjiTftZCNrLiw655fZK4iBg=="
     }
   ]
 }
