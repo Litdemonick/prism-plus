@@ -83,7 +83,7 @@
     {
       "name": "TuMangaOnline",
       "package": "io.prismhub.tumangaonline",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "PrismHub",
       "type": "manga",
       "icon": "",
@@ -92,8 +92,8 @@
       "webSite": "https://zonatmo.org",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tumangaonline.js",
-      "sha256": "929680a2228d092c79b14e0821922078b278efe2907a9775224fc14e8e6e19bf",
-      "signature": "6gWJ1p3L0e5JueqDa9OdKaKYuBSEz+y2r7DlbJwLgyJBu3AfarQEC+v4E7UwRJ1P5NLisyiluwt09QR5r41JCQ=="
+      "sha256": "e0517c0df012054131581d896bb96084e7f8ed66bc54001efb317ebad751d4ca",
+      "signature": "EBXjKQ8oJU0ql402Xu3xlPKyfUzdRcwGNUYkgqsUo/VVZ4yoHsjXZHjUshE0DuWX/vbd799nKJArAsqpseC4CQ=="
     }
   ]
 }

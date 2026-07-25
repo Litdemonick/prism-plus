@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         TuMangaOnline
-// @version      1.0.0
+// @version      1.0.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -229,10 +229,11 @@ async function detail(url) {
   episodes.reverse();
   return { title, cover, description, genres, episodes, status };
 }
+var _IMAGE_RE = /src="(https:\/\/[a-z0-9.-]+\.zonatmo\.org(?::\d+)?\/chapters\/[^"]+)"/g;
 async function watch(url) {
   const html = await _get(_fullUrl(url));
   const urls = [];
-  for (const m of html.matchAll(/src="(https:\/\/storage2\.zonatmo\.org\/chapters\/[^"]+)"/g)) {
+  for (const m of html.matchAll(_IMAGE_RE)) {
     urls.push(m[1]);
   }
   return { urls, headers: { Referer: `${BASE}/` } };

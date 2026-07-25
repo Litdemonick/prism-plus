@@ -197,10 +197,18 @@ export async function detail(url: string): Promise<PrismDetail> {
 
 // ─── Lectura ────────────────────────────────────────────────────────────────
 
+// El host de las imágenes varía por capítulo — confirmado en vivo con 3
+// variantes distintas: "storage.zonatmo.org", "storage2.zonatmo.org" y
+// "storage2.zonatmo.org:8091" (con puerto explícito). El regex viejo tenía
+// el host fijo ("storage2" sin puerto) y por eso algunos capítulos
+// devolvían 0 páginas — se generaliza a cualquier subdominio de
+// zonatmo.org con puerto opcional, mientras el path tenga "/chapters/".
+const _IMAGE_RE = /src="(https:\/\/[a-z0-9.-]+\.zonatmo\.org(?::\d+)?\/chapters\/[^"]+)"/g;
+
 export async function watch(url: string): Promise<PrismMangaWatch> {
   const html = await _get(_fullUrl(url));
   const urls: string[] = [];
-  for (const m of html.matchAll(/src="(https:\/\/storage2\.zonatmo\.org\/chapters\/[^"]+)"/g)) {
+  for (const m of html.matchAll(_IMAGE_RE)) {
     urls.push(m[1]);
   }
   return { urls, headers: { Referer: `${BASE}/` } };
