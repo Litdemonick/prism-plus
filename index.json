@@ -21,6 +21,21 @@
       "signature": "hDfkDwEv+KZSE5oZCE2LOan+/MWbEZdbu4katZWyloxZ6vzxSJ5OSLkFE8F+lVgqrMxt5ZKQYXutBInvKGugDA=="
     },
     {
+      "name": "FuegoCine",
+      "package": "io.prismhub.fuegocine",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "bangumi",
+      "icon": "",
+      "description": "Películas y series en español desde FuegoCine — catálogo con búsqueda y servidores directos (mp4/m3u8)",
+      "lang": "es",
+      "webSite": "https://www.fuegocine.com",
+      "license": "MIT",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/fuegocine.js",
+      "sha256": "ade7ee874cfa6f98e02c3a567c436af1e92f6c440fe1c280aa9754c2d59848e5",
+      "signature": "wloGpnKp4f6Pklt/8uYqUhkCYppathNP+sIdSv/fY6J6GFaHyfwDO+h0dX0uyLSQ1suRnZ0be41myI5PDzgtDQ=="
+    },
+    {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
       "version": "1.10.9",

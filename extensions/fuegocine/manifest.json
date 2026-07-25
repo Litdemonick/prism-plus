@@ -1,0 +1,12 @@
+{
+  "name": "FuegoCine",
+  "package": "io.prismhub.fuegocine",
+  "version": "1.0.0",
+  "author": "PrismHub",
+  "type": "movie",
+  "icon": "",
+  "description": "Películas y series en español desde FuegoCine — catálogo con búsqueda y servidores directos (mp4/m3u8)",
+  "lang": "es",
+  "webSite": "https://www.fuegocine.com",
+  "license": "MIT"
+}
