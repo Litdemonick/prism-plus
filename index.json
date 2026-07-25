@@ -21,21 +21,6 @@
       "signature": "hDfkDwEv+KZSE5oZCE2LOan+/MWbEZdbu4katZWyloxZ6vzxSJ5OSLkFE8F+lVgqrMxt5ZKQYXutBInvKGugDA=="
     },
     {
-      "name": "Cinemitas",
-      "package": "io.prismhub.cinemitas",
-      "version": "1.0.0",
-      "author": "PrismHub",
-      "type": "bangumi",
-      "icon": "",
-      "description": "Películas y series en español desde Cinemitas — catálogo con búsqueda y múltiples servidores",
-      "lang": "es",
-      "webSite": "https://cinemitas.org",
-      "license": "MIT",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/cinemitas.js",
-      "sha256": "226f6db2bbf357e8e1ee279997050469dc842036ad13950eeac61fa33c9b42ce",
-      "signature": "w3WwPtpceYtaI1rNt9Sa6kwt/M1pEXik2B10m6coC5ovnO5oYWcwlVwK8L1jmSRt2eRZsztFe5fl0BVOXaqwAg=="
-    },
-    {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
       "version": "1.10.9",
