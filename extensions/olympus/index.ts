@@ -209,12 +209,25 @@ export async function detail(slug: string): Promise<PrismDetail> {
   const d = await _get<{ data: Record<string, unknown> }>(
     `${BASE}/api/series/${encodeURIComponent(slug)}?type=comic`,
   );
-  const s = d.data;
+  // Sin este chequeo, cuando la API devuelve algo que no es el JSON
+  // esperado (error 500/401, página de bloqueo, rate limit) `d.data` queda
+  // undefined y la línea de abajo tiraba "cannot read property 'name' of
+  // undefined" — un TypeError críptico que en la app se veía tal cual,
+  // sin ninguna pista de que el problema era del servidor (confirmado en
+  // vivo). Mejor un error explícito que el usuario pueda entender.
+  const s = d?.data;
+  if (!s || typeof s !== 'object') {
+    throw new Error('Olympus no devolvió datos para esta obra. Intentá más tarde.');
+  }
 
   const title = (s['name'] as string) || slug;
   const cover = (s['cover'] as string) || '';
   const description = (s['summary'] as string) || '';
-  const genres = ((s['genres'] as { name: string }[]) || []).map(g => g.name.trim());
+  // g puede venir null/undefined dentro del array — filtrar antes de leer
+  // .name, si no un solo elemento roto tumba todo el detalle.
+  const genres = ((s['genres'] as { name?: string }[]) || [])
+    .filter(g => g && typeof g.name === 'string')
+    .map(g => g.name!.trim());
 
   const statusName = ((s['status'] as { name: string } | null)?.name || '').toLowerCase();
   const status = statusName.includes('activo')
@@ -226,13 +239,18 @@ export async function detail(slug: string): Promise<PrismDetail> {
     : undefined;
 
   const chapters = await _allChapters(slug);
-  const episodes = chapters.map(c => ({
-    // El endpoint de lectura necesita slug + id del capítulo — viajan juntos
-    // en la url ya que watch() solo recibe este string.
-    title: `Capítulo ${c.name}`,
-    url: `${slug}::${c.id}`,
-    number: Number(c.name) || undefined,
-  }));
+  // Mismo criterio que con los géneros: un capítulo roto (null, o sin
+  // name/id) no debe tumbar el detalle entero — se descarta y el resto
+  // sigue funcionando.
+  const episodes = chapters
+    .filter(c => c && c.name != null && c.id != null)
+    .map(c => ({
+      // El endpoint de lectura necesita slug + id del capítulo — viajan
+      // juntos en la url ya que watch() solo recibe este string.
+      title: `Capítulo ${c.name}`,
+      url: `${slug}::${c.id}`,
+      number: Number(c.name) || undefined,
+    }));
 
   return { title, cover, description, episodes, genres, status };
 }

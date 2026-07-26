@@ -68,7 +68,7 @@
     {
       "name": "Olympus",
       "package": "io.prismhub.olympus",
-      "version": "1.2.5",
+      "version": "1.2.6",
       "author": "PrismHub",
       "type": "manga",
       "icon": "",
@@ -77,8 +77,8 @@
       "webSite": "https://olympusxyz.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/olympus.js",
-      "sha256": "2935e19bb9f8d62f29106a0a265a25ac8619249c9c5d6c941fa9e5e9ae69a597",
-      "signature": "mZ6R7p/ovIfO7GrDhswuj3lQQtvhQFYxBcX39ZW6tMjaaSCyca1rp2IQ1fx/zx98aZyHCzHcUDyyp6CoNk2hCQ=="
+      "sha256": "b125aca4f82f7f0f90bdb53bc4a32792780093bc9edffa693f8fdd7994a5faa1",
+      "signature": "DR0EDU/Fdrnj1VB3sdakmAFZueO8CLLqONwF9njss3LQ9twRgPPn8s0b8WybeFDY64XmFSJVJ1cc9gkeXyWkAw=="
     },
     {
       "name": "ShadeManga",

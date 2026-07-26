@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Olympus
-// @version      1.2.5
+// @version      1.2.6
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -140,17 +140,20 @@ async function detail(slug) {
   const d = await _get(
     `${BASE}/api/series/${encodeURIComponent(slug)}?type=comic`
   );
-  const s = d.data;
+  const s = d == null ? void 0 : d.data;
+  if (!s || typeof s !== "object") {
+    throw new Error("Olympus no devolvi\xF3 datos para esta obra. Intent\xE1 m\xE1s tarde.");
+  }
   const title = s["name"] || slug;
   const cover = s["cover"] || "";
   const description = s["summary"] || "";
-  const genres = (s["genres"] || []).map((g) => g.name.trim());
+  const genres = (s["genres"] || []).filter((g) => g && typeof g.name === "string").map((g) => g.name.trim());
   const statusName = (((_a = s["status"]) == null ? void 0 : _a.name) || "").toLowerCase();
   const status = statusName.includes("activo") ? "ongoing" : statusName.includes("final") ? "completed" : statusName.includes("pausa") || statusName.includes("hiatus") ? "hiatus" : void 0;
   const chapters = await _allChapters(slug);
-  const episodes = chapters.map((c) => ({
-    // El endpoint de lectura necesita slug + id del capítulo — viajan juntos
-    // en la url ya que watch() solo recibe este string.
+  const episodes = chapters.filter((c) => c && c.name != null && c.id != null).map((c) => ({
+    // El endpoint de lectura necesita slug + id del capítulo — viajan
+    // juntos en la url ya que watch() solo recibe este string.
     title: `Cap\xEDtulo ${c.name}`,
     url: `${slug}::${c.id}`,
     number: Number(c.name) || void 0
