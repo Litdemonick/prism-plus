@@ -264,7 +264,19 @@ export async function detail(id: string): Promise<PrismDetail> {
       };
     });
 
-  return { title, cover, description, episodes, genres, headers: HEADERS };
+  // Estado de publicación — el backend lo manda en `_status` en minúsculas
+  // (confirmado en vivo: "publicandose"). Solo se mapea lo que reconocemos;
+  // cualquier otro valor queda undefined y la app no dibuja el badge en vez
+  // de inventar un estado.
+  const rawStatus = String(d['_status'] ?? '').toLowerCase();
+  const status: PrismDetail['status'] =
+    rawStatus.includes('publicando') ? 'ongoing'
+    : rawStatus.includes('finalizado') || rawStatus.includes('completo') ? 'completed'
+    : rawStatus.includes('pausa') || rawStatus.includes('hiatus') ? 'hiatus'
+    : rawStatus.includes('proximamente') || rawStatus.includes('próximamente') ? 'upcoming'
+    : undefined;
+
+  return { title, cover, description, episodes, genres, status, headers: HEADERS };
 }
 
 export async function watch(chapterId: string): Promise<PrismMangaWatch> {

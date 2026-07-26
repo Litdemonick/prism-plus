@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ManhwaWeb
-// @version      1.3.6
+// @version      1.3.7
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -208,6 +208,7 @@ function _topItem(m) {
   };
 }
 async function detail(id) {
+  var _a;
   const d = await _get(`/manhwa/see/${encodeURIComponent(id)}`);
   const title = d["the_real_name"] || d["name_esp"] || d["_name"] || id;
   const cover = d["_imagen"] || "";
@@ -220,9 +221,9 @@ async function detail(id) {
   const isManual = d["_plataforma"] === "manual";
   const rawChapters = d["chapters"] || [];
   const episodes = rawChapters.filter((c) => c["link"] && (isManual || Array.isArray(c["img"]) && c["img"].length > 0)).map((c) => {
-    var _a;
+    var _a2;
     const link = c["link"];
-    const chapterId = (_a = link.replace(/\/$/, "").split("/").pop()) != null ? _a : link;
+    const chapterId = (_a2 = link.replace(/\/$/, "").split("/").pop()) != null ? _a2 : link;
     const num = c["chapter"];
     return {
       title: `Cap\xEDtulo ${num}`,
@@ -230,7 +231,9 @@ async function detail(id) {
       number: typeof num === "number" ? num : void 0
     };
   });
-  return { title, cover, description, episodes, genres, headers: HEADERS };
+  const rawStatus = String((_a = d["_status"]) != null ? _a : "").toLowerCase();
+  const status = rawStatus.includes("publicando") ? "ongoing" : rawStatus.includes("finalizado") || rawStatus.includes("completo") ? "completed" : rawStatus.includes("pausa") || rawStatus.includes("hiatus") ? "hiatus" : rawStatus.includes("proximamente") || rawStatus.includes("pr\xF3ximamente") ? "upcoming" : void 0;
+  return { title, cover, description, episodes, genres, status, headers: HEADERS };
 }
 async function watch(chapterId) {
   const d = await _get(`/chapters/see/${encodeURIComponent(chapterId)}`);
