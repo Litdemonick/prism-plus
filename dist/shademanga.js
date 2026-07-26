@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ShadeManga
-// @version      1.0.1
+// @version      1.0.2
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -454,11 +454,29 @@ async function _latestManga(page) {
   const items = (_a = json.items) != null ? _a : [];
   return items.filter((m) => !m.esMayorDeEdad).map(_mangaItemToPrismItem);
 }
-async function _searchManga(keyword) {
-  const url = `${BASE}/api/series-locales/search-candidates?q=${encodeURIComponent(keyword)}&take=20`;
+async function _searchManga(keyword, includeAdult) {
+  const url = `${BASE}/api/series-locales/search-candidates?q=${encodeURIComponent(keyword)}&take=20&includeAdult=${includeAdult}`;
   const json = await _get(url);
   if (!Array.isArray(json)) return [];
-  return json.filter((m) => !m.esMayorDeEdad).map(_mangaItemToPrismItem);
+  const items = json;
+  return (includeAdult ? items : items.filter((m) => !m.esMayorDeEdad)).map(_mangaItemToPrismItem);
+}
+async function _latestMangaAdult(page) {
+  var _a, _b;
+  if (page > 1) return [];
+  const json = await _get(`${BASE}/api/series-locales/adultos/home`);
+  if (!json || typeof json === "string") return [];
+  const secciones = (_a = json.secciones) != null ? _a : [];
+  const seen = /* @__PURE__ */ new Set();
+  const items = [];
+  for (const s of secciones) {
+    for (const it of (_b = s.items) != null ? _b : []) {
+      if (seen.has(it.id)) continue;
+      seen.add(it.id);
+      items.push(it);
+    }
+  }
+  return items.map(_mangaItemToPrismItem);
 }
 function _mapMangaStatus(estado) {
   if (!estado) return void 0;
@@ -530,6 +548,13 @@ async function _searchAnime(keyword) {
   const items = (_a = json.items) != null ? _a : [];
   return items.filter((a) => !a.esMayorDeEdad).map(_animeItemToPrismItem);
 }
+async function _latestAnimeAdult(page) {
+  var _a;
+  const json = await _get(`${BASE}/api/anime/adultos?page=${page}`);
+  if (!json || typeof json === "string") return [];
+  const items = (_a = json.items) != null ? _a : [];
+  return items.map(_animeItemToPrismItem);
+}
 function _mapAnimeStatus(estado) {
   if (!estado) return void 0;
   const s = estado.toLowerCase();
@@ -590,23 +615,43 @@ var _TYPE_OPTIONS = {
   manga: "Manga",
   anime: "Anime"
 };
+var _ADULT_OPTIONS = {
+  no: "Todo el contenido",
+  si: "Incluir +18"
+};
 async function createFilter() {
   return {
-    tipo: { title: "Tipo", options: _TYPE_OPTIONS, default: "", min: 1, max: 1 }
+    tipo: { title: "Tipo", options: _TYPE_OPTIONS, default: "", min: 1, max: 1 },
+    adultos: {
+      title: "Adultos",
+      options: _ADULT_OPTIONS,
+      default: "no",
+      min: 1,
+      max: 1,
+      adultOption: "si"
+    }
   };
 }
 async function search(keyword, page, filter) {
-  var _a;
+  var _a, _b;
   const tipo = (_a = filter == null ? void 0 : filter["tipo"]) == null ? void 0 : _a[0];
+  const includeAdult = ((_b = filter == null ? void 0 : filter["adultos"]) == null ? void 0 : _b[0]) === "si";
   const kw = keyword.trim();
+  if (includeAdult) {
+    if (kw) return _searchManga(kw, true);
+    if (tipo === "manga") return _latestMangaAdult(page);
+    if (tipo === "anime") return _latestAnimeAdult(page);
+    const [manga2, anime2] = await Promise.all([_latestMangaAdult(page), _latestAnimeAdult(page)]);
+    return _interleave(manga2, anime2);
+  }
   if (!kw) {
     if (tipo === "manga") return _latestManga(page);
     if (tipo === "anime") return _latestAnime(page);
     return latest(page);
   }
-  if (tipo === "manga") return _searchManga(kw);
+  if (tipo === "manga") return _searchManga(kw, false);
   if (tipo === "anime") return _searchAnime(kw);
-  const [manga, anime] = await Promise.all([_searchManga(kw), _searchAnime(kw)]);
+  const [manga, anime] = await Promise.all([_searchManga(kw, false), _searchAnime(kw)]);
   return _interleave(manga, anime);
 }
 function _mangaIdFromUrl(url) {

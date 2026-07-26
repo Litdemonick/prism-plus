@@ -78,11 +78,36 @@ async function _latestManga(page: number): Promise<PrismItem[]> {
   return items.filter((m) => !m.esMayorDeEdad).map(_mangaItemToPrismItem);
 }
 
-async function _searchManga(keyword: string): Promise<PrismItem[]> {
-  const url = `${BASE}/api/series-locales/search-candidates?q=${encodeURIComponent(keyword)}&take=20`;
+async function _searchManga(keyword: string, includeAdult: boolean): Promise<PrismItem[]> {
+  const url =
+    `${BASE}/api/series-locales/search-candidates?q=${encodeURIComponent(keyword)}` +
+    `&take=20&includeAdult=${includeAdult}`;
   const json = await _get(url);
   if (!Array.isArray(json)) return [];
-  return (json as _MangaListItem[]).filter((m) => !m.esMayorDeEdad).map(_mangaItemToPrismItem);
+  const items = json as _MangaListItem[];
+  return (includeAdult ? items : items.filter((m) => !m.esMayorDeEdad)).map(_mangaItemToPrismItem);
+}
+
+// La sección de adultos no pagina como /populares (confirmado en vivo: un
+// solo dump agrupado por género, "adultos/home") — se aplanan todas las
+// secciones y se dedupea por id para armar un "latest" razonable; page>1
+// devuelve vacío (mismo patrón que otras extensiones de este repo con
+// endpoints sin paginación real, ej. cinemitas/dooplaySearch).
+async function _latestMangaAdult(page: number): Promise<PrismItem[]> {
+  if (page > 1) return [];
+  const json = await _get(`${BASE}/api/series-locales/adultos/home`);
+  if (!json || typeof json === 'string') return [];
+  const secciones: { items?: _MangaListItem[] }[] = json.secciones ?? [];
+  const seen = new Set<number>();
+  const items: _MangaListItem[] = [];
+  for (const s of secciones) {
+    for (const it of s.items ?? []) {
+      if (seen.has(it.id)) continue;
+      seen.add(it.id);
+      items.push(it);
+    }
+  }
+  return items.map(_mangaItemToPrismItem);
 }
 
 function _mapMangaStatus(estado?: string): ContentStatus | undefined {
@@ -200,6 +225,18 @@ async function _searchAnime(keyword: string): Promise<PrismItem[]> {
   return items.filter((a) => !a.esMayorDeEdad).map(_animeItemToPrismItem);
 }
 
+// /api/anime/adultos existe y funciona en vivo (mismo patrón que
+// series-locales/adultos) — a diferencia de manga, acá NO hay una versión
+// de búsqueda con q= que realmente filtre (confirmado en vivo: ignora el
+// parámetro y devuelve el catálogo completo igual), así que este es solo
+// catálogo paginado, sin texto libre.
+async function _latestAnimeAdult(page: number): Promise<PrismItem[]> {
+  const json = await _get(`${BASE}/api/anime/adultos?page=${page}`);
+  if (!json || typeof json === 'string') return [];
+  const items: _AnimeListItem[] = json.items ?? [];
+  return items.map(_animeItemToPrismItem);
+}
+
 function _mapAnimeStatus(estado?: string): ContentStatus | undefined {
   if (!estado) return undefined;
   const s = estado.toLowerCase();
@@ -297,9 +334,29 @@ const _TYPE_OPTIONS: Record<string, string> = {
   anime: 'Anime',
 };
 
+// "adultos" no es un filtro de contenido más — PrismHub lo trata distinto
+// (ExtensionFilter.adultOption) porque antes de llamar search() con esta
+// opción, la app chequea el switch de NSFW de Ajustes y bloquea con un
+// aviso si está apagado. Confirmado en vivo que manga Y anime tienen su
+// propia sección +18 (/series-locales/adultos y /anime/adultos) — la de
+// anime no soporta búsqueda de texto (el parámetro q= se ignora), así que
+// con keyword se cae solo a manga.
+const _ADULT_OPTIONS: Record<string, string> = {
+  no: 'Todo el contenido',
+  si: 'Incluir +18',
+};
+
 export async function createFilter(): Promise<Record<string, unknown>> {
   return {
     tipo: { title: 'Tipo', options: _TYPE_OPTIONS, default: '', min: 1, max: 1 },
+    adultos: {
+      title: 'Adultos',
+      options: _ADULT_OPTIONS,
+      default: 'no',
+      min: 1,
+      max: 1,
+      adultOption: 'si',
+    },
   };
 }
 
@@ -309,7 +366,16 @@ export async function search(
   filter?: Record<string, string[]>,
 ): Promise<PrismItem[]> {
   const tipo = filter?.['tipo']?.[0];
+  const includeAdult = filter?.['adultos']?.[0] === 'si';
   const kw = keyword.trim();
+
+  if (includeAdult) {
+    if (kw) return _searchManga(kw, true); // anime +18 no soporta búsqueda de texto
+    if (tipo === 'manga') return _latestMangaAdult(page);
+    if (tipo === 'anime') return _latestAnimeAdult(page);
+    const [manga, anime] = await Promise.all([_latestMangaAdult(page), _latestAnimeAdult(page)]);
+    return _interleave(manga, anime);
+  }
 
   if (!kw) {
     if (tipo === 'manga') return _latestManga(page);
@@ -317,10 +383,10 @@ export async function search(
     return latest(page);
   }
 
-  if (tipo === 'manga') return _searchManga(kw);
+  if (tipo === 'manga') return _searchManga(kw, false);
   if (tipo === 'anime') return _searchAnime(kw);
 
-  const [manga, anime] = await Promise.all([_searchManga(kw), _searchAnime(kw)]);
+  const [manga, anime] = await Promise.all([_searchManga(kw, false), _searchAnime(kw)]);
   return _interleave(manga, anime);
 }
 
