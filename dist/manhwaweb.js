@@ -306,7 +306,32 @@ export default class extends Extension {
     if (!d || typeof d !== 'object') return d;
     var eps = Array.isArray(d.episodes) ? d.episodes : [];
     var grouped;
-    if (eps.length && eps[0] && Array.isArray(eps[0].urls)) {
+    // Temporadas: el SDK las expone como d.seasons ([{title, episodes:[]}]),
+    // y PrismHub ya sabe mostrar varios grupos (el selector "Episodios" del
+    // detalle) — pero este adaptador las IGNORABA por completo, así que una
+    // serie con temporadas separadas llegaba aplastada en un solo grupo
+    // "Episodios" (confirmado con FuegoCine, que ya las armaba bien desde
+    // hace rato). Si vienen temporadas, cada una es un grupo.
+    var seasons = Array.isArray(d.seasons) ? d.seasons : [];
+    if (seasons.length) {
+      grouped = seasons.filter(function (s) {
+        return s && Array.isArray(s.episodes) && s.episodes.length;
+      }).map(function (s, i) {
+        return {
+          title: s.title || ('Temporada ' + (i + 1)),
+          urls: s.episodes.filter(function (e) {
+            return e && e.url;
+          }).map(function (e) {
+            return { name: e.title || e.name || e.url, url: e.url };
+          })
+        };
+      });
+    }
+    // Si no hubo temporadas utilizables, seguir con el camino de siempre.
+    if (grouped && !grouped.length) grouped = undefined;
+    if (grouped) {
+      // ya resuelto arriba
+    } else if (eps.length && eps[0] && Array.isArray(eps[0].urls)) {
       grouped = eps.map(function (g) {
         return {
           title: g.title || 'Episodios',
