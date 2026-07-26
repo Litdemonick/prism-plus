@@ -428,7 +428,24 @@ export async function detail(url: string): Promise<PrismDetail> {
     /<a[^>]+href="[^"]*\/genero\/[^"]*"[^>]*>([^<]+)<\/a>/gi,
   ).map(g => g[0]);
 
-  return { title, cover, description, episodes, genres };
+  // Estado de emisión — el sitio lo pone como
+  // <li><span>Estado:</span> <div class="enemision finished">Concluido</div></li>
+  // (confirmado en vivo). Se lee el TEXTO, no la clase: la clase mezcla
+  // "enemision" y "finished" en el mismo div aun estando concluido, así que
+  // matchear por clase daría el estado al revés.
+  const statusText = (
+    matchFirst(html, /Estado:\s*<\/span>\s*<div[^>]*>([^<]+)<\/div>/i) || ''
+  ).toLowerCase();
+  const status: PrismDetail['status'] =
+    statusText.includes('concluido') || statusText.includes('finalizado')
+      ? 'completed'
+      : statusText.includes('emision') || statusText.includes('emisión')
+      ? 'ongoing'
+      : statusText.includes('proximamente') || statusText.includes('próximamente')
+      ? 'upcoming'
+      : undefined;
+
+  return { title, cover, description, episodes, genres, status };
 }
 
 type PrismEpisode = { title: string; url: string; number?: number };

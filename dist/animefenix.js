@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeFenix
-// @version      1.0.5
+// @version      1.0.6
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -540,7 +540,7 @@ async function createFilter() {
   };
 }
 async function detail(url) {
-  var _a, _b, _c, _d, _e, _f;
+  var _a, _b, _c, _d, _e, _f, _g, _h;
   const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
   const slug = fullUrl.replace(`${BASE}/`, "").replace(/\/$/, "");
@@ -570,7 +570,9 @@ async function detail(url) {
     start += 16;
     if (found < 16) break;
   }
-  return { title, cover, description, genres, episodes };
+  const statusText = ((_h = (_g = /Estado:\s*<\/span>\s*([^<]+)/i.exec(html)) == null ? void 0 : _g[1]) != null ? _h : "").trim().toLowerCase();
+  const status = statusText.includes("finalizado") || statusText.includes("concluido") ? "completed" : statusText.includes("emision") || statusText.includes("emisi\xF3n") ? "ongoing" : statusText.includes("proximamente") || statusText.includes("pr\xF3ximamente") ? "upcoming" : void 0;
+  return { title, cover, description, genres, episodes, status };
 }
 var _NEVER_NATIVE = /* @__PURE__ */ new Set(["savefiles", "streamtape", "premiunvip", "streamwish", "mp4upload"]);
 var _NEVER_NATIVE_HOSTS = ["uqload.is"];

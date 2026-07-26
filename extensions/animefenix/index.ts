@@ -189,7 +189,23 @@ export async function detail(url: string): Promise<PrismDetail> {
     if (found < 16) break;
   }
 
-  return { title, cover, description, genres, episodes };
+  // Estado de emisión — la ficha lo lista como
+  // <span ...>Estado:</span> Finalizado  (confirmado en vivo). Se acota el
+  // match a texto suelto tras el </span> para no engancharse con los links
+  // del menú ("En Emisión" aparece varias veces en la navegación).
+  const statusText = (
+    /Estado:\s*<\/span>\s*([^<]+)/i.exec(html)?.[1] ?? ''
+  ).trim().toLowerCase();
+  const status: PrismDetail['status'] =
+    statusText.includes('finalizado') || statusText.includes('concluido')
+      ? 'completed'
+      : statusText.includes('emision') || statusText.includes('emisión')
+      ? 'ongoing'
+      : statusText.includes('proximamente') || statusText.includes('próximamente')
+      ? 'upcoming'
+      : undefined;
+
+  return { title, cover, description, genres, episodes, status };
 }
 
 // ─── Reproducción ───────────────────────────────────────────────────────────

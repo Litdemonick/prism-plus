@@ -8,7 +8,7 @@
     {
       "name": "AnimeFenix",
       "package": "io.prismhub.animefenix",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -17,8 +17,8 @@
       "webSite": "https://animefenix2.tv",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animefenix.js",
-      "sha256": "c582b242fe7e18859c872e29db1ed5cb989f34d3255a7cf17d0a48cee1d95831",
-      "signature": "VjsC+rnNlrjjeX2Qacdl3TtwLHOk9VwZq9mfZFZh1fOFmEXuvOKk3gEqh+qK/9ZW7UGnFSRhUqHGaqUy5pc2DQ=="
+      "sha256": "49c0fc2a2463cb43ff6b491c76c02f66fd09be69ab34ec993333e2a26411a2ac",
+      "signature": "9Uhz4/GrhYCPsklb1VEfOobBgGxhtT6BF4vvGKhAGGqJdOwzKvzlUsVq6X/bZH4y15HxgF5DYo1WPJcYGyTrCg=="
     },
     {
       "name": "FuegoCine",
@@ -38,7 +38,7 @@
     {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
-      "version": "1.10.10",
+      "version": "1.10.11",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -47,8 +47,8 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "86b53b1f4b3a79d638fa89dff7b8712d1192612a9df2ad21374912604b28da8a",
-      "signature": "PwwiScvVNokBMmmAnw2XMaVtDVDivzuwf8ex87WP4pdto5/YxzBfGdUeoo9Tv1C1R3Ov3hDCOba3Fy/BuQ8LCA=="
+      "sha256": "db20eded3c39b6bccd9d907573709d65473eaabc8a4f3da68cbbf0dcfbec3032",
+      "signature": "p8I7hOk7gphlqtf6XZpvDyc/8NlkXSd0IoLSfzWfLw2GGIP5XgscPbJAPGiiX3KOTpL9ObhXS3nv20It4p5nDg=="
     },
     {
       "name": "ManhwaWeb",

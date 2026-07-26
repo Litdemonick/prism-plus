@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.10.10
+// @version      1.10.11
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -770,7 +770,9 @@ async function detail(url) {
     html,
     /<a[^>]+href="[^"]*\/genero\/[^"]*"[^>]*>([^<]+)<\/a>/gi
   ).map((g) => g[0]);
-  return { title, cover, description, episodes, genres };
+  const statusText = (matchFirst(html, /Estado:\s*<\/span>\s*<div[^>]*>([^<]+)<\/div>/i) || "").toLowerCase();
+  const status = statusText.includes("concluido") || statusText.includes("finalizado") ? "completed" : statusText.includes("emision") || statusText.includes("emisi\xF3n") ? "ongoing" : statusText.includes("proximamente") || statusText.includes("pr\xF3ximamente") ? "upcoming" : void 0;
+  return { title, cover, description, episodes, genres, status };
 }
 var _JS_ONLY_HOSTS = [
   "vidhide",
