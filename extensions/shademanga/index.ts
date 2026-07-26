@@ -418,8 +418,8 @@ const _ORDEN_OPTIONS: Record<string, string> = {
 // anime no soporta búsqueda de texto (el parámetro q= se ignora), así que
 // con keyword se cae solo a manga.
 const _ADULT_OPTIONS: Record<string, string> = {
-  no: 'Todo el contenido',
-  si: 'Incluir +18',
+  no: 'Ocultar +18',
+  si: 'Mostrar +18',
 };
 
 export async function createFilter(): Promise<Record<string, unknown>> {

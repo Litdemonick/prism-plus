@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ShadeManga
-// @version      1.0.3
+// @version      1.0.4
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -669,8 +669,8 @@ var _ORDEN_OPTIONS = {
   novedades: "Novedades"
 };
 var _ADULT_OPTIONS = {
-  no: "Todo el contenido",
-  si: "Incluir +18"
+  no: "Ocultar +18",
+  si: "Mostrar +18"
 };
 async function createFilter() {
   const [mangaGenres, animeGenres] = await Promise.all([
