@@ -381,7 +381,9 @@ function _postIdFromUrl(url: string): number | null {
 }
 
 export async function watch(url: string): Promise<PrismWatch> {
-  // Servidor externo ya elegido (switchServer) — resolver directo.
+  // Servidor externo ya elegido (switchServer) — resolver directo. Si no se
+  // pudo resolver, se deja la URL cruda como pageUrl para que la app pueda
+  // ofrecer el WebView (mejor que un error duro sin salida).
   if (url.indexOf('http') === 0 && url.indexOf(BASE) === -1) {
     const stream = await resolveEmbed(_guessServerName(url), url, `${BASE}/`);
     if (stream) {
@@ -397,23 +399,36 @@ export async function watch(url: string): Promise<PrismWatch> {
   if (res.error || !res.data) return { streams: [], pageUrl: url };
 
   const embeds = res.data.embeds || [];
+  // OJO: NO se descartan los embeds que no se pudieron resolver acá. Si se
+  // descartan, con un solo servidor resuelto (ej. goodstream) y ese
+  // resultando muerto en la práctica (CDN caído, aunque resolveEmbed haya
+  // dado una URL "válida"), la app se queda con un único servidor fallido y
+  // sin ningún otro al que cambiar — el switch a WebView solo se ofrece
+  // cuando el usuario elige OTRO servidor y ESE falla (switchServer /
+  // _setServerFailed en video_controller.dart); con un solo servidor no hay
+  // a qué cambiar, así que nunca se llega a esa ruta. Confirmado en vivo:
+  // "en todos tira servidor no accesible" con un solo botón de servidor
+  // visible. Dejando el resto con su URL cruda como servidor (sin resolver
+  // acá), el selector de "Servidor" de la app SÍ tiene opciones reales para
+  // probar, y cada cambio de servidor pasa por ese camino robusto.
   const resolved = await Promise.all(
-    embeds.map(async (e): Promise<PrismStream | null> => {
+    embeds.map(async (e): Promise<PrismStream> => {
       const r = await resolveEmbed(e.server || _guessServerName(e.url), e.url, `${BASE}/`);
-      if (!r) return null;
-      const label = [e.server, e.lang, e.quality].filter(Boolean).join(' ');
-      return { url: r.url, headers: r.headers, quality: label || undefined };
+      const label = [e.server, e.lang, e.quality, _guessServerName(e.url)]
+        .filter(Boolean)
+        .join(' ');
+      return {
+        url: r?.url ?? e.url,
+        headers: r?.headers,
+        quality: label || undefined,
+      };
     }),
   );
-  const streams = resolved.filter((s): s is PrismStream => s !== null);
 
-  // Si ninguno se pudo resolver, dejar el primer embed crudo como pageUrl —
-  // así el WebView fallback puede intentarlo igual (el sitio muestra su
-  // propio player embebido en esa página).
-  if (streams.length === 0 && embeds.length > 0) {
-    return { streams: [], pageUrl: embeds[0].url };
+  if (resolved.length === 0) {
+    return { streams: [], pageUrl: url };
   }
-  return { streams };
+  return { streams: resolved };
 }
 
 function _guessServerName(url: string): string {

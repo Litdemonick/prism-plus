@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LaMovie
-// @version      1.0.0
+// @version      1.0.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -706,17 +706,20 @@ async function watch(url) {
   const embeds = res.data.embeds || [];
   const resolved = await Promise.all(
     embeds.map(async (e) => {
+      var _a;
       const r = await resolveEmbed(e.server || _guessServerName(e.url), e.url, `${BASE}/`);
-      if (!r) return null;
-      const label = [e.server, e.lang, e.quality].filter(Boolean).join(" ");
-      return { url: r.url, headers: r.headers, quality: label || void 0 };
+      const label = [e.server, e.lang, e.quality, _guessServerName(e.url)].filter(Boolean).join(" ");
+      return {
+        url: (_a = r == null ? void 0 : r.url) != null ? _a : e.url,
+        headers: r == null ? void 0 : r.headers,
+        quality: label || void 0
+      };
     })
   );
-  const streams = resolved.filter((s) => s !== null);
-  if (streams.length === 0 && embeds.length > 0) {
-    return { streams: [], pageUrl: embeds[0].url };
+  if (resolved.length === 0) {
+    return { streams: [], pageUrl: url };
   }
-  return { streams };
+  return { streams: resolved };
 }
 function _guessServerName(url) {
   try {
