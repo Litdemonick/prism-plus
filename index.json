@@ -23,7 +23,7 @@
     {
       "name": "FuegoCine",
       "package": "io.prismhub.fuegocine",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -32,8 +32,8 @@
       "webSite": "https://www.fuegocine.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/fuegocine.js",
-      "sha256": "c1bd952714da1fa4ed710286368c9ac9f90f46e15a4e6c31a58e67adcfcae0c0",
-      "signature": "OCgFFzyhxGPjSFI+zwNjWpl0yUHA9OmUbD5wQCJiBJvBkA3LyK0pbZoQSzV4mQAjitwb8Lmze8N4x7K4NZbhBA=="
+      "sha256": "631be665fdf6566a53afe7b3d088bd18bd0e3f09145726c4e9fd3dfd4840b996",
+      "signature": "iq9h/Gms4wLfJmKyqjgzkFt5nQSJ6+tgd1ckuZntRwQzOacevsqqjs+u9C65uBt7/fcoScI4BZX6lCCraExoBQ=="
     },
     {
       "name": "JKAnime",

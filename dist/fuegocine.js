@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.1.0
+// @version      1.1.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -507,20 +507,25 @@ async function search(keyword, page, filter) {
     return latest(page);
   }
   const perPage = 20;
-  const startIndex = (page - 1) * perPage + 1;
-  const json = await _get(
-    `${BASE}/feeds/posts/default?alt=json&max-results=${perPage}&start-index=${startIndex}&q=${encodeURIComponent(kw)}`
-  );
-  if (typeof json === "string") return [];
-  const entries = (_c = (_b = json == null ? void 0 : json.feed) == null ? void 0 : _b.entry) != null ? _c : [];
+  const maxRawFetches = 6;
   const items = [];
-  for (const e of entries) {
-    const isMovie = e.category.some((c) => c.term === "Movie");
-    const isSerie = e.category.some((c) => c.term === "Serie");
-    if (!isMovie && !isSerie) continue;
-    if (tipo === "Movie" && !isMovie) continue;
-    if (tipo === "Serie" && !isSerie) continue;
-    items.push(_entryToItem(e));
+  let rawPage = (page - 1) * maxRawFetches + 1;
+  for (let attempt = 0; attempt < maxRawFetches && items.length < perPage; attempt++, rawPage++) {
+    const startIndex = (rawPage - 1) * perPage + 1;
+    const json = await _get(
+      `${BASE}/feeds/posts/default?alt=json&max-results=${perPage}&start-index=${startIndex}&q=${encodeURIComponent(kw)}`
+    );
+    if (typeof json === "string") break;
+    const entries = (_c = (_b = json == null ? void 0 : json.feed) == null ? void 0 : _b.entry) != null ? _c : [];
+    if (entries.length === 0) break;
+    for (const e of entries) {
+      const isMovie = e.category.some((c) => c.term === "Movie");
+      const isSerie = e.category.some((c) => c.term === "Serie");
+      if (!isMovie && !isSerie) continue;
+      if (tipo === "Movie" && !isMovie) continue;
+      if (tipo === "Serie" && !isSerie) continue;
+      items.push(_entryToItem(e));
+    }
   }
   return items;
 }

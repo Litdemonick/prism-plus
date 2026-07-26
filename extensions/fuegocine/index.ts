@@ -133,25 +133,47 @@ export async function search(
 
   // Blogger ignora el filtro de etiqueta (/-/Movie, /-/Serie) en cuanto se
   // combina con q= — confirmado en vivo, ambas rutas devuelven exactamente
-  // los mismos resultados con una búsqueda de texto. Se pide una sola vez
-  // sin filtro de ruta y se clasifica/filtra acá, descartando además los
-  // posts de episodios sueltos (sin etiqueta Movie ni Serie) — no son ítems
-  // de catálogo, solo actualizaciones de una serie ya listada.
+  // los mismos resultados con una búsqueda de texto. Se pide sin filtro de
+  // ruta y se clasifica/filtra acá, descartando además los posts de
+  // episodios sueltos (sin etiqueta Movie ni Serie) — no son ítems de
+  // catálogo, solo actualizaciones de una serie ya listada.
+  //
+  // OJO: el feed de texto de Blogger mezcla, en el mismo resultado, esos
+  // posts de episodio CON el post real de catálogo — una serie con muchos
+  // capítulos publicados puede inundar las primeras posiciones con puros
+  // posts de episodio, empujando el post Movie/Serie varias páginas crudas
+  // más abajo. Confirmado en vivo buscando "From": los primeros 20
+  // resultados del feed son puros "From 4x10", "From 4x9", etc. — cero
+  // posts Movie/Serie — así que una sola página cruda devolvía vacío aunque
+  // la serie sí está en el catálogo (el buscador de PrismHub solo pide la
+  // página 1 de cada extensión, así que ese vacío se traducía en "no
+  // aparece" para el usuario). Por eso se pagina el feed crudo ACÁ ADENTRO,
+  // buscando entradas válidas, en vez de confiar en que la página cruda
+  // pedida alcance.
   const perPage = 20;
-  const startIndex = (page - 1) * perPage + 1;
-  const json = await _get(
-    `${BASE}/feeds/posts/default?alt=json&max-results=${perPage}&start-index=${startIndex}&q=${encodeURIComponent(kw)}`,
-  );
-  if (typeof json === 'string') return [];
-  const entries: _FeedEntry[] = (json as any)?.feed?.entry ?? [];
+  const maxRawFetches = 6;
   const items: PrismItem[] = [];
-  for (const e of entries) {
-    const isMovie = e.category.some((c) => c.term === 'Movie');
-    const isSerie = e.category.some((c) => c.term === 'Serie');
-    if (!isMovie && !isSerie) continue;
-    if (tipo === 'Movie' && !isMovie) continue;
-    if (tipo === 'Serie' && !isSerie) continue;
-    items.push(_entryToItem(e));
+  let rawPage = (page - 1) * maxRawFetches + 1;
+  for (
+    let attempt = 0;
+    attempt < maxRawFetches && items.length < perPage;
+    attempt++, rawPage++
+  ) {
+    const startIndex = (rawPage - 1) * perPage + 1;
+    const json = await _get(
+      `${BASE}/feeds/posts/default?alt=json&max-results=${perPage}&start-index=${startIndex}&q=${encodeURIComponent(kw)}`,
+    );
+    if (typeof json === 'string') break;
+    const entries: _FeedEntry[] = (json as any)?.feed?.entry ?? [];
+    if (entries.length === 0) break; // se acabó el feed de verdad
+    for (const e of entries) {
+      const isMovie = e.category.some((c) => c.term === 'Movie');
+      const isSerie = e.category.some((c) => c.term === 'Serie');
+      if (!isMovie && !isSerie) continue;
+      if (tipo === 'Movie' && !isMovie) continue;
+      if (tipo === 'Serie' && !isSerie) continue;
+      items.push(_entryToItem(e));
+    }
   }
   return items;
 }
