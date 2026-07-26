@@ -62,12 +62,14 @@ const _GENRES: Record<number, string> = {
   6787: 'Película de TV', 3056: 'Bélica', 674: 'Western', 703: 'Kids',
   786: 'War & Politics', 12485: 'Reality', 19824: 'Soap',
 };
+// Solo las que de verdad aparecen en el catálogo — confirmado en vivo
+// escaneando +300 títulos reales (películas/series/animes): 4K, BDRip,
+// REMUX, WEB-DL y el resto de la lista original (sacada de siteConfig.datas,
+// que junta TODAS las etiquetas creadas alguna vez en el sitio, usadas o no)
+// no aparecieron en ningún ítem — dejarlas como opción de filtro solo
+// garantiza un "no hay datos" seguro.
 const _QUALITIES: Record<number, string> = {
-  495: 'Full HD', 496: 'Dual 1080p', 649: 'HD', 58679: 'BDRip', 58681: 'HDTV',
-  59268: 'Dual 720p', 58683: 'WEB-DL 720p', 53691: 'DVDRip',
-  58680: 'BDRip 1080p IMAX', 12703: 'HD1080p', 58678: 'WEB-DL 1080p',
-  26624: '4K', 69831: 'WEB-DL 4k', 82756: '4K HDR', 58682: 'BRRip 1080p IMAX',
-  49673: '1080P', 80332: 'REMUX 1080p', 87134: 'HD 1080P',
+  495: 'Full HD', 496: 'Dual 1080p', 649: 'HD', 59268: 'Dual 720p', 58681: 'HDTV',
 };
 const _LANGS: Record<number, string> = {
   58651: 'Latino', 58652: 'Inglés', 58654: 'Japonés', 58655: 'Subtitulado',
@@ -282,7 +284,7 @@ async function _listing(postType: PostType, page: number, f: LMFilter): Promise<
   }
   const items: PrismItem[] = [];
   let rawPage = page;
-  const maxRawFetches = 6;
+  const maxRawFetches = 8;
   for (let attempt = 0; attempt < maxRawFetches && items.length < perPage; attempt++, rawPage++) {
     const res = await _get<LMPage<LMPost>>(`${base}&page=${rawPage}`);
     if (res.error || !res.data || res.data.posts.length === 0) break;
@@ -470,10 +472,15 @@ export async function watch(url: string): Promise<PrismWatch> {
   return { streams: resolved };
 }
 
+// Sin new URL(...) a propósito: ese constructor no existe en el QuickJS de
+// PrismHub (confirmado en vivo — ninguna otra extensión de este repo lo usa,
+// todas extraen el host a mano). Devolvía siempre 'Embed' acá, así que los
+// tres servidores (vimeos/goodstream/voe) terminaban con el MISMO nombre —
+// y como X-Servers es un mapa por nombre, los tres colapsaban en una sola
+// entrada (la última pisaba a las anteriores), dejando un solo botón de
+// servidor visible aunque watch() devolviera los tres. Confirmado en vivo
+// con capturas: solo aparecía "Online Latino Full HD Embed" una vez.
 function _guessServerName(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return 'Embed';
-  }
+  const m = /^https?:\/\/(?:www\.)?([^/:?#]+)/i.exec(url);
+  return m ? m[1] : 'Embed';
 }

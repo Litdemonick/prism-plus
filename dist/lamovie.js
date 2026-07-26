@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LaMovie
-// @version      1.0.2
+// @version      1.0.3
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -467,21 +467,8 @@ var _QUALITIES = {
   495: "Full HD",
   496: "Dual 1080p",
   649: "HD",
-  58679: "BDRip",
-  58681: "HDTV",
   59268: "Dual 720p",
-  58683: "WEB-DL 720p",
-  53691: "DVDRip",
-  58680: "BDRip 1080p IMAX",
-  12703: "HD1080p",
-  58678: "WEB-DL 1080p",
-  26624: "4K",
-  69831: "WEB-DL 4k",
-  82756: "4K HDR",
-  58682: "BRRip 1080p IMAX",
-  49673: "1080P",
-  80332: "REMUX 1080p",
-  87134: "HD 1080P"
+  58681: "HDTV"
 };
 var _LANGS = {
   58651: "Latino",
@@ -639,7 +626,7 @@ async function _listing(postType, page, f) {
   }
   const items = [];
   let rawPage = page;
-  const maxRawFetches = 6;
+  const maxRawFetches = 8;
   for (let attempt = 0; attempt < maxRawFetches && items.length < perPage; attempt++, rawPage++) {
     const res = await _get(`${base}&page=${rawPage}`);
     if (res.error || !res.data || res.data.posts.length === 0) break;
@@ -779,11 +766,8 @@ async function watch(url) {
   return { streams: resolved };
 }
 function _guessServerName(url) {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch (e) {
-    return "Embed";
-  }
+  const m = /^https?:\/\/(?:www\.)?([^/:?#]+)/i.exec(url);
+  return m ? m[1] : "Embed";
 }
 
 // OJO: nunca usar url.indexOf('.mp4')/('.m3u8') suelto — algunos dominios de
