@@ -1,4 +1,3 @@
-import { resolveEmbed } from '../../sdk/embeds';
 import type {
   PrismItem,
   PrismDetail,
@@ -422,14 +421,13 @@ function _postIdFromUrl(url: string): number | null {
 }
 
 export async function watch(url: string): Promise<PrismWatch> {
-  // Servidor externo ya elegido (switchServer) — resolver directo. Si no se
-  // pudo resolver, se deja la URL cruda como pageUrl para que la app pueda
-  // ofrecer el WebView (mejor que un error duro sin salida).
+  // Servidor externo ya elegido (switchServer). NO se resuelve a stream
+  // directo: ver el comentario largo más abajo — el m3u8 resuelto de estos
+  // hosts da 403 para cualquier cliente que no sea un navegador real, así
+  // que devolver la URL resuelta solo garantiza que el reproductor nativo
+  // falle. Devolviendo la página del embed como pageUrl, la app va derecho
+  // al camino de sniffer/WebView, que es el único que funciona acá.
   if (url.indexOf('http') === 0 && url.indexOf(BASE) === -1) {
-    const stream = await resolveEmbed(_guessServerName(url), url, `${BASE}/`);
-    if (stream) {
-      return { streams: [{ url: stream.url, headers: stream.headers }], pageUrl: '' };
-    }
     return { streams: [], pageUrl: url };
   }
 
@@ -453,36 +451,34 @@ export async function watch(url: string): Promise<PrismWatch> {
   if (res.error || !res.data) return { streams: [], pageUrl: cleanPageUrl };
 
   const embeds = res.data.embeds || [];
-  // OJO: NO se descartan los embeds que no se pudieron resolver acá. Si se
-  // descartan, con un solo servidor resuelto (ej. goodstream) y ese
-  // resultando muerto en la práctica (CDN caído, aunque resolveEmbed haya
-  // dado una URL "válida"), la app se queda con un único servidor fallido y
-  // sin ningún otro al que cambiar — el switch a WebView solo se ofrece
-  // cuando el usuario elige OTRO servidor y ESE falla (switchServer /
-  // _setServerFailed en video_controller.dart); con un solo servidor no hay
-  // a qué cambiar, así que nunca se llega a esa ruta. Confirmado en vivo:
-  // "en todos tira servidor no accesible" con un solo botón de servidor
-  // visible. Dejando el resto con su URL cruda como servidor (sin resolver
-  // acá), el selector de "Servidor" de la app SÍ tiene opciones reales para
-  // probar, y cada cambio de servidor pasa por ese camino robusto.
-  const resolved = await Promise.all(
-    embeds.map(async (e): Promise<PrismStream> => {
-      const r = await resolveEmbed(e.server || _guessServerName(e.url), e.url, `${BASE}/`);
-      const label = [e.server, e.lang, e.quality, _guessServerName(e.url)]
-        .filter(Boolean)
-        .join(' ');
-      return {
-        url: r?.url ?? e.url,
-        headers: r?.headers,
-        quality: label || undefined,
-      };
-    }),
-  );
+  // Los embeds se devuelven CRUDOS, sin resolver a stream directo, a
+  // propósito. Investigado a fondo contra los CDN reales (goodstream.one,
+  // vimeos.zip): el m3u8 que sale de resolverlos responde 403 a CUALQUIER
+  // cliente que no sea un navegador de verdad — probado con y sin
+  // User-Agent de browser, y con Referer del propio host y de lamovie: los
+  // cuatro casos dan 403. El token va firmado contra la IP y el CDN filtra
+  // por fingerprint del cliente, exactamente el mismo caso que el SDK ya
+  // documenta para premilkyway.com (mpv/libavformat rechazado aunque el
+  // navegador reproduzca sin problema). De ahí que en la web "vimeos ande
+  // en todo" y en la app fallaran los tres servidores: resolverlos era
+  // justamente lo que rompía la reproducción.
+  //
+  // Dejándolos crudos, PrismHub los trata como embeds sin resolver y va
+  // derecho a su camino de sniffer/WebView (ver play()/_trySniff en
+  // video_controller.dart), que usa un motor de navegador real — el único
+  // que estos hosts aceptan.
+  const streams: PrismStream[] = embeds.map((e) => ({
+    url: e.url,
+    quality:
+      [e.server, e.lang, e.quality, _guessServerName(e.url)].filter(Boolean).join(' ') ||
+      undefined,
+    headers: { Referer: `${BASE}/` },
+  }));
 
-  if (resolved.length === 0) {
+  if (streams.length === 0) {
     return { streams: [], pageUrl: cleanPageUrl };
   }
-  return { streams: resolved, pageUrl: cleanPageUrl };
+  return { streams, pageUrl: cleanPageUrl };
 }
 
 // Sin new URL(...) a propósito: ese constructor no existe en el QuickJS de

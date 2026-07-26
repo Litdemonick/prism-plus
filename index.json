@@ -53,7 +53,7 @@
     {
       "name": "LaMovie",
       "package": "io.prismhub.lamovie",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -62,8 +62,8 @@
       "webSite": "https://lamovie.org",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/lamovie.js",
-      "sha256": "9b7835512df1c77cab7b242525a94f3fc7d72cb4b622eacd21289f1c9da29403",
-      "signature": "h89Fl9O1WzuJ103dDp482se9/ihzdi4a5F2EjbymS9itl1jxwfoIu7iBm7/NejD5jCX14a58zNkdEqud938GAw=="
+      "sha256": "120c3391cefa357ab2f81d9d02c581a4f2d7db43e7096e8752bd90cb3fca0e39",
+      "signature": "AfwzRjvpxkqHLXFTvEYTMQY3WL0TAba3qBytkriNlPCXdP/j65xuBuZarhcv1zUM1Sc83jdIN6jwFQgLrGTaAQ=="
     },
     {
       "name": "ManhwaWeb",
