@@ -205,10 +205,48 @@ async function _allChapters(slug: string): Promise<OlympusChapterRef[]> {
   return all;
 }
 
+// Olympus le agrega una marca de tiempo al slug y lo RENOMBRA cada tanto
+// (confirmado en vivo: "la-vida-del-regresor-despues-del-retiro" pasó a
+// "la-vida-del-regresor-despues-del-retiro-20260726-110242508" el mismo
+// día). Eso rompe cualquier slug ya guardado en favoritos/historial: la API
+// devuelve 500 para el viejo. Este helper saca ese sufijo para poder
+// comparar dos slugs de la misma obra.
+function _slugBase(slug: string): string {
+  return slug.replace(/-\d{8}-\d{6,}$/, '');
+}
+
+// Busca en el listado completo el slug VIGENTE de una obra cuyo slug quedó
+// viejo. Devuelve null si no aparece (obra borrada del sitio).
+async function _resolveCurrentSlug(oldSlug: string): Promise<string | null> {
+  try {
+    const list = await _get<{ data: OlympusListItem[] }>(`${BASE}/api/series/list`);
+    const base = _slugBase(oldSlug);
+    const hit = (list?.data || []).find(s => s && _slugBase(s.slug) === base);
+    return hit && hit.slug !== oldSlug ? hit.slug : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function detail(slug: string): Promise<PrismDetail> {
-  const d = await _get<{ data: Record<string, unknown> }>(
+  let d = await _get<{ data: Record<string, unknown> }>(
     `${BASE}/api/series/${encodeURIComponent(slug)}?type=comic`,
   );
+
+  // Slug viejo (la obra se renombró): buscar el vigente y reintentar UNA
+  // vez. Sin esto, un título ya guardado en favoritos/historial quedaba
+  // muerto para siempre con un error del servidor, aunque siguiera
+  // perfectamente disponible en el sitio bajo otro slug.
+  if (!d?.data) {
+    const current = await _resolveCurrentSlug(slug);
+    if (current) {
+      slug = current;
+      d = await _get<{ data: Record<string, unknown> }>(
+        `${BASE}/api/series/${encodeURIComponent(slug)}?type=comic`,
+      );
+    }
+  }
+
   // Sin este chequeo, cuando la API devuelve algo que no es el JSON
   // esperado (error 500/401, página de bloqueo, rate limit) `d.data` queda
   // undefined y la línea de abajo tiraba "cannot read property 'name' of

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Olympus
-// @version      1.2.6
+// @version      1.2.7
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -135,11 +135,33 @@ async function _allChapters(slug) {
   }
   return all;
 }
+function _slugBase(slug) {
+  return slug.replace(/-\d{8}-\d{6,}$/, "");
+}
+async function _resolveCurrentSlug(oldSlug) {
+  try {
+    const list = await _get(`${BASE}/api/series/list`);
+    const base = _slugBase(oldSlug);
+    const hit = ((list == null ? void 0 : list.data) || []).find((s) => s && _slugBase(s.slug) === base);
+    return hit && hit.slug !== oldSlug ? hit.slug : null;
+  } catch (e) {
+    return null;
+  }
+}
 async function detail(slug) {
   var _a;
-  const d = await _get(
+  let d = await _get(
     `${BASE}/api/series/${encodeURIComponent(slug)}?type=comic`
   );
+  if (!(d == null ? void 0 : d.data)) {
+    const current = await _resolveCurrentSlug(slug);
+    if (current) {
+      slug = current;
+      d = await _get(
+        `${BASE}/api/series/${encodeURIComponent(slug)}?type=comic`
+      );
+    }
+  }
   const s = d == null ? void 0 : d.data;
   if (!s || typeof s !== "object") {
     throw new Error("Olympus no devolvi\xF3 datos para esta obra. Intent\xE1 m\xE1s tarde.");
