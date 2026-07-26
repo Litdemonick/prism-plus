@@ -751,13 +751,20 @@ export default class extends Extension {
         })
       }];
     }
-    return {
+    // Object.assign(d, ...) primero — antes este wrapper reconstruía el
+    // objeto a mano con solo estos 5 campos, así que TODO lo demás que la
+    // extensión devuelve (genres, rating, status, extra y sobre todo type,
+    // crítico para una extensión "mixed" como ShadeManga) se perdía en
+    // silencio. Confirmado en vivo: un manga de ShadeManga abría el
+    // reproductor de video en vez del lector porque type nunca llegaba a
+    // PrismHub, cayendo al default de ExtensionUtils.resolveType.
+    return Object.assign({}, d, {
       title: d.title || '',
       cover: d.cover,
       desc: d.desc || d.description || '',
       episodes: grouped,
       headers: d.headers
-    };
+    });
   }
   async checkUpdate(url) { return (typeof checkUpdate === 'function') ? checkUpdate(url) : {}; }
 
