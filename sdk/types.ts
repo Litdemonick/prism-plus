@@ -105,6 +105,16 @@ export interface PrismDetail {
   extra?: Record<string, string>;
   /** Headers HTTP globales para portada y recursos del detalle */
   headers?: Record<string, string>;
+  /**
+   * Solo para extensiones "mixed" (manga Y anime reales en un mismo sitio,
+   * ej. ShadeManga) — PrismHub declara un único ExtensionType fijo por
+   * extensión en su manifest, así que no puede saber si ESTE título en
+   * particular se lee (manga) o se mira (bangumi) sin este campo. Nombres
+   * calcados del ExtensionType de PrismHub (no de MediaType) porque esto
+   * decide qué UI abrir (lector vs reproductor), no cómo se etiqueta el
+   * contenido. El resto de extensiones no lo necesita — su tipo ya es fijo.
+   */
+  type?: 'manga' | 'bangumi' | 'fikushon';
 }
 
 // ─── Reproducción ─────────────────────────────────────────────────────────────

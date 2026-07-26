@@ -81,6 +81,21 @@
       "signature": "fxYr7T5evjpW5/T1BNfMsQjyUUt7MQDEBlN7OyMzLHudFSHrz1cKusIgL/UVXC+GUIdex+KBpbxCC9qSjvxNDw=="
     },
     {
+      "name": "ShadeManga",
+      "package": "io.prismhub.shademanga",
+      "version": "1.0.0",
+      "author": "PrismHub",
+      "type": "mixed",
+      "icon": "",
+      "description": "Manga y anime en español desde ShadeManga — catálogo, búsqueda y lectura/reproducción en un solo lugar",
+      "lang": "es",
+      "webSite": "https://www.shademanga.com",
+      "license": "MIT",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/shademanga.js",
+      "sha256": "2312689fe3af99fecd57f7a4599eb71accccbfbe5376b9f2b92d1e67d780a782",
+      "signature": "tZGxgoXjin25AZiCk6awCh/LJ/OTKKHaBz/ZJiJMQRuA8a/dmtKj+5yqGRe+SEGihTATAkFWu4K1A9+De5fyAg=="
+    },
+    {
       "name": "TioAnime",
       "package": "io.prismhub.tioanime",
       "version": "1.0.0",

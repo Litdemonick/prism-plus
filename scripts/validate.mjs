@@ -14,6 +14,10 @@ const REQUIRED_MANIFEST = ['name', 'package', 'version', 'author', 'type', 'desc
 const VALID_TYPES = [
   'anime', 'manga', 'novel', 'movie', 'series',
   'documentary', 'live', 'video', 'music', 'podcast', 'other',
+  // Extensión con manga Y anime reales en un mismo sitio (ej. ShadeManga) —
+  // PrismHub decide lector-vs-reproductor por título (ExtensionDetail.type),
+  // no por el tipo fijo de la extensión. Ver mapType() en build.mjs.
+  'mixed',
 ];
 const REQUIRED_EXPORTS = ['latest', 'search', 'detail', 'watch'];
 

@@ -112,6 +112,12 @@ function makeSanitizeFooter(globalName) {
 // Mapea el tipo semántico del manifest al ExtensionType de PrismHub.
 function mapType(t) {
   const s = String(t || '').toLowerCase();
+  // mixed: extensión con manga Y anime reales en un mismo sitio (ej.
+  // ShadeManga) — a diferencia de los demás casos, pasa literal en vez de
+  // mapear a un tipo fijo. PrismHub decide lector-vs-reproductor por título
+  // (ExtensionDetail.type), no por el tipo de la extensión — ver
+  // ExtensionUtils.resolveType() del lado de la app.
+  if (s === 'mixed') return 'mixed';
   if (['manga', 'comic', 'manhwa', 'manhua'].includes(s)) return 'manga';
   if (['novel', 'fikushon', 'ln'].includes(s)) return 'fikushon';
   return 'bangumi'; // anime, movie, series, tv, live → video
