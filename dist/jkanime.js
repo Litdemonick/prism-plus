@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.10.11
+// @version      1.10.12
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -878,19 +878,9 @@ async function watch(url) {
   servers.sort((a, b) => (a.lang || 0) - (b.lang || 0));
   const resolved = servers.map((s) => _rawServerStream(s)).filter((s) => s !== null);
   const isMega = (u) => u.indexOf("mega.nz") !== -1 || u.indexOf("mega.co.nz") !== -1;
-  const _CONFIRMED_BROKEN = [
-    "streamtape",
-    "mp4upload",
-    "mediafire",
-    "streamwish",
-    "sfastwish",
-    "wishfast",
-    "swdyu",
-    "bysekoze"
-  ];
   const usable = resolved.filter((s) => {
     const uLow = s.url.toLowerCase();
-    return !isMega(uLow) && !_JS_ONLY_HOSTS.some((h) => uLow.indexOf(h) !== -1) && !_CONFIRMED_BROKEN.some((h) => uLow.indexOf(h) !== -1);
+    return !isMega(uLow) && !_JS_ONLY_HOSTS.some((h) => uLow.indexOf(h) !== -1);
   });
   const direct = usable.filter((s) => _isDirect(s.url));
   const embeds = usable.filter((s) => !_isDirect(s.url));

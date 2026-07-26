@@ -609,54 +609,31 @@ export async function watch(url: string): Promise<PrismWatch> {
     .map(s => _rawServerStream(s))
     .filter((s): s is PrismStream => s !== null);
 
-  // A pedido explícito: solo servidores con chance real de nativo, nada de
-  // WebView como plan A. Se sacan:
-  //  - Mega: cifrado client-side, sin URL interceptable (igual que en
-  //    animeytx).
-  //  - _JS_ONLY_HOSTS (VOE, Streamwish/Vidhide/Filemoon, Mixdrop): el propio
-  //    fast-path de arriba ya los marca como "dio nunca puede extraer su
-  //    stream" y los manda directo al sniffer de WebView — confirmado en
-  //    vivo con curl que Streamwish devuelve 403 de Cloudflare al intentar
-  //    resolverlo por scraping. Ese sniffer es justo lo que causaba el bug
-  //    de "audio sí, video en negro" (agarra la URL de red equivocada,
-  //    probablemente solo la del audio) — no un problema de decodificación,
-  //    sino de estar resolviendo mal el servidor desde el vamos.
-  //  - Streamtape: falló en vivo en la app; todavía no se re-verificó con
-  //    datos frescos, así que se mantiene afuera hasta confirmar si fue
-  //    algo puntual o real.
-  //  - Mp4upload: el bug de resolución YA está arreglado (era real, y quedó
-  //    corregido en el wrapper para siempre) — pero la reproducción en sí
-  //    sigue sin ser confiable desde la app: confirmado en vivo con DOS
-  //    capítulos/tokens distintos que el buffering entra en un ciclo que
-  //    nunca se estabiliza, pese a activar reconexión y subir el timeout de
-  //    red. El archivo en sí es válido (el navegador lo reproduce sin
-  //    problema) — es una diferencia real entre cómo el navegador y mpv
-  //    manejan esta conexión puntual, sin herramientas para diagnosticar
-  //    más a fondo desde acá. Vuelve a la lista de exclusión.
-  //  - Mediafire: a pedido explícito, sacado de la lista.
-  //  - Streamwish/sfastwish/wishfast/swdyu: el resolver SÍ funciona (URL real
-  //    verificada con curl), pero confirmado en vivo con logs de ffmpeg que
-  //    cada resolución cae en un servidor de CDN random (premilkyway.com,
-  //    subdominio distinto cada vez) — a veces el que te toca está roto
-  //    ("End of file" repetido en los segmentos), a veces sano. Demasiado
-  //    inestable para dejarlo habilitado por defecto.
-  //  - Filemoon (bysekoze.com, dominio rotativo — no coincide con el
-  //    'filemoon'/'moonplayer' de _JS_ONLY_HOSTS): confirmado en vivo que
-  //    resolveEmbed y el sniffer de WebView fallan los dos, sin reproducir.
-  // A pedido explícito: JKAnime queda con Desu, Magi, VOE y Doodstream — el
-  // resto se deja fuera por ahora, se puede reconsiderar más adelante si
-  // aparecen mejores resolutores o cambia el comportamiento de estos hosts.
+  // Mega sigue afuera: cifrado client-side, sin URL interceptable (igual que
+  // en animeytx) — ni el resolver ni el reproductor tienen algo real que
+  // reproducir.
+  //
+  // A pedido explícito, el resto de la lista negra histórica (Streamtape,
+  // Mp4upload, Mediafire, Streamwish/sfastwish/wishfast/swdyu, Filemoon vía
+  // bysekoze.com) VUELVE a la lista de servidores: cada uno tenía un motivo
+  // real y confirmado por el que NO reproduce bien en el reproductor NATIVO
+  // (buffering que nunca se estabiliza, CDN random a veces roto, etc.), pero
+  // ahora que el reproductor WebView (el visible, con su propio player
+  // embebido) se reforzó bastante (detección de crash/proceso muerto,
+  // reintento automático, mejor manejo de "no se pudo crear el WebView"),
+  // vale la pena ofrecerlos igual: si el nativo falla, la app ya cae sola al
+  // WebView (ver switchServer/_setServerFailed en video_controller.dart) sin
+  // que el usuario tenga que hacer nada más que elegir el servidor. Mp4upload
+  // en particular es el caso más claro: el archivo en sí es válido y un
+  // navegador lo reproduce sin problema, solo mpv tenía el problema.
+  // Filemoon (bysekoze.com) es el más arriesgado de los cinco — se había
+  // confirmado en vivo que fallaba TAMBIÉN por WebView en un intento
+  // anterior — puede seguir sin andar; si vuelve a fallar así, es candidato
+  // a sacarse de nuevo.
   const isMega = (u: string) => u.indexOf('mega.nz') !== -1 || u.indexOf('mega.co.nz') !== -1;
-  const _CONFIRMED_BROKEN = [
-    'streamtape', 'mp4upload', 'mediafire',
-    'streamwish', 'sfastwish', 'wishfast', 'swdyu',
-    'bysekoze',
-  ];
   const usable = resolved.filter(s => {
     const uLow = s.url.toLowerCase();
-    return !isMega(uLow) &&
-      !_JS_ONLY_HOSTS.some(h => uLow.indexOf(h) !== -1) &&
-      !_CONFIRMED_BROKEN.some(h => uLow.indexOf(h) !== -1);
+    return !isMega(uLow) && !_JS_ONLY_HOSTS.some(h => uLow.indexOf(h) !== -1);
   });
 
   // Direct streams (mp4/m3u8) antes que embeds crudos
