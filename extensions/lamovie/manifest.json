@@ -1,0 +1,12 @@
+{
+  "name": "LaMovie",
+  "package": "io.prismhub.lamovie",
+  "version": "1.0.0",
+  "author": "PrismHub",
+  "type": "movie",
+  "icon": "",
+  "description": "Películas, series, animes y novelas en español desde LaMovie — catálogo, búsqueda y filtros por género/año/calidad/idioma",
+  "lang": "es",
+  "webSite": "https://lamovie.org",
+  "license": "MIT"
+}
