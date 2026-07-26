@@ -73,6 +73,16 @@ const _LANGS: Record<number, string> = {
   58651: 'Latino', 58652: 'Inglés', 58654: 'Japonés', 58655: 'Subtitulado',
   58653: 'Castellano', 58667: 'Coreano', 58661: 'Portugués',
 };
+const _COUNTRIES: Record<number, string> = {
+  457: 'Estados Unidos', 774: 'Reino Unido', 787: 'Canadá', 617: 'Francia',
+  5436: 'México', 2499: 'España', 733: 'Japón', 4601: 'Corea del Sur',
+  1431: 'Alemania', 3912: 'Italia', 7746: 'Argentina', 2654: 'Australia',
+  3416: 'India', 3623: 'Brasil', 1198: 'China', 3057: 'Polonia',
+  9620: 'Rusia', 7483: 'Irlanda', 1364: 'Dinamarca', 12155: 'Colombia',
+  11668: 'Turquía', 8300: 'Suecia', 9100: 'Tailandia', 6033: 'Países Bajos',
+  5210: 'Bélgica', 15438: 'Chile', 16399: 'Noruega', 27475: 'Perú',
+  35098: 'Venezuela', 40202: 'Portugal',
+};
 
 // ─── Modelos de la API ──────────────────────────────────────────────────────
 interface LMImages {
@@ -165,37 +175,58 @@ function _itemFromPost(p: LMPost): PrismItem {
   };
 }
 
-// ─── Filtro (género/año/calidad/idioma/tipo) ────────────────────────────────
-// OJO: no se pudo confirmar el formato real del parámetro `filter` que usa el
-// sitio (varias formas probadas contra /listing/ y /search en vivo no
-// cambiaron los resultados) — se aplica en el cliente, filtrando localmente
-// por los ids que cada post ya trae (genres/years/quality/lang), mismo
-// criterio que Olympus usa para género/estado en su búsqueda por texto.
+// ─── Filtro (género/año/país/orden/tipo) ────────────────────────────────────
+// El parámetro `filter` de /listing SÍ funciona — el formato real (probado
+// en vivo, no documentado) es un objeto plano {taxonomía: [ids]}, ej.
+// {"genres":[32]} o {"years":[735],"countries":[733]} combinados. Confirmado
+// que funciona de verdad para genres/years/countries (los resultados
+// realmente cambian). quality y lang, en cambio, NO tienen efecto alguno vía
+// este parámetro con ningún nombre/forma probada — se quedan como filtro
+// aproximado del lado del cliente, sobre los resultados YA filtrados por
+// género/año/país en el servidor. orderBy real: latest/popular/rated/views
+// (no "date", que no es un valor válido) + order asc/desc.
+type OrderBy = 'latest' | 'popular' | 'rated' | 'views';
 interface LMFilter {
   postType?: PostType;
   genre?: number;
   year?: number;
+  country?: number;
   quality?: number;
   lang?: number;
+  orderBy: OrderBy;
+  order: 'asc' | 'desc';
 }
 
 function _parseFilter(filter?: Record<string, string[]>): LMFilter {
   const postType = filter?.['tipo']?.[0] as PostType | undefined;
   const genre = filter?.['genero']?.[0] ? parseInt(filter['genero'][0], 10) : undefined;
   const year = filter?.['anio']?.[0] ? parseInt(filter['anio'][0], 10) : undefined;
+  const country = filter?.['pais']?.[0] ? parseInt(filter['pais'][0], 10) : undefined;
   const quality = filter?.['calidad']?.[0] ? parseInt(filter['calidad'][0], 10) : undefined;
   const lang = filter?.['idioma']?.[0] ? parseInt(filter['idioma'][0], 10) : undefined;
+  const orderBy = (filter?.['orden']?.[0] as OrderBy) || 'latest';
+  const order = (filter?.['direccion']?.[0] as 'asc' | 'desc') || 'desc';
   return {
     postType: postType && POST_TYPES.includes(postType) ? postType : undefined,
-    genre, year, quality, lang,
+    genre, year, country, quality, lang, orderBy, order,
   };
 }
 
-function _matchesFilter(p: LMPost, f: LMFilter): boolean {
-  if (f.genre && !(p.genres || []).includes(f.genre)) return false;
+// Objeto real que la API acepta en `filter` — solo las taxonomías confirmadas
+// en vivo (genres/years/countries). quality/lang NO van acá — no tienen
+// ningún efecto server-side, se aplican aparte en el cliente.
+function _serverFilterParam(f: LMFilter): string {
+  const obj: Record<string, number[]> = {};
+  if (f.genre) obj.genres = [f.genre];
+  if (f.year) obj.years = [f.year];
+  if (f.country) obj.countries = [f.country];
+  if (Object.keys(obj).length === 0) return '';
+  return `&filter=${encodeURIComponent(JSON.stringify(obj))}`;
+}
+
+function _matchesClientFilter(p: LMPost, f: LMFilter): boolean {
   if (f.quality && !(p.quality || []).includes(f.quality)) return false;
   if (f.lang && !(p.lang || []).includes(f.lang)) return false;
-  if (f.year && _yearFromDate(p.release_date) !== f.year) return false;
   return true;
 }
 
@@ -206,17 +237,28 @@ export async function createFilter(): Promise<Record<string, unknown>> {
   for (const [id, name] of Object.entries(_QUALITIES)) qualityOptions[id] = name;
   const langOptions: Record<string, string> = { '': 'Todos' };
   for (const [id, name] of Object.entries(_LANGS)) langOptions[id] = name;
+  const countryOptions: Record<string, string> = { '': 'Todos' };
+  for (const [id, name] of Object.entries(_COUNTRIES)) countryOptions[id] = name;
   const tipoOptions: Record<string, string> = {
     '': 'Todos', movies: 'Películas', tvshows: 'Series', animes: 'Animes', novels: 'Novelas',
   };
   const currentYear = new Date().getFullYear();
   const yearOptions: Record<string, string> = { '': 'Todos' };
   for (let y = currentYear + 1; y >= 1970; y--) yearOptions[String(y)] = String(y);
+  // Mismas 4 métricas + dirección que usa el sitio (Más recientes/populares/
+  // valorados/vistos, con su reverso).
+  const ordenOptions: Record<string, string> = {
+    latest: 'Recientes', popular: 'Populares', rated: 'Valorados', views: 'Vistos',
+  };
+  const direccionOptions: Record<string, string> = { desc: 'Mayor a menor', asc: 'Menor a mayor' };
 
   return {
     tipo: { title: 'Tipo', options: tipoOptions, default: '', min: 1, max: 1 },
+    orden: { title: 'Orden', options: ordenOptions, default: 'latest', min: 1, max: 1 },
+    direccion: { title: 'Dirección', options: direccionOptions, default: 'desc', min: 1, max: 1 },
     genero: { title: 'Género', options: genreOptions, default: '', min: 1, max: 1 },
     anio: { title: 'Año', options: yearOptions, default: '', min: 1, max: 1 },
+    pais: { title: 'País', options: countryOptions, default: '', min: 1, max: 1 },
     calidad: { title: 'Calidad', options: qualityOptions, default: '', min: 1, max: 1 },
     idioma: { title: 'Idioma', options: langOptions, default: '', min: 1, max: 1 },
   };
@@ -224,34 +266,28 @@ export async function createFilter(): Promise<Record<string, unknown>> {
 
 // ─── Catálogo ───────────────────────────────────────────────────────────────
 // Página real de la API (postsPerPage sí funciona acá, a diferencia de
-// /search — ver más abajo). Con filtro activo se pide de a una página cruda
-// por vez y se filtra local, avanzando hasta juntar una página completa o
-// agotar el catálogo (mismo criterio de reintento que ya usa la app del
-// lado cliente para "rellenar" una página de vista).
+// /search — ver más abajo). género/año/país van server-side (filter real);
+// calidad/idioma, al no tener efecto en el servidor, se aplican local sobre
+// esos resultados YA acotados, pidiendo páginas de más si hace falta
+// completar una página de vista.
 async function _listing(postType: PostType, page: number, f: LMFilter): Promise<PrismItem[]> {
   const perPage = 20;
-  const hasClientFilter = !!(f.genre || f.year || f.quality || f.lang);
-  if (!hasClientFilter) {
-    const res = await _get<LMPage<LMPost>>(
-      `${API}/listing/${postType}?page=${page}&postType=${postType}&postsPerPage=${perPage}&orderBy=date&order=desc`,
-    );
+  const filterParam = _serverFilterParam(f);
+  const base = `${API}/listing/${postType}?postType=${postType}&postsPerPage=${perPage}&orderBy=${f.orderBy}&order=${f.order}${filterParam}`;
+  const needsClientFilter = !!(f.quality || f.lang);
+  if (!needsClientFilter) {
+    const res = await _get<LMPage<LMPost>>(`${base}&page=${page}`);
     if (res.error || !res.data) return [];
     return res.data.posts.map(_itemFromPost);
   }
-  // Filtro local: la página pedida no corresponde 1:1 a una página cruda
-  // (algunos posts crudos no matchean el filtro) — se avanza por páginas
-  // crudas empezando donde correspondería si nada se filtrara, ajustando
-  // hacia adelante hasta juntar contenido real.
   const items: PrismItem[] = [];
   let rawPage = page;
   const maxRawFetches = 6;
   for (let attempt = 0; attempt < maxRawFetches && items.length < perPage; attempt++, rawPage++) {
-    const res = await _get<LMPage<LMPost>>(
-      `${API}/listing/${postType}?page=${rawPage}&postType=${postType}&postsPerPage=${perPage}&orderBy=date&order=desc`,
-    );
+    const res = await _get<LMPage<LMPost>>(`${base}&page=${rawPage}`);
     if (res.error || !res.data || res.data.posts.length === 0) break;
     for (const p of res.data.posts) {
-      if (_matchesFilter(p, f)) items.push(_itemFromPost(p));
+      if (_matchesClientFilter(p, f)) items.push(_itemFromPost(p));
     }
   }
   return items;
@@ -292,7 +328,10 @@ export async function search(
     const post = res?.data?.posts?.[0];
     if (!post) continue;
     if (f.postType && post.type !== f.postType) continue;
-    if (!_matchesFilter(post, f)) continue;
+    if (f.genre && !(post.genres || []).includes(f.genre)) continue;
+    if (f.country && !(post.countries || []).includes(f.country)) continue;
+    if (f.year && _yearFromDate(post.release_date) !== f.year) continue;
+    if (!_matchesClientFilter(post, f)) continue;
     items.push(_itemFromPost(post));
   }
   return items;

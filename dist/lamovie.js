@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LaMovie
-// @version      1.0.1
+// @version      1.0.2
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -492,6 +492,38 @@ var _LANGS = {
   58667: "Coreano",
   58661: "Portugu\xE9s"
 };
+var _COUNTRIES = {
+  457: "Estados Unidos",
+  774: "Reino Unido",
+  787: "Canad\xE1",
+  617: "Francia",
+  5436: "M\xE9xico",
+  2499: "Espa\xF1a",
+  733: "Jap\xF3n",
+  4601: "Corea del Sur",
+  1431: "Alemania",
+  3912: "Italia",
+  7746: "Argentina",
+  2654: "Australia",
+  3416: "India",
+  3623: "Brasil",
+  1198: "China",
+  3057: "Polonia",
+  9620: "Rusia",
+  7483: "Irlanda",
+  1364: "Dinamarca",
+  12155: "Colombia",
+  11668: "Turqu\xEDa",
+  8300: "Suecia",
+  9100: "Tailandia",
+  6033: "Pa\xEDses Bajos",
+  5210: "B\xE9lgica",
+  15438: "Chile",
+  16399: "Noruega",
+  27475: "Per\xFA",
+  35098: "Venezuela",
+  40202: "Portugal"
+};
 function _cover(images) {
   const p = images == null ? void 0 : images.poster;
   if (!p) return void 0;
@@ -525,25 +557,37 @@ function _itemFromPost(p) {
   };
 }
 function _parseFilter(filter) {
-  var _a, _b, _c, _d, _e;
+  var _a, _b, _c, _d, _e, _f, _g, _h;
   const postType = (_a = filter == null ? void 0 : filter["tipo"]) == null ? void 0 : _a[0];
   const genre = ((_b = filter == null ? void 0 : filter["genero"]) == null ? void 0 : _b[0]) ? parseInt(filter["genero"][0], 10) : void 0;
   const year = ((_c = filter == null ? void 0 : filter["anio"]) == null ? void 0 : _c[0]) ? parseInt(filter["anio"][0], 10) : void 0;
-  const quality = ((_d = filter == null ? void 0 : filter["calidad"]) == null ? void 0 : _d[0]) ? parseInt(filter["calidad"][0], 10) : void 0;
-  const lang = ((_e = filter == null ? void 0 : filter["idioma"]) == null ? void 0 : _e[0]) ? parseInt(filter["idioma"][0], 10) : void 0;
+  const country = ((_d = filter == null ? void 0 : filter["pais"]) == null ? void 0 : _d[0]) ? parseInt(filter["pais"][0], 10) : void 0;
+  const quality = ((_e = filter == null ? void 0 : filter["calidad"]) == null ? void 0 : _e[0]) ? parseInt(filter["calidad"][0], 10) : void 0;
+  const lang = ((_f = filter == null ? void 0 : filter["idioma"]) == null ? void 0 : _f[0]) ? parseInt(filter["idioma"][0], 10) : void 0;
+  const orderBy = ((_g = filter == null ? void 0 : filter["orden"]) == null ? void 0 : _g[0]) || "latest";
+  const order = ((_h = filter == null ? void 0 : filter["direccion"]) == null ? void 0 : _h[0]) || "desc";
   return {
     postType: postType && POST_TYPES.includes(postType) ? postType : void 0,
     genre,
     year,
+    country,
     quality,
-    lang
+    lang,
+    orderBy,
+    order
   };
 }
-function _matchesFilter(p, f) {
-  if (f.genre && !(p.genres || []).includes(f.genre)) return false;
+function _serverFilterParam(f) {
+  const obj = {};
+  if (f.genre) obj.genres = [f.genre];
+  if (f.year) obj.years = [f.year];
+  if (f.country) obj.countries = [f.country];
+  if (Object.keys(obj).length === 0) return "";
+  return `&filter=${encodeURIComponent(JSON.stringify(obj))}`;
+}
+function _matchesClientFilter(p, f) {
   if (f.quality && !(p.quality || []).includes(f.quality)) return false;
   if (f.lang && !(p.lang || []).includes(f.lang)) return false;
-  if (f.year && _yearFromDate(p.release_date) !== f.year) return false;
   return true;
 }
 async function createFilter() {
@@ -553,6 +597,8 @@ async function createFilter() {
   for (const [id, name] of Object.entries(_QUALITIES)) qualityOptions[id] = name;
   const langOptions = { "": "Todos" };
   for (const [id, name] of Object.entries(_LANGS)) langOptions[id] = name;
+  const countryOptions = { "": "Todos" };
+  for (const [id, name] of Object.entries(_COUNTRIES)) countryOptions[id] = name;
   const tipoOptions = {
     "": "Todos",
     movies: "Pel\xEDculas",
@@ -563,21 +609,31 @@ async function createFilter() {
   const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
   const yearOptions = { "": "Todos" };
   for (let y = currentYear + 1; y >= 1970; y--) yearOptions[String(y)] = String(y);
+  const ordenOptions = {
+    latest: "Recientes",
+    popular: "Populares",
+    rated: "Valorados",
+    views: "Vistos"
+  };
+  const direccionOptions = { desc: "Mayor a menor", asc: "Menor a mayor" };
   return {
     tipo: { title: "Tipo", options: tipoOptions, default: "", min: 1, max: 1 },
+    orden: { title: "Orden", options: ordenOptions, default: "latest", min: 1, max: 1 },
+    direccion: { title: "Direcci\xF3n", options: direccionOptions, default: "desc", min: 1, max: 1 },
     genero: { title: "G\xE9nero", options: genreOptions, default: "", min: 1, max: 1 },
     anio: { title: "A\xF1o", options: yearOptions, default: "", min: 1, max: 1 },
+    pais: { title: "Pa\xEDs", options: countryOptions, default: "", min: 1, max: 1 },
     calidad: { title: "Calidad", options: qualityOptions, default: "", min: 1, max: 1 },
     idioma: { title: "Idioma", options: langOptions, default: "", min: 1, max: 1 }
   };
 }
 async function _listing(postType, page, f) {
   const perPage = 20;
-  const hasClientFilter = !!(f.genre || f.year || f.quality || f.lang);
-  if (!hasClientFilter) {
-    const res = await _get(
-      `${API}/listing/${postType}?page=${page}&postType=${postType}&postsPerPage=${perPage}&orderBy=date&order=desc`
-    );
+  const filterParam = _serverFilterParam(f);
+  const base = `${API}/listing/${postType}?postType=${postType}&postsPerPage=${perPage}&orderBy=${f.orderBy}&order=${f.order}${filterParam}`;
+  const needsClientFilter = !!(f.quality || f.lang);
+  if (!needsClientFilter) {
+    const res = await _get(`${base}&page=${page}`);
     if (res.error || !res.data) return [];
     return res.data.posts.map(_itemFromPost);
   }
@@ -585,12 +641,10 @@ async function _listing(postType, page, f) {
   let rawPage = page;
   const maxRawFetches = 6;
   for (let attempt = 0; attempt < maxRawFetches && items.length < perPage; attempt++, rawPage++) {
-    const res = await _get(
-      `${API}/listing/${postType}?page=${rawPage}&postType=${postType}&postsPerPage=${perPage}&orderBy=date&order=desc`
-    );
+    const res = await _get(`${base}&page=${rawPage}`);
     if (res.error || !res.data || res.data.posts.length === 0) break;
     for (const p of res.data.posts) {
-      if (_matchesFilter(p, f)) items.push(_itemFromPost(p));
+      if (_matchesClientFilter(p, f)) items.push(_itemFromPost(p));
     }
   }
   return items;
@@ -621,7 +675,10 @@ async function search(keyword, page, filter) {
     const post = (_b = (_a = res == null ? void 0 : res.data) == null ? void 0 : _a.posts) == null ? void 0 : _b[0];
     if (!post) continue;
     if (f.postType && post.type !== f.postType) continue;
-    if (!_matchesFilter(post, f)) continue;
+    if (f.genre && !(post.genres || []).includes(f.genre)) continue;
+    if (f.country && !(post.countries || []).includes(f.country)) continue;
+    if (f.year && _yearFromDate(post.release_date) !== f.year) continue;
+    if (!_matchesClientFilter(post, f)) continue;
     items.push(_itemFromPost(post));
   }
   return items;
