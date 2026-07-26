@@ -78,6 +78,55 @@ async function _latestManga(page: number): Promise<PrismItem[]> {
   return items.filter((m) => !m.esMayorDeEdad).map(_mangaItemToPrismItem);
 }
 
+// "Novedades" ordena por capítulo subido (no por serie) — confirmado en
+// vivo que /capitulos/recientes SÍ pagina de verdad (a diferencia de
+// /novedades-recientes, que solo acepta un límite fijo sin page real).
+// Cada entrada es un capítulo, no una serie — se dedupea por serie.id
+// quedándose con el capítulo más nuevo de cada una, y se usa el número de
+// capítulo como PrismItem.update (mismo campo que "Cap. X" en otras
+// extensiones de este repo).
+interface _RecentChapterApi {
+  numeroCapitulo: number;
+  serie: _MangaListItem;
+}
+
+async function _mangaNovedades(page: number, includeAdult: boolean): Promise<PrismItem[]> {
+  const json = await _get(
+    `${BASE}/api/series-locales/capitulos/recientes?page=${page}&pageSize=20`,
+  );
+  const items: _RecentChapterApi[] = json?.items ?? [];
+  const seen = new Set<number>();
+  const out: PrismItem[] = [];
+  for (const it of items) {
+    if (!it.serie || seen.has(it.serie.id)) continue;
+    if (!includeAdult && it.serie.esMayorDeEdad) continue;
+    seen.add(it.serie.id);
+    const item = _mangaItemToPrismItem(it.serie);
+    item.update = `Cap. ${it.numeroCapitulo}`;
+    out.push(item);
+  }
+  return out;
+}
+
+let _mangaGenresCache: string[] | null = null;
+
+async function _fetchMangaGenres(): Promise<string[]> {
+  if (_mangaGenresCache) return _mangaGenresCache;
+  const json = await _get(`${BASE}/api/series-locales/generos`);
+  if (!Array.isArray(json)) return [];
+  _mangaGenresCache = json.map((g: { nombre?: string }) => g.nombre).filter((n): n is string => !!n);
+  return _mangaGenresCache;
+}
+
+async function _mangaByGenero(genero: string, page: number, includeAdult: boolean): Promise<PrismItem[]> {
+  const url =
+    `${BASE}/api/series-locales?genero=${encodeURIComponent(genero)}` +
+    `&page=${page}&pageSize=20&includeAdult=${includeAdult}`;
+  const json = await _get(url);
+  const items: _MangaListItem[] = Array.isArray(json) ? json : (json?.items ?? []);
+  return items.filter((m) => includeAdult || !m.esMayorDeEdad).map(_mangaItemToPrismItem);
+}
+
 async function _searchManga(keyword: string, includeAdult: boolean): Promise<PrismItem[]> {
   const url =
     `${BASE}/api/series-locales/search-candidates?q=${encodeURIComponent(keyword)}` +
@@ -218,6 +267,23 @@ async function _latestAnime(page: number): Promise<PrismItem[]> {
   return items.filter((a) => !a.esMayorDeEdad).map(_animeItemToPrismItem);
 }
 
+let _animeGenresCache: string[] | null = null;
+
+async function _fetchAnimeGenres(): Promise<string[]> {
+  if (_animeGenresCache) return _animeGenresCache;
+  const json = await _get(`${BASE}/api/anime/generos`);
+  const list: { genero?: string }[] = json?.generos ?? [];
+  _animeGenresCache = list.map((g) => g.genero).filter((n): n is string => !!n);
+  return _animeGenresCache;
+}
+
+async function _animeByGenero(genero: string, page: number): Promise<PrismItem[]> {
+  const json = await _get(`${BASE}/api/anime?genero=${encodeURIComponent(genero)}&page=${page}`);
+  if (!json || typeof json === 'string') return [];
+  const items: _AnimeListItem[] = json.items ?? [];
+  return items.filter((a) => !a.esMayorDeEdad).map(_animeItemToPrismItem);
+}
+
 async function _searchAnime(keyword: string): Promise<PrismItem[]> {
   const json = await _get(`${BASE}/api/anime?q=${encodeURIComponent(keyword)}`);
   if (!json || typeof json === 'string') return [];
@@ -334,6 +400,16 @@ const _TYPE_OPTIONS: Record<string, string> = {
   anime: 'Anime',
 };
 
+// Populares (populares/anime por vistas) vs Novedades (por capítulo subido,
+// ver _mangaNovedades) — mismos nombres de sección que usa el sitio real.
+// Anime no tiene un endpoint de "recién actualizado" separado confirmado,
+// así que Novedades con tipo=anime (o Todos) cae al catálogo normal para
+// esa mitad.
+const _ORDEN_OPTIONS: Record<string, string> = {
+  populares: 'Populares',
+  novedades: 'Novedades',
+};
+
 // "adultos" no es un filtro de contenido más — PrismHub lo trata distinto
 // (ExtensionFilter.adultOption) porque antes de llamar search() con esta
 // opción, la app chequea el switch de NSFW de Ajustes y bloquea con un
@@ -347,8 +423,18 @@ const _ADULT_OPTIONS: Record<string, string> = {
 };
 
 export async function createFilter(): Promise<Record<string, unknown>> {
+  const [mangaGenres, animeGenres] = await Promise.all([
+    _fetchMangaGenres(),
+    _fetchAnimeGenres(),
+  ]);
+  const generoSet = new Set<string>([...mangaGenres, ...animeGenres]);
+  const generoOptions: Record<string, string> = { '': 'Todos' };
+  for (const g of [...generoSet].sort((a, b) => a.localeCompare(b))) generoOptions[g] = g;
+
   return {
     tipo: { title: 'Tipo', options: _TYPE_OPTIONS, default: '', min: 1, max: 1 },
+    orden: { title: 'Orden', options: _ORDEN_OPTIONS, default: 'populares', min: 1, max: 1 },
+    genero: { title: 'Género', options: generoOptions, default: '', min: 1, max: 1 },
     adultos: {
       title: 'Adultos',
       options: _ADULT_OPTIONS,
@@ -366,27 +452,44 @@ export async function search(
   filter?: Record<string, string[]>,
 ): Promise<PrismItem[]> {
   const tipo = filter?.['tipo']?.[0];
+  const orden = filter?.['orden']?.[0] ?? 'populares';
+  const genero = filter?.['genero']?.[0];
   const includeAdult = filter?.['adultos']?.[0] === 'si';
   const kw = keyword.trim();
 
+  // Texto libre: género/orden no aplican (el sitio no combina búsqueda de
+  // texto con esos filtros) — se mantiene el comportamiento de búsqueda tal
+  // cual, solo respetando tipo/adultos.
+  if (kw) {
+    if (includeAdult) return _searchManga(kw, true); // anime +18 no soporta búsqueda de texto
+    if (tipo === 'manga') return _searchManga(kw, false);
+    if (tipo === 'anime') return _searchAnime(kw);
+    const [manga, anime] = await Promise.all([_searchManga(kw, false), _searchAnime(kw)]);
+    return _interleave(manga, anime);
+  }
+
+  if (genero) {
+    if (tipo === 'anime') return _animeByGenero(genero, page);
+    if (tipo === 'manga' || includeAdult) return _mangaByGenero(genero, page, includeAdult);
+    const [manga, anime] = await Promise.all([
+      _mangaByGenero(genero, page, includeAdult),
+      _animeByGenero(genero, page),
+    ]);
+    return _interleave(manga, anime);
+  }
+
   if (includeAdult) {
-    if (kw) return _searchManga(kw, true); // anime +18 no soporta búsqueda de texto
     if (tipo === 'manga') return _latestMangaAdult(page);
     if (tipo === 'anime') return _latestAnimeAdult(page);
     const [manga, anime] = await Promise.all([_latestMangaAdult(page), _latestAnimeAdult(page)]);
     return _interleave(manga, anime);
   }
 
-  if (!kw) {
-    if (tipo === 'manga') return _latestManga(page);
-    if (tipo === 'anime') return _latestAnime(page);
-    return latest(page);
-  }
+  const mangaFetch = orden === 'novedades' ? _mangaNovedades(page, false) : _latestManga(page);
+  if (tipo === 'manga') return mangaFetch;
+  if (tipo === 'anime') return _latestAnime(page);
 
-  if (tipo === 'manga') return _searchManga(kw, false);
-  if (tipo === 'anime') return _searchAnime(kw);
-
-  const [manga, anime] = await Promise.all([_searchManga(kw, false), _searchAnime(kw)]);
+  const [manga, anime] = await Promise.all([mangaFetch, _latestAnime(page)]);
   return _interleave(manga, anime);
 }
 
