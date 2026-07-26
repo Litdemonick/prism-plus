@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LaMovie
-// @version      1.0.3
+// @version      1.0.4
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -745,8 +745,9 @@ async function watch(url) {
   }
   const postId = _postIdFromUrl(url);
   if (postId == null) throw new Error("No se pudo identificar el contenido en LaMovie");
+  const cleanPageUrl = url.split("?")[0];
   const res = await _get(`${API}/player?postId=${postId}&demo=0`);
-  if (res.error || !res.data) return { streams: [], pageUrl: url };
+  if (res.error || !res.data) return { streams: [], pageUrl: cleanPageUrl };
   const embeds = res.data.embeds || [];
   const resolved = await Promise.all(
     embeds.map(async (e) => {
@@ -761,9 +762,9 @@ async function watch(url) {
     })
   );
   if (resolved.length === 0) {
-    return { streams: [], pageUrl: url };
+    return { streams: [], pageUrl: cleanPageUrl };
   }
-  return { streams: resolved };
+  return { streams: resolved, pageUrl: cleanPageUrl };
 }
 function _guessServerName(url) {
   const m = /^https?:\/\/(?:www\.)?([^/:?#]+)/i.exec(url);

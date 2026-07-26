@@ -436,8 +436,21 @@ export async function watch(url: string): Promise<PrismWatch> {
   const postId = _postIdFromUrl(url);
   if (postId == null) throw new Error('No se pudo identificar el contenido en LaMovie');
 
+  // Página real del sitio SIN los parámetros propios (?showId=&epId=... son
+  // solo para que _postIdFromUrl recupere el id acá adentro) — confirmado
+  // en vivo con curl que la página del episodio/película carga bien así,
+  // tal cual, sin esa query string. Se manda SIEMPRE como pageUrl (no solo
+  // cuando no hay embeds): si los servidores resuelven "bien" pero después
+  // el nativo no logra reproducir ninguno de verdad (confirmado en vivo con
+  // los tres — goodstream/voe/vimeos — fallando en la práctica pese a
+  // resolver una URL con pinta válida), antes no quedaba NINGUNA página a
+  // la que caer y el WebView nunca se ofrecía. Con esto, esa página (donde
+  // el sitio reproduce con su propio player, que sí anda) siempre está
+  // disponible como último recurso.
+  const cleanPageUrl = url.split('?')[0];
+
   const res = await _get<LMPlayer>(`${API}/player?postId=${postId}&demo=0`);
-  if (res.error || !res.data) return { streams: [], pageUrl: url };
+  if (res.error || !res.data) return { streams: [], pageUrl: cleanPageUrl };
 
   const embeds = res.data.embeds || [];
   // OJO: NO se descartan los embeds que no se pudieron resolver acá. Si se
@@ -467,9 +480,9 @@ export async function watch(url: string): Promise<PrismWatch> {
   );
 
   if (resolved.length === 0) {
-    return { streams: [], pageUrl: url };
+    return { streams: [], pageUrl: cleanPageUrl };
   }
-  return { streams: resolved };
+  return { streams: resolved, pageUrl: cleanPageUrl };
 }
 
 // Sin new URL(...) a propósito: ese constructor no existe en el QuickJS de
