@@ -15,7 +15,7 @@
 <br>
 
 [![Licencia MIT](https://img.shields.io/github/license/Litdemonick/prism-plus?style=flat-square)](LICENSE)
-[![Extensiones](https://img.shields.io/badge/extensiones-3_verificadas-6f42c1?style=flat-square)](#catalogo)
+[![Extensiones](https://img.shields.io/badge/extensiones-9_verificadas-6f42c1?style=flat-square)](#catalogo)
 [![Firma](https://img.shields.io/badge/firma-Ed25519-2ea043?style=flat-square)](#seguridad)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript)](tsconfig.json)
 
@@ -23,11 +23,13 @@
 
 Prism+ es la **única fuente de extensiones de [PrismHub](https://github.com/Litdemonick/Prism_Hub)**. PrismHub se alimenta exclusivamente de este repositorio: trae de fábrica un conjunto curado de extensiones nativas y descarga el resto del catálogo desde aquí.
 
+> Este repo tomó como idea y punto de partida el concepto de extensiones de **MiruApp**, pero es un desarrollo **100% propio**: SDK, formato de bundle, firma, sanitización, page-sniff, Studio y el catálogo entero se construyeron desde cero para PrismHub. El soporte y las decisiones del proyecto son y seguirán siendo de su creador, [Litdemonick](https://github.com/Litdemonick).
+
 Cada extensión habla con una fuente (un sitio de anime, una API de manga, una plataforma de películas, un feed de video) y expone una interfaz unificada. El build genera **el formato nativo de PrismHub** automáticamente — cabecera `==PrismHubExtension==` + `export default class extends Extension` — así que todo lo que se publica aquí funciona directamente en la app.
 
 > 🌍 **Alcance:** anime, manga, manhwa, películas, series, documentales, TV en vivo, novelas, podcasts, feeds de video y más.
 
-> 🧪 **Estado actual: arranque limpio.** El catálogo se reinició para incluir **solo extensiones verificadas una por una**. Hoy hay 3 (TioAnime, MonosChinos, MangaDex); las nuevas se agregan y se prueban desde el [Prism+ Studio](#studio) antes de publicarse, para no shippear nada sin testear.
+> 🧪 **Catálogo verificado uno por uno.** Cada extensión se prueba desde el [Prism+ Studio](#studio) contra la fuente real antes de publicarse — nada se shippea sin testear.
 
 > 🔒 **Cerrado y firmado.** Solo el mantenedor publica. Cada extensión se **firma con una llave privada Ed25519** y PrismHub la verifica con la llave pública embebida — rechaza cualquier extensión no firmada o alterada (ver [Seguridad](#seguridad)). Que el repo sea público (legible) no permite a nadie inyectar extensiones: hace falta la llave privada, que nunca sale de la máquina del mantenedor.
 
@@ -676,13 +678,19 @@ npm run build   # validate + typecheck + esbuild + test
 
 > 🧪 **Arranque limpio.** El catálogo se reinició para incluir **solo extensiones verificadas una por una** desde el [Studio](#studio). Las nuevas se agregan probadas; nada se shippea sin testear.
 
-**3 extensiones verificadas**
+**9 extensiones verificadas**
 
 | Extensión | Idioma | Fuente | Tipo | Estado |
 |-----------|--------|--------|------|--------|
 | **TioAnime** | ES | tioanime.com | Anime | ✅ probada |
-| **MonosChinos** | ES | monoschinos.st | Anime | ✅ probada |
-| **MangaDex** | Multi | api.mangadex.org | Manga | ✅ probada |
+| **JKAnime** | ES | jkanime.net | Anime | ✅ probada |
+| **AnimeFenix** | ES | animefenix2.tv | Anime | ✅ probada |
+| **FuegoCine** | ES | fuegocine.com | Anime/Pelis | ✅ probada |
+| **LaMovie** | ES | lamovie.org | Anime/Pelis | ✅ probada |
+| **ManhwaWeb** | ES | manhwaweb.com | Manhwa | ✅ probada |
+| **Olympus** | ES | olympusxyz.com | Manga | ✅ probada |
+| **TuMangaOnline** | ES | zonatmo.org | Manga | ✅ probada |
+| **ShadeManga** | ES | shademanga.com | Manga/Anime | ✅ probada |
 
 > Las extensiones de anime usan el [page-sniff por WebView](#video) como fallback universal de reproducción.
 
