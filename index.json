@@ -51,21 +51,6 @@
       "signature": "ckTm2xSUx6y3d0k0IiwoHKD+eca+ku6uSZUVi7RLMHwOIPRzZ5xtRdezRUqcUAGJvC7mJvxPYCu29s20gc1CBQ=="
     },
     {
-      "name": "LaMovie",
-      "package": "io.prismhub.lamovie",
-      "version": "1.0.6",
-      "author": "PrismHub",
-      "type": "bangumi",
-      "icon": "",
-      "description": "Películas, series, animes y novelas en español desde LaMovie — catálogo, búsqueda y filtros por género/año/calidad/idioma",
-      "lang": "es",
-      "webSite": "https://lamovie.org",
-      "license": "MIT",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/lamovie.js",
-      "sha256": "81f3ad1696879d1f65cdc15dbc23bfd933ed46f105118a14cb881cf48e1ebc0d",
-      "signature": "WP3eCI5fPPF1y8HhTdnaA1vmao3Yp3PRHGYcTcAi3XNHuA4qAEy99W06YVS11Xxt8gIRErjNF7rv5GaNgn4ADg=="
-    },
-    {
       "name": "ManhwaWeb",
       "package": "io.prismhub.manhwaweb",
       "version": "1.3.7",
