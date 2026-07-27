@@ -291,13 +291,19 @@ async function _searchAnime(keyword: string): Promise<PrismItem[]> {
   return items.filter((a) => !a.esMayorDeEdad).map(_animeItemToPrismItem);
 }
 
-// /api/anime/adultos existe y funciona en vivo (mismo patrón que
-// series-locales/adultos) — a diferencia de manga, acá NO hay una versión
-// de búsqueda con q= que realmente filtre (confirmado en vivo: ignora el
-// parámetro y devuelve el catálogo completo igual), así que este es solo
-// catálogo paginado, sin texto libre.
+// /api/anime/adultos existe y funciona en vivo, pero a diferencia de
+// series-locales/adultos/home (que devuelve TODO en un solo dump agrupado)
+// este ignora por completo cualquier parámetro de paginación probado en vivo
+// (page, pagina, p, pageNumber, offset, skip, combinados con limit/pageSize):
+// siempre responde `page:1` y los mismos 24 items de un total real de 1129
+// (~2% del catálogo). No hay forma de alcanzar el resto vía este endpoint —
+// limitación real del sitio. Tampoco hay una versión de búsqueda con q= que
+// realmente filtre (confirmado en vivo: ignora el parámetro y devuelve el
+// catálogo completo igual). Se corta en page>1 (igual que manga adulto) para
+// no repetir de nuevo la misma llamada de red con el mismo resultado.
 async function _latestAnimeAdult(page: number): Promise<PrismItem[]> {
-  const json = await _get(`${BASE}/api/anime/adultos?page=${page}`);
+  if (page > 1) return [];
+  const json = await _get(`${BASE}/api/anime/adultos?page=1`);
   if (!json || typeof json === 'string') return [];
   const items: _AnimeListItem[] = json.items ?? [];
   return items.map(_animeItemToPrismItem);

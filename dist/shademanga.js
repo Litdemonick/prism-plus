@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ShadeManga
-// @version      1.0.4
+// @version      1.0.5
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -599,7 +599,8 @@ async function _searchAnime(keyword) {
 }
 async function _latestAnimeAdult(page) {
   var _a;
-  const json = await _get(`${BASE}/api/anime/adultos?page=${page}`);
+  if (page > 1) return [];
+  const json = await _get(`${BASE}/api/anime/adultos?page=1`);
   if (!json || typeof json === "string") return [];
   const items = (_a = json.items) != null ? _a : [];
   return items.map(_animeItemToPrismItem);

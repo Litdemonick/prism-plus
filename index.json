@@ -83,7 +83,7 @@
     {
       "name": "ShadeManga",
       "package": "io.prismhub.shademanga",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "PrismHub",
       "type": "mixed",
       "icon": "",
@@ -92,8 +92,8 @@
       "webSite": "https://www.shademanga.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/shademanga.js",
-      "sha256": "0a76fcbfbf8580216dd55e28553c4faef556ae537127ed49da4abb7b3638541c",
-      "signature": "Pt31NZs/7DtP6v8z2XKDAg/N/ova7vCKfbXI4zgqylQDaYnOMNOtwAseWeEEzhGqymzxb44BS2WooelOQARRCw=="
+      "sha256": "4c345f408062ec314dda0520344f2f49d18c2c96a383083643a7aff701385965",
+      "signature": "KTilZSWMcP5OxLdAYxEqr6PMXmHu5zAhZSe4IQT1d7MrvWoFPCmrLlSyZq78ZY2yuy/j82givBiFpw+/1SCkBw=="
     },
     {
       "name": "TioAnime",
