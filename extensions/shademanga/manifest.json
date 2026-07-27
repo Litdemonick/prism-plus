@@ -1,12 +1,13 @@
 {
   "name": "ShadeManga",
   "package": "io.prismhub.shademanga",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "author": "PrismHub",
   "type": "mixed",
   "icon": "",
   "description": "Manga y anime en español desde ShadeManga — catálogo, búsqueda y lectura/reproducción en un solo lugar",
   "lang": "es",
   "webSite": "https://www.shademanga.com",
-  "license": "MIT"
+  "license": "MIT",
+  "nsfw": "true"
 }

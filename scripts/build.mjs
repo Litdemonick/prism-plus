@@ -30,6 +30,7 @@ const ROOT       = fileURLToPath(new URL('..', import.meta.url));
 const EXT_DIR    = join(ROOT, 'extensions');
 const DIST_DIR   = join(ROOT, 'dist');
 const VENDOR_DIR = join(ROOT, 'vendored');
+const DISABLED_DIR = join(ROOT, 'disabled-extensions');
 const INDEX_PATH = join(ROOT, 'index.json');
 const PRIV_KEY_PATH = join(ROOT, '.keys', 'private.pem');
 
@@ -539,6 +540,43 @@ if (existsSync(VENDOR_DIR)) {
     vok++;
   }
   console.log(`\n📦  Vendored: ${vok} extensión(es) de la comunidad añadidas`);
+}
+
+// ─── Extensiones deshabilitadas: entradas "solo metadata" ─────────────────────
+// Una extensión movida a disabled-extensions/ (código roto sin arreglar
+// todavía, ej. LaMovie — freeze de GPU en Windows) sigue apareciendo en el
+// catálogo para que el usuario sepa que existe, pero SIN bundle funcional:
+// no se compila su index.ts ni se genera dist/<name>.js. Solo se leen los
+// campos del manifest y se agrega `unstable: true`. PrismHub usa ese flag
+// para bloquear instalarla de nuevo (ExtensionCard) y para forzar
+// "actualización requerida" si alguien ya la tenía instalada
+// (ExtensionUtils.hasExtensionUpdate) — sin necesitar un script real, porque
+// ese flujo nunca llega a pedir/ejecutar el .js.
+if (existsSync(DISABLED_DIR)) {
+  const disabledNames = readdirSync(DISABLED_DIR, { withFileTypes: true })
+    .filter(d => d.isDirectory())
+    .map(d => d.name)
+    .sort();
+  let dcount = 0;
+  for (const name of disabledNames) {
+    const manifestFile = join(DISABLED_DIR, name, 'manifest.json');
+    if (!existsSync(manifestFile)) continue;
+    const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
+    // Nunca pisar una extensión nativa activa con el mismo package.
+    if (builtManifests.some(m => m.package === manifest.package)) {
+      console.warn(`  ⚠  disabled-extensions/${name} — duplica una nativa activa, omitido`);
+      continue;
+    }
+    builtManifests.push({
+      ...manifest,
+      type: mapType(manifest.type),
+      unstable: true,
+    });
+    dcount++;
+  }
+  if (dcount > 0) {
+    console.log(`⛔  Inestables: ${dcount} extensión(es) listada(s) sin instalador (disabled-extensions/)`);
+  }
 }
 
 // ─── Generar index.json ───────────────────────────────────────────────────────

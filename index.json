@@ -53,7 +53,7 @@
     {
       "name": "ManhwaWeb",
       "package": "io.prismhub.manhwaweb",
-      "version": "1.3.7",
+      "version": "1.3.8",
       "author": "PrismHub",
       "type": "manga",
       "icon": "",
@@ -61,9 +61,10 @@
       "lang": "es",
       "webSite": "https://manhwaweb.com",
       "license": "MIT",
+      "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/manhwaweb.js",
-      "sha256": "379a0326a2a890a4df3109994bb4a6bec241e66f1f2ed445593d14810a2782be",
-      "signature": "bR0jf2HtRyTesLQSpW1K8nC1dG3Mm+59Rk5w2OZqfRvMdRhuV9etL6Tx5kcc0atVjIuIHQgqDDOZDM9EYatNCg=="
+      "sha256": "a9ee393addf029e659aa405a396c185cf3ea1b4dc1b02db7166fa8d1fdf08de8",
+      "signature": "EDLu2FRFx749L2pZ5THSPdZ52pf1n/JlRw5D8mAy3g7bFVZ2gfaNy4jDz6aNLSqDuRCzaeBgjxg71zXojaUNDQ=="
     },
     {
       "name": "Olympus",
@@ -83,7 +84,7 @@
     {
       "name": "ShadeManga",
       "package": "io.prismhub.shademanga",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "PrismHub",
       "type": "mixed",
       "icon": "",
@@ -91,9 +92,10 @@
       "lang": "es",
       "webSite": "https://www.shademanga.com",
       "license": "MIT",
+      "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/shademanga.js",
-      "sha256": "4c345f408062ec314dda0520344f2f49d18c2c96a383083643a7aff701385965",
-      "signature": "KTilZSWMcP5OxLdAYxEqr6PMXmHu5zAhZSe4IQT1d7MrvWoFPCmrLlSyZq78ZY2yuy/j82givBiFpw+/1SCkBw=="
+      "sha256": "debe9cb9e81fe692e4d19761cd1e2deef5e62b67fc7d9b0e0c48f0cc0cfe2a58",
+      "signature": "vK/e6+iC40lytyH0Dj+qlUc+G137c2kW1BFIAS9B5cGhlZP5fXGqVQpyakq4tZmc5iQNBgqXeezF0Lpals/mCg=="
     },
     {
       "name": "TioAnime",
@@ -124,6 +126,19 @@
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tumangaonline.js",
       "sha256": "27f2af836e5d56a8391252deb56d19769a784f1ba7c7f90221e0739e42723f71",
       "signature": "uGU1K6GVc6OVJKpEFYQ0Hs5wHyfpGiI1Pvhhj79vRQ8A5SV37S5pUGwhmTefQxJ0oCgwZ6nrVs3IyQt2OsaNBQ=="
+    },
+    {
+      "name": "LaMovie",
+      "package": "io.prismhub.lamovie",
+      "version": "1.0.6",
+      "author": "PrismHub",
+      "type": "bangumi",
+      "icon": "",
+      "description": "Películas, series, animes y novelas en español desde LaMovie — catálogo, búsqueda y filtros por género/año/calidad/idioma",
+      "lang": "es",
+      "webSite": "https://lamovie.org",
+      "license": "MIT",
+      "unstable": true
     }
   ]
 }
