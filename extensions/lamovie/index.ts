@@ -348,7 +348,19 @@ function _parsePostUrl(url: string): { postType: PostType; slug: string } | null
   return null;
 }
 
-async function _fetchSeasons(showId: number, maxSeasons = 30): Promise<PrismSeason[]> {
+// showSlug/showType van codificados en la URL de cada episodio para que
+// watch() pueda reconstruir la página REAL del show como respaldo (ver
+// comentario largo en watch()) — no existe una página individual por
+// episodio en el sitio (confirmado en vivo: /episodio/{slug}-temporada-X-
+// episodio-Y/ da 404 real); la navegación real de episodios pasa DENTRO de
+// la página del show (botones "S1:E1"/"S1:E2" bajo el reproductor, misma
+// URL para todos).
+async function _fetchSeasons(
+  showId: number,
+  showSlug: string,
+  showType: PostType,
+  maxSeasons = 30,
+): Promise<PrismSeason[]> {
   const seasons: PrismSeason[] = [];
   for (let season = 1; season <= maxSeasons; season++) {
     const res = await _get<LMPage<LMEpisode>>(
@@ -358,7 +370,9 @@ async function _fetchSeasons(showId: number, maxSeasons = 30): Promise<PrismSeas
     if (posts.length === 0) break;
     const episodes: PrismEpisode[] = posts.map((e) => ({
       title: e.title,
-      url: `${BASE}/episodio/${e.slug}/?showId=${showId}&s=${e.season_number}&e=${e.episode_number}&epId=${e._id}`,
+      url:
+        `${BASE}/${PERMALINK[showType]}/${showSlug}/` +
+        `?showId=${showId}&s=${e.season_number}&e=${e.episode_number}&epId=${e._id}`,
       thumbnail: e.still_path ? `https://image.tmdb.org/t/p/original${e.still_path}` : undefined,
       duration: e.runtime ? parseInt(e.runtime, 10) * 60 : undefined,
       airDate: e.date ? e.date.slice(0, 10) : undefined,
@@ -382,7 +396,7 @@ export async function detail(url: string): Promise<PrismDetail> {
   const episodesFlat: PrismEpisode[] = [];
   let seasons: PrismSeason[] | undefined;
   if (_isSerial(postType)) {
-    seasons = await _fetchSeasons(p._id);
+    seasons = await _fetchSeasons(p._id, slug, postType);
   } else {
     // Película: un solo "episodio" (la propia película) para que el flujo
     // de reproducción sea el mismo watch(url) con postId en la query.

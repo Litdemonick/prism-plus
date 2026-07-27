@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LaMovie
-// @version      1.0.5
+// @version      1.0.6
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -294,7 +294,7 @@ function _parsePostUrl(url) {
   }
   return null;
 }
-async function _fetchSeasons(showId, maxSeasons = 30) {
+async function _fetchSeasons(showId, showSlug, showType, maxSeasons = 30) {
   var _a, _b;
   const seasons = [];
   for (let season = 1; season <= maxSeasons; season++) {
@@ -305,7 +305,7 @@ async function _fetchSeasons(showId, maxSeasons = 30) {
     if (posts.length === 0) break;
     const episodes = posts.map((e) => ({
       title: e.title,
-      url: `${BASE}/episodio/${e.slug}/?showId=${showId}&s=${e.season_number}&e=${e.episode_number}&epId=${e._id}`,
+      url: `${BASE}/${PERMALINK[showType]}/${showSlug}/?showId=${showId}&s=${e.season_number}&e=${e.episode_number}&epId=${e._id}`,
       thumbnail: e.still_path ? `https://image.tmdb.org/t/p/original${e.still_path}` : void 0,
       duration: e.runtime ? parseInt(e.runtime, 10) * 60 : void 0,
       airDate: e.date ? e.date.slice(0, 10) : void 0,
@@ -327,7 +327,7 @@ async function detail(url) {
   const episodesFlat = [];
   let seasons;
   if (_isSerial(postType)) {
-    seasons = await _fetchSeasons(p._id);
+    seasons = await _fetchSeasons(p._id, slug, postType);
   } else {
     episodesFlat.push({
       title: p.title,
