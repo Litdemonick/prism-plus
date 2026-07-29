@@ -32,8 +32,13 @@ jobs:
       - name: Verificar tipos TypeScript
         run: npm run typecheck
 
+      # build:ci en vez de build: el `build` de local incluye el gate de
+      # live-test, que pega a los sitios reales de las 8 extensiones. Acá no
+      # aporta (CI no publica, ver nota de abajo) y haría fallar el push cada
+      # vez que un sitio ajeno tenga un mal momento. Las pruebas contra los
+      # sitios reales corren aparte, programadas, en health.yml.
       - name: Compilar extensiones
-        run: npm run build
+        run: npm run build:ci
 
       - name: Smoke tests
         run: npm test

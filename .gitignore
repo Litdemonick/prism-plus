@@ -7,3 +7,9 @@ jiru_index.json
 # firmar extensiones maliciosas que prism_hub aceptaría como oficiales.
 .keys/
 *.private.pem
+
+# Reporte transitorio del live-test/health-check (se regenera en cada corrida).
+# .health-state.json SI se versiona: guarda el contador de fallos consecutivos
+# entre corridas programadas, que es lo que evita marcar una extension sana por
+# un parpadeo de red.
+.health-report.json

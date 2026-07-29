@@ -1,0 +1,55 @@
+name: Health Check
+
+# Corre las extensiones contra sus sitios REALES y, si alguna deja de
+# entregar contenido, la marca `unstable` + `unstableReason` en index.json.
+# PrismHub lee esos campos y bloquea la extensión con un aviso, así que un
+# sitio caído o una extensión rota se avisan en el app SIN publicar una
+# versión nueva ni del app ni de la extensión.
+#
+# Cada 6 horas y no diario: el marcado exige 2 corridas seguidas fallando
+# (para no bloquear una extensión sana por un parpadeo de red del runner), así
+# que con 6 horas el peor caso son ~12 h de demora en avisar. Con un schedule
+# diario serían ~2 días.
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # No se recompila nada: se usan los bundles de dist/ ya firmados del
+      # repo, que es exactamente lo que está sirviendo el app. Recompilar acá
+      # generaría bundles sin firmar (el runner no tiene la llave privada).
+      - name: Chequear salud de las extensiones
+        id: health
+        run: node scripts/health-check.mjs
+
+      # Solo metadata (`unstable`/`unstableReason`) — nunca se toca un bundle,
+      # así que las firmas del índice siguen siendo válidas.
+      - name: Commitear cambios del índice
+        run: |
+          if git diff --quiet index.json .health-state.json; then
+            echo "Sin cambios que commitear"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.json .health-state.json
+          git commit -m "chore(health): actualizar estado de extensiones [skip ci]"
+          git push

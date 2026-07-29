@@ -22,9 +22,11 @@
     "keygen": "node scripts/keygen.mjs",
     "studio": "node studio/server.mjs",
     "validate": "node scripts/validate.mjs",
-    "build": "npm run validate && node scripts/build.mjs",
+    "build": "npm run validate && node scripts/build.mjs && node scripts/live-test.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/test.mjs"
+    "test": "node scripts/test.mjs",
+    "live-test": "node scripts/live-test.mjs",
+    "build:ci": "npm run validate && node scripts/build.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",
