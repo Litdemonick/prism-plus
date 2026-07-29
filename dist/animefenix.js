@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeFenix
-// @version      1.0.9
+// @version      1.1.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -491,8 +491,9 @@ async function search(keyword, page, filter) {
   const estado = (_c = filter == null ? void 0 : filter["estado"]) == null ? void 0 : _c[0];
   const base = await _searchOnce(keyword, page, genero, tipo, estado);
   if (tipo || page > 1 || !keyword.trim()) return base;
+  const _UNION_TYPES = ["1", "2", "3", "4"];
   const perType = await Promise.all(
-    Object.keys(_TYPE_OPTIONS).filter((t) => t !== "").map(
+    _UNION_TYPES.map(
       (t) => _searchOnce(keyword, page, genero, t, estado).catch(() => [])
     )
   );

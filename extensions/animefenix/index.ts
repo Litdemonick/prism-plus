@@ -115,12 +115,23 @@ export async function search(
   // que el sitio pagina normalmente.
   if (tipo || page > 1 || !keyword.trim()) return base;
 
+  // Solo los 4 tipos principales (TV/Película/OVA/Especial), no los 8 —
+  // medido contra el sitio real con 4 búsquedas distintas ("one piece",
+  // "naruto", "boku no kokoro", "dragon ball"): la unión con {1,2,3,4} da
+  // EXACTAMENTE el mismo total que con los 8 tipos (22/10/4/12
+  // respectivamente), así que los otros cuatro (Serie, Dorama, Corto,
+  // Donghua) solo agregaban latencia. Además se verificó que la búsqueda
+  // sin filtro sí devuelve títulos de esos tipos raros por su cuenta (un
+  // donghua, un dorama, una serie y un corto, buscados por nombre), así que
+  // no quedan afuera. Son 5 pedidos en total en vez de 9: importa porque el
+  // puente JS de PrismHub los procesa de a uno, así que cada pedido de más
+  // se siente en el tiempo de respuesta de la búsqueda general.
+  const _UNION_TYPES = ['1', '2', '3', '4'];
+
   const perType = await Promise.all(
-    Object.keys(_TYPE_OPTIONS)
-      .filter((t) => t !== '')
-      .map((t) =>
-        _searchOnce(keyword, page, genero, t, estado).catch(() => [] as PrismItem[]),
-      ),
+    _UNION_TYPES.map((t) =>
+      _searchOnce(keyword, page, genero, t, estado).catch(() => [] as PrismItem[]),
+    ),
   );
 
   const merged: PrismItem[] = [];
