@@ -1,11 +1,11 @@
 {
   "name": "AnimeFenix",
   "package": "io.prismhub.animefenix",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "author": "PrismPlus",
   "type": "anime",
   "icon": "",
-  "description": "Anime en español latino desde AnimeFenix — catálogo con filtros y múltiples servidores confiables",
+  "description": "Anime sub y latino con catálogo completo, filtros y varios servidores de respaldo para ver sin cortes.",
   "lang": "es",
   "webSite": "https://animefenix2.tv",
   "license": "MIT"

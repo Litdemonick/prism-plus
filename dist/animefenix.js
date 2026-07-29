@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeFenix
-// @version      1.0.7
+// @version      1.0.8
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -8,7 +8,7 @@
 // @type         bangumi
 // @nsfw         false
 // @webSite      https://animefenix2.tv
-// @description  Anime en español latino desde AnimeFenix — catálogo con filtros y múltiples servidores confiables
+// @description  Anime sub y latino con catálogo completo, filtros y varios servidores de respaldo para ver sin cortes.
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
 var __getOwnPropSymbols = Object.getOwnPropertySymbols;

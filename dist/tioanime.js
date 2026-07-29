@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         TioAnime
-// @version      1.0.2
+// @version      1.0.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -8,7 +8,7 @@
 // @type         bangumi
 // @nsfw         false
 // @webSite      https://tioanime.com
-// @description  Anime en español latino desde TioAnime — catálogo con filtros y servidores confiables
+// @description  Anime sub y latino, filtros completos y servidores de respaldo, directo al capítulo que buscás.
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
 var __getOwnPropSymbols = Object.getOwnPropertySymbols;

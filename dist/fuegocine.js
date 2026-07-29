@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.1.2
+// @version      1.1.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -8,7 +8,7 @@
 // @type         bangumi
 // @nsfw         false
 // @webSite      https://www.fuegocine.com
-// @description  Películas y series en español desde FuegoCine — catálogo con búsqueda y servidores directos (mp4/m3u8)
+// @description  Pelis y series al toque, en español, con servidores directos listos para reproducir sin vueltas.
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
 var __getOwnPropSymbols = Object.getOwnPropertySymbols;

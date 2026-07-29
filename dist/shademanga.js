@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ShadeManga
-// @version      1.0.8
+// @version      1.0.9
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -8,7 +8,7 @@
 // @type         mixed
 // @nsfw         true
 // @webSite      https://www.shademanga.com
-// @description  Manga y anime en español desde ShadeManga — catálogo, búsqueda y lectura/reproducción en un solo lugar
+// @description  Manga y anime en un solo lugar: leé y mirá sin cambiar de app (incluye contenido +18).
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
 var __getOwnPropSymbols = Object.getOwnPropertySymbols;

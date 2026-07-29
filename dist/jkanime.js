@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.10.13
+// @version      1.10.14
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -8,7 +8,7 @@
 // @type         bangumi
 // @nsfw         false
 // @webSite      https://jkanime.net
-// @description  Anime en español latino desde JKAnime — múltiples servidores confiables
+// @description  Anime sub y latino con varios servidores de respaldo — si uno falla, seguís viendo por otro.
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
 var __defProps = Object.defineProperties;

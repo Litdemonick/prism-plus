@@ -1,11 +1,11 @@
 {
   "name": "TioAnime",
   "package": "io.prismhub.tioanime",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "PrismPlus",
   "type": "anime",
   "icon": "",
-  "description": "Anime en español latino desde TioAnime — catálogo con filtros y servidores confiables",
+  "description": "Anime sub y latino, filtros completos y servidores de respaldo, directo al capítulo que buscás.",
   "lang": "es",
   "webSite": "https://tioanime.com",
   "license": "MIT"

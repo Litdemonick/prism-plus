@@ -1,11 +1,11 @@
 {
   "name": "Olympus",
   "package": "io.prismhub.olympus",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "author": "PrismPlus",
   "type": "manga",
   "icon": "",
-  "description": "Manhwa, manga y manhua en español desde Olympus Scanlation",
+  "description": "Manhwa, manga y manhua traducidos por fans — scanlation en español, actualizado seguido.",
   "lang": "es",
   "webSite": "https://olympusxyz.com",
   "license": "MIT"
