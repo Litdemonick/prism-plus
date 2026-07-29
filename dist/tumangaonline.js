@@ -1,7 +1,7 @@
 // ==PrismHubExtension==
 // @name         TuMangaOnline
-// @version      1.0.2
-// @author       PrismHub
+// @version      1.0.3
+// @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.tumangaonline

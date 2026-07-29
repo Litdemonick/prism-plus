@@ -1,7 +1,7 @@
 // ==PrismHubExtension==
 // @name         Olympus
-// @version      1.2.7
-// @author       PrismHub
+// @version      1.2.8
+// @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.olympus

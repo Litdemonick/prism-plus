@@ -1,7 +1,7 @@
 // ==PrismHubExtension==
 // @name         ManhwaWeb
-// @version      1.3.10
-// @author       PrismHub
+// @version      1.3.11
+// @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.manhwaweb

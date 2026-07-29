@@ -1,8 +1,8 @@
 {
   "name": "TuMangaOnline",
   "package": "io.prismhub.tumangaonline",
-  "version": "1.0.2",
-  "author": "PrismHub",
+  "version": "1.0.3",
+  "author": "PrismPlus",
   "type": "manga",
   "icon": "",
   "description": "Manga, manhwa y manhua en español desde ZonaTMO (TuMangaOnline) — catálogo con filtros completos",

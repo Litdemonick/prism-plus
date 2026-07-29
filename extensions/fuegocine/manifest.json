@@ -1,8 +1,8 @@
 {
   "name": "FuegoCine",
   "package": "io.prismhub.fuegocine",
-  "version": "1.1.1",
-  "author": "PrismHub",
+  "version": "1.1.2",
+  "author": "PrismPlus",
   "type": "movie",
   "icon": "",
   "description": "Películas y series en español desde FuegoCine — catálogo con búsqueda y servidores directos (mp4/m3u8)",
