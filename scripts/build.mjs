@@ -139,6 +139,15 @@ function makeHeader(m) {
     ...(m.icon ? [`// @icon         ${m.icon}`] : []),
     `// @package      ${m.package}`,
     `// @type         ${mapType(m.type)}`,
+    // BUG encontrado en vivo: esta cabecera es lo único que
+    // ExtensionUtils.parseExtension() lee para construir el Extension en
+    // runtime del lado de la app — nsfw nunca se incluía acá (solo vivía en
+    // manifest.json / index.json, que la app NUNCA ve para una extensión ya
+    // instalada). Resultado: Extension.nsfw daba SIEMPRE false una vez
+    // instalada, aunque el catálogo remoto mostrara el badge "18+"
+    // correctamente — rompía por completo la Zona +18 (nunca preguntaba
+    // nada, nunca separaba nada) para toda extensión ya instalada.
+    `// @nsfw         ${m.nsfw === 'true' ? 'true' : 'false'}`,
     `// @webSite      ${m.webSite ?? ''}`,
     `// @description  ${m.description ?? ''}`,
     '// ==/PrismHubExtension==',

@@ -6,6 +6,7 @@
 // @license      MIT
 // @package      io.prismhub.tioanime
 // @type         bangumi
+// @nsfw         false
 // @webSite      https://tioanime.com
 // @description  Anime en español latino desde TioAnime — catálogo con filtros y servidores confiables
 // ==/PrismHubExtension==

@@ -6,6 +6,7 @@
 // @license      MIT
 // @package      io.prismhub.olympus
 // @type         manga
+// @nsfw         false
 // @webSite      https://olympusxyz.com
 // @description  Manhwa, manga y manhua en español desde Olympus Scanlation
 // ==/PrismHubExtension==

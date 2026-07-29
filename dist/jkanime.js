@@ -6,6 +6,7 @@
 // @license      MIT
 // @package      io.prismhub.jkanime
 // @type         bangumi
+// @nsfw         false
 // @webSite      https://jkanime.net
 // @description  Anime en español latino desde JKAnime — múltiples servidores confiables
 // ==/PrismHubExtension==

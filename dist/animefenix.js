@@ -6,6 +6,7 @@
 // @license      MIT
 // @package      io.prismhub.animefenix
 // @type         bangumi
+// @nsfw         false
 // @webSite      https://animefenix2.tv
 // @description  Anime en español latino desde AnimeFenix — catálogo con filtros y múltiples servidores confiables
 // ==/PrismHubExtension==

@@ -6,6 +6,7 @@
 // @license      MIT
 // @package      io.prismhub.tumangaonline
 // @type         manga
+// @nsfw         false
 // @webSite      https://zonatmo.org
 // @description  Manga, manhwa y manhua en español desde ZonaTMO (TuMangaOnline) — catálogo con filtros completos
 // ==/PrismHubExtension==

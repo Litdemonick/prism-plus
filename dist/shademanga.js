@@ -1,11 +1,12 @@
 // ==PrismHubExtension==
 // @name         ShadeManga
-// @version      1.0.6
+// @version      1.0.7
 // @author       PrismHub
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.shademanga
 // @type         mixed
+// @nsfw         true
 // @webSite      https://www.shademanga.com
 // @description  Manga y anime en español desde ShadeManga — catálogo, búsqueda y lectura/reproducción en un solo lugar
 // ==/PrismHubExtension==

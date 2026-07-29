@@ -6,6 +6,7 @@
 // @license      MIT
 // @package      io.prismhub.fuegocine
 // @type         bangumi
+// @nsfw         false
 // @webSite      https://www.fuegocine.com
 // @description  Películas y series en español desde FuegoCine — catálogo con búsqueda y servidores directos (mp4/m3u8)
 // ==/PrismHubExtension==

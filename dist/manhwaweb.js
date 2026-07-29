@@ -1,11 +1,12 @@
 // ==PrismHubExtension==
 // @name         ManhwaWeb
-// @version      1.3.9
+// @version      1.3.10
 // @author       PrismHub
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.manhwaweb
 // @type         manga
+// @nsfw         true
 // @webSite      https://manhwaweb.com
 // @description  Manhwa, manga y manhua en español desde ManhwaWeb
 // ==/PrismHubExtension==
