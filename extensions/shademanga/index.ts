@@ -137,20 +137,77 @@ async function _searchManga(keyword: string, includeAdult: boolean): Promise<Pri
   return (includeAdult ? items : items.filter((m) => !m.esMayorDeEdad)).map(_mangaItemToPrismItem);
 }
 
-// La sección de adultos no pagina como /populares (confirmado en vivo: un
-// solo dump agrupado por género, "adultos/home") — se aplanan todas las
-// secciones y se dedupea por id para armar un "latest" razonable; page>1
-// devuelve vacío (mismo patrón que otras extensiones de este repo con
-// endpoints sin paginación real, ej. cinemitas/dooplaySearch).
+// El endpoint dedicado de adultos (/api/series-locales/adultos) declara
+// total=47606 / totalPages=1984, pero NO se puede paginar: ignora `page`
+// (siempre responde page:1) y su cursor `p=<pageToken>` se traba — el
+// `next` que devuelve la página 2 es el mismo token que se le mandó, así
+// que la cadena no avanza (verificado en vivo con curl, con el Referer de
+// su propio catálogo, siguiendo los tokens tal cual y también armándolos a
+// mano: base64 de {"lo":N,"so":N}). Es un bug del servidor de ellos.
+// Su /adultos/home tampoco pagina: un solo dump agrupado (~147 ítems).
+//
+// La vía que SÍ pagina de verdad es el listado general con el flag de
+// adultos: /api/series-locales?genero=X&page=N&pageSize=100&includeAdult=true
+// (verificado: género "Hentai" da 94 ítems +18 en la página 1, 53 en la 2 y
+// 18 en la 3, y ahí se termina). Así que el listado +18 se arma recorriendo
+// los géneros para adultos en paralelo, quedándose solo con lo marcado
+// esMayorDeEdad y deduplicando por id. Con esto la Zona +18 deja de
+// quedarse en ~147 ítems sin más datos y llega a miles, con paginación real.
+// Elegidos midiendo el rendimiento real de cada uno (ítems +18 en su página
+// 1, con pageSize=100): Hentai 94, Ecchi 78, Adult 83, Erotica 85, Full
+// Color 40, Smut 25, Doujinshi. Se dejaron afuera los que casi no aportaban
+// (Yaoi 9, Manhwa 10, Yuri 19, Webtoon 6) y Futanari, que no existe como
+// género en este endpoint (devuelve 0) — cada género de más es un pedido más
+// por página, y el puente JS de PrismHub los procesa de a uno.
+const _ADULT_MANGA_GENRES = [
+  'Hentai',
+  'Adult',
+  'Erotica',
+  'Ecchi',
+  'Smut',
+  'Doujinshi',
+  'Full Color',
+];
+
+async function _mangaAdultByGenrePage(genero: string, page: number): Promise<_MangaListItem[]> {
+  const url =
+    `${BASE}/api/series-locales?genero=${encodeURIComponent(genero)}` +
+    `&page=${page}&pageSize=100&includeAdult=true`;
+  const json = await _get(url);
+  const items: _MangaListItem[] = Array.isArray(json) ? json : (json?.items ?? []);
+  return items.filter((m) => m.esMayorDeEdad);
+}
+
 async function _latestMangaAdult(page: number): Promise<PrismItem[]> {
-  if (page > 1) return [];
-  const json = await _get(`${BASE}/api/series-locales/adultos/home`);
-  if (!json || typeof json === 'string') return [];
-  const secciones: { items?: _MangaListItem[] }[] = json.secciones ?? [];
+  const lists = await Promise.all(
+    _ADULT_MANGA_GENRES.map((g) =>
+      _mangaAdultByGenrePage(g, page).catch(() => [] as _MangaListItem[]),
+    ),
+  );
+
   const seen = new Set<number>();
   const items: _MangaListItem[] = [];
-  for (const s of secciones) {
-    for (const it of s.items ?? []) {
+
+  // La página 1 suma además el dump curado de /adultos/home (lo que se
+  // mostraba antes) para no perder nada de lo que ya se veía ahí.
+  if (page === 1) {
+    try {
+      const json = await _get(`${BASE}/api/series-locales/adultos/home`);
+      if (json && typeof json !== 'string') {
+        const secciones: { items?: _MangaListItem[] }[] = json.secciones ?? [];
+        for (const s of secciones) {
+          for (const it of s.items ?? []) {
+            if (seen.has(it.id)) continue;
+            seen.add(it.id);
+            items.push(it);
+          }
+        }
+      }
+    } catch {}
+  }
+
+  for (const list of lists) {
+    for (const it of list) {
       if (seen.has(it.id)) continue;
       seen.add(it.id);
       items.push(it);

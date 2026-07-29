@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ShadeManga
-// @version      1.0.9
+// @version      1.1.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -495,16 +495,49 @@ async function _searchManga(keyword, includeAdult) {
   const items = json;
   return (includeAdult ? items : items.filter((m) => !m.esMayorDeEdad)).map(_mangaItemToPrismItem);
 }
+var _ADULT_MANGA_GENRES = [
+  "Hentai",
+  "Adult",
+  "Erotica",
+  "Ecchi",
+  "Smut",
+  "Doujinshi",
+  "Full Color"
+];
+async function _mangaAdultByGenrePage(genero, page) {
+  var _a;
+  const url = `${BASE}/api/series-locales?genero=${encodeURIComponent(genero)}&page=${page}&pageSize=100&includeAdult=true`;
+  const json = await _get(url);
+  const items = Array.isArray(json) ? json : (_a = json == null ? void 0 : json.items) != null ? _a : [];
+  return items.filter((m) => m.esMayorDeEdad);
+}
 async function _latestMangaAdult(page) {
   var _a, _b;
-  if (page > 1) return [];
-  const json = await _get(`${BASE}/api/series-locales/adultos/home`);
-  if (!json || typeof json === "string") return [];
-  const secciones = (_a = json.secciones) != null ? _a : [];
+  const lists = await Promise.all(
+    _ADULT_MANGA_GENRES.map(
+      (g) => _mangaAdultByGenrePage(g, page).catch(() => [])
+    )
+  );
   const seen = /* @__PURE__ */ new Set();
   const items = [];
-  for (const s of secciones) {
-    for (const it of (_b = s.items) != null ? _b : []) {
+  if (page === 1) {
+    try {
+      const json = await _get(`${BASE}/api/series-locales/adultos/home`);
+      if (json && typeof json !== "string") {
+        const secciones = (_a = json.secciones) != null ? _a : [];
+        for (const s of secciones) {
+          for (const it of (_b = s.items) != null ? _b : []) {
+            if (seen.has(it.id)) continue;
+            seen.add(it.id);
+            items.push(it);
+          }
+        }
+      }
+    } catch (e) {
+    }
+  }
+  for (const list of lists) {
+    for (const it of list) {
       if (seen.has(it.id)) continue;
       seen.add(it.id);
       items.push(it);

@@ -389,18 +389,77 @@ export async function detail(url: string): Promise<PrismDetail> {
   if (animeId && token) {
     const allEps: _EpItem[] = [];
     let lastPage = 1;
+    let first: _EpPage | null = null;
 
     // Página 1 primero — para obtener last_page
     try {
-      const first = await _post<_EpPage>(`${BASE}/ajax/episodes/${animeId}/1`, token);
+      first = await _post<_EpPage>(`${BASE}/ajax/episodes/${animeId}/1`, token);
       if (first && Array.isArray(first.data)) {
         allEps.push(...first.data);
         lastPage = first.last_page || 1;
       }
     } catch {}
 
-    // Páginas restantes en paralelo (batches de 10 para no saturar)
-    if (lastPage > 1) {
+    // La API pagina de a 16 fijos (per_page=16 del lado del servidor: probado,
+    // ignora ?per_page=/&limit=), así que un anime largo salía carísimo —
+    // One Piece son 74 páginas = 75 pedidos, y el puente JS de PrismHub los
+    // procesa de a uno, así que abrir su detalle se sentía eterno.
+    //
+    // Atajo: la respuesta ya trae `total`, las URLs de episodio son solo
+    // `slug/número` y los títulos son mecánicos ("One Piece - 625"), así que
+    // si la numeración es la corrida 1..total se puede armar la lista entera
+    // sin bajar el resto de las páginas.
+    //
+    // Pero eso NO se asume: cada anime/extensión es distinto (especiales,
+    // numeración con 0, huecos, recopilatorios), así que se VERIFICA pidiendo
+    // solo la última página y comprobando que la aritmética cierre exacta —
+    // la primera página tiene que ser 1..n y la última tiene que arrancar
+    // justo donde corresponde y terminar en `total`. Si algo no cuadra, se
+    // cae al camino completo de siempre (bajar todas las páginas), así que
+    // un anime con numeración rara sigue saliendo bien, solo sin el atajo.
+    const perPage = first?.data?.length ?? 0;
+    const total = first?.total ?? 0;
+    let shortcutEps: _EpItem[] | null = null;
+
+    if (first && lastPage > 2 && perPage > 0 && total > perPage) {
+      try {
+        const last = await _post<_EpPage>(
+          `${BASE}/ajax/episodes/${animeId}/${lastPage}`,
+          token,
+        );
+        const lastData = last?.data ?? [];
+        const expectedLastStart = (lastPage - 1) * perPage + 1;
+        const firstIsSequential = first.data.every((e, i) => e.number === i + 1);
+        const lastIsSequential = lastData.every(
+          (e, i) => e.number === expectedLastStart + i,
+        );
+        const countsMatch = expectedLastStart - 1 + lastData.length === total;
+
+        if (lastData.length && firstIsSequential && lastIsSequential && countsMatch) {
+          // Prefijo real tomado de un título de verdad (le saco el número del
+          // final) — así los generados quedan igual que los que manda el
+          // sitio, en vez de inventar un formato distinto.
+          const sample = lastData[lastData.length - 1];
+          const prefix = sample.title.replace(/\s*\d+\s*$/, '');
+          const byNumber: Record<number, _EpItem> = {};
+          for (const e of [...first.data, ...lastData]) byNumber[e.number] = e;
+          shortcutEps = [];
+          for (let n = 1; n <= total; n++) {
+            const real = byNumber[n];
+            shortcutEps.push(
+              real ?? { id: n, number: n, title: `${prefix} ${n}`.trim() },
+            );
+          }
+        }
+      } catch {}
+    }
+
+    if (shortcutEps) {
+      allEps.length = 0;
+      allEps.push(...shortcutEps);
+    } else if (lastPage > 1) {
+      // Camino completo (o el atajo no validó): páginas restantes en paralelo
+      // (batches de 10 para no saturar).
       const remaining = Array.from({ length: lastPage - 1 }, (_, i) => i + 2);
       const BATCH = 10;
       for (let i = 0; i < remaining.length; i += BATCH) {
@@ -417,7 +476,10 @@ export async function detail(url: string): Promise<PrismDetail> {
       }
     }
 
+    const seenNumbers: Record<number, boolean> = {};
     for (const ep of allEps) {
+      if (seenNumbers[ep.number]) continue;
+      seenNumbers[ep.number] = true;
       episodes.push({ title: ep.title, url: `${slug}/${ep.number}`, number: ep.number });
     }
     episodes.sort((a, b) => (a.number || 0) - (b.number || 0));

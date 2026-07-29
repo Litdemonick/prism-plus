@@ -47,8 +47,8 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "664786641638f91297f62263a61418fd85abf92bef197039e7612321bc1540a9",
-      "signature": "mawcQc7HW30eqr7omyCARSFd6uo84mjNuzsMXoSxQ28ApnJkIzG6G2LEWOwa8/EIzpxDdMKlp2SAAs69/pl/AQ=="
+      "sha256": "cb5970467df8f1c1a8daf1cf91057ee129fd5fcd30069d6c74a2ae6e382cfaf1",
+      "signature": "4aUPXNujYgtddw1D95HbbhqHRx6qyXG3uvdVnMfJ2xW8tsrLir1FDTofZIZ0NHhaBIYn969+Yjmu6PJvdNnLBQ=="
     },
     {
       "name": "ManhwaWeb",
@@ -84,7 +84,7 @@
     {
       "name": "ShadeManga",
       "package": "io.prismhub.shademanga",
-      "version": "1.0.9",
+      "version": "1.1.0",
       "author": "PrismPlus",
       "type": "mixed",
       "icon": "",
@@ -94,8 +94,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/shademanga.js",
-      "sha256": "70c6e20ca21c1d1f0e4bc31da0acb9dcaae91da330876a41481426b912235528",
-      "signature": "KiZI0Kh1uOeCUABIyEVAmZw8FozToNAFOnH4ch6ASMPYJHrnL62SPcCaHXS6ss7cYOM3c+ij10mMIbPsSeQZCA=="
+      "sha256": "df0ec1f22a0d25d50e9cb21ff0255f424d556554b19db3222881b898dd7a0b26",
+      "signature": "wvfiY2YyQBo2sUGkDW45HESomXpPCLTnzj8k49t4KUuZuWBO6IpZR8DKrnj0RFANzV8mIRzd1//H/h/RrQDqDw=="
     },
     {
       "name": "TioAnime",

@@ -726,6 +726,7 @@ function _parseTopCards(html) {
   return items;
 }
 async function detail(url) {
+  var _a, _b, _c, _d;
   const slug = _toSlug(url);
   const html = await _get(`${BASE}/${slug}/`);
   const title = matchFirst(html, /<h1[^>]*>([^<]+)<\/h1>/i) || matchFirst(html, /<title>\s*([^<]*?)\s*-\s*anime\s/i) || matchFirst(html, /<title>([^|<]+)/i) || slug;
@@ -739,15 +740,51 @@ async function detail(url) {
   if (animeId && token) {
     const allEps = [];
     let lastPage = 1;
+    let first = null;
     try {
-      const first = await _post(`${BASE}/ajax/episodes/${animeId}/1`, token);
+      first = await _post(`${BASE}/ajax/episodes/${animeId}/1`, token);
       if (first && Array.isArray(first.data)) {
         allEps.push(...first.data);
         lastPage = first.last_page || 1;
       }
     } catch (e) {
     }
-    if (lastPage > 1) {
+    const perPage = (_b = (_a = first == null ? void 0 : first.data) == null ? void 0 : _a.length) != null ? _b : 0;
+    const total = (_c = first == null ? void 0 : first.total) != null ? _c : 0;
+    let shortcutEps = null;
+    if (first && lastPage > 2 && perPage > 0 && total > perPage) {
+      try {
+        const last = await _post(
+          `${BASE}/ajax/episodes/${animeId}/${lastPage}`,
+          token
+        );
+        const lastData = (_d = last == null ? void 0 : last.data) != null ? _d : [];
+        const expectedLastStart = (lastPage - 1) * perPage + 1;
+        const firstIsSequential = first.data.every((e, i) => e.number === i + 1);
+        const lastIsSequential = lastData.every(
+          (e, i) => e.number === expectedLastStart + i
+        );
+        const countsMatch = expectedLastStart - 1 + lastData.length === total;
+        if (lastData.length && firstIsSequential && lastIsSequential && countsMatch) {
+          const sample = lastData[lastData.length - 1];
+          const prefix = sample.title.replace(/\s*\d+\s*$/, "");
+          const byNumber = {};
+          for (const e of [...first.data, ...lastData]) byNumber[e.number] = e;
+          shortcutEps = [];
+          for (let n = 1; n <= total; n++) {
+            const real = byNumber[n];
+            shortcutEps.push(
+              real != null ? real : { id: n, number: n, title: `${prefix} ${n}`.trim() }
+            );
+          }
+        }
+      } catch (e) {
+      }
+    }
+    if (shortcutEps) {
+      allEps.length = 0;
+      allEps.push(...shortcutEps);
+    } else if (lastPage > 1) {
       const remaining = Array.from({ length: lastPage - 1 }, (_, i) => i + 2);
       const BATCH = 10;
       for (let i = 0; i < remaining.length; i += BATCH) {
@@ -762,7 +799,10 @@ async function detail(url) {
         }
       }
     }
+    const seenNumbers = {};
     for (const ep of allEps) {
+      if (seenNumbers[ep.number]) continue;
+      seenNumbers[ep.number] = true;
       episodes.push({ title: ep.title, url: `${slug}/${ep.number}`, number: ep.number });
     }
     episodes.sort((a, b) => (a.number || 0) - (b.number || 0));
