@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeFenix
-// @version      1.0.8
+// @version      1.0.9
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -473,17 +473,44 @@ async function latest(page) {
   const html = await _get(`${BASE}/directorio/anime${query ? `?${query}` : ""}`);
   return _parseCatalog(html);
 }
-async function search(keyword, page, filter) {
-  var _a, _b, _c;
+async function _searchOnce(keyword, page, genero, tipo, estado) {
   const query = _buildQuery({
     q: keyword.trim() || void 0,
-    genero: (_a = filter == null ? void 0 : filter["genero"]) == null ? void 0 : _a[0],
-    tipo: (_b = filter == null ? void 0 : filter["tipo"]) == null ? void 0 : _b[0],
-    estado: (_c = filter == null ? void 0 : filter["estado"]) == null ? void 0 : _c[0],
+    genero,
+    tipo,
+    estado,
     p: page > 1 ? String(page) : void 0
   });
   const html = await _get(`${BASE}/directorio/anime${query ? `?${query}` : ""}`);
   return _parseCatalog(html);
+}
+async function search(keyword, page, filter) {
+  var _a, _b, _c;
+  const genero = (_a = filter == null ? void 0 : filter["genero"]) == null ? void 0 : _a[0];
+  const tipo = (_b = filter == null ? void 0 : filter["tipo"]) == null ? void 0 : _b[0];
+  const estado = (_c = filter == null ? void 0 : filter["estado"]) == null ? void 0 : _c[0];
+  const base = await _searchOnce(keyword, page, genero, tipo, estado);
+  if (tipo || page > 1 || !keyword.trim()) return base;
+  const perType = await Promise.all(
+    Object.keys(_TYPE_OPTIONS).filter((t) => t !== "").map(
+      (t) => _searchOnce(keyword, page, genero, t, estado).catch(() => [])
+    )
+  );
+  const merged = [];
+  const seen = {};
+  for (const item of base) {
+    if (seen[item.url]) continue;
+    seen[item.url] = true;
+    merged.push(item);
+  }
+  for (const list of perType) {
+    for (const item of list) {
+      if (seen[item.url]) continue;
+      seen[item.url] = true;
+      merged.push(item);
+    }
+  }
+  return merged;
 }
 var _GENRE_OPTIONS = {
   "": "Todos",

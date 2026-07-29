@@ -73,20 +73,71 @@ export async function latest(page: number): Promise<PrismItem[]> {
   return _parseCatalog(html);
 }
 
+async function _searchOnce(
+  keyword: string,
+  page: number,
+  genero?: string,
+  tipo?: string,
+  estado?: string,
+): Promise<PrismItem[]> {
+  const query = _buildQuery({
+    q: keyword.trim() || undefined,
+    genero,
+    tipo,
+    estado,
+    p: page > 1 ? String(page) : undefined,
+  });
+  const html = await _get(`${BASE}/directorio/anime${query ? `?${query}` : ''}`);
+  return _parseCatalog(html);
+}
+
 export async function search(
   keyword: string,
   page: number,
   filter?: Record<string, string[]>,
 ): Promise<PrismItem[]> {
-  const query = _buildQuery({
-    q: keyword.trim() || undefined,
-    genero: filter?.['genero']?.[0],
-    tipo: filter?.['tipo']?.[0],
-    estado: filter?.['estado']?.[0],
-    p: page > 1 ? String(page) : undefined,
-  });
-  const html = await _get(`${BASE}/directorio/anime${query ? `?${query}` : ''}`);
-  return _parseCatalog(html);
+  const genero = filter?.['genero']?.[0];
+  const tipo = filter?.['tipo']?.[0];
+  const estado = filter?.['estado']?.[0];
+
+  const base = await _searchOnce(keyword, page, genero, tipo, estado);
+
+  // El buscador del sitio se come resultados cuando NO se le pasa ?tipo=
+  // (confirmado en vivo con curl: q="boku no kokoro" sin tipo devuelve 3
+  // resultados y su paginación declara UNA sola página, pero la MISMA query
+  // con &tipo=2 devuelve "Boku no Kokoro no Yabai Yatsu Movie" —slug
+  // /bokuyaba-movie— que no aparecía por ningún lado; la unión por tipos da
+  // 4). Es un bug del backend de ellos, no del parseo: la película nunca
+  // está en el HTML de la búsqueda sin filtrar. Cuando el usuario NO eligió
+  // un tipo puntual, se repite la búsqueda por cada tipo en paralelo y se
+  // unen los resultados (deduplicados por url, respetando el orden original
+  // primero). Solo en la página 1: las siguientes ya vienen de una consulta
+  // que el sitio pagina normalmente.
+  if (tipo || page > 1 || !keyword.trim()) return base;
+
+  const perType = await Promise.all(
+    Object.keys(_TYPE_OPTIONS)
+      .filter((t) => t !== '')
+      .map((t) =>
+        _searchOnce(keyword, page, genero, t, estado).catch(() => [] as PrismItem[]),
+      ),
+  );
+
+  const merged: PrismItem[] = [];
+  const seen: Record<string, boolean> = {};
+  for (const item of base) {
+    if (seen[item.url]) continue;
+    seen[item.url] = true;
+    merged.push(item);
+  }
+  for (const list of perType) {
+    for (const item of list) {
+      if (seen[item.url]) continue;
+      seen[item.url] = true;
+      merged.push(item);
+    }
+  }
+  return merged;
 }
 
 // Listas agregadas en vivo desde el <select> real del formulario de filtros

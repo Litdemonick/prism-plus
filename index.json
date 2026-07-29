@@ -8,7 +8,7 @@
     {
       "name": "AnimeFenix",
       "package": "io.prismhub.animefenix",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -17,8 +17,8 @@
       "webSite": "https://animefenix2.tv",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animefenix.js",
-      "sha256": "597c991886208a4ad0f5b0d614c7ded4364c9fc6cbca85c33d625c8e9dd48432",
-      "signature": "00GQ84rapr/OzNFJW1hlmB35Kgmvuh8dP1Cj64bvSegsN30t4CqGR8kVTGP2O3mT29SmTSGBzLRdtk21JsDhDw=="
+      "sha256": "86621d1ef10af25e7f3ffd6e572ee8ad8b74324a0ca1b39969924b01b1343b60",
+      "signature": "ScMWwp0vqB5pwifulXjHErS5knDSyEiaXgCjuGVw+EeOVs2026YbHdezP2j9JoSEhgWdyzcFcCJSKwlxNwo3DA=="
     },
     {
       "name": "FuegoCine",
