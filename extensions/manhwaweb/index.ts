@@ -42,7 +42,13 @@ function _libraryQuery(page: number, buscar: string, filter?: Record<string, str
   const f = filter ?? {};
   const estado = f['estado']?.[0] ?? '';
   const tipo = f['tipo']?.[0] ?? '';
-  const erotico = f['erotico']?.[0] ?? '';
+  // Default 'no' (no '') a propósito: latest() llama acá SIN filter
+  // (f={}), y sin este default explícito el query mandaba erotico=
+  // (vacío) al backend — que server-side se comporta como "sin filtro",
+  // mezclando contenido +18 en el catálogo/búsqueda por defecto. Con 'no'
+  // fijo como piso, +18 solo aparece cuando alguien elige a propósito
+  // "Sí" en el filtro (ver adultOption en createFilter).
+  const erotico = f['erotico']?.[0] ?? 'no';
   const demografia = f['demografia']?.[0] ?? '';
   const orderItem = f['order_item']?.[0] ?? 'alfabetico';
   const orderDir = f['order_dir']?.[0] ?? 'desc';
@@ -129,16 +135,24 @@ export async function createFilter(): Promise<Record<string, unknown>> {
       min: 1,
       max: 1,
     },
+    // Sin adultOption (y con "Todos" como default) esto mezclaba contenido
+    // +18 con contenido normal SIN NINGUNA distinción por ítem — ni el
+    // switch de NSFW en Ajustes de PrismHub podía filtrarlo, porque no
+    // había forma de saber qué resultado era erótico y cuál no. Ahora,
+    // igual que el filtro "adultos" de ShadeManga: oculto por defecto
+    // (default: 'no'), y adultOption:'si' le avisa a PrismHub que ESE valor
+    // puntual es la sección +18 (bloquea con aviso si el switch está
+    // apagado, y lo separa a la Zona +18 en vez del Continuar normal).
     erotico: {
       title: 'Erótico',
       options: {
-        '': 'Todos',
-        si: 'Sí',
         no: 'No',
+        si: 'Sí',
       },
-      default: '',
+      default: 'no',
       min: 1,
       max: 1,
+      adultOption: 'si',
     },
     order_item: {
       title: 'Ordenar por',

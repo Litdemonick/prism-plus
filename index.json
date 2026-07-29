@@ -17,8 +17,8 @@
       "webSite": "https://animefenix2.tv",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animefenix.js",
-      "sha256": "9dd40a957cbf87477ad80fc2a9a4a64bb332fb75273ce25ef71d0b3d15325db2",
-      "signature": "60MD8TYXoXenNgvSdQalTyqX2jSwbIMzYkOrgoFfp3RzlzJe2/iESyI/o3o57uYvgoedd+bXKbasQWWAcN7fCw=="
+      "sha256": "34567eea1cc9093a1044221586951d0ed1cac43f431ce31880eb6b0a476f6022",
+      "signature": "m9UNsFjo0s0xJRb+cNcRVEqa7fLhcyiD8hpHbwJ8XUGbKPvQKn2Y2AUqQfITBTry9qsEXg1wzQiD4OAeah86Dw=="
     },
     {
       "name": "FuegoCine",
@@ -32,8 +32,8 @@
       "webSite": "https://www.fuegocine.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/fuegocine.js",
-      "sha256": "631be665fdf6566a53afe7b3d088bd18bd0e3f09145726c4e9fd3dfd4840b996",
-      "signature": "iq9h/Gms4wLfJmKyqjgzkFt5nQSJ6+tgd1ckuZntRwQzOacevsqqjs+u9C65uBt7/fcoScI4BZX6lCCraExoBQ=="
+      "sha256": "be049789e49270fa52e31355d0c60da3d6db6428c8ae40931d75bb6ad64ba088",
+      "signature": "n+/wejrHfHiVizlMmUd1ZT8I1WyHFk2lV94Qi7UKjOVXEjofi0E5N5nz3jCDwnTA5rIEUsY0wAZnQvp0YQMcCg=="
     },
     {
       "name": "JKAnime",
@@ -47,13 +47,13 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "cdd96ed0fad6bf0c7fd7904743d4467c37aad3af90647d0b1d7cecc679cba7f3",
-      "signature": "ckTm2xSUx6y3d0k0IiwoHKD+eca+ku6uSZUVi7RLMHwOIPRzZ5xtRdezRUqcUAGJvC7mJvxPYCu29s20gc1CBQ=="
+      "sha256": "f49b341e2a9802f31ba68ab3bb3f7e14653ec41f3b0965fe871ab3ab66c3169c",
+      "signature": "STXqKvxFvq0PELIAzdZ9V837NV5sv4mis1VSH2yo5iwFLS8BEYCkdwp2BIooV2uYhrUos9sMHCT++SnykNhVAg=="
     },
     {
       "name": "ManhwaWeb",
       "package": "io.prismhub.manhwaweb",
-      "version": "1.3.8",
+      "version": "1.3.9",
       "author": "PrismHub",
       "type": "manga",
       "icon": "",
@@ -63,8 +63,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/manhwaweb.js",
-      "sha256": "a9ee393addf029e659aa405a396c185cf3ea1b4dc1b02db7166fa8d1fdf08de8",
-      "signature": "EDLu2FRFx749L2pZ5THSPdZ52pf1n/JlRw5D8mAy3g7bFVZ2gfaNy4jDz6aNLSqDuRCzaeBgjxg71zXojaUNDQ=="
+      "sha256": "1854caa567b3ffa0fe5f1c84f6a2c0cdc12b01e0cd1a7b975b36c49bad47d4ff",
+      "signature": "/q0lGZA73q57vvVBvMMj+/uwFcgXE/rYLkjdnjmIDIFmJJTPsSGrlXYPreJkNmv07hz8QMGPjV0W02qeuZM1Bg=="
     },
     {
       "name": "Olympus",
@@ -78,8 +78,8 @@
       "webSite": "https://olympusxyz.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/olympus.js",
-      "sha256": "0482c0a164a36a179a1d6fa9cfdcf2311b03006bcf3b325560ec8960cdddf018",
-      "signature": "hkKLzr1uB7u2VgXDJWIspkLL7E2lK6sOcNUXeq1MoTFmzTPN3hRp0VZP3c87NCd8J++s250z7JlqszI1emm3BA=="
+      "sha256": "908cc754715b62e4dcbdd94dbd8807dde900d422acbfe64b9084273befae6bb6",
+      "signature": "wcR2gt/hBe+AFB8TU90kAqDzNaqIaYc7DKXyaktexMQhg5y9qYAJnQ7dj6/ijuQVw2JegvhbGDMthqn+ZIHABQ=="
     },
     {
       "name": "ShadeManga",
@@ -94,8 +94,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/shademanga.js",
-      "sha256": "debe9cb9e81fe692e4d19761cd1e2deef5e62b67fc7d9b0e0c48f0cc0cfe2a58",
-      "signature": "vK/e6+iC40lytyH0Dj+qlUc+G137c2kW1BFIAS9B5cGhlZP5fXGqVQpyakq4tZmc5iQNBgqXeezF0Lpals/mCg=="
+      "sha256": "593d5c87a3c496720f0d48d3c4f959e8080a8f4fc68e623e244d5fc601bbd5e2",
+      "signature": "uk54dlYHATkAr26QHo96cvi63ot10RBBjqig/Z3fdhB5gsb2uVXDyIwt6qjoSxfSHZt7eWuBRRhoJWUzU1t0AA=="
     },
     {
       "name": "TioAnime",
@@ -109,8 +109,8 @@
       "webSite": "https://tioanime.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js",
-      "sha256": "8c546a91c48d59d7fd173c8df398b158548b3a9c3f3f136b7fa10a5eced776d1",
-      "signature": "rgCBHkdP7nDDw8p8IKwjkaffiDWkcXNqMfGFDuXGrm1IPa4etz7md8/RPVQxGFiv9/wzqFwXMPN4pcJbBVnRCw=="
+      "sha256": "1ac5df6af55e24849b52d1c22c6debdb8aeb02f1b8088393b0c766c7a7e71bff",
+      "signature": "x60KPTmDO7SvAbUZdrKhWvZie1bvSo15eqG5dZVRowsyMu70CUenunbtnKAwgHMKLgIiJawDOMSJa5C/13esDg=="
     },
     {
       "name": "TuMangaOnline",
@@ -124,8 +124,8 @@
       "webSite": "https://zonatmo.org",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tumangaonline.js",
-      "sha256": "27f2af836e5d56a8391252deb56d19769a784f1ba7c7f90221e0739e42723f71",
-      "signature": "uGU1K6GVc6OVJKpEFYQ0Hs5wHyfpGiI1Pvhhj79vRQ8A5SV37S5pUGwhmTefQxJ0oCgwZ6nrVs3IyQt2OsaNBQ=="
+      "sha256": "a17369fea35723e35b7d4406705a274b593c56f4488fc442a53c97c5cdd7dc3e",
+      "signature": "nTJoj3I6si61VV0JykRb+h2UCXUQeDxL66QKnQC8TrR726oZivcDrMPqMuu3wmIYcr0N8IPL8RcCDpoWztlKCQ=="
     },
     {
       "name": "LaMovie",

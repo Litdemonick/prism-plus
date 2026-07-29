@@ -323,7 +323,7 @@ export default class extends Extension {
   // servidores). Maneja 3 casos:
   //   1. URL directa (.m3u8/.mp4) → fast-path, devolver inmediatamente.
   //   2. URL de embed externo conocido (voe.sx, yourupload.com, netu, etc.) →
-  //      resolveEmbed on-demand (igual que JiruHub). Aplica a TODAS las extensiones.
+  //      resolveEmbed on-demand. Aplica a TODAS las extensiones.
   //   3. URL de episodio normal → llamar watch() de la extensión.
   async watch(url) {
     // Fast-path 1: URL ya resuelta (stream directo .m3u8 o .mp4).

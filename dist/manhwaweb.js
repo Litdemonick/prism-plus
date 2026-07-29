@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ManhwaWeb
-// @version      1.3.8
+// @version      1.3.9
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -62,7 +62,7 @@ function _libraryQuery(page, buscar, filter) {
   const f = filter != null ? filter : {};
   const estado = (_b = (_a = f["estado"]) == null ? void 0 : _a[0]) != null ? _b : "";
   const tipo = (_d = (_c = f["tipo"]) == null ? void 0 : _c[0]) != null ? _d : "";
-  const erotico = (_f = (_e = f["erotico"]) == null ? void 0 : _e[0]) != null ? _f : "";
+  const erotico = (_f = (_e = f["erotico"]) == null ? void 0 : _e[0]) != null ? _f : "no";
   const demografia = (_h = (_g = f["demografia"]) == null ? void 0 : _g[0]) != null ? _h : "";
   const orderItem = (_j = (_i = f["order_item"]) == null ? void 0 : _i[0]) != null ? _j : "alfabetico";
   const orderDir = (_l = (_k = f["order_dir"]) == null ? void 0 : _k[0]) != null ? _l : "desc";
@@ -134,16 +134,24 @@ async function createFilter() {
       min: 1,
       max: 1
     },
+    // Sin adultOption (y con "Todos" como default) esto mezclaba contenido
+    // +18 con contenido normal SIN NINGUNA distinción por ítem — ni el
+    // switch de NSFW en Ajustes de PrismHub podía filtrarlo, porque no
+    // había forma de saber qué resultado era erótico y cuál no. Ahora,
+    // igual que el filtro "adultos" de ShadeManga: oculto por defecto
+    // (default: 'no'), y adultOption:'si' le avisa a PrismHub que ESE valor
+    // puntual es la sección +18 (bloquea con aviso si el switch está
+    // apagado, y lo separa a la Zona +18 en vez del Continuar normal).
     erotico: {
       title: "Er\xF3tico",
       options: {
-        "": "Todos",
-        si: "S\xED",
-        no: "No"
+        no: "No",
+        si: "S\xED"
       },
-      default: "",
+      default: "no",
       min: 1,
-      max: 1
+      max: 1,
+      adultOption: "si"
     },
     order_item: {
       title: "Ordenar por",
@@ -372,7 +380,7 @@ export default class extends Extension {
   // servidores). Maneja 3 casos:
   //   1. URL directa (.m3u8/.mp4) → fast-path, devolver inmediatamente.
   //   2. URL de embed externo conocido (voe.sx, yourupload.com, netu, etc.) →
-  //      resolveEmbed on-demand (igual que JiruHub). Aplica a TODAS las extensiones.
+  //      resolveEmbed on-demand. Aplica a TODAS las extensiones.
   //   3. URL de episodio normal → llamar watch() de la extensión.
   async watch(url) {
     // Fast-path 1: URL ya resuelta (stream directo .m3u8 o .mp4).
