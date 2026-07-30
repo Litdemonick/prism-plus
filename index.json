@@ -36,6 +36,22 @@
       "signature": "5bQya1g9m6bx7EblQJ0FhWJps6YBvtJE2lEGSffyT1Ihxn82HFImDJBFAkH2dD3GNcjWj7CNXT4fPXLbOrvgBA=="
     },
     {
+      "name": "HentaiLA",
+      "package": "io.prismhub.hentaila",
+      "version": "1.0.0",
+      "author": "PrismPlus",
+      "type": "bangumi",
+      "icon": "",
+      "description": "Hentai en español con catálogo completo, filtros por género y varios servidores por episodio (contenido +18).",
+      "lang": "es",
+      "webSite": "https://hentaila.com",
+      "license": "MIT",
+      "nsfw": "true",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/hentaila.js",
+      "sha256": "ba6c681cd6a963ac0cf477f54572d90810f717f24d698e4247a68f02c62eef1e",
+      "signature": "piBqjoTqAWei0o29uo8fw+/2PQzN1c4n3lWcuWTylETKXBeiNun4rxbu+E2Wt4O+RB6jiooGXL2B9rvk4H4rDA=="
+    },
+    {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
       "version": "1.11.0",
@@ -126,6 +142,38 @@
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tumangaonline.js",
       "sha256": "e4d6c52183471657f57fd3f0774810c26911d7bdcea361b718cdf5a972e07b9f",
       "signature": "xXtz0vmXu1DlbV/yAsIPeHqFvX/XDX78n+ymv9N5a600r5lKn3rmgsjxzmBO/JziPUSPVkbQdtJIDL88mA4YCg=="
+    },
+    {
+      "name": "VeoHentai",
+      "package": "io.prismhub.veohentai",
+      "version": "1.0.0",
+      "author": "PrismPlus",
+      "type": "bangumi",
+      "icon": "",
+      "description": "Hentai en español agrupado por serie, con filtros por género y estudio y subtítulos en español (contenido +18).",
+      "lang": "es",
+      "webSite": "https://veohentai.com",
+      "license": "MIT",
+      "nsfw": "true",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/veohentai.js",
+      "sha256": "196538a0ad819c0eeb30833ff9f7e4c672a93d3cd4288eb54e3c340c7f346744",
+      "signature": "ZGTFJ8OKA5hsRpDvjeKSWudQwHCMHwcmepXvBOUjHwvqBAU0E784IU/HnKJWPrk/1EwRTbEAFlgY9fac+EpjAw=="
+    },
+    {
+      "name": "XVideos",
+      "package": "io.prismhub.xvideos",
+      "version": "1.0.0",
+      "author": "PrismPlus",
+      "type": "bangumi",
+      "icon": "",
+      "description": "Vídeos para adultos con buscador, filtros de orden, duración y calidad, y reproducción directa (contenido +18).",
+      "lang": "es",
+      "webSite": "https://www.xvideos.com",
+      "license": "MIT",
+      "nsfw": "true",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/xvideos.js",
+      "sha256": "af07b4d5ca5da2d0a34caa0d2a2e9000a7bd6d771297787505f480060efde4c1",
+      "signature": "MRlWzNQEJd9vy5J21QEQSfd1AsQ3aFJwOfPa6fdrp6FED00PcJcR7ygdoCe8UgJarJcyqihE4JG8FYqT7K8wAQ=="
     },
     {
       "name": "LaMovie",

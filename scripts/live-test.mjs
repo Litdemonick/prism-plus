@@ -46,6 +46,11 @@ const KEYWORDS = {
   'io.prismhub.olympus': 'solo leveling',
   'io.prismhub.shademanga': 'one piece',
   'io.prismhub.tumangaonline': 'one piece',
+  // Sitios +18: su catálogo no tiene títulos mainstream, así que se busca algo
+  // que esos catálogos SÍ contienen. Verificado a mano contra cada sitio.
+  'io.prismhub.hentaila': 'kanan',
+  'io.prismhub.veohentai': 'bishoujo',
+  'io.prismhub.xvideos': 'cosplay',
 };
 const DEFAULT_KEYWORD = 'one piece';
 

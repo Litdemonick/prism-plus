@@ -1,0 +1,335 @@
+import { decodeEntities, stripTags } from '../../sdk/html';
+import type { PrismDetail, PrismItem, PrismWatch, PrismStream } from '../../sdk/types';
+
+declare function sendMessage(channel: string, data: string): Promise<string>;
+
+const BASE = 'https://www.xvideos.com';
+// El sitio sirve el MISMO buscador por su host AMP. Se usa como respaldo porque
+// se comprobó en vivo que el buscador principal puede devolver "Error interno /
+// sin resultados" para una palabra concreta mientras el AMP responde bien con
+// esa misma palabra (pasó con "cosplay"; "perra" funcionaba en los dos). Así una
+// caída parcial del backend de búsqueda no deja la extensión sin buscar.
+const AMP = 'https://amp.xvideos.com';
+
+async function _get(url: string): Promise<string> {
+  const raw = await sendMessage(
+    'request',
+    JSON.stringify([url, { method: 'get', headers: { Referer: `${BASE}/` } }]),
+  );
+  try {
+    const parsed = JSON.parse(raw);
+    return typeof parsed === 'string' ? parsed : raw;
+  } catch {
+    return raw;
+  }
+}
+
+// Los listados AMP enlazan a un dominio espejo (xvv1deos.com). Se normaliza todo
+// al host principal para que detalle y reproducción peguen siempre al mismo
+// sitio, sin importar de qué listado salió la card.
+function _normalizeUrl(url: string): string {
+  const path = /(\/video[.\-][a-z0-9]+\/[^"?#]*)/.exec(url)?.[1];
+  if (path) return `${BASE}${path}`;
+  if (url.indexOf('http') === 0) return url;
+  return `${BASE}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+// ─── Listados ───────────────────────────────────────────────────────────────
+
+// Un solo parser para los dos formatos: el host principal abre cada card con
+// class="thumb-block" y el AMP con class="video-thumb". En ambos casos, cortar
+// por ese marcador deja el enlace, la miniatura y el <p class="title"> del MISMO
+// vídeo dentro del trozo (el siguiente trozo empieza en la card siguiente).
+function _parseList(html: string): PrismItem[] {
+  const chunks = html.split(/class="(?:[^"]*\s)?(?:thumb-block|video-thumb)/);
+  const items: PrismItem[] = [];
+  const seen: Record<string, boolean> = {};
+  for (let i = 1; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    const href = /href="((?:https?:\/\/[^/"]+)?\/video[.\-][a-z0-9]+\/[^"?#]*)"/.exec(chunk)?.[1];
+    if (!href) continue;
+    const url = _normalizeUrl(href);
+    if (seen[url]) continue;
+
+    // El title del <a> del bloque de título es el más fiable; si faltara se usa
+    // el texto del enlace, que trae la duración pegada y hay que limpiar.
+    let title = /<p class="title">[\s\S]{0,300}?title="([^"]*)"/.exec(chunk)?.[1] ?? '';
+    if (!title) {
+      const inner = /<p class="title">\s*<a[^>]*>([\s\S]{0,300}?)<\/a>/.exec(chunk)?.[1] ?? '';
+      title = stripTags(inner);
+    }
+    title = decodeEntities(title.replace(/\s+/g, ' ').trim());
+    if (!title) continue;
+
+    // data-src en el host principal (el src real es un gif transparente de
+    // lazy-load), src en las <amp-img> del AMP.
+    const cover =
+      /data-src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp|avif))"/.exec(chunk)?.[1] ??
+      /<amp-img[^>]+src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp|avif))"/.exec(chunk)?.[1] ??
+      undefined;
+
+    const duration = /<span class="duration">([^<]+)<\/span>/.exec(chunk)?.[1]?.trim();
+
+    seen[url] = true;
+    items.push({ title, url, cover, update: duration || undefined });
+  }
+  return items;
+}
+
+export async function latest(page: number): Promise<PrismItem[]> {
+  const n = page < 1 ? 1 : page;
+  const html = await _get(`${BASE}/new/${n}`);
+  return _parseList(html);
+}
+
+function _searchQuery(
+  keyword: string,
+  page: number,
+  filter?: Record<string, string[]>,
+): string {
+  const parts: string[] = [`k=${encodeURIComponent(keyword.trim())}`];
+  // El parámetro de página es 0-based en este sitio (p=0 es la primera).
+  const p = (page < 1 ? 1 : page) - 1;
+  if (p > 0) parts.push(`p=${p}`);
+  const sort = filter?.['orden']?.[0];
+  const durf = filter?.['duracion']?.[0];
+  const quality = filter?.['calidad']?.[0];
+  if (sort) parts.push(`sort=${encodeURIComponent(sort)}`);
+  if (durf) parts.push(`durf=${encodeURIComponent(durf)}`);
+  if (quality) parts.push(`quality=${encodeURIComponent(quality)}`);
+  return parts.join('&');
+}
+
+export async function search(
+  keyword: string,
+  page: number,
+  filter?: Record<string, string[]>,
+): Promise<PrismItem[]> {
+  const kw = keyword.trim();
+  const category = filter?.['categoria']?.[0] || '';
+
+  // Categoría sin texto: se navega la página real de la categoría. Comprobado en
+  // vivo que ahí la paginación es por RUTA (/tags/{cat}/{n} cambia de
+  // resultados) y que ?p=, ?sort= y ?quality= NO tienen efecto en esa ruta, así
+  // que no se mandan — mejor no ofrecer un orden que el sitio ignora.
+  if (category && !kw) {
+    const n = page < 1 ? 1 : page;
+    const path = `/tags/${category}${n > 1 ? `/${n}` : ''}`;
+    const html = await _get(`${BASE}${path}`);
+    const items = _parseList(html);
+    if (items.length > 0) return items;
+    // Mismo respaldo por AMP que la búsqueda: se comprobó en vivo que esta
+    // ruta puede devolver una respuesta vacía de forma pasajera (le pasó una
+    // vez a la prueba automática mientras la misma URL respondía bien por
+    // separado) y que el host AMP sirve estas mismas categorías, paginación
+    // incluida. Sin esto, un hipo momentáneo dejaba la categoría en blanco.
+    const ampHtml = await _get(`${AMP}${path}`);
+    return _parseList(ampHtml);
+  }
+
+  // Sin texto ni categoría no hay búsqueda posible (el buscador exige `k`), así
+  // que se cae al listado de novedades en vez de devolver vacío.
+  if (!kw) return latest(page);
+
+  // Con texto Y categoría se busca dentro de la categoría sumándola a la
+  // consulta: comprobado que en este sitio una categoría también funciona como
+  // término de búsqueda (?k=asiatica devuelve resultados), y así se conservan
+  // orden, duración y calidad, que sí funcionan en la ruta de búsqueda.
+  const effectiveKw = category ? `${kw} ${category.replace(/-/g, ' ')}` : kw;
+  const query = _searchQuery(effectiveKw, page, filter);
+  const html = await _get(`${BASE}/?${query}`);
+  const items = _parseList(html);
+  if (items.length > 0) return items;
+
+  // Respaldo por host AMP — ver el comentario de la constante AMP.
+  const ampHtml = await _get(`${AMP}/?${query}`);
+  return _parseList(ampHtml);
+}
+
+// ─── Filtros ────────────────────────────────────────────────────────────────
+
+// Solo valores comprobados en vivo: cada uno cambia realmente el primer
+// resultado respecto a la búsqueda sin filtro. Se dejaron FUERA a propósito
+// `sort=length` y `sort=views` (devolvían una página sin resultados) y `datef`
+// (no filtraba nada), para no ofrecer filtros que no funcionan.
+const _ORDER_OPTIONS: Record<string, string> = {
+  '': 'Relevancia',
+  uploaddate: 'Más recientes',
+  rating: 'Mejor valorados',
+};
+
+const _DURATION_OPTIONS: Record<string, string> = {
+  '': 'Cualquiera',
+  '1-3min': '1 - 3 min',
+  '10min_more': 'Más de 10 min',
+  '20min_more': 'Más de 20 min',
+};
+
+const _QUALITY_OPTIONS: Record<string, string> = {
+  '': 'Cualquiera',
+  hd: 'HD',
+  '1080P': '1080p',
+};
+
+// Categorías del propio sitio (rutas /tags/{slug}). El índice de tags tiene más
+// de 2000 entradas —inservible como desplegable—, así que se ofrece una
+// selección de las más usadas, y cada slug de esta lista se comprobó en vivo
+// devolviendo resultados. Quedaron FUERA `colombiana` y `argentina`, que se
+// probaron y devuelven 0.
+const _CATEGORY_OPTIONS: Record<string, string> = {
+  '': 'Todas',
+  amateur: 'Amateur',
+  anal: 'Anal',
+  asiatica: 'Asiática',
+  casero: 'Casero',
+  corridas: 'Corridas',
+  cosplay: 'Cosplay',
+  culonas: 'Culonas',
+  enfermera: 'Enfermera',
+  espanol: 'Español',
+  hentai: 'Hentai',
+  interracial: 'Interracial',
+  japonesa: 'Japonesa',
+  latina: 'Latina',
+  lesbianas: 'Lesbianas',
+  maduras: 'Maduras',
+  masaje: 'Masaje',
+  mexicana: 'Mexicana',
+  milf: 'MILF',
+  morenas: 'Morenas',
+  negras: 'Negras',
+  orgia: 'Orgía',
+  rubias: 'Rubias',
+  squirt: 'Squirt',
+  teen: 'Teen',
+  tetonas: 'Tetonas',
+  trio: 'Trío',
+  universitaria: 'Universitaria',
+  venezolana: 'Venezolana',
+};
+
+export async function createFilter(): Promise<Record<string, unknown>> {
+  return {
+    categoria: { title: 'Categoría', options: _CATEGORY_OPTIONS, default: '', min: 1, max: 1 },
+    orden: { title: 'Orden', options: _ORDER_OPTIONS, default: '', min: 1, max: 1 },
+    duracion: { title: 'Duración', options: _DURATION_OPTIONS, default: '', min: 1, max: 1 },
+    calidad: { title: 'Calidad', options: _QUALITY_OPTIONS, default: '', min: 1, max: 1 },
+  };
+}
+
+// ─── Detalle ────────────────────────────────────────────────────────────────
+
+// Cada vídeo es una pieza suelta (no hay series ni temporadas), así que el
+// detalle expone UN único "episodio" que apunta al propio vídeo. Es lo que
+// necesita el cliente para abrir el reproductor desde la ficha.
+export async function detail(url: string): Promise<PrismDetail> {
+  const fullUrl = _normalizeUrl(url);
+  const html = await _get(fullUrl);
+
+  // El JSON-LD (schema.org VideoObject) es la fuente más estable de la ficha:
+  // lo genera el propio sitio para los buscadores.
+  const name =
+    /"name":\s*"((?:[^"\\]|\\.)*)"/.exec(html)?.[1] ??
+    /<title>([^<]*?)(?:\s*-\s*XVIDEOS\.COM)?<\/title>/i.exec(html)?.[1] ??
+    '';
+  const title = decodeEntities(name.replace(/\\"/g, '"').replace(/\\\//g, '/').trim());
+
+  const description = decodeEntities(
+    (/"description":\s*"((?:[^"\\]|\\.)*)"/.exec(html)?.[1] ?? '')
+      .replace(/\\"/g, '"')
+      .replace(/\\\//g, '/')
+      .trim(),
+  );
+
+  const cover = /"thumbnailUrl":\s*\[?\s*"([^"]+)"/.exec(html)?.[1]?.replace(/\\\//g, '/');
+
+  // duration: "PT00H07M06S"
+  const durM = /"duration":\s*"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?"/.exec(html);
+  const seconds = durM
+    ? Number(durM[1] ?? 0) * 3600 + Number(durM[2] ?? 0) * 60 + Number(durM[3] ?? 0)
+    : undefined;
+
+  const yearM = /"uploadDate":\s*"(\d{4})/.exec(html)?.[1];
+
+  const tags: string[] = [];
+  for (const m of html.matchAll(/href="\/(?:tags|c)\/([a-z0-9\-]+)"/g)) {
+    const t = m[1].replace(/-\d+$/, '').replace(/-/g, ' ');
+    if (t && tags.indexOf(t) === -1) tags.push(t);
+    if (tags.length >= 12) break;
+  }
+
+  return {
+    title,
+    cover,
+    description,
+    genres: tags.length > 0 ? tags : undefined,
+    year: yearM ? Number(yearM) : undefined,
+    episodes: [
+      {
+        title: title || 'Ver vídeo',
+        url: fullUrl,
+        thumbnail: cover,
+        duration: seconds && seconds > 0 ? seconds : undefined,
+      },
+    ],
+  };
+}
+
+// ─── Reproducción ───────────────────────────────────────────────────────────
+
+// La ruta del CDN indica la variante servida (.../mp4_sd.mp4, .../mp4_hd.mp4).
+// Es lo único que hay: la página no publica ancho/alto en ningún metadato.
+function _qualityLabel(url: string | undefined): string {
+  if (!url) return 'MP4';
+  const s = url.toLowerCase();
+  if (s.indexOf('mp4_hd') !== -1) return 'HD';
+  if (s.indexOf('mp4_sd') !== -1) return 'SD';
+  return 'MP4';
+}
+
+export async function watch(url: string): Promise<PrismWatch> {
+  const fullUrl = _normalizeUrl(url);
+  const html = await _get(fullUrl);
+
+  const streams: PrismStream[] = [];
+  const seen: Record<string, boolean> = {};
+  const push = (raw: string | undefined, quality: string) => {
+    if (!raw) return;
+    const clean = raw.replace(/\\\//g, '/').trim();
+    if (!clean || clean.indexOf('http') !== 0 || seen[clean]) return;
+    seen[clean] = true;
+    // El CDN entrega el MP4 solo con el Referer del sitio.
+    streams.push({
+      url: clean,
+      quality,
+      mimeType: clean.indexOf('.m3u8') !== -1 ? 'application/x-mpegURL' : 'video/mp4',
+      headers: { Referer: `${BASE}/` },
+    });
+  };
+
+  // Los setters clásicos del html5player ya no aparecen en todas las páginas
+  // (comprobado en vivo: en la que se probó no estaba ninguno), pero se leen
+  // primero porque cuando están traen las calidades separadas.
+  push(/setVideoHLS\('([^']+)'\)/.exec(html)?.[1], 'HLS');
+  push(/setVideoUrlHigh\('([^']+)'\)/.exec(html)?.[1], 'Alta');
+  push(/setVideoUrlLow\('([^']+)'\)/.exec(html)?.[1], 'Baja');
+
+  // Fuente principal y confirmada: el `contentUrl` del JSON-LD es un MP4 ya
+  // firmado (probado en vivo: responde 206 con content-type video/mp4).
+  //
+  // La página NO expone la resolución en ningún metadato (se buscaron height,
+  // width, size_height y las marcas de HD del listado: ninguna está), pero la
+  // propia ruta del CDN la indica —.../mp4_sd.mp4 o .../mp4_hd.mp4—, así que la
+  // etiqueta que ve el usuario en el selector de calidad sale de ahí en vez de
+  // un "MP4" genérico.
+  const contentUrl = /"contentUrl":\s*"([^"]+)"/.exec(html)?.[1];
+  push(contentUrl, _qualityLabel(contentUrl));
+
+  // Si ninguna vía nativa dio stream, el cliente cae al WebView sobre la propia
+  // página del vídeo.
+  return {
+    streams,
+    pageUrl: fullUrl,
+    reason: streams.length === 0 ? 'no_stream_found' : undefined,
+  };
+}

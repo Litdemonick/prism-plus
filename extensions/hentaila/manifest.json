@@ -1,0 +1,13 @@
+{
+  "name": "HentaiLA",
+  "package": "io.prismhub.hentaila",
+  "version": "1.0.0",
+  "author": "PrismPlus",
+  "type": "anime",
+  "icon": "",
+  "description": "Hentai en español con catálogo completo, filtros por género y varios servidores por episodio (contenido +18).",
+  "lang": "es",
+  "webSite": "https://hentaila.com",
+  "license": "MIT",
+  "nsfw": "true"
+}

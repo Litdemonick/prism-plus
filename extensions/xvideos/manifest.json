@@ -1,0 +1,13 @@
+{
+  "name": "XVideos",
+  "package": "io.prismhub.xvideos",
+  "version": "1.0.0",
+  "author": "PrismPlus",
+  "type": "video",
+  "icon": "",
+  "description": "Vídeos para adultos con buscador, filtros de orden, duración y calidad, y reproducción directa (contenido +18).",
+  "lang": "es",
+  "webSite": "https://www.xvideos.com",
+  "license": "MIT",
+  "nsfw": "true"
+}
