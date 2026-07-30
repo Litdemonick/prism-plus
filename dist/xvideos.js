@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         XVideos
-// @version      1.0.7
+// @version      1.0.8
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -169,22 +169,28 @@ async function _get(url) {
     return raw;
   }
 }
-var _VIDEO_PATH = "\\/video(?:[.\\-][a-z0-9]+|\\d+)";
-var _RE_PATH = new RegExp(`(${_VIDEO_PATH}\\/[^"?#]*)`);
-var _RE_HREF = new RegExp(
-  `href="((?:https?:\\/\\/[^/"]+)?${_VIDEO_PATH}\\/[^"?#]*)"`
-);
-var _RE_LOOSE = new RegExp(`${_VIDEO_PATH}\\/[a-z0-9_\\-]+`, "g");
-var _RE_COUNT = new RegExp(`${_VIDEO_PATH}\\/`, "g");
+var _VIDEO_ID = "video(?:[.\\-][a-z0-9]+|\\d+)";
+var _RE_ID_ANY = new RegExp(`(?:^|[/"'])${_VIDEO_ID}\\/`);
+var _RE_HREF_ANY = /href="([^"]+)"/g;
+var _RE_LOOSE = new RegExp(`${_VIDEO_ID}\\/[a-z0-9_\\-]+`, "g");
+function _isVideoHref(href) {
+  if (!href) return false;
+  const clean = href.split("\\/").join("/");
+  return _RE_ID_ANY.test(clean) || _RE_ID_ANY.test(`/${clean}`);
+}
+function _absolutize(href) {
+  const clean = href.split("\\/").join("/").split("?")[0].split("#")[0];
+  const at = clean.search(new RegExp(_VIDEO_ID));
+  if (at < 0) return `${BASE}/${clean.replace(/^\/+/, "")}`;
+  return `${BASE}/${clean.slice(at)}`;
+}
 function _normalizeUrl(url) {
-  var _a;
-  const path = (_a = _RE_PATH.exec(url)) == null ? void 0 : _a[1];
-  if (path) return `${BASE}${path}`;
+  if (_isVideoHref(url)) return _absolutize(url);
   if (url.indexOf("http") === 0) return url;
   return `${BASE}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 function _parseList(html) {
-  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
   const marker = html.indexOf("thumb-block") !== -1 ? "thumb-block" : html.indexOf("video-thumb") !== -1 ? "video-thumb" : "";
   if (!marker) return _parseListLoose(html);
   const chunks = html.split(marker);
@@ -192,19 +198,26 @@ function _parseList(html) {
   const seen = {};
   for (let i = 1; i < chunks.length; i++) {
     const chunk = chunks[i];
-    const href = (_a = _RE_HREF.exec(chunk)) == null ? void 0 : _a[1];
+    let href = "";
+    _RE_HREF_ANY.lastIndex = 0;
+    for (const m of chunk.matchAll(_RE_HREF_ANY)) {
+      if (_isVideoHref(m[1])) {
+        href = m[1];
+        break;
+      }
+    }
     if (!href) continue;
-    const url = _normalizeUrl(href);
+    const url = _absolutize(href);
     if (seen[url]) continue;
-    let title = (_c = (_b = /<p class="title">[\s\S]{0,300}?title="([^"]*)"/.exec(chunk)) == null ? void 0 : _b[1]) != null ? _c : "";
+    let title = (_b = (_a = /<p class="title">[\s\S]{0,300}?title="([^"]*)"/.exec(chunk)) == null ? void 0 : _a[1]) != null ? _b : "";
     if (!title) {
-      const inner = (_e = (_d = /<p class="title">\s*<a[^>]*>([\s\S]{0,300}?)<\/a>/.exec(chunk)) == null ? void 0 : _d[1]) != null ? _e : "";
+      const inner = (_d = (_c = /<p class="title">\s*<a[^>]*>([\s\S]{0,300}?)<\/a>/.exec(chunk)) == null ? void 0 : _c[1]) != null ? _d : "";
       title = stripTags(inner);
     }
     title = decodeEntities(title.replace(/\s+/g, " ").trim());
     if (!title) continue;
-    const cover = (_i = (_h = (_f = /data-src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp|avif))"/.exec(chunk)) == null ? void 0 : _f[1]) != null ? _h : (_g = /<amp-img[^>]+src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp|avif))"/.exec(chunk)) == null ? void 0 : _g[1]) != null ? _i : void 0;
-    const duration = (_k = (_j = /<span class="duration">([^<]+)<\/span>/.exec(chunk)) == null ? void 0 : _j[1]) == null ? void 0 : _k.trim();
+    const cover = (_h = (_g = (_e = /data-src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp|avif))"/.exec(chunk)) == null ? void 0 : _e[1]) != null ? _g : (_f = /<amp-img[^>]+src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp|avif))"/.exec(chunk)) == null ? void 0 : _f[1]) != null ? _h : void 0;
+    const duration = (_j = (_i = /<span class="duration">([^<]+)<\/span>/.exec(chunk)) == null ? void 0 : _i[1]) == null ? void 0 : _j.trim();
     seen[url] = true;
     items.push({ title, url, cover, update: duration || void 0 });
   }
@@ -215,10 +228,10 @@ function _parseListLoose(html) {
   const seen = {};
   html = html.split("\\/").join("/");
   for (const m of html.matchAll(_RE_LOOSE)) {
-    const url = `${BASE}${m[0]}`;
+    const url = _absolutize(m[0]);
     if (seen[url]) continue;
     seen[url] = true;
-    const slug = m[0].slice(m[0].indexOf("/", 1) + 1);
+    const slug = m[0].slice(m[0].indexOf("/") + 1);
     const title = decodeEntities(slug.replace(/[_-]+/g, " ").trim());
     if (!title) continue;
     items.push({ title, url });

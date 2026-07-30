@@ -55,20 +55,42 @@ async function _get(url: string): Promise<string> {
 // reconocidos. No era la red, ni el User-Agent, ni el motor de JS.
 //
 // Un solo patrón compartido por todos los usos, para que no vuelvan a divergir.
-const _VIDEO_PATH = '\\/video(?:[.\\-][a-z0-9]+|\\d+)';
-const _RE_PATH = new RegExp(`(${_VIDEO_PATH}\\/[^"?#]*)`);
-const _RE_HREF = new RegExp(
-  `href="((?:https?:\\/\\/[^/"]+)?${_VIDEO_PATH}\\/[^"?#]*)"`,
-);
-const _RE_LOOSE = new RegExp(`${_VIDEO_PATH}\\/[a-z0-9_\\-]+`, 'g');
-const _RE_COUNT = new RegExp(`${_VIDEO_PATH}\\/`, 'g');
+//
+// Y a propósito NO exige barra inicial: los href pueden venir absolutos
+// (https://host/video…), desde la raíz (/video…) o RELATIVOS (video…/slug), y
+// esto último es lo que rompía todo en el celular. El diagnóstico tomado en el
+// propio teléfono lo dejó a la vista: llegaban 125 KB con las cards presentes
+// (el marcador thumb-block estaba) y CERO enlaces reconocidos — imposible si la
+// página trajera "/video" en algún lado. La página está bien; era el patrón el
+// que exigía una forma de más.
+const _VIDEO_ID = 'video(?:[.\\-][a-z0-9]+|\\d+)';
+// Con delimitador por delante: inicio de cadena, barra o comilla. Así "video.x/"
+// matchea igual esté suelto, tras "/" o tras 'href="'.
+const _RE_ID_ANY = new RegExp(`(?:^|[/"'])${_VIDEO_ID}\\/`);
+const _RE_HREF_ANY = /href="([^"]+)"/g;
+const _RE_LOOSE = new RegExp(`${_VIDEO_ID}\\/[a-z0-9_\\-]+`, 'g');
+
+// ¿Este href apunta a la página de un vídeo? Se valida por forma, no por prefijo.
+function _isVideoHref(href: string): boolean {
+  if (!href) return false;
+  const clean = href.split('\\/').join('/');
+  // Descartar cosas como /videos-i-like, que empiezan igual pero no son vídeos.
+  return _RE_ID_ANY.test(clean) || _RE_ID_ANY.test(`/${clean}`);
+}
+
+// Lleva cualquier forma de href a una URL absoluta del host principal.
+function _absolutize(href: string): string {
+  const clean = href.split('\\/').join('/').split('?')[0].split('#')[0];
+  const at = clean.search(new RegExp(_VIDEO_ID));
+  if (at < 0) return `${BASE}/${clean.replace(/^\/+/, '')}`;
+  return `${BASE}/${clean.slice(at)}`;
+}
 
 // Los listados AMP enlazan a un dominio espejo (xvv1deos.com). Se normaliza todo
 // al host principal para que detalle y reproducción peguen siempre al mismo
 // sitio, sin importar de qué listado salió la card.
 function _normalizeUrl(url: string): string {
-  const path = _RE_PATH.exec(url)?.[1];
-  if (path) return `${BASE}${path}`;
+  if (_isVideoHref(url)) return _absolutize(url);
   if (url.indexOf('http') === 0) return url;
   return `${BASE}${url.startsWith('/') ? '' : '/'}${url}`;
 }
@@ -99,9 +121,20 @@ function _parseList(html: string): PrismItem[] {
   const seen: Record<string, boolean> = {};
   for (let i = 1; i < chunks.length; i++) {
     const chunk = chunks[i];
-    const href = _RE_HREF.exec(chunk)?.[1];
+    // Se recorren TODOS los href del trozo y se queda con el primero que tenga
+    // forma de vídeo, en vez de exigir un formato de ruta concreto: los enlaces
+    // pueden venir absolutos, desde la raíz o relativos según el maquetado que
+    // sirva el sitio.
+    let href = '';
+    _RE_HREF_ANY.lastIndex = 0;
+    for (const m of chunk.matchAll(_RE_HREF_ANY)) {
+      if (_isVideoHref(m[1])) {
+        href = m[1];
+        break;
+      }
+    }
     if (!href) continue;
-    const url = _normalizeUrl(href);
+    const url = _absolutize(href);
     if (seen[url]) continue;
 
     // El title del <a> del bloque de título es el más fiable; si faltara se usa
@@ -152,10 +185,13 @@ function _parseListLoose(html: string): PrismItem[] {
   // literal, sin regex.
   html = html.split('\\/').join('/');
   for (const m of html.matchAll(_RE_LOOSE)) {
-    const url = `${BASE}${m[0]}`;
+    // _absolutize y no concatenar con BASE: el patrón ya no exige barra inicial,
+    // así que m[0] puede ser "video.xxx/slug" y pegarlo directo daría una url
+    // rota ("...xvideos.comvideo.xxx/slug").
+    const url = _absolutize(m[0]);
     if (seen[url]) continue;
     seen[url] = true;
-    const slug = m[0].slice(m[0].indexOf('/', 1) + 1);
+    const slug = m[0].slice(m[0].indexOf('/') + 1);
     const title = decodeEntities(slug.replace(/[_-]+/g, ' ').trim());
     if (!title) continue;
     items.push({ title, url });
