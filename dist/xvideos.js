@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         XVideos
-// @version      1.0.9
+// @version      1.1.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -171,13 +171,17 @@ async function _get(url) {
 }
 var _VIDEO_ID = "video(?:[.\\-][a-z0-9]+|\\d+)";
 var _RE_ID_ANY = new RegExp(`(?:^|[/"'])${_VIDEO_ID}\\/`);
+var _SEARCH_LINK = "/search-video/";
 function _isVideoHref(href) {
   if (!href) return false;
   const clean = href.split("\\/").join("/");
+  if (clean.indexOf(_SEARCH_LINK) !== -1) return true;
   return _RE_ID_ANY.test(clean) || _RE_ID_ANY.test(`/${clean}`);
 }
 function _absolutize(href) {
   const clean = href.split("\\/").join("/").split("?")[0].split("#")[0];
+  const sv = clean.indexOf(_SEARCH_LINK);
+  if (sv !== -1) return `${BASE}${clean.slice(sv)}`;
   const at = clean.search(new RegExp(_VIDEO_ID));
   if (at < 0) return `${BASE}/${clean.replace(/^\/+/, "")}`;
   return `${BASE}/${clean.slice(at)}`;

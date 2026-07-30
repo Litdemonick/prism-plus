@@ -68,10 +68,26 @@ const _VIDEO_ID = 'video(?:[.\\-][a-z0-9]+|\\d+)';
 // matchea igual esté suelto, tras "/" o tras 'href="'.
 const _RE_ID_ANY = new RegExp(`(?:^|[/"'])${_VIDEO_ID}\\/`);
 
+// En los resultados de BÚSQUEDA el sitio no siempre enlaza a /video.x/slug:
+// según a quién le sirva la página, las tarjetas apuntan a
+// /search-video/<blob>, un enlace ofuscado (datos comprimidos en base64) que
+// redirige a la ficha real del vídeo.
+//
+// Esto fue la causa del "anda en Windows y da cero en Android": midiendo la
+// MISMA búsqueda en los dos, las dos páginas traían 31 tarjetas y 2 perfiles,
+// pero Windows recibía 54 enlaces /video.x/ y el teléfono ninguno — porque los
+// suyos venían en esta otra forma. No era la red, ni el motor de JS, ni el
+// parser: era un esquema de enlace que no estaba contemplado.
+//
+// No hay que descomprimir nada: se usa la url tal cual y el propio sitio
+// redirige al pedirla.
+const _SEARCH_LINK = '/search-video/';
+
 // ¿Este href apunta a la página de un vídeo? Se valida por forma, no por prefijo.
 function _isVideoHref(href: string): boolean {
   if (!href) return false;
   const clean = href.split('\\/').join('/');
+  if (clean.indexOf(_SEARCH_LINK) !== -1) return true;
   // Descartar cosas como /videos-i-like, que empiezan igual pero no son vídeos.
   return _RE_ID_ANY.test(clean) || _RE_ID_ANY.test(`/${clean}`);
 }
@@ -79,6 +95,11 @@ function _isVideoHref(href: string): boolean {
 // Lleva cualquier forma de href a una URL absoluta del host principal.
 function _absolutize(href: string): string {
   const clean = href.split('\\/').join('/').split('?')[0].split('#')[0];
+  // Los enlaces /search-video/<blob> se dejan INTACTOS: el blob es el
+  // identificador y recortarlo rompería el enlace. Al pedir esa url el sitio
+  // redirige solo a la ficha real, así que detail() y watch() funcionan igual.
+  const sv = clean.indexOf(_SEARCH_LINK);
+  if (sv !== -1) return `${BASE}${clean.slice(sv)}`;
   const at = clean.search(new RegExp(_VIDEO_ID));
   if (at < 0) return `${BASE}/${clean.replace(/^\/+/, '')}`;
   return `${BASE}/${clean.slice(at)}`;
