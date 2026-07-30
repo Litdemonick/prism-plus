@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         TuMangaOnline
-// @version      1.0.6
+// @version      1.0.7
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -339,13 +339,16 @@ async function createFilter() {
   };
 }
 async function detail(url) {
-  var _a, _b, _c, _d, _e, _f, _g, _h;
+  var _a, _b, _c, _d, _e, _f, _g;
   const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
-  const title = (_c = (_b = (_a = /<h1 class="element-title my-2">\s*([^<]+?)\s*<\/h1>/i.exec(html)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : "";
-  const cover = (_d = /<img class="book-thumbnail" src="([^"]+)"/i.exec(html)) == null ? void 0 : _d[1];
+  const titleHtml = (_b = (_a = /<h1 class="element-title[^"]*">([\s\S]*?)<\/h1>/i.exec(html)) == null ? void 0 : _a[1]) != null ? _b : "";
+  const title = decodeEntities(
+    stripTags(titleHtml.replace(/<small[\s\S]*?<\/small>/gi, ""))
+  ).trim();
+  const cover = (_c = /<img class="book-thumbnail" src="([^"]+)"/i.exec(html)) == null ? void 0 : _c[1];
   const description = stripTags(
-    (_f = (_e = /<p class="element-description[^"]*" id="manga-synopsis">([\s\S]*?)<\/p>/i.exec(html)) == null ? void 0 : _e[1]) != null ? _f : ""
+    (_e = (_d = /<p class="element-description[^"]*" id="manga-synopsis">([\s\S]*?)<\/p>/i.exec(html)) == null ? void 0 : _d[1]) != null ? _e : ""
   ).trim();
   const genres = [];
   for (const m of html.matchAll(
@@ -353,7 +356,7 @@ async function detail(url) {
   )) {
     genres.push(decodeEntities(m[1].trim()));
   }
-  const statusText = (_h = (_g = /class="book-status [a-z]+">(?:[\s\S]*?<\/span>)?\s*([^<]+)</i.exec(html)) == null ? void 0 : _g[1]) == null ? void 0 : _h.trim();
+  const statusText = (_g = (_f = /class="book-status [a-z]+">(?:[\s\S]*?<\/span>)?\s*([^<]+)</i.exec(html)) == null ? void 0 : _f[1]) == null ? void 0 : _g.trim();
   const status = statusText === "En curso" ? "ongoing" : statusText === "Completado" ? "completed" : statusText === "Finalizado" ? "completed" : statusText === "Hiatus" ? "hiatus" : void 0;
   const episodes = [];
   const chapterRe = /data-number="([0-9.]+)">\s*Capítulo [0-9.]+\s*<\/span>[\s\S]*?<a href="(https:\/\/zonatmo\.org\/view_uploads\/\d+)" class="btn btn-sm btn-primary">/g;

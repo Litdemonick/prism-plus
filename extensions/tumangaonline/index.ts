@@ -158,7 +158,17 @@ export async function detail(url: string): Promise<PrismDetail> {
   const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
 
-  const title = /<h1 class="element-title my-2">\s*([^<]+?)\s*<\/h1>/i.exec(html)?.[1]?.trim() ?? '';
+  // El <h1> del título NO contiene solo texto: trae un <small>(2022)</small>
+  // con el año adentro. El patrón anterior exigía </h1> justo después del
+  // texto ([^<]+? no puede cruzar una etiqueta), así que no matcheaba nunca y
+  // el detalle quedaba sin título — y como el Historial/Favoritos guardan el
+  // título que viene del detalle, la card del Home también salía en blanco.
+  // Se toma todo el interior del h1, se descarta el <small> del año y se
+  // limpian etiquetas por si el sitio agrega alguna más.
+  const titleHtml = /<h1 class="element-title[^"]*">([\s\S]*?)<\/h1>/i.exec(html)?.[1] ?? '';
+  const title = decodeEntities(
+    stripTags(titleHtml.replace(/<small[\s\S]*?<\/small>/gi, '')),
+  ).trim();
   const cover = /<img class="book-thumbnail" src="([^"]+)"/i.exec(html)?.[1];
   const description = stripTags(
     /<p class="element-description[^"]*" id="manga-synopsis">([\s\S]*?)<\/p>/i.exec(html)?.[1] ?? '',

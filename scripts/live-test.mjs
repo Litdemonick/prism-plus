@@ -367,7 +367,18 @@ async function checkExtension(inst, pkg) {
         const d = await withTimeout(inst.detail(item.url), 90000, 'detail');
         const groups = Array.isArray(d?.episodes) ? d.episodes : [];
         const count = groups.reduce((n, g) => n + (g?.urls?.length ?? 0), 0);
-        best = { count, title: d?.title ?? item.title };
+        best = {
+          count,
+          // OJO: el título del DETALLE, sin caer al del listado. La app guarda
+          // en Historial/Favoritos el que devuelve detail(), así que si acá
+          // viene vacío la card del Home sale sin título aunque el listado se
+          // vea perfecto (pasó con TuMangaOnline: el <h1> traía un <small>
+          // con el año adentro y el patrón no matcheaba). Enmascararlo con el
+          // título del listado era justo lo que ocultaba el bug.
+          title: typeof d?.title === 'string' ? d.title.trim() : '',
+          cover: typeof d?.cover === 'string' ? d.cover.trim() : '',
+          probed: item,
+        };
         if (count > 0) break;
       } catch (e) {
         best = best ?? { count: 0, error: short(e) };
@@ -376,6 +387,21 @@ async function checkExtension(inst, pkg) {
     if (!best) add('detail', false, 'no había ítems para probar');
     else if (best.count > 0) add('detail', true, `${best.count} capítulos/episodios`);
     else add('detail', false, best.error ?? 'ningún ítem devolvió capítulos');
+
+    // 6b. El detalle tiene que traer título y portada propios.
+    if (best?.probed) {
+      if (best.title) {
+        add('detail — título', true, JSON.stringify(best.title));
+      } else {
+        add(
+          'detail — título',
+          false,
+          `detail() devolvió título vacío para ${best.probed.url}`,
+        );
+      }
+      if (best.cover) add('detail — portada', true, 'ok');
+      else add('detail — portada', false, `detail() devolvió portada vacía para ${best.probed.url}`);
+    }
   } catch (e) {
     add('detail', false, short(e));
   }
