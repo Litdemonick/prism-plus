@@ -24,20 +24,20 @@
     "lastReason": "broken"
   },
   "io.prismhub.shademanga": {
-    "consecutiveFailures": 4,
-    "lastReason": "broken"
+    "consecutiveFailures": 0,
+    "lastReason": null
   },
   "io.prismhub.tioanime": {
     "consecutiveFailures": 0,
     "lastReason": null
   },
   "io.prismhub.tumangaonline": {
-    "consecutiveFailures": 4,
-    "lastReason": "broken"
+    "consecutiveFailures": 0,
+    "lastReason": null
   },
   "io.prismhub.veohentai": {
-    "consecutiveFailures": 3,
-    "lastReason": "broken"
+    "consecutiveFailures": 0,
+    "lastReason": null
   },
   "io.prismhub.xvideos": {
     "consecutiveFailures": 0,
