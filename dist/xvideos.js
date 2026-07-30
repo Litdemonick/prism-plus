@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         XVideos
-// @version      1.0.5
+// @version      1.0.6
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -8,7 +8,7 @@
 // @type         bangumi
 // @nsfw         true
 // @webSite      https://www.xvideos.com
-// @description  Vídeos para adultos con buscador, filtros de orden, duración y calidad, y reproducción directa (contenido +18). [1.0.4 incluye diagnóstico temporal]
+// @description  Vídeos para adultos con buscador, filtros de categoría, orden, duración y calidad, y reproducción directa (contenido +18).
 // ==/PrismHubExtension==
 // sdk/html.ts
 function stripTags(html) {
@@ -162,9 +162,16 @@ async function _get(url) {
     return raw;
   }
 }
+var _VIDEO_PATH = "\\/video(?:[.\\-][a-z0-9]+|\\d+)";
+var _RE_PATH = new RegExp(`(${_VIDEO_PATH}\\/[^"?#]*)`);
+var _RE_HREF = new RegExp(
+  `href="((?:https?:\\/\\/[^/"]+)?${_VIDEO_PATH}\\/[^"?#]*)"`
+);
+var _RE_LOOSE = new RegExp(`${_VIDEO_PATH}\\/[a-z0-9_\\-]+`, "g");
+var _RE_COUNT = new RegExp(`${_VIDEO_PATH}\\/`, "g");
 function _normalizeUrl(url) {
   var _a;
-  const path = (_a = /(\/video[.\-][a-z0-9]+\/[^"?#]*)/.exec(url)) == null ? void 0 : _a[1];
+  const path = (_a = _RE_PATH.exec(url)) == null ? void 0 : _a[1];
   if (path) return `${BASE}${path}`;
   if (url.indexOf("http") === 0) return url;
   return `${BASE}${url.startsWith("/") ? "" : "/"}${url}`;
@@ -178,7 +185,7 @@ function _parseList(html) {
   const seen = {};
   for (let i = 1; i < chunks.length; i++) {
     const chunk = chunks[i];
-    const href = (_a = /href="((?:https?:\/\/[^/"]+)?\/video[.\-][a-z0-9]+\/[^"?#]*)"/.exec(chunk)) == null ? void 0 : _a[1];
+    const href = (_a = _RE_HREF.exec(chunk)) == null ? void 0 : _a[1];
     if (!href) continue;
     const url = _normalizeUrl(href);
     if (seen[url]) continue;
@@ -199,7 +206,7 @@ function _parseList(html) {
 function _parseListLoose(html) {
   const items = [];
   const seen = {};
-  for (const m of html.matchAll(/\/video[.\-][a-z0-9]+\/[a-z0-9_\-]+/g)) {
+  for (const m of html.matchAll(_RE_LOOSE)) {
     const url = `${BASE}${m[0]}`;
     if (seen[url]) continue;
     seen[url] = true;
@@ -248,33 +255,8 @@ async function search(keyword, page, filter) {
   const items = _parseList(html);
   if (items.length > 0) return items;
   const ampHtml = await _get(`${AMP}/?${query}`);
-  const ampItems = _parseList(ampHtml);
-  if (ampItems.length > 0) return ampItems;
-  return _diagnostic("search", [
-    [`${BASE}/?${query}`, html],
-    [`${AMP}/?${query}`, ampHtml]
-  ]);
+  return _parseList(ampHtml);
 }
-function _diagnostic(step, tries) {
-  var _a, _b, _c, _d;
-  const parts = [];
-  for (const [url, html] of tries) {
-    const host = (_b = (_a = /https?:\/\/([^/]+)/.exec(url)) == null ? void 0 : _a[1]) != null ? _b : url;
-    const body = html != null ? html : "";
-    const links = (_d = (_c = body.match(/\/video[.\-][a-z0-9]+\//g)) == null ? void 0 : _c.length) != null ? _d : 0;
-    const marker = body.indexOf("thumb-block") !== -1 ? "thumb-block" : body.indexOf("video-thumb") !== -1 ? "video-thumb" : "sin-marcador";
-    parts.push(`${host}: ${body.length}b, ${marker}, ${links} enlaces`);
-  }
-  const text = `${step}: ${parts.join("  ||  ")}`;
-  return [
-    {
-      title: "\u26A0 Abr\xED esto \u2014 diagn\xF3stico",
-      url: `${BASE}/?${_DIAG_PARAM}=${encodeURIComponent(text)}`,
-      description: text
-    }
-  ];
-}
-var _DIAG_PARAM = "prismdiag";
 var _ORDER_OPTIONS = {
   "": "Relevancia",
   uploaddate: "M\xE1s recientes",
@@ -341,29 +323,21 @@ function _videoJsonLd(html) {
   return html.slice(start, end);
 }
 async function detail(url) {
-  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o;
-  const diag = (_a = new RegExp(`[?&]${_DIAG_PARAM}=([^&]+)`).exec(url)) == null ? void 0 : _a[1];
-  if (diag) {
-    return {
-      title: "Diagn\xF3stico XVideos",
-      description: decodeURIComponent(diag),
-      episodes: []
-    };
-  }
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
   const fullUrl = _normalizeUrl(url);
   const html = await _get(fullUrl);
   const ld = _videoJsonLd(html);
-  const name = (_g = (_f = (_d = (_b = /"name":\s*"((?:[^"\\]|\\.)*)"/.exec(ld)) == null ? void 0 : _b[1]) != null ? _d : (_c = /property="og:title"\s+content="([^"]*)"/i.exec(html)) == null ? void 0 : _c[1]) != null ? _f : (_e = /<title>([\s\S]*?)<\/title>/i.exec(html)) == null ? void 0 : _e[1]) != null ? _g : "";
+  const name = (_f = (_e = (_c = (_a = /"name":\s*"((?:[^"\\]|\\.)*)"/.exec(ld)) == null ? void 0 : _a[1]) != null ? _c : (_b = /property="og:title"\s+content="([^"]*)"/i.exec(html)) == null ? void 0 : _b[1]) != null ? _e : (_d = /<title>([\s\S]*?)<\/title>/i.exec(html)) == null ? void 0 : _d[1]) != null ? _f : "";
   const title = decodeEntities(
     name.replace(/\\"/g, '"').replace(/\\\//g, "/").replace(/\s*-\s*XVIDEOS\.COM\s*$/i, "").trim()
   );
   const description = decodeEntities(
-    ((_i = (_h = /"description":\s*"((?:[^"\\]|\\.)*)"/.exec(ld)) == null ? void 0 : _h[1]) != null ? _i : "").replace(/\\"/g, '"').replace(/\\\//g, "/").trim()
+    ((_h = (_g = /"description":\s*"((?:[^"\\]|\\.)*)"/.exec(ld)) == null ? void 0 : _g[1]) != null ? _h : "").replace(/\\"/g, '"').replace(/\\\//g, "/").trim()
   );
-  const cover = (_k = (_j = /"thumbnailUrl":\s*\[?\s*"([^"]+)"/.exec(ld)) == null ? void 0 : _j[1]) == null ? void 0 : _k.replace(/\\\//g, "/");
+  const cover = (_j = (_i = /"thumbnailUrl":\s*\[?\s*"([^"]+)"/.exec(ld)) == null ? void 0 : _i[1]) == null ? void 0 : _j.replace(/\\\//g, "/");
   const durM = /"duration":\s*"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?"/.exec(ld);
-  const seconds = durM ? Number((_l = durM[1]) != null ? _l : 0) * 3600 + Number((_m = durM[2]) != null ? _m : 0) * 60 + Number((_n = durM[3]) != null ? _n : 0) : void 0;
-  const yearM = (_o = /"uploadDate":\s*"(\d{4})/.exec(ld)) == null ? void 0 : _o[1];
+  const seconds = durM ? Number((_k = durM[1]) != null ? _k : 0) * 3600 + Number((_l = durM[2]) != null ? _l : 0) * 60 + Number((_m = durM[3]) != null ? _m : 0) : void 0;
+  const yearM = (_n = /"uploadDate":\s*"(\d{4})/.exec(ld)) == null ? void 0 : _n[1];
   const tags = [];
   for (const m of html.matchAll(/href="\/(?:tags|c)\/([a-z0-9\-]+)"/g)) {
     const t = m[1].replace(/-\d+$/, "").replace(/-/g, " ");

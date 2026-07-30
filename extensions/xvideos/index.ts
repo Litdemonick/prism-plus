@@ -24,11 +24,31 @@ async function _get(url: string): Promise<string> {
   }
 }
 
+// El sitio NO usa un único formato de URL de vídeo. Su propio JS reconoce
+// /video12345/ y /video-abc123/, y además sirve /video.abc123/. Cuál te toca
+// depende de la sesión/cliente, no de la plataforma: la PC recibía la variante
+// con PUNTO y el celular la NUMÉRICA, con el mismo bundle.
+//
+// Ese era el bug de "anda en Windows y devuelve cero en Android": el patrón de
+// acá exigía un `.` o un `-` justo después de "video", así que en el teléfono no
+// reconocía NINGÚN enlace. Se midió en el propio dispositivo: llegaban 125 KB
+// con las cards presentes (el marcador thumb-block estaba) y 0 enlaces
+// reconocidos. No era la red, ni el User-Agent, ni el motor de JS.
+//
+// Un solo patrón compartido por todos los usos, para que no vuelvan a divergir.
+const _VIDEO_PATH = '\\/video(?:[.\\-][a-z0-9]+|\\d+)';
+const _RE_PATH = new RegExp(`(${_VIDEO_PATH}\\/[^"?#]*)`);
+const _RE_HREF = new RegExp(
+  `href="((?:https?:\\/\\/[^/"]+)?${_VIDEO_PATH}\\/[^"?#]*)"`,
+);
+const _RE_LOOSE = new RegExp(`${_VIDEO_PATH}\\/[a-z0-9_\\-]+`, 'g');
+const _RE_COUNT = new RegExp(`${_VIDEO_PATH}\\/`, 'g');
+
 // Los listados AMP enlazan a un dominio espejo (xvv1deos.com). Se normaliza todo
 // al host principal para que detalle y reproducción peguen siempre al mismo
 // sitio, sin importar de qué listado salió la card.
 function _normalizeUrl(url: string): string {
-  const path = /(\/video[.\-][a-z0-9]+\/[^"?#]*)/.exec(url)?.[1];
+  const path = _RE_PATH.exec(url)?.[1];
   if (path) return `${BASE}${path}`;
   if (url.indexOf('http') === 0) return url;
   return `${BASE}${url.startsWith('/') ? '' : '/'}${url}`;
@@ -60,7 +80,7 @@ function _parseList(html: string): PrismItem[] {
   const seen: Record<string, boolean> = {};
   for (let i = 1; i < chunks.length; i++) {
     const chunk = chunks[i];
-    const href = /href="((?:https?:\/\/[^/"]+)?\/video[.\-][a-z0-9]+\/[^"?#]*)"/.exec(chunk)?.[1];
+    const href = _RE_HREF.exec(chunk)?.[1];
     if (!href) continue;
     const url = _normalizeUrl(href);
     if (seen[url]) continue;
@@ -107,7 +127,7 @@ function _parseList(html: string): PrismItem[] {
 function _parseListLoose(html: string): PrismItem[] {
   const items: PrismItem[] = [];
   const seen: Record<string, boolean> = {};
-  for (const m of html.matchAll(/\/video[.\-][a-z0-9]+\/[a-z0-9_\-]+/g)) {
+  for (const m of html.matchAll(_RE_LOOSE)) {
     const url = `${BASE}${m[0]}`;
     if (seen[url]) continue;
     seen[url] = true;
@@ -186,56 +206,8 @@ export async function search(
 
   // Respaldo por host AMP — ver el comentario de la constante AMP.
   const ampHtml = await _get(`${AMP}/?${query}`);
-  const ampItems = _parseList(ampHtml);
-  if (ampItems.length > 0) return ampItems;
-
-  return _diagnostic('search', [
-    [`${BASE}/?${query}`, html],
-    [`${AMP}/?${query}`, ampHtml],
-  ]);
+  return _parseList(ampHtml);
 }
-
-// ─── Diagnóstico temporal ───────────────────────────────────────────────────
-// TEMPORAL — sacar cuando se resuelva lo de Android.
-//
-// Por qué existe: la búsqueda funciona en Windows y devuelve cero en Android con
-// el MISMO bundle, y desde afuera no hay forma de ver qué recibe el teléfono —
-// la pantalla de depuración con el log de red de la app usa
-// desktop_multi_window, o sea que SOLO existe en escritorio.
-//
-// Entonces, cuando el resultado sería vacío (y solo ahí: nunca tapa resultados
-// reales), en vez de no devolver nada se devuelve una tarjeta cuyo título dice
-// qué llegó de verdad: cuántos bytes, si el HTML trae los marcadores que busca
-// el parser y si hay enlaces de vídeo. Con eso se distingue "no llegó nada",
-// "llegó una página de error", "llegó la página pero con otro maquetado" y
-// "llegó bien pero el parser falló" — sin adivinar.
-function _diagnostic(step: string, tries: [string, string][]): PrismItem[] {
-  const parts: string[] = [];
-  for (const [url, html] of tries) {
-    const host = /https?:\/\/([^/]+)/.exec(url)?.[1] ?? url;
-    const body = html ?? '';
-    const links = body.match(/\/video[.\-][a-z0-9]+\//g)?.length ?? 0;
-    const marker = body.indexOf('thumb-block') !== -1
-      ? 'thumb-block'
-      : body.indexOf('video-thumb') !== -1
-        ? 'video-thumb'
-        : 'sin-marcador';
-    parts.push(`${host}: ${body.length}b, ${marker}, ${links} enlaces`);
-  }
-  const text = `${step}: ${parts.join('  ||  ')}`;
-  // El título de la card se corta a dos líneas en el celular, así que el texto
-  // completo viaja en la URL y detail() lo muestra como descripción, que sí se
-  // lee entera. La card solo invita a abrirla.
-  return [
-    {
-      title: '⚠ Abrí esto — diagnóstico',
-      url: `${BASE}/?${_DIAG_PARAM}=${encodeURIComponent(text)}`,
-      description: text,
-    },
-  ];
-}
-
-const _DIAG_PARAM = 'prismdiag';
 
 // ─── Filtros ────────────────────────────────────────────────────────────────
 
@@ -331,19 +303,6 @@ function _videoJsonLd(html: string): string {
 // detalle expone UN único "episodio" que apunta al propio vídeo. Es lo que
 // necesita el cliente para abrir el reproductor desde la ficha.
 export async function detail(url: string): Promise<PrismDetail> {
-  // TEMPORAL (ver _diagnostic): la card de diagnóstico lleva el texto en la URL
-  // porque su título se corta a dos líneas en el celular. Acá se decodifica y se
-  // devuelve como descripción, sin pedir nada a la red — así se lee completo
-  // desde la pestaña "Descripción general".
-  const diag = new RegExp(`[?&]${_DIAG_PARAM}=([^&]+)`).exec(url)?.[1];
-  if (diag) {
-    return {
-      title: 'Diagnóstico XVideos',
-      description: decodeURIComponent(diag),
-      episodes: [],
-    };
-  }
-
   const fullUrl = _normalizeUrl(url);
   const html = await _get(fullUrl);
 

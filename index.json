@@ -162,18 +162,18 @@
     {
       "name": "XVideos",
       "package": "io.prismhub.xvideos",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
-      "description": "Vídeos para adultos con buscador, filtros de orden, duración y calidad, y reproducción directa (contenido +18). [1.0.4 incluye diagnóstico temporal]",
+      "description": "Vídeos para adultos con buscador, filtros de categoría, orden, duración y calidad, y reproducción directa (contenido +18).",
       "lang": "es",
       "webSite": "https://www.xvideos.com",
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/xvideos.js",
-      "sha256": "59f48a1ccff926ce0c16514fd393164e4fabe3487978250510a1448185b56857",
-      "signature": "f5sk3OcHCw5xP8Sa02h0aqP3Td/32NlcrD+Ke3VXWbIJ5fpC+GD4xID0CF89Z+DNFHMXHMyOcLJUJz5IEw+jBQ=="
+      "sha256": "2e84e13b384791a5d080e4e5d564e6345d88ac913ab126de08aea05c57819d27",
+      "signature": "TVuJhAzuiLHMPnxBbXEWReMJzCpEu+IGOsolgrQokkRThZ5n0+EM0n2oxu9IDFlUiAfKD2I78IEQgDferAMLBA=="
     },
     {
       "name": "LaMovie",
