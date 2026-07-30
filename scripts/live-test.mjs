@@ -228,10 +228,31 @@ async function checkExtension(inst, pkg) {
     add('search', false, short(e));
   }
 
-  // 5. Cada filtro APLICADO de verdad tiene que devolver resultados — es el
-  //    chequeo que asegura que la extensión entrega todo su contenido y no
-  //    solo la portada.
+  // 5. Cada filtro APLICADO de verdad tiene que devolver resultados Y cambiar
+  //    algo. Que devuelva resultados no alcanza: si el sitio IGNORA el
+  //    parámetro, responde el catálogo completo y el filtro "pasaría" la
+  //    prueba estando roto. Pasó de verdad — `status` y `category` en hentaila
+  //    y `datef` en xvideos se aceptan pero no filtran nada, y solo se
+  //    detectaron comparando a mano contra el total sin filtrar.
+  //
+  //    Así que se compara contra una línea base sin filtros. Se compara la
+  //    SECUENCIA de urls, no el conjunto: un filtro de orden devuelve los
+  //    mismos títulos en otro orden, y eso es un efecto real y válido.
   if (filters) {
+    let baseline = null;
+    try {
+      const items = await retry(
+        () => withTimeout(inst.search('', 1, {}), 60000, 'base sin filtros'),
+        { attempts: 2, label: 'base sin filtros' },
+      );
+      if (Array.isArray(items) && items.length > 0) {
+        baseline = items.map((it) => it?.url ?? '').join('|');
+      }
+    } catch {
+      // Si la línea base falla se sigue sin ella: mejor comprobar solo que el
+      // filtro devuelve resultados que marcar un fallo falso por un hipo de red.
+    }
+
     for (const key of Object.keys(filters)) {
       const f = filters[key];
       const options = Object.keys(f.options || {}).filter((o) => o !== (f.default ?? ''));
@@ -243,7 +264,39 @@ async function checkExtension(inst, pkg) {
           () => withTimeout(inst.search('', 1, { [key]: [pick] }), 60000, label),
           { attempts: 2, label },
         );
-        add(label, Array.isArray(items) && items.length > 0, `${items?.length ?? 0} ítems`);
+        const n = Array.isArray(items) ? items.length : 0;
+        if (n === 0) {
+          add(label, false, '0 ítems');
+          continue;
+        }
+        if (baseline !== null && items.map((it) => it?.url ?? '').join('|') === baseline) {
+          // Sin efecto con el buscador vacío no significa roto: hay sitios donde
+          // ciertos filtros solo existen en la PÁGINA DE BÚSQUEDA y no en el
+          // listado (en xvideos, orden/duración/calidad son parámetros de
+          // ?k=...). Antes de acusar al filtro se reintenta con palabra, contra
+          // su propia línea base.
+          const withKw = await retry(
+            () => withTimeout(inst.search(keyword, 1, { [key]: [pick] }), 60000, label),
+            { attempts: 2, label },
+          );
+          const kwBase = await retry(
+            () => withTimeout(inst.search(keyword, 1, {}), 60000, label),
+            { attempts: 2, label },
+          );
+          const a = (Array.isArray(withKw) ? withKw : []).map((it) => it?.url ?? '').join('|');
+          const b = (Array.isArray(kwBase) ? kwBase : []).map((it) => it?.url ?? '').join('|');
+          if (a && a !== b) {
+            add(label, true, `${withKw.length} ítems (solo aplica con búsqueda)`);
+          } else {
+            add(
+              label,
+              false,
+              `${n} ítems pero IDÉNTICOS a sin filtrar, con y sin búsqueda — el sitio ignora este filtro`,
+            );
+          }
+          continue;
+        }
+        add(label, true, `${n} ítems${baseline === null ? ' (sin línea base)' : ''}`);
       } catch (e) {
         add(label, false, short(e));
       }
