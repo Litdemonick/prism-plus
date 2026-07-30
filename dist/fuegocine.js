@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.1.4
+// @version      1.1.5
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -26,6 +26,9 @@ var __spreadValues = (a, b) => {
     }
   return a;
 };
+
+// sdk/http.ts
+var DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 // sdk/html.ts
 function decodeEntities(html) {
@@ -551,7 +554,13 @@ var HOST = "fuegocine.com";
 async function _get(url) {
   const raw = await sendMessage(
     "request",
-    JSON.stringify([url, { method: "get", headers: { Referer: `${BASE}/` } }])
+    JSON.stringify([
+      url,
+      {
+        method: "get",
+        headers: { Referer: `${BASE}/`, "User-Agent": DESKTOP_UA }
+      }
+    ])
   );
   try {
     return JSON.parse(raw);

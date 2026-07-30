@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeFenix
-// @version      1.1.1
+// @version      1.1.2
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -26,6 +26,9 @@ var __spreadValues = (a, b) => {
     }
   return a;
 };
+
+// sdk/http.ts
+var DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 // sdk/html.ts
 function stripTags(html) {
@@ -559,7 +562,15 @@ async function _get(url, extraHeaders) {
     "request",
     JSON.stringify([
       url,
-      { method: "get", headers: __spreadValues({ Referer: `${BASE}/` }, extraHeaders != null ? extraHeaders : {}) }
+      {
+        method: "get",
+        // DESKTOP_UA va ANTES del spread para que un extraHeaders con su propio
+        // User-Agent lo siga pisando (lo usan los resolvers de servidores).
+        headers: __spreadValues({
+          Referer: `${BASE}/`,
+          "User-Agent": DESKTOP_UA
+        }, extraHeaders != null ? extraHeaders : {})
+      }
     ])
   );
   try {

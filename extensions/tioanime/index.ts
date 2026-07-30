@@ -1,3 +1,4 @@
+import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities, stripTags } from '../../sdk/html';
 import { resolveEmbed } from '../../sdk/embeds';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode } from '../../sdk/types';
@@ -9,7 +10,13 @@ const BASE = 'https://tioanime.com';
 async function _get(url: string): Promise<string> {
   const raw = await sendMessage(
     'request',
-    JSON.stringify([url, { method: 'get', headers: { Referer: `${BASE}/` } }]),
+    JSON.stringify([
+      url,
+      {
+        method: 'get',
+        headers: { Referer: `${BASE}/`, 'User-Agent': DESKTOP_UA },
+      },
+    ]),
   );
   try {
     return JSON.parse(raw);

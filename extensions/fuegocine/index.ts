@@ -1,3 +1,4 @@
+import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities } from '../../sdk/html';
 import { resolveEmbed, b64decode } from '../../sdk/embeds';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode, PrismSeason } from '../../sdk/types';
@@ -10,7 +11,13 @@ const HOST = 'fuegocine.com';
 async function _get(url: string): Promise<string> {
   const raw = await sendMessage(
     'request',
-    JSON.stringify([url, { method: 'get', headers: { Referer: `${BASE}/` } }]),
+    JSON.stringify([
+      url,
+      {
+        method: 'get',
+        headers: { Referer: `${BASE}/`, 'User-Agent': DESKTOP_UA },
+      },
+    ]),
   );
   try {
     return JSON.parse(raw);

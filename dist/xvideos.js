@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         XVideos
-// @version      1.1.0
+// @version      1.1.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -10,6 +10,9 @@
 // @webSite      https://www.xvideos.com
 // @description  Vídeos para adultos con buscador, filtros de categoría, orden, duración y calidad, y reproducción directa (contenido +18).
 // ==/PrismHubExtension==
+// sdk/http.ts
+var DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
 // sdk/html.ts
 function stripTags(html) {
   return html.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
@@ -150,7 +153,6 @@ var _NAMED_ENTITIES = {
 // extensions/xvideos/index.ts
 var BASE = "https://www.xvideos.com";
 var AMP = "https://amp.xvideos.com";
-var _DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 async function _get(url) {
   const raw = await sendMessage(
     "request",
@@ -158,7 +160,7 @@ async function _get(url) {
       url,
       {
         method: "get",
-        headers: { Referer: `${BASE}/`, "User-Agent": _DESKTOP_UA }
+        headers: { Referer: `${BASE}/`, "User-Agent": DESKTOP_UA }
       }
     ])
   );

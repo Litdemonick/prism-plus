@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         TuMangaOnline
-// @version      1.0.5
+// @version      1.0.6
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -10,6 +10,9 @@
 // @webSite      https://zonatmo.org
 // @description  Todo el catálogo de ZonaTMO: manga, manhwa y manhua en español, con filtros bien completos.
 // ==/PrismHubExtension==
+// sdk/http.ts
+var DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
 // sdk/html.ts
 function stripTags(html) {
   return html.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
@@ -152,7 +155,13 @@ var BASE = "https://zonatmo.org";
 async function _get(url) {
   const raw = await sendMessage(
     "request",
-    JSON.stringify([url, { method: "get", headers: { Referer: `${BASE}/` } }])
+    JSON.stringify([
+      url,
+      {
+        method: "get",
+        headers: { Referer: `${BASE}/`, "User-Agent": DESKTOP_UA }
+      }
+    ])
   );
   try {
     return JSON.parse(raw);

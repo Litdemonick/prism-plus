@@ -1,3 +1,4 @@
+import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities, stripTags } from '../../sdk/html';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream } from '../../sdk/types';
 
@@ -11,19 +12,6 @@ const BASE = 'https://www.xvideos.com';
 // caída parcial del backend de búsqueda no deja la extensión sin buscar.
 const AMP = 'https://amp.xvideos.com';
 
-// User-Agent de ESCRITORIO fijo, a propósito. El puente de la app solo completa
-// el User-Agent si la extensión no manda uno, y ahí usa el de la plataforma: el
-// de Windows en PC y uno MÓVIL en Android (ver getUASetting en
-// prismhub_storage.dart). Este sitio sirve maquetados distintos según eso, así
-// que el teléfono recibía la versión móvil —con las cards en otra forma— y el
-// parser no reconocía nada, mientras en PC funcionaba perfecto.
-//
-// Fijándolo acá, las tres plataformas piden y reciben EXACTAMENTE la misma
-// página: lo que anda en Windows anda igual en Android y Linux.
-const _DESKTOP_UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
-  '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-
 async function _get(url: string): Promise<string> {
   const raw = await sendMessage(
     'request',
@@ -31,7 +19,7 @@ async function _get(url: string): Promise<string> {
       url,
       {
         method: 'get',
-        headers: { Referer: `${BASE}/`, 'User-Agent': _DESKTOP_UA },
+        headers: { Referer: `${BASE}/`, 'User-Agent': DESKTOP_UA },
       },
     ]),
   );

@@ -1,3 +1,4 @@
+import { DESKTOP_UA } from '../../sdk/http';
 import { stripTags, decodeEntities } from '../../sdk/html';
 import { resolveEmbed, b64decode } from '../../sdk/embeds';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode } from '../../sdk/types';
@@ -23,7 +24,16 @@ async function _get(url: string, extraHeaders?: Record<string, string>): Promise
     'request',
     JSON.stringify([
       url,
-      { method: 'get', headers: { Referer: `${BASE}/`, ...(extraHeaders ?? {}) } },
+      {
+        method: 'get',
+        // DESKTOP_UA va ANTES del spread para que un extraHeaders con su propio
+        // User-Agent lo siga pisando (lo usan los resolvers de servidores).
+        headers: {
+          Referer: `${BASE}/`,
+          'User-Agent': DESKTOP_UA,
+          ...(extraHeaders ?? {}),
+        },
+      },
     ]),
   );
   try {

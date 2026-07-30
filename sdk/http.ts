@@ -2,6 +2,25 @@
 // Envuelve el fetch() inyectado por PrismHub en el runtime QuickJS.
 // Añade timeout, reintentos inteligentes, User-Agent y manejo de errores HTTP.
 
+/**
+ * User-Agent de ESCRITORIO, para las extensiones que parsean HTML.
+ *
+ * El puente de la app solo completa el User-Agent si la extensión NO manda uno,
+ * y ahí usa el de la plataforma: el de Windows en PC y uno MÓVIL en Android.
+ * Los sitios pueden servir maquetados distintos según eso, así que la misma
+ * extensión anda en la PC y devuelve cero en el celular — el bug que costó diez
+ * versiones en la extensión de xvideos.
+ *
+ * Mandándolo, las tres plataformas piden y reciben la MISMA página. Vive acá y
+ * no copiado en cada extensión para que haya un único lugar donde cambiarlo.
+ *
+ * Las extensiones que consumen una API JSON no lo necesitan: esas respuestas no
+ * dependen del maquetado.
+ */
+export const DESKTOP_UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
 // ─── Errores tipados ──────────────────────────────────────────────────────────
 
 /** Error de red o de fetch — el servidor no llegó a responder */
