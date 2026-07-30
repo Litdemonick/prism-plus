@@ -34,6 +34,15 @@ const REPORT_ONLY = args.includes('--report-only');
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
+// El User-Agent EXACTO que la app usa en Android (ver getUASetting en
+// prismhub_storage.dart). Sirve para simular el teléfono desde acá.
+const MOBILE_UA =
+  'Mozilla/5.0 (Linux; Android 13; Android) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.43 Mobile Safari/537.36';
+
+// Qué User-Agent rellena el shim cuando la extensión NO manda uno — igual que
+// hace el puente de la app. Se cambia temporalmente para el chequeo de móvil.
+let defaultUA = UA;
+
 // Palabras clave por extensión: algo que ESE catálogo sí tiene. Un término
 // genérico como "one piece" en un sitio de películas daría 0 resultados y
 // parecería un fallo cuando en realidad la extensión anda bien.
@@ -93,7 +102,9 @@ globalThis.sendMessage = async (channel, data) => {
   if (channel !== 'request') throw new Error(`canal no soportado: ${channel}`);
   const [url, opts = {}] = JSON.parse(data);
   const host = new URL(url).host;
-  const headers = { 'User-Agent': UA, ...(opts.headers || {}) };
+  // El User-Agent de la extensión pisa al de acá — igual que el puente de la
+  // app, que solo lo rellena si la extensión no manda uno.
+  const headers = { 'User-Agent': defaultUA, ...(opts.headers || {}) };
   const cookie = cookieHeaderFor(host);
   if (cookie) headers.Cookie = cookie;
   let res;
@@ -226,6 +237,47 @@ async function checkExtension(inst, pkg) {
     }
   } catch (e) {
     add('search', false, short(e));
+  }
+
+  // 4b. LA MISMA consulta con User-Agent de MÓVIL.
+  //
+  // Este chequeo existe por un bug real que costó diez versiones encontrar: la
+  // app rellena el User-Agent solo si la extensión no manda uno, y ahí usa el de
+  // la plataforma — escritorio en PC y MÓVIL en Android. Varios sitios sirven
+  // maquetados distintos según eso, así que una extensión andaba perfecto en la
+  // PC y devolvía CERO en el celular. Esta prueba corre desde una sola máquina,
+  // así que no lo veía: publicaba en verde algo que estaba roto en Android.
+  //
+  // Si la extensión fija su propio User-Agent (ver DESKTOP_UA en sdk/http), las
+  // dos corridas dan lo mismo y esto pasa sin ruido — que es justo el objetivo.
+  // Si no lo fija y el sitio responde distinto, salta ACÁ, antes de publicar.
+  if (firstPage.length > 0) {
+    try {
+      defaultUA = MOBILE_UA;
+      const mobile = await retry(
+        () => withTimeout(inst.latest(1), 60000, 'user-agent móvil'),
+        { attempts: 2, label: 'user-agent móvil' },
+      );
+      const n = Array.isArray(mobile) ? mobile.length : 0;
+      // Se compara contra la corrida de escritorio: importa la diferencia, no el
+      // número absoluto (un catálogo puede cambiar entre una y otra).
+      if (n === 0) {
+        add(
+          'user-agent móvil',
+          false,
+          `${firstPage.length} ítems desde escritorio y 0 desde móvil — ` +
+            `en Android va a aparecer vacía; fijá DESKTOP_UA en la extensión`,
+        );
+      } else {
+        add('user-agent móvil', true, `${n} ítems`);
+      }
+    } catch (e) {
+      add('user-agent móvil', false, short(e));
+    } finally {
+      // Restaurar SIEMPRE, incluso si falló: si quedara en móvil, todos los
+      // chequeos siguientes correrían con el UA equivocado.
+      defaultUA = UA;
+    }
   }
 
   // 5. Cada filtro APLICADO de verdad tiene que devolver resultados Y cambiar
