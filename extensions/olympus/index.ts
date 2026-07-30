@@ -77,7 +77,6 @@ export async function search(
   page: number,
   filter?: Record<string, string[]>,
 ): Promise<PrismItem[]> {
-  const genero = filter?.['genero']?.[0] ?? '';
   const estado = filter?.['estado']?.[0] ?? '';
   // Confirmado en vivo contra /api/series: direction=asc/desc sí cambia el
   // orden (alfabético A-Z / Z-A) — antes quedaba fijo en "asc". `sort=views`
@@ -92,7 +91,6 @@ export async function search(
     // defined" apenas se ejercita esta rama con un filtro puesto y sin
     // palabra clave).
     const parts = [`page=${page}`, `direction=${direction}`, 'type=comic'];
-    if (genero) parts.push(`genres=${encodeURIComponent(genero)}`);
     if (estado) parts.push(`status=${encodeURIComponent(estado)}`);
     const d = await _get<{ data: { series: { data: OlympusListItem[] } } }>(
       `${BASE}/api/series?${parts.join('&')}`,
@@ -121,14 +119,19 @@ export async function createFilter(): Promise<Record<string, unknown>> {
     statuses: { id: number; name: string }[];
   }>(`${BASE}/api/genres-statuses`);
 
-  const generoOptions: Record<string, string> = { '': 'Todos' };
-  for (const g of d.genres || []) generoOptions[String(g.id)] = g.name.trim();
-
   const estadoOptions: Record<string, string> = { '': 'Todos' };
   for (const s of d.statuses || []) estadoOptions[String(s.id)] = s.name.trim();
 
+  // El filtro de GÉNERO se quitó: /api/series lo ignora. Se probaron doce
+  // formas contra la API real —genres, genres[], genre, genre_id, genre_ids,
+  // genders, por id, por nombre, por slug y separadas por coma— y las doce
+  // devuelven exactamente los mismos 29 ítems que sin filtro (filter[genres]
+  // devuelve 0, o sea que es un error, no un filtro).
+  //
+  // Ofrecerlo igual sería peor que no tenerlo: el usuario elige "Acción" y
+  // recibe el catálogo entero sin ninguna señal de que no pasó nada. La lista de
+  // géneros sigue estando en el detalle de cada obra, que sí la trae.
   return {
-    genero: { title: 'Género', options: generoOptions, default: '', min: 1, max: 1 },
     estado: { title: 'Estado', options: estadoOptions, default: '', min: 1, max: 1 },
     direction: {
       title: 'Orden',
