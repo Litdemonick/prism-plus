@@ -93,5 +93,46 @@ export function decodeEntities(html: string): string {
     // común en nombres de reparto/directores) — confirmado en vivo que
     // faltaba, dejaba el código crudo sin decodificar en vez del carácter.
     .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
-    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    // Entidades NOMBRADAS. Faltaban por completo y los sitios de este repo son
+    // casi todos en español, donde aparecen a cada rato: un título real de
+    // xvideos llegaba como "Pendeja de 18 a&ntilde;os ... polla gorda&excl;"
+    // (confirmado en vivo). Es aditivo — antes esos códigos quedaban crudos, así
+    // que no hay comportamiento previo que dependa de ellos. Las que no estén en
+    // la tabla se dejan intactas en vez de romperlas.
+    .replace(
+      /&([a-zA-Z][a-zA-Z0-9]*);/g,
+      (m, name: string) => _NAMED_ENTITIES[name] ?? m,
+    );
 }
+
+const _NAMED_ENTITIES: Record<string, string> = {
+  // Vocales acentuadas y eñe — el caso común en español
+  aacute: 'á', eacute: 'é', iacute: 'í', oacute: 'ó', uacute: 'ú',
+  Aacute: 'Á', Eacute: 'É', Iacute: 'Í', Oacute: 'Ó', Uacute: 'Ú',
+  ntilde: 'ñ', Ntilde: 'Ñ', uuml: 'ü', Uuml: 'Ü',
+  // Otros idiomas latinos que aparecen en títulos (francés, portugués, alemán)
+  agrave: 'à', egrave: 'è', igrave: 'ì', ograve: 'ò', ugrave: 'ù',
+  Agrave: 'À', Egrave: 'È', Igrave: 'Ì', Ograve: 'Ò', Ugrave: 'Ù',
+  acirc: 'â', ecirc: 'ê', icirc: 'î', ocirc: 'ô', ucirc: 'û',
+  Acirc: 'Â', Ecirc: 'Ê', Icirc: 'Î', Ocirc: 'Ô', Ucirc: 'Û',
+  atilde: 'ã', otilde: 'õ', Atilde: 'Ã', Otilde: 'Õ',
+  auml: 'ä', ouml: 'ö', Auml: 'Ä', Ouml: 'Ö',
+  ccedil: 'ç', Ccedil: 'Ç', szlig: 'ß', aring: 'å', Aring: 'Å',
+  aelig: 'æ', AElig: 'Æ', oslash: 'ø', Oslash: 'Ø',
+  // Signos y puntuación
+  iexcl: '¡', iquest: '¿', excl: '!', quest: '?',
+  ordf: 'ª', ordm: 'º', deg: '°', laquo: '«', raquo: '»',
+  hellip: '…', mdash: '—', ndash: '–', minus: '−',
+  lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”',
+  bull: '•', middot: '·', sbquo: '‚', bdquo: '„',
+  apos: "'", lpar: '(', rpar: ')', comma: ',', period: '.', colon: ':',
+  semi: ';', sol: '/', bsol: '\\', num: '#', dollar: '$', percnt: '%',
+  plus: '+', equals: '=', ast: '*', commat: '@', lowbar: '_', verbar: '|',
+  // Símbolos
+  euro: '€', pound: '£', yen: '¥', cent: '¢', curren: '¤',
+  copy: '©', reg: '®', trade: '™', sect: '§', para: '¶',
+  times: '×', divide: '÷', plusmn: '±', frac12: '½', frac14: '¼', frac34: '¾',
+  sup1: '¹', sup2: '²', sup3: '³', micro: 'µ', not: '¬', shy: '',
+  ensp: ' ', emsp: ' ', thinsp: ' ', zwnj: '', zwj: '',
+};

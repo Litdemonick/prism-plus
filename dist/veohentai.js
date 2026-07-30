@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         VeoHentai
-// @version      1.0.0
+// @version      1.0.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -8,33 +8,144 @@
 // @type         bangumi
 // @nsfw         true
 // @webSite      https://veohentai.com
-// @description  Hentai en español agrupado por serie, con filtros por género y estudio y subtítulos en español (contenido +18).
+// @description  Hentai en español agrupado por serie, con catálogo completo y filtros por género y estudio (contenido +18).
 // ==/PrismHubExtension==
 // sdk/html.ts
 function stripTags(html) {
   return html.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 }
 function decodeEntities(html) {
-  return html.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16))).replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
+  return html.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16))).replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10))).replace(
+    /&([a-zA-Z][a-zA-Z0-9]*);/g,
+    (m, name) => {
+      var _a;
+      return (_a = _NAMED_ENTITIES[name]) != null ? _a : m;
+    }
+  );
 }
-
-// sdk/embeds.ts
-function b64decode(s) {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  const clean = s.replace(/[^A-Za-z0-9+/]/g, "");
-  let result = "";
-  let i = 0;
-  while (i < clean.length) {
-    const b1 = chars.indexOf(clean[i++]);
-    const b2 = chars.indexOf(clean[i++]);
-    const b3 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
-    const b4 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
-    result += String.fromCharCode(b1 << 2 | b2 >> 4);
-    if (b3 !== -1) result += String.fromCharCode((b2 & 15) << 4 | b3 >> 2);
-    if (b4 !== -1) result += String.fromCharCode((b3 & 3) << 6 | b4);
-  }
-  return result;
-}
+var _NAMED_ENTITIES = {
+  // Vocales acentuadas y eñe — el caso común en español
+  aacute: "\xE1",
+  eacute: "\xE9",
+  iacute: "\xED",
+  oacute: "\xF3",
+  uacute: "\xFA",
+  Aacute: "\xC1",
+  Eacute: "\xC9",
+  Iacute: "\xCD",
+  Oacute: "\xD3",
+  Uacute: "\xDA",
+  ntilde: "\xF1",
+  Ntilde: "\xD1",
+  uuml: "\xFC",
+  Uuml: "\xDC",
+  // Otros idiomas latinos que aparecen en títulos (francés, portugués, alemán)
+  agrave: "\xE0",
+  egrave: "\xE8",
+  igrave: "\xEC",
+  ograve: "\xF2",
+  ugrave: "\xF9",
+  Agrave: "\xC0",
+  Egrave: "\xC8",
+  Igrave: "\xCC",
+  Ograve: "\xD2",
+  Ugrave: "\xD9",
+  acirc: "\xE2",
+  ecirc: "\xEA",
+  icirc: "\xEE",
+  ocirc: "\xF4",
+  ucirc: "\xFB",
+  Acirc: "\xC2",
+  Ecirc: "\xCA",
+  Icirc: "\xCE",
+  Ocirc: "\xD4",
+  Ucirc: "\xDB",
+  atilde: "\xE3",
+  otilde: "\xF5",
+  Atilde: "\xC3",
+  Otilde: "\xD5",
+  auml: "\xE4",
+  ouml: "\xF6",
+  Auml: "\xC4",
+  Ouml: "\xD6",
+  ccedil: "\xE7",
+  Ccedil: "\xC7",
+  szlig: "\xDF",
+  aring: "\xE5",
+  Aring: "\xC5",
+  aelig: "\xE6",
+  AElig: "\xC6",
+  oslash: "\xF8",
+  Oslash: "\xD8",
+  // Signos y puntuación
+  iexcl: "\xA1",
+  iquest: "\xBF",
+  excl: "!",
+  quest: "?",
+  ordf: "\xAA",
+  ordm: "\xBA",
+  deg: "\xB0",
+  laquo: "\xAB",
+  raquo: "\xBB",
+  hellip: "\u2026",
+  mdash: "\u2014",
+  ndash: "\u2013",
+  minus: "\u2212",
+  lsquo: "\u2018",
+  rsquo: "\u2019",
+  ldquo: "\u201C",
+  rdquo: "\u201D",
+  bull: "\u2022",
+  middot: "\xB7",
+  sbquo: "\u201A",
+  bdquo: "\u201E",
+  apos: "'",
+  lpar: "(",
+  rpar: ")",
+  comma: ",",
+  period: ".",
+  colon: ":",
+  semi: ";",
+  sol: "/",
+  bsol: "\\",
+  num: "#",
+  dollar: "$",
+  percnt: "%",
+  plus: "+",
+  equals: "=",
+  ast: "*",
+  commat: "@",
+  lowbar: "_",
+  verbar: "|",
+  // Símbolos
+  euro: "\u20AC",
+  pound: "\xA3",
+  yen: "\xA5",
+  cent: "\xA2",
+  curren: "\xA4",
+  copy: "\xA9",
+  reg: "\xAE",
+  trade: "\u2122",
+  sect: "\xA7",
+  para: "\xB6",
+  times: "\xD7",
+  divide: "\xF7",
+  plusmn: "\xB1",
+  frac12: "\xBD",
+  frac14: "\xBC",
+  frac34: "\xBE",
+  sup1: "\xB9",
+  sup2: "\xB2",
+  sup3: "\xB3",
+  micro: "\xB5",
+  not: "\xAC",
+  shy: "",
+  ensp: " ",
+  emsp: " ",
+  thinsp: " ",
+  zwnj: "",
+  zwj: ""
+};
 
 // extensions/veohentai/index.ts
 var BASE = "https://veohentai.com";
@@ -54,10 +165,6 @@ async function _getJson(url) {
     }
   }
   return value;
-}
-async function _getText(url) {
-  const value = await _getJson(url);
-  return typeof value === "string" ? value : "";
 }
 async function _getArray(url) {
   const value = await _getJson(url);
@@ -367,7 +474,7 @@ async function detail(url) {
   return { title, cover, description, genres, episodes };
 }
 async function watch(url) {
-  var _a, _b, _c;
+  var _a, _b;
   const fullUrl = url.indexOf("http") === 0 ? url : `${BASE}${url}`;
   let playerUrl = "";
   if (fullUrl.indexOf("veohentai.com") === -1) {
@@ -383,23 +490,7 @@ async function watch(url) {
     playerUrl = (_b = (_a = /<iframe[^>]+src="([^"]+)"/i.exec(embedHtml)) == null ? void 0 : _a[1]) != null ? _b : "";
   }
   if (!playerUrl) return { streams: [], pageUrl: fullUrl, reason: "no_player" };
-  const subtitles = [];
-  try {
-    const playerHtml = await _getText(playerUrl);
-    const subB64 = (_c = /[?&]s=([A-Za-z0-9+/=]+)/.exec(playerHtml)) == null ? void 0 : _c[1];
-    if (subB64) {
-      const subUrl = b64decode(subB64);
-      if (subUrl && subUrl.indexOf("http") === 0) {
-        subtitles.push({ label: "Espa\xF1ol", url: subUrl, lang: "es" });
-      }
-    }
-  } catch (e) {
-  }
-  return {
-    streams: [{ url: playerUrl, quality: "VeoHentai" }],
-    subtitles: subtitles.length > 0 ? subtitles : void 0,
-    pageUrl: playerUrl
-  };
+  return { streams: [], pageUrl: playerUrl };
 }
 
 // OJO: nunca usar url.indexOf('.mp4')/('.m3u8') suelto — algunos dominios de

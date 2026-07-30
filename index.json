@@ -17,8 +17,8 @@
       "webSite": "https://animefenix2.tv",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animefenix.js",
-      "sha256": "fec7c35223a36f13bcba299436c752a702497be952184a0009f7f76aa6c8f90b",
-      "signature": "kywbdbRWf6JRITR3i5ai823KsvhDKdREtVbyawx1nVbeNXQvl/mEJNPJf9G0ImWv4t11EVuqAyq4qzGOiI3kBw=="
+      "sha256": "158330d1a6daaab15cf50a410d3b87e88f4bc845e32a396fe40d19fccf36924a",
+      "signature": "qVww+SjGeFpa+5MmHwCtKQa418rZMsAQD9TMuoIoiUK7M5Nxwwf7zLQS8JF/0hszJA2etGshDvwDnra7UNliDg=="
     },
     {
       "name": "FuegoCine",
@@ -32,8 +32,8 @@
       "webSite": "https://www.fuegocine.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/fuegocine.js",
-      "sha256": "45491ce9bd93526a083f534beb87dc26b8fa42136f563042f1fe652591500b4d",
-      "signature": "5bQya1g9m6bx7EblQJ0FhWJps6YBvtJE2lEGSffyT1Ihxn82HFImDJBFAkH2dD3GNcjWj7CNXT4fPXLbOrvgBA=="
+      "sha256": "d6ccf87343cc9517012d4bb10f11b6a4ed2df05eadb4ce018a7df5ffa6f16cf4",
+      "signature": "nX5HhnPc3C/tkLismjfMGAULSUCkOi66q2F3s0LrhpaRGsGGkuA2DlXc7gtaNi8g4TuYuj41dJf49BVAaXoJAA=="
     },
     {
       "name": "HentaiLA",
@@ -48,8 +48,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/hentaila.js",
-      "sha256": "60131bc3b94a33b1f18a10f8923df29a480c54dc6a2698345620003d9c94a076",
-      "signature": "SAOdbEf4UdQMHFGSiy/z/GH0JH4F4y8eCXZCxi+PX8axLngl1ucVV3UqJt8uOVVEUIozuWB04wYmyNRqyZiFDg=="
+      "sha256": "585e00e8747ce339b4638e397b9bff3786a460c66ad4a69091cf8e9b67ba2b76",
+      "signature": "0nZzO9NbK1w0BQOUZgLkTlf2fY5+NlFLPRDwgR2h9h6BU6Eyr9Kh++tFKwt9WsmCvZpyTcSYTPZTDcXfn6K1AA=="
     },
     {
       "name": "JKAnime",
@@ -63,8 +63,8 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "344987569e647a0cfc32d737a3e17dc1f67ca6c281a388a6ccd4bbf78501bc90",
-      "signature": "wcbkV/878qUPaRmCJDk43IQX6GdzzXTQJ2VyEXJff3/ma0hqscESTE/7pbrwyujU8SB82oBVHjI51PZfNbHHBw=="
+      "sha256": "71d84380f20430007ae7258f926772c3b5e0764ba542da6af45bc9d20cfd1c06",
+      "signature": "EFvMfn9ebq7gDUWpEGyB+/uuS6IvDgjPQsCY+1xTWMjbM71JUjHb7HNKHLn0jC15mKgcm054/Htu0MoB9WD2BA=="
     },
     {
       "name": "ManhwaWeb",
@@ -111,9 +111,7 @@
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/shademanga.js",
       "sha256": "06614ea930edcdae332f16cb6406f95248744de07e45b54cea0b4565deac4812",
-      "signature": "VUPIBYBeVJKrlYUneqWQ/dii36b7bP3ERSbQWH7sjZaGyCEE5RNm1QsWIKzUAcOCVJBEganuOgUVM9FeGbHeBQ==",
-      "unstable": true,
-      "unstableReason": "broken"
+      "signature": "VUPIBYBeVJKrlYUneqWQ/dii36b7bP3ERSbQWH7sjZaGyCEE5RNm1QsWIKzUAcOCVJBEganuOgUVM9FeGbHeBQ=="
     },
     {
       "name": "TioAnime",
@@ -127,8 +125,8 @@
       "webSite": "https://tioanime.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js",
-      "sha256": "2441784b737f162935db3bd51b8972cffd569538fe921428d23e2f3326628b41",
-      "signature": "O3OP6XaInQwJR7019tikWL9qwc7f5QSJcIH8Nrn8ar1tV9Z6pG4oAkm+fKppebsVrnp2RG1MILn3MLZObEgbAw=="
+      "sha256": "4ad94fc65cdc8ffce0c267407bc2ec16da7fe57503afff75da65c54e27ea095e",
+      "signature": "EfOATUDh46ZPTXALOq9AKrW3U67lOyCFCx6r0L6U4zluCBOauYO1+R44KdwrYN/+i/xdFL/xL4yom038nRgvBQ=="
     },
     {
       "name": "TuMangaOnline",
@@ -142,31 +140,29 @@
       "webSite": "https://zonatmo.org",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tumangaonline.js",
-      "sha256": "e4d6c52183471657f57fd3f0774810c26911d7bdcea361b718cdf5a972e07b9f",
-      "signature": "xXtz0vmXu1DlbV/yAsIPeHqFvX/XDX78n+ymv9N5a600r5lKn3rmgsjxzmBO/JziPUSPVkbQdtJIDL88mA4YCg==",
-      "unstable": true,
-      "unstableReason": "broken"
+      "sha256": "78be487d33683311a48ff6008262b9b67178378a849fddb68af44c6af4acfca6",
+      "signature": "OVdyubKLOUW3SctAhAzW6p2544lpWRD+bXPQA4PxukRaCg0yB4gpYx23MBiCEMOAJpt/HDs9FwkjKYNKWn/5CA=="
     },
     {
       "name": "VeoHentai",
       "package": "io.prismhub.veohentai",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
-      "description": "Hentai en español agrupado por serie, con filtros por género y estudio y subtítulos en español (contenido +18).",
+      "description": "Hentai en español agrupado por serie, con catálogo completo y filtros por género y estudio (contenido +18).",
       "lang": "es",
       "webSite": "https://veohentai.com",
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/veohentai.js",
-      "sha256": "196538a0ad819c0eeb30833ff9f7e4c672a93d3cd4288eb54e3c340c7f346744",
-      "signature": "ZGTFJ8OKA5hsRpDvjeKSWudQwHCMHwcmepXvBOUjHwvqBAU0E784IU/HnKJWPrk/1EwRTbEAFlgY9fac+EpjAw=="
+      "sha256": "5d1c37d33abab9d2685dac4b215970386f6ce979f9748aba20da50e6fcb8284f",
+      "signature": "ouenXPIdp1inyuS0a+D5IsRwC4WKWmPgUmbCDdBrf3RLPKD5vtrdeDT8alHHGC9uWMaXJeAkTdnccXfIsue6Dw=="
     },
     {
       "name": "XVideos",
       "package": "io.prismhub.xvideos",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -176,8 +172,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/xvideos.js",
-      "sha256": "b57334e7df03da9057f530922032354b8d8450ae5e0c8466c7cab4d9af8724ec",
-      "signature": "5jXnEvzGX5WgjxmmTlfsGgQBwKx2+8Npx36/XK6HYu2u/NCVkIPzHdE/lzWMLaxdjCfWwlxNHYPbl5hzjxq6CA=="
+      "sha256": "1da7a06fa40ec933063486deaa9905df2b859302fc908285c7239d9e89ade17d",
+      "signature": "A5l6szG0d+CjVE1hdt1jKxryf2QdSIDVhsE5eVJH+9AiOgl4QBq9Ku6fMFbLEMbhRLTrJqoYIq1tdoFt9DyuDA=="
     },
     {
       "name": "LaMovie",

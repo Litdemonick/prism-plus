@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         XVideos
-// @version      1.0.1
+// @version      1.0.2
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -15,8 +15,137 @@ function stripTags(html) {
   return html.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
 }
 function decodeEntities(html) {
-  return html.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16))).replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
+  return html.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ").replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16))).replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10))).replace(
+    /&([a-zA-Z][a-zA-Z0-9]*);/g,
+    (m, name) => {
+      var _a;
+      return (_a = _NAMED_ENTITIES[name]) != null ? _a : m;
+    }
+  );
 }
+var _NAMED_ENTITIES = {
+  // Vocales acentuadas y eñe — el caso común en español
+  aacute: "\xE1",
+  eacute: "\xE9",
+  iacute: "\xED",
+  oacute: "\xF3",
+  uacute: "\xFA",
+  Aacute: "\xC1",
+  Eacute: "\xC9",
+  Iacute: "\xCD",
+  Oacute: "\xD3",
+  Uacute: "\xDA",
+  ntilde: "\xF1",
+  Ntilde: "\xD1",
+  uuml: "\xFC",
+  Uuml: "\xDC",
+  // Otros idiomas latinos que aparecen en títulos (francés, portugués, alemán)
+  agrave: "\xE0",
+  egrave: "\xE8",
+  igrave: "\xEC",
+  ograve: "\xF2",
+  ugrave: "\xF9",
+  Agrave: "\xC0",
+  Egrave: "\xC8",
+  Igrave: "\xCC",
+  Ograve: "\xD2",
+  Ugrave: "\xD9",
+  acirc: "\xE2",
+  ecirc: "\xEA",
+  icirc: "\xEE",
+  ocirc: "\xF4",
+  ucirc: "\xFB",
+  Acirc: "\xC2",
+  Ecirc: "\xCA",
+  Icirc: "\xCE",
+  Ocirc: "\xD4",
+  Ucirc: "\xDB",
+  atilde: "\xE3",
+  otilde: "\xF5",
+  Atilde: "\xC3",
+  Otilde: "\xD5",
+  auml: "\xE4",
+  ouml: "\xF6",
+  Auml: "\xC4",
+  Ouml: "\xD6",
+  ccedil: "\xE7",
+  Ccedil: "\xC7",
+  szlig: "\xDF",
+  aring: "\xE5",
+  Aring: "\xC5",
+  aelig: "\xE6",
+  AElig: "\xC6",
+  oslash: "\xF8",
+  Oslash: "\xD8",
+  // Signos y puntuación
+  iexcl: "\xA1",
+  iquest: "\xBF",
+  excl: "!",
+  quest: "?",
+  ordf: "\xAA",
+  ordm: "\xBA",
+  deg: "\xB0",
+  laquo: "\xAB",
+  raquo: "\xBB",
+  hellip: "\u2026",
+  mdash: "\u2014",
+  ndash: "\u2013",
+  minus: "\u2212",
+  lsquo: "\u2018",
+  rsquo: "\u2019",
+  ldquo: "\u201C",
+  rdquo: "\u201D",
+  bull: "\u2022",
+  middot: "\xB7",
+  sbquo: "\u201A",
+  bdquo: "\u201E",
+  apos: "'",
+  lpar: "(",
+  rpar: ")",
+  comma: ",",
+  period: ".",
+  colon: ":",
+  semi: ";",
+  sol: "/",
+  bsol: "\\",
+  num: "#",
+  dollar: "$",
+  percnt: "%",
+  plus: "+",
+  equals: "=",
+  ast: "*",
+  commat: "@",
+  lowbar: "_",
+  verbar: "|",
+  // Símbolos
+  euro: "\u20AC",
+  pound: "\xA3",
+  yen: "\xA5",
+  cent: "\xA2",
+  curren: "\xA4",
+  copy: "\xA9",
+  reg: "\xAE",
+  trade: "\u2122",
+  sect: "\xA7",
+  para: "\xB6",
+  times: "\xD7",
+  divide: "\xF7",
+  plusmn: "\xB1",
+  frac12: "\xBD",
+  frac14: "\xBC",
+  frac34: "\xBE",
+  sup1: "\xB9",
+  sup2: "\xB2",
+  sup3: "\xB3",
+  micro: "\xB5",
+  not: "\xAC",
+  shy: "",
+  ensp: " ",
+  emsp: " ",
+  thinsp: " ",
+  zwnj: "",
+  zwj: ""
+};
 
 // extensions/xvideos/index.ts
 var BASE = "https://www.xvideos.com";
@@ -162,19 +291,32 @@ async function createFilter() {
     calidad: { title: "Calidad", options: _QUALITY_OPTIONS, default: "", min: 1, max: 1 }
   };
 }
+function _videoJsonLd(html) {
+  const at = html.indexOf("VideoObject");
+  if (at === -1) return "";
+  const start = html.lastIndexOf("<script", at);
+  const end = html.indexOf("</script>", at);
+  if (start === -1 || end === -1 || end <= start) {
+    return html.slice(at, at + 4e3);
+  }
+  return html.slice(start, end);
+}
 async function detail(url) {
-  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
   const fullUrl = _normalizeUrl(url);
   const html = await _get(fullUrl);
-  const name = (_d = (_c = (_a = /"name":\s*"((?:[^"\\]|\\.)*)"/.exec(html)) == null ? void 0 : _a[1]) != null ? _c : (_b = /<title>([^<]*?)(?:\s*-\s*XVIDEOS\.COM)?<\/title>/i.exec(html)) == null ? void 0 : _b[1]) != null ? _d : "";
-  const title = decodeEntities(name.replace(/\\"/g, '"').replace(/\\\//g, "/").trim());
-  const description = decodeEntities(
-    ((_f = (_e = /"description":\s*"((?:[^"\\]|\\.)*)"/.exec(html)) == null ? void 0 : _e[1]) != null ? _f : "").replace(/\\"/g, '"').replace(/\\\//g, "/").trim()
+  const ld = _videoJsonLd(html);
+  const name = (_f = (_e = (_c = (_a = /"name":\s*"((?:[^"\\]|\\.)*)"/.exec(ld)) == null ? void 0 : _a[1]) != null ? _c : (_b = /property="og:title"\s+content="([^"]*)"/i.exec(html)) == null ? void 0 : _b[1]) != null ? _e : (_d = /<title>([\s\S]*?)<\/title>/i.exec(html)) == null ? void 0 : _d[1]) != null ? _f : "";
+  const title = decodeEntities(
+    name.replace(/\\"/g, '"').replace(/\\\//g, "/").replace(/\s*-\s*XVIDEOS\.COM\s*$/i, "").trim()
   );
-  const cover = (_h = (_g = /"thumbnailUrl":\s*\[?\s*"([^"]+)"/.exec(html)) == null ? void 0 : _g[1]) == null ? void 0 : _h.replace(/\\\//g, "/");
-  const durM = /"duration":\s*"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?"/.exec(html);
-  const seconds = durM ? Number((_i = durM[1]) != null ? _i : 0) * 3600 + Number((_j = durM[2]) != null ? _j : 0) * 60 + Number((_k = durM[3]) != null ? _k : 0) : void 0;
-  const yearM = (_l = /"uploadDate":\s*"(\d{4})/.exec(html)) == null ? void 0 : _l[1];
+  const description = decodeEntities(
+    ((_h = (_g = /"description":\s*"((?:[^"\\]|\\.)*)"/.exec(ld)) == null ? void 0 : _g[1]) != null ? _h : "").replace(/\\"/g, '"').replace(/\\\//g, "/").trim()
+  );
+  const cover = (_j = (_i = /"thumbnailUrl":\s*\[?\s*"([^"]+)"/.exec(ld)) == null ? void 0 : _i[1]) == null ? void 0 : _j.replace(/\\\//g, "/");
+  const durM = /"duration":\s*"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?"/.exec(ld);
+  const seconds = durM ? Number((_k = durM[1]) != null ? _k : 0) * 3600 + Number((_l = durM[2]) != null ? _l : 0) * 60 + Number((_m = durM[3]) != null ? _m : 0) : void 0;
+  const yearM = (_n = /"uploadDate":\s*"(\d{4})/.exec(ld)) == null ? void 0 : _n[1];
   const tags = [];
   for (const m of html.matchAll(/href="\/(?:tags|c)\/([a-z0-9\-]+)"/g)) {
     const t = m[1].replace(/-\d+$/, "").replace(/-/g, " ");
@@ -225,7 +367,7 @@ async function watch(url) {
   push((_a = /setVideoHLS\('([^']+)'\)/.exec(html)) == null ? void 0 : _a[1], "HLS");
   push((_b = /setVideoUrlHigh\('([^']+)'\)/.exec(html)) == null ? void 0 : _b[1], "Alta");
   push((_c = /setVideoUrlLow\('([^']+)'\)/.exec(html)) == null ? void 0 : _c[1], "Baja");
-  const contentUrl = (_d = /"contentUrl":\s*"([^"]+)"/.exec(html)) == null ? void 0 : _d[1];
+  const contentUrl = (_d = /"contentUrl":\s*"([^"]+)"/.exec(_videoJsonLd(html))) == null ? void 0 : _d[1];
   push(contentUrl, _qualityLabel(contentUrl));
   return {
     streams,

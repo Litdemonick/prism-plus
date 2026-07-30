@@ -1,11 +1,9 @@
 import { decodeEntities, stripTags } from '../../sdk/html';
-import { b64decode } from '../../sdk/embeds';
 import type {
   PrismDetail,
   PrismItem,
   PrismWatch,
   PrismEpisode,
-  PrismSubtitle,
 } from '../../sdk/types';
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
@@ -414,24 +412,16 @@ export async function watch(url: string): Promise<PrismWatch> {
 
   if (!playerUrl) return { streams: [], pageUrl: fullUrl, reason: 'no_player' };
 
-  const subtitles: PrismSubtitle[] = [];
-  try {
-    const playerHtml = await _getText(playerUrl);
-    // data-id="/player.php?vid=<b64>&s=<b64 del .srt>&i=<b64 del preview>"
-    const subB64 = /[?&]s=([A-Za-z0-9+/=]+)/.exec(playerHtml)?.[1];
-    if (subB64) {
-      const subUrl = b64decode(subB64);
-      if (subUrl && subUrl.indexOf('http') === 0) {
-        subtitles.push({ label: 'Español', url: subUrl, lang: 'es' });
-      }
-    }
-  } catch {
-    /* los subtítulos son un extra: si fallan, el vídeo se ve igual */
-  }
-
-  return {
-    streams: [{ url: playerUrl, quality: 'VeoHentai' }],
-    subtitles: subtitles.length > 0 ? subtitles : undefined,
-    pageUrl: playerUrl,
-  };
+  // streams VACÍO a propósito, con pageUrl puesto: así es como se le pide al
+  // cliente que use el WebView. El wrapper del build solo emite la url
+  // `page://…` —la señal de "esto no es un stream directo"— cuando streams
+  // llega vacío; si se devuelve el embed DENTRO de streams, lo toma por un
+  // servidor reproducible, le pasa al reproductor nativo la URL de una página
+  // HTML y falla con "servidor no accesible" (reportado en vivo).
+  //
+  // Tampoco se extraen los subtítulos: ese mismo camino `page://` los descarta,
+  // así que pedirlos era un request de más para nada. No se pierde nada — el
+  // reproductor propio del sitio, que es el que se carga en el WebView, ya trae
+  // la pista en español cargada.
+  return { streams: [], pageUrl: playerUrl };
 }

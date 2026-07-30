@@ -233,6 +233,23 @@ export async function createFilter(): Promise<Record<string, unknown>> {
 
 // ─── Detalle ────────────────────────────────────────────────────────────────
 
+// Devuelve SOLO el bloque JSON-LD del vídeo (schema.org VideoObject). Es
+// imprescindible acotar la búsqueda ahí: la página trae mucho JSON de
+// configuración antes, y el primer "name" que aparece es del menú de la cuenta
+// —literalmente "title_account"—, que es lo que se mostraba como título del
+// vídeo (reportado en vivo). El VideoObject está miles de caracteres más abajo.
+function _videoJsonLd(html: string): string {
+  const at = html.indexOf('VideoObject');
+  if (at === -1) return '';
+  const start = html.lastIndexOf('<script', at);
+  const end = html.indexOf('</script>', at);
+  if (start === -1 || end === -1 || end <= start) {
+    // Ventana de respaldo por si el bloque no viene en un <script> propio.
+    return html.slice(at, at + 4000);
+  }
+  return html.slice(start, end);
+}
+
 // Cada vídeo es una pieza suelta (no hay series ni temporadas), así que el
 // detalle expone UN único "episodio" que apunta al propio vídeo. Es lo que
 // necesita el cliente para abrir el reproductor desde la ficha.
@@ -241,29 +258,42 @@ export async function detail(url: string): Promise<PrismDetail> {
   const html = await _get(fullUrl);
 
   // El JSON-LD (schema.org VideoObject) es la fuente más estable de la ficha:
-  // lo genera el propio sitio para los buscadores.
+  // lo genera el propio sitio para los buscadores. Se acota a ese bloque, nunca
+  // a la página entera (ver _videoJsonLd).
+  const ld = _videoJsonLd(html);
+
+  // Cadena de respaldo del título: JSON-LD → og:title → <title> sin el sufijo
+  // del sitio. Así, si el bloque cambiara de forma, sigue saliendo el título
+  // real y no una clave interna del sitio.
   const name =
-    /"name":\s*"((?:[^"\\]|\\.)*)"/.exec(html)?.[1] ??
-    /<title>([^<]*?)(?:\s*-\s*XVIDEOS\.COM)?<\/title>/i.exec(html)?.[1] ??
+    /"name":\s*"((?:[^"\\]|\\.)*)"/.exec(ld)?.[1] ??
+    /property="og:title"\s+content="([^"]*)"/i.exec(html)?.[1] ??
+    /<title>([\s\S]*?)<\/title>/i.exec(html)?.[1] ??
     '';
-  const title = decodeEntities(name.replace(/\\"/g, '"').replace(/\\\//g, '/').trim());
+  const title = decodeEntities(
+    name
+      .replace(/\\"/g, '"')
+      .replace(/\\\//g, '/')
+      .replace(/\s*-\s*XVIDEOS\.COM\s*$/i, '')
+      .trim(),
+  );
 
   const description = decodeEntities(
-    (/"description":\s*"((?:[^"\\]|\\.)*)"/.exec(html)?.[1] ?? '')
+    (/"description":\s*"((?:[^"\\]|\\.)*)"/.exec(ld)?.[1] ?? '')
       .replace(/\\"/g, '"')
       .replace(/\\\//g, '/')
       .trim(),
   );
 
-  const cover = /"thumbnailUrl":\s*\[?\s*"([^"]+)"/.exec(html)?.[1]?.replace(/\\\//g, '/');
+  const cover = /"thumbnailUrl":\s*\[?\s*"([^"]+)"/.exec(ld)?.[1]?.replace(/\\\//g, '/');
 
   // duration: "PT00H07M06S"
-  const durM = /"duration":\s*"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?"/.exec(html);
+  const durM = /"duration":\s*"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?"/.exec(ld);
   const seconds = durM
     ? Number(durM[1] ?? 0) * 3600 + Number(durM[2] ?? 0) * 60 + Number(durM[3] ?? 0)
     : undefined;
 
-  const yearM = /"uploadDate":\s*"(\d{4})/.exec(html)?.[1];
+  const yearM = /"uploadDate":\s*"(\d{4})/.exec(ld)?.[1];
 
   const tags: string[] = [];
   for (const m of html.matchAll(/href="\/(?:tags|c)\/([a-z0-9\-]+)"/g)) {
@@ -336,7 +366,7 @@ export async function watch(url: string): Promise<PrismWatch> {
   // propia ruta del CDN la indica —.../mp4_sd.mp4 o .../mp4_hd.mp4—, así que la
   // etiqueta que ve el usuario en el selector de calidad sale de ahí en vez de
   // un "MP4" genérico.
-  const contentUrl = /"contentUrl":\s*"([^"]+)"/.exec(html)?.[1];
+  const contentUrl = /"contentUrl":\s*"([^"]+)"/.exec(_videoJsonLd(html))?.[1];
   push(contentUrl, _qualityLabel(contentUrl));
 
   // Si ninguna vía nativa dio stream, el cliente cae al WebView sobre la propia

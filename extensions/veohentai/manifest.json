@@ -1,11 +1,11 @@
 {
   "name": "VeoHentai",
   "package": "io.prismhub.veohentai",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "PrismPlus",
   "type": "anime",
   "icon": "",
-  "description": "Hentai en español agrupado por serie, con filtros por género y estudio y subtítulos en español (contenido +18).",
+  "description": "Hentai en español agrupado por serie, con catálogo completo y filtros por género y estudio (contenido +18).",
   "lang": "es",
   "webSite": "https://veohentai.com",
   "license": "MIT",
