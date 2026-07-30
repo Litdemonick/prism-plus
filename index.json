@@ -162,7 +162,7 @@
     {
       "name": "XVideos",
       "package": "io.prismhub.xvideos",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -172,8 +172,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/xvideos.js",
-      "sha256": "93209b9022cd90b5e5f2a95642fbc0b0b8ca1653923aa4c8133611be8593eac8",
-      "signature": "KIcNJrr0J+w99vNBz5njEwY94rDFWHvSHs8LhCi/D4NoCVV0XzRuAyYIYlHkN5QLJB8swsSZ2+FZglAwkrGaDA=="
+      "sha256": "837178a49e9ed152f1b4284979b4bd68a1e59ece9b6401901d0ed7589e4b6412",
+      "signature": "r0iif6Y00hRMQS9ENf7JhdLcYNhDgnNpICgXuXnW7Uk6T+9hEV0wY0rmVJ1DcR/56QIKNUaB4NGs5SddAoGMDw=="
     },
     {
       "name": "LaMovie",

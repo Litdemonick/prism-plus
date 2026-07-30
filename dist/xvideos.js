@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         XVideos
-// @version      1.0.8
+// @version      1.0.9
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -171,8 +171,6 @@ async function _get(url) {
 }
 var _VIDEO_ID = "video(?:[.\\-][a-z0-9]+|\\d+)";
 var _RE_ID_ANY = new RegExp(`(?:^|[/"'])${_VIDEO_ID}\\/`);
-var _RE_HREF_ANY = /href="([^"]+)"/g;
-var _RE_LOOSE = new RegExp(`${_VIDEO_ID}\\/[a-z0-9_\\-]+`, "g");
 function _isVideoHref(href) {
   if (!href) return false;
   const clean = href.split("\\/").join("/");
@@ -199,10 +197,11 @@ function _parseList(html) {
   for (let i = 1; i < chunks.length; i++) {
     const chunk = chunks[i];
     let href = "";
-    _RE_HREF_ANY.lastIndex = 0;
-    for (const m of chunk.matchAll(_RE_HREF_ANY)) {
-      if (_isVideoHref(m[1])) {
-        href = m[1];
+    const hrefRe = /href="([^"]+)"/g;
+    let hm;
+    while ((hm = hrefRe.exec(chunk)) !== null) {
+      if (_isVideoHref(hm[1])) {
+        href = hm[1];
         break;
       }
     }
@@ -227,7 +226,9 @@ function _parseListLoose(html) {
   const items = [];
   const seen = {};
   html = html.split("\\/").join("/");
-  for (const m of html.matchAll(_RE_LOOSE)) {
+  const re = new RegExp(`${_VIDEO_ID}\\/[a-z0-9_\\-]+`, "g");
+  let m;
+  while ((m = re.exec(html)) !== null) {
     const url = _absolutize(m[0]);
     if (seen[url]) continue;
     seen[url] = true;
@@ -360,8 +361,10 @@ async function detail(url) {
   const seconds = durM ? Number((_k = durM[1]) != null ? _k : 0) * 3600 + Number((_l = durM[2]) != null ? _l : 0) * 60 + Number((_m = durM[3]) != null ? _m : 0) : void 0;
   const yearM = (_n = /"uploadDate":\s*"(\d{4})/.exec(ld)) == null ? void 0 : _n[1];
   const tags = [];
-  for (const m of html.matchAll(/href="\/(?:tags|c)\/([a-z0-9\-]+)"/g)) {
-    const t = m[1].replace(/-\d+$/, "").replace(/-/g, " ");
+  const tagRe = /href="\/(?:tags|c)\/([a-z0-9\-]+)"/g;
+  let tm;
+  while ((tm = tagRe.exec(html)) !== null) {
+    const t = tm[1].replace(/-\d+$/, "").replace(/-/g, " ");
     if (t && tags.indexOf(t) === -1) tags.push(t);
     if (tags.length >= 12) break;
   }

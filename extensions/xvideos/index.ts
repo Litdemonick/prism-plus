@@ -67,8 +67,6 @@ const _VIDEO_ID = 'video(?:[.\\-][a-z0-9]+|\\d+)';
 // Con delimitador por delante: inicio de cadena, barra o comilla. Así "video.x/"
 // matchea igual esté suelto, tras "/" o tras 'href="'.
 const _RE_ID_ANY = new RegExp(`(?:^|[/"'])${_VIDEO_ID}\\/`);
-const _RE_HREF_ANY = /href="([^"]+)"/g;
-const _RE_LOOSE = new RegExp(`${_VIDEO_ID}\\/[a-z0-9_\\-]+`, 'g');
 
 // ¿Este href apunta a la página de un vídeo? Se valida por forma, no por prefijo.
 function _isVideoHref(href: string): boolean {
@@ -125,11 +123,21 @@ function _parseList(html: string): PrismItem[] {
     // forma de vídeo, en vez de exigir un formato de ruta concreto: los enlaces
     // pueden venir absolutos, desde la raíz o relativos según el maquetado que
     // sirva el sitio.
+    //
+    // Sin matchAll: se usa exec() sobre una expresión creada ACÁ, local a esta
+    // llamada. matchAll es de las funciones más nuevas del lenguaje y no se
+    // comporta igual en todos los motores; peor todavía, una expresión global
+    // compartida entre llamadas arrastra su `lastIndex` y hace que la siguiente
+    // empiece a buscar desde donde quedó la anterior. Es lo único que podía
+    // explicar que el MISMO html —confirmado byte a byte en el teléfono, 125 KB
+    // y con is-desktop— diera 27 resultados en Windows y 0 en Android. exec()
+    // con una expresión nueva por llamada no arrastra estado ni depende de eso.
     let href = '';
-    _RE_HREF_ANY.lastIndex = 0;
-    for (const m of chunk.matchAll(_RE_HREF_ANY)) {
-      if (_isVideoHref(m[1])) {
-        href = m[1];
+    const hrefRe = /href="([^"]+)"/g;
+    let hm: RegExpExecArray | null;
+    while ((hm = hrefRe.exec(chunk)) !== null) {
+      if (_isVideoHref(hm[1])) {
+        href = hm[1];
         break;
       }
     }
@@ -184,7 +192,11 @@ function _parseListLoose(html: string): PrismItem[] {
   // invertida en el medio ningún patrón de ruta las reconoce. Es un split/join
   // literal, sin regex.
   html = html.split('\\/').join('/');
-  for (const m of html.matchAll(_RE_LOOSE)) {
+  // Igual que en _parseList: exec() sobre una expresión creada acá, sin
+  // matchAll y sin expresiones globales compartidas entre llamadas.
+  const re = new RegExp(`${_VIDEO_ID}\\/[a-z0-9_\\-]+`, 'g');
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
     // _absolutize y no concatenar con BASE: el patrón ya no exige barra inicial,
     // así que m[0] puede ser "video.xxx/slug" y pegarlo directo daría una url
     // rota ("...xvideos.comvideo.xxx/slug").
@@ -404,9 +416,12 @@ export async function detail(url: string): Promise<PrismDetail> {
 
   const yearM = /"uploadDate":\s*"(\d{4})/.exec(ld)?.[1];
 
+  // exec() y no matchAll, por el mismo motivo que en los parsers de listado.
   const tags: string[] = [];
-  for (const m of html.matchAll(/href="\/(?:tags|c)\/([a-z0-9\-]+)"/g)) {
-    const t = m[1].replace(/-\d+$/, '').replace(/-/g, ' ');
+  const tagRe = /href="\/(?:tags|c)\/([a-z0-9\-]+)"/g;
+  let tm: RegExpExecArray | null;
+  while ((tm = tagRe.exec(html)) !== null) {
+    const t = tm[1].replace(/-\d+$/, '').replace(/-/g, ' ');
     if (t && tags.indexOf(t) === -1) tags.push(t);
     if (tags.length >= 12) break;
   }
