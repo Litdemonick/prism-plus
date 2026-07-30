@@ -54,7 +54,7 @@ function _parseList(html: string): PrismItem[] {
       : html.indexOf('video-thumb') !== -1
         ? 'video-thumb'
         : '';
-  if (!marker) return [];
+  if (!marker) return _parseListLoose(html);
   const chunks = html.split(marker);
   const items: PrismItem[] = [];
   const seen: Record<string, boolean> = {};
@@ -86,6 +86,35 @@ function _parseList(html: string): PrismItem[] {
 
     seen[url] = true;
     items.push({ title, url, cover, update: duration || undefined });
+  }
+  return items.length > 0 ? items : _parseListLoose(html);
+}
+
+// Último recurso, sin depender de NINGUNA clase del HTML: junta los enlaces de
+// vídeo que haya en la página y arma el título desde el propio slug de la URL
+// (en este sitio el slug es el título pasado a minúsculas y con guiones bajos,
+// así que se lee perfectamente bien).
+//
+// Existe porque la búsqueda funcionaba en Windows y devolvía CERO en Android
+// con el mismo bundle. Sin poder reproducirlo desde acá, en vez de seguir
+// adivinando qué difiere, esto garantiza que mientras la página traiga enlaces
+// de vídeo salga contenido — aunque el maquetado que reciba el teléfono no sea
+// el que espera el parser principal.
+//
+// La expresión es a propósito simple —clases de caracteres sueltas, sin grupos
+// anidados ni cuantificadores solapados—: no retrocede, que es justo el
+// problema que ya nos costó una vez acá.
+function _parseListLoose(html: string): PrismItem[] {
+  const items: PrismItem[] = [];
+  const seen: Record<string, boolean> = {};
+  for (const m of html.matchAll(/\/video[.\-][a-z0-9]+\/[a-z0-9_\-]+/g)) {
+    const url = `${BASE}${m[0]}`;
+    if (seen[url]) continue;
+    seen[url] = true;
+    const slug = m[0].slice(m[0].indexOf('/', 1) + 1);
+    const title = decodeEntities(slug.replace(/[_-]+/g, ' ').trim());
+    if (!title) continue;
+    items.push({ title, url });
   }
   return items;
 }

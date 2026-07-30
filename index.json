@@ -8,7 +8,7 @@
     {
       "name": "AnimeFenix",
       "package": "io.prismhub.animefenix",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -17,13 +17,13 @@
       "webSite": "https://animefenix2.tv",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animefenix.js",
-      "sha256": "158330d1a6daaab15cf50a410d3b87e88f4bc845e32a396fe40d19fccf36924a",
-      "signature": "qVww+SjGeFpa+5MmHwCtKQa418rZMsAQD9TMuoIoiUK7M5Nxwwf7zLQS8JF/0hszJA2etGshDvwDnra7UNliDg=="
+      "sha256": "f5c475a24c5fafb8db5e62fab68e1b9a62d7a322adf38a2df9dd358b5f013cbd",
+      "signature": "XBRXQBgM+RyCiT4DACcKeLXvfLkIKt7U2rKwBjqlHJyyZLxHfPtpqXWdmlLjfkg9YXGLKxO9qdmE2bDfyZ41BA=="
     },
     {
       "name": "FuegoCine",
       "package": "io.prismhub.fuegocine",
-      "version": "1.1.3",
+      "version": "1.1.4",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -32,8 +32,8 @@
       "webSite": "https://www.fuegocine.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/fuegocine.js",
-      "sha256": "d6ccf87343cc9517012d4bb10f11b6a4ed2df05eadb4ce018a7df5ffa6f16cf4",
-      "signature": "nX5HhnPc3C/tkLismjfMGAULSUCkOi66q2F3s0LrhpaRGsGGkuA2DlXc7gtaNi8g4TuYuj41dJf49BVAaXoJAA=="
+      "sha256": "dbe414896fce4150aff290bcafdb3964aec58488173a1afb29e54eb0b57449b8",
+      "signature": "aegqVv/gESqhc3UolFDaID1ehMi7gPhpQN/NQEVJDinC5qWzergodlz4+3HzmolauPAVfdS4Zh6GeS91BdjnCA=="
     },
     {
       "name": "HentaiLA",
@@ -54,7 +54,7 @@
     {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
-      "version": "1.11.0",
+      "version": "1.11.1",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -63,8 +63,8 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "71d84380f20430007ae7258f926772c3b5e0764ba542da6af45bc9d20cfd1c06",
-      "signature": "EFvMfn9ebq7gDUWpEGyB+/uuS6IvDgjPQsCY+1xTWMjbM71JUjHb7HNKHLn0jC15mKgcm054/Htu0MoB9WD2BA=="
+      "sha256": "7a63287d3fef4d13031bd3b2f1302b0a51e3aa86eab17cdc50a3e3cff09a5810",
+      "signature": "v4DvqZq4S75LQpYS9zEkWuWaHNtz9qtnBPMZI2JT2TsEgiLYx+JwZ8BDnNOP/9LaAC+KohnBDM66TazefuHnCg=="
     },
     {
       "name": "ManhwaWeb",
@@ -118,7 +118,7 @@
     {
       "name": "TioAnime",
       "package": "io.prismhub.tioanime",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -127,13 +127,13 @@
       "webSite": "https://tioanime.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js",
-      "sha256": "4ad94fc65cdc8ffce0c267407bc2ec16da7fe57503afff75da65c54e27ea095e",
-      "signature": "EfOATUDh46ZPTXALOq9AKrW3U67lOyCFCx6r0L6U4zluCBOauYO1+R44KdwrYN/+i/xdFL/xL4yom038nRgvBQ=="
+      "sha256": "d4a5741126eb0c01b2546f6d9c61e1c2a931398d1075a846160b8e4b9b167384",
+      "signature": "oicNnLPOIkbJ9DydFNvL6c3NUSZQkTjgHyEgUodescdxA/pVG6f0VCk7EP/IROexjDcXbccCnM0YhYxvKmhbBg=="
     },
     {
       "name": "TuMangaOnline",
       "package": "io.prismhub.tumangaonline",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "PrismPlus",
       "type": "manga",
       "icon": "",
@@ -142,8 +142,8 @@
       "webSite": "https://zonatmo.org",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tumangaonline.js",
-      "sha256": "78be487d33683311a48ff6008262b9b67178378a849fddb68af44c6af4acfca6",
-      "signature": "OVdyubKLOUW3SctAhAzW6p2544lpWRD+bXPQA4PxukRaCg0yB4gpYx23MBiCEMOAJpt/HDs9FwkjKYNKWn/5CA==",
+      "sha256": "cb1cb7fa9d3fd00162a3d02a5b0c5871d2d7bc3b9baa7d396ab61f7e0abde51b",
+      "signature": "WF04VGGnnUyr+3j1UHklU3XaF1VExrQAB36kE/yt2sC8azWevtGg5oryhhwvzcwFsVy3PNG+TzEsXiNA+enDAw==",
       "unstable": true,
       "unstableReason": "broken"
     },
@@ -168,7 +168,7 @@
     {
       "name": "XVideos",
       "package": "io.prismhub.xvideos",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -178,8 +178,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/xvideos.js",
-      "sha256": "1da7a06fa40ec933063486deaa9905df2b859302fc908285c7239d9e89ade17d",
-      "signature": "A5l6szG0d+CjVE1hdt1jKxryf2QdSIDVhsE5eVJH+9AiOgl4QBq9Ku6fMFbLEMbhRLTrJqoYIq1tdoFt9DyuDA=="
+      "sha256": "b5c7a9f47e23bb2897d46cf8b859fd732432570b22a93673b766936dc5f4776f",
+      "signature": "rl/Ib8oYZF+pomexxdYZOkzPj1qDQHAc/rokad3TR/x21N+a2brWl0QoQnUxghH7tbXB3ExuUmwt1tyV9LGWCA=="
     },
     {
       "name": "LaMovie",

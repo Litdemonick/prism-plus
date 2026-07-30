@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         XVideos
-// @version      1.0.2
+// @version      1.0.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -172,7 +172,7 @@ function _normalizeUrl(url) {
 function _parseList(html) {
   var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
   const marker = html.indexOf("thumb-block") !== -1 ? "thumb-block" : html.indexOf("video-thumb") !== -1 ? "video-thumb" : "";
-  if (!marker) return [];
+  if (!marker) return _parseListLoose(html);
   const chunks = html.split(marker);
   const items = [];
   const seen = {};
@@ -193,6 +193,20 @@ function _parseList(html) {
     const duration = (_k = (_j = /<span class="duration">([^<]+)<\/span>/.exec(chunk)) == null ? void 0 : _j[1]) == null ? void 0 : _k.trim();
     seen[url] = true;
     items.push({ title, url, cover, update: duration || void 0 });
+  }
+  return items.length > 0 ? items : _parseListLoose(html);
+}
+function _parseListLoose(html) {
+  const items = [];
+  const seen = {};
+  for (const m of html.matchAll(/\/video[.\-][a-z0-9]+\/[a-z0-9_\-]+/g)) {
+    const url = `${BASE}${m[0]}`;
+    if (seen[url]) continue;
+    seen[url] = true;
+    const slug = m[0].slice(m[0].indexOf("/", 1) + 1);
+    const title = decodeEntities(slug.replace(/[_-]+/g, " ").trim());
+    if (!title) continue;
+    items.push({ title, url });
   }
   return items;
 }
