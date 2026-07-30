@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ShadeManga
-// @version      1.1.0
+// @version      1.2.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -433,6 +433,21 @@ function _splitGenres(g) {
 function _mangaUrl(id) {
   return `${BASE}/serie/local/${id}`;
 }
+function _extMangaUrl(smId) {
+  return `${BASE}/adultos/manga/o/${smId}`;
+}
+function _extSmIdFromUrl(url) {
+  const m = /\/adultos\/manga\/o\/(\d+)/.exec(url);
+  return m ? parseInt(m[1], 10) : null;
+}
+function _isExternal(m) {
+  return (m.externo === true || m.fuente === "smhentai") && !!m.smId;
+}
+function _mangaDedupeKey(m) {
+  if (m.publicId) return m.publicId;
+  if (_isExternal(m)) return `ext:${m.smId}`;
+  return `local:${m.id}`;
+}
 function _mangaChapterUrl(seriesId, chapterId) {
   return `${BASE}/serie/local/${seriesId}/capitulo/${chapterId}`;
 }
@@ -440,7 +455,7 @@ function _mangaItemToPrismItem(m) {
   const rating = typeof m.puntuacion === "number" && m.puntuacion > 0 ? m.puntuacion : void 0;
   return {
     title: m.titulo,
-    url: _mangaUrl(m.id),
+    url: _isExternal(m) ? _extMangaUrl(m.smId) : _mangaUrl(m.id),
     cover: m.portadaUrl,
     description: m.descripcion,
     tags: _splitGenres(m.generos),
@@ -527,8 +542,9 @@ async function _latestMangaAdult(page) {
         const secciones = (_a = json.secciones) != null ? _a : [];
         for (const s of secciones) {
           for (const it of (_b = s.items) != null ? _b : []) {
-            if (seen.has(it.id)) continue;
-            seen.add(it.id);
+            const key = _mangaDedupeKey(it);
+            if (seen.has(key)) continue;
+            seen.add(key);
             items.push(it);
           }
         }
@@ -538,8 +554,9 @@ async function _latestMangaAdult(page) {
   }
   for (const list of lists) {
     for (const it of list) {
-      if (seen.has(it.id)) continue;
-      seen.add(it.id);
+      const key = _mangaDedupeKey(it);
+      if (seen.has(key)) continue;
+      seen.add(key);
       items.push(it);
     }
   }
@@ -772,7 +789,41 @@ function _animeTokenFromUrl(url) {
   const m = /\/anime\/([^/]+)/.exec(url);
   return m ? m[1] : null;
 }
+async function _extMangaDetail(smId) {
+  var _a, _b;
+  const json = await _get(`${BASE}/api/series-locales/ext/${smId}`);
+  const pages = (_a = json.totalPaginas) != null ? _a : 0;
+  return {
+    title: json.titulo,
+    cover: json.portadaUrl,
+    description: (_b = json.descripcion) != null ? _b : void 0,
+    genres: _splitGenres(json.generos),
+    episodes: [
+      {
+        title: pages > 0 ? `Oneshot (${pages} p\xE1ginas)` : "Oneshot",
+        url: _extMangaUrl(smId),
+        number: 1
+      }
+    ],
+    status: "completed",
+    type: "manga"
+  };
+}
+async function _extMangaWatch(smId) {
+  var _a;
+  const json = await _get(`${BASE}/api/series-locales/ext/${smId}/paginas`);
+  const raw = Array.isArray(json) ? json : (_a = json == null ? void 0 : json.paginas) != null ? _a : [];
+  const urls = raw.map(
+    (p) => {
+      var _a2;
+      return typeof p === "string" ? p : (_a2 = p == null ? void 0 : p.url) != null ? _a2 : "";
+    }
+  ).filter((u) => !!u);
+  return { urls };
+}
 async function detail(url) {
+  const extId = _extSmIdFromUrl(url);
+  if (extId !== null) return _extMangaDetail(extId);
   const mangaId = _mangaIdFromUrl(url);
   if (mangaId !== null) return _mangaDetail(mangaId);
   const token = _animeTokenFromUrl(url);
@@ -780,6 +831,8 @@ async function detail(url) {
   throw new Error(`URL de detalle no reconocida: ${url}`);
 }
 async function watch(url) {
+  const extId = _extSmIdFromUrl(url);
+  if (extId !== null) return _extMangaWatch(extId);
   const chapterM = /\/serie\/local\/(\d+)\/capitulo\/(\d+)/.exec(url);
   if (chapterM) return _watchChapter(chapterM[1], chapterM[2]);
   const episodeM = /\/anime\/([^/]+)\/(\d+)/.exec(url);

@@ -42,16 +42,53 @@ function _splitGenres(g?: string | null): string[] | undefined {
 
 interface _MangaListItem {
   id: number;
+  // Único para las DOS fuentes (ver abajo) — se usa para deduplicar, porque
+  // `id` NO sirve: los ítems externos vienen todos con id 0.
+  publicId?: string;
   titulo: string;
   descripcion?: string;
   generos?: string;
   portadaUrl?: string;
   esMayorDeEdad?: boolean;
   puntuacion?: number | null;
+  // La sección +18 mezcla DOS fuentes (confirmado con la API: de 931 ítems del
+  // dump de adultos, 157 son locales y 774 externos):
+  //   - locales    -> fuente:"local", id real, smId null   -> /serie/local/{id}
+  //   - externos   -> fuente:"smhentai", externo:true, id 0, smId numérico
+  //                   -> /adultos/manga/o/{smId} (ruta real del sitio)
+  // Antes esto no se distinguía: se armaba /serie/local/0 para todos los
+  // externos, así que el 83% del catálogo +18 quedaba con una URL rota y,
+  // además, colapsaba en un solo ítem al deduplicar por id.
+  externo?: boolean;
+  smId?: number | null;
+  fuente?: string;
 }
 
 function _mangaUrl(id: number): string {
   return `${BASE}/serie/local/${id}`;
+}
+
+// Ítem externo (oneshot de smhentai). Misma ruta que usa la web del sitio,
+// así que la URL también abre bien en un navegador.
+function _extMangaUrl(smId: number): string {
+  return `${BASE}/adultos/manga/o/${smId}`;
+}
+
+function _extSmIdFromUrl(url: string): number | null {
+  const m = /\/adultos\/manga\/o\/(\d+)/.exec(url);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+function _isExternal(m: _MangaListItem): boolean {
+  return (m.externo === true || m.fuente === 'smhentai') && !!m.smId;
+}
+
+// Clave de deduplicación: publicId cuando está (único en ambas fuentes), y si
+// no, algo estable según el tipo. Nunca `id` solo: los externos comparten id 0.
+function _mangaDedupeKey(m: _MangaListItem): string {
+  if (m.publicId) return m.publicId;
+  if (_isExternal(m)) return `ext:${m.smId}`;
+  return `local:${m.id}`;
 }
 
 function _mangaChapterUrl(seriesId: number, chapterId: number): string {
@@ -62,7 +99,7 @@ function _mangaItemToPrismItem(m: _MangaListItem): PrismItem {
   const rating = typeof m.puntuacion === 'number' && m.puntuacion > 0 ? m.puntuacion : undefined;
   return {
     title: m.titulo,
-    url: _mangaUrl(m.id),
+    url: _isExternal(m) ? _extMangaUrl(m.smId!) : _mangaUrl(m.id),
     cover: m.portadaUrl,
     description: m.descripcion,
     tags: _splitGenres(m.generos),
@@ -185,7 +222,11 @@ async function _latestMangaAdult(page: number): Promise<PrismItem[]> {
     ),
   );
 
-  const seen = new Set<number>();
+  // Dedupe por publicId, NO por id: los ítems externos vienen TODOS con id 0
+  // (774 de los 931 del dump de adultos), así que deduplicar por id los
+  // colapsaba en uno solo y se perdía el 83% del catálogo +18 — la causa real
+  // de "sale contenido pero no está todo", reportado en vivo.
+  const seen = new Set<string>();
   const items: _MangaListItem[] = [];
 
   // La página 1 suma además el dump curado de /adultos/home (lo que se
@@ -197,8 +238,9 @@ async function _latestMangaAdult(page: number): Promise<PrismItem[]> {
         const secciones: { items?: _MangaListItem[] }[] = json.secciones ?? [];
         for (const s of secciones) {
           for (const it of s.items ?? []) {
-            if (seen.has(it.id)) continue;
-            seen.add(it.id);
+            const key = _mangaDedupeKey(it);
+            if (seen.has(key)) continue;
+            seen.add(key);
             items.push(it);
           }
         }
@@ -208,8 +250,9 @@ async function _latestMangaAdult(page: number): Promise<PrismItem[]> {
 
   for (const list of lists) {
     for (const it of list) {
-      if (seen.has(it.id)) continue;
-      seen.add(it.id);
+      const key = _mangaDedupeKey(it);
+      if (seen.has(key)) continue;
+      seen.add(key);
       items.push(it);
     }
   }
@@ -568,7 +611,62 @@ function _animeTokenFromUrl(url: string): string | null {
   return m ? m[1] : null;
 }
 
+// Ficha de un oneshot externo (smhentai). Endpoints tomados del propio JS del
+// sitio (animeService/getOneshot): /series-locales/ext/{smId} para la ficha y
+// /series-locales/ext/{smId}/paginas para las imágenes. Verificado en vivo:
+// devuelve titulo/autor/generos/portadaUrl/totalPaginas y la lista completa de
+// páginas (278 en el caso probado).
+//
+// Son oneshots: no tienen lista de capítulos, así que se expone UN capítulo
+// único que apunta a la misma URL — PrismHub lo abre directo en el lector.
+interface _ExtMangaApi {
+  smId: number;
+  titulo: string;
+  autor?: string | null;
+  descripcion?: string | null;
+  generos?: string;
+  portadaUrl?: string;
+  capituloId?: number | null;
+  totalPaginas?: number;
+}
+
+async function _extMangaDetail(smId: number): Promise<PrismDetail> {
+  const json: _ExtMangaApi = await _get(`${BASE}/api/series-locales/ext/${smId}`);
+  const pages = json.totalPaginas ?? 0;
+  return {
+    title: json.titulo,
+    cover: json.portadaUrl,
+    description: json.descripcion ?? undefined,
+    genres: _splitGenres(json.generos),
+    episodes: [
+      {
+        title: pages > 0 ? `Oneshot (${pages} páginas)` : 'Oneshot',
+        url: _extMangaUrl(smId),
+        number: 1,
+      },
+    ],
+    status: 'completed',
+    type: 'manga',
+  };
+}
+
+async function _extMangaWatch(smId: number): Promise<PrismMangaWatch> {
+  const json = await _get(`${BASE}/api/series-locales/ext/${smId}/paginas`);
+  const raw = Array.isArray(json) ? json : (json?.paginas ?? []);
+  const urls: string[] = raw
+    .map((p: unknown) =>
+      typeof p === 'string' ? p : ((p as { url?: string })?.url ?? ''),
+    )
+    .filter((u: string) => !!u);
+  return { urls };
+}
+
 export async function detail(url: string): Promise<PrismDetail> {
+  // Antes que el de manga local: la URL externa también contiene dígitos y no
+  // debe caer en el parseo de /serie/local/.
+  const extId = _extSmIdFromUrl(url);
+  if (extId !== null) return _extMangaDetail(extId);
+
   const mangaId = _mangaIdFromUrl(url);
   if (mangaId !== null) return _mangaDetail(mangaId);
 
@@ -581,6 +679,9 @@ export async function detail(url: string): Promise<PrismDetail> {
 // ─── Reproducción/lectura ───────────────────────────────────────────────────
 
 export async function watch(url: string): Promise<PrismMangaWatch | PrismWatch> {
+  const extId = _extSmIdFromUrl(url);
+  if (extId !== null) return _extMangaWatch(extId);
+
   const chapterM = /\/serie\/local\/(\d+)\/capitulo\/(\d+)/.exec(url);
   if (chapterM) return _watchChapter(chapterM[1], chapterM[2]);
 
