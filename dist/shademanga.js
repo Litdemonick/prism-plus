@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ShadeManga
-// @version      1.2.0
+// @version      1.3.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -724,18 +724,45 @@ var _ADULT_OPTIONS = {
   no: "Ocultar +18",
   si: "Mostrar +18"
 };
-async function createFilter() {
-  const [mangaGenres, animeGenres] = await Promise.all([
-    _fetchMangaGenres(),
-    _fetchAnimeGenres()
-  ]);
-  const generoSet = /* @__PURE__ */ new Set([...mangaGenres, ...animeGenres]);
-  const generoOptions = { "": "Todos" };
-  for (const g of [...generoSet].sort((a, b) => a.localeCompare(b))) generoOptions[g] = g;
+var _ADULT_GENRE_OPTIONS = {
+  "": "Todos",
+  Hentai: "Hentai",
+  Erotica: "Er\xF3tico",
+  Adult: "Adulto",
+  Ecchi: "Ecchi",
+  Doujinshi: "Doujinshi",
+  "Full Color": "A color",
+  Smut: "Smut",
+  Yuri: "Yuri",
+  Yaoi: "Yaoi"
+};
+async function createFilter(filter) {
+  var _a;
+  const isAdult = ((_a = filter == null ? void 0 : filter["adultos"]) == null ? void 0 : _a[0]) === "si";
+  let generoOptions;
+  if (isAdult) {
+    generoOptions = _ADULT_GENRE_OPTIONS;
+  } else {
+    const [mangaGenres, animeGenres] = await Promise.all([
+      _fetchMangaGenres(),
+      _fetchAnimeGenres()
+    ]);
+    const generoSet = /* @__PURE__ */ new Set([...mangaGenres, ...animeGenres]);
+    generoOptions = { "": "Todos" };
+    for (const g of [...generoSet].sort((a, b) => a.localeCompare(b))) generoOptions[g] = g;
+  }
   return {
     tipo: { title: "Tipo", options: _TYPE_OPTIONS, default: "", min: 1, max: 1 },
     orden: { title: "Orden", options: _ORDEN_OPTIONS, default: "populares", min: 1, max: 1 },
-    genero: { title: "G\xE9nero", options: generoOptions, default: "", min: 1, max: 1 },
+    // El título dice de qué zona son los géneros que se están ofreciendo, así
+    // queda claro que la lista cambió al prender el +18 y no parece un bug.
+    genero: {
+      title: isAdult ? "G\xE9nero (+18)" : "G\xE9nero",
+      options: generoOptions,
+      default: "",
+      min: 1,
+      max: 1
+    },
     adultos: {
       title: "Adultos",
       options: _ADULT_OPTIONS,

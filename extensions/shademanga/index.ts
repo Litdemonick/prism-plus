@@ -528,19 +528,67 @@ const _ADULT_OPTIONS: Record<string, string> = {
   si: 'Mostrar +18',
 };
 
-export async function createFilter(): Promise<Record<string, unknown>> {
-  const [mangaGenres, animeGenres] = await Promise.all([
-    _fetchMangaGenres(),
-    _fetchAnimeGenres(),
-  ]);
-  const generoSet = new Set<string>([...mangaGenres, ...animeGenres]);
-  const generoOptions: Record<string, string> = { '': 'Todos' };
-  for (const g of [...generoSet].sort((a, b) => a.localeCompare(b))) generoOptions[g] = g;
+// Géneros del listado +18. La lista NORMAL (cientos de géneros de manga y
+// anime) no sirve acá: casi ninguno devuelve contenido para adultos, así que
+// elegir uno con el +18 puesto dejaba la pantalla vacía. Estos son los que SÍ
+// rinden, medidos uno por uno contra el endpoint que pagina
+// (/api/series-locales?genero=X&includeAdult=true, ítems +18 en su página 1):
+// Hentai 94, Erotica 85, Adult 83, Ecchi 78, Doujinshi 41, Full Color 40,
+// Smut 25, Yuri 19, Yaoi 9.
+//
+// No se usan los géneros que muestra la web en su zona +18 (Oneshots,
+// Futanari, Mind break, Paizuri...): son etiquetas del endpoint /adultos, que
+// no pagina —ni en la propia web, donde los filtros no hacen nada— así que
+// ofrecerlos sería prometer un filtro que no funciona. "Oneshots" se probó y
+// devuelve 0 en el endpoint que sí anda.
+const _ADULT_GENRE_OPTIONS: Record<string, string> = {
+  '': 'Todos',
+  Hentai: 'Hentai',
+  Erotica: 'Erótico',
+  Adult: 'Adulto',
+  Ecchi: 'Ecchi',
+  Doujinshi: 'Doujinshi',
+  'Full Color': 'A color',
+  Smut: 'Smut',
+  Yuri: 'Yuri',
+  Yaoi: 'Yaoi',
+};
+
+// `filter` trae la selección ACTUAL: PrismHub vuelve a llamar acá cada vez que
+// el usuario cambia algo, así que el filtro de género puede cambiar según si
+// está en modo +18 o no (mismo mecanismo que usa JKAnime para temporada según
+// el año). Sin esto, con el +18 puesto se seguían ofreciendo los géneros de la
+// zona normal, que ahí no encuentran nada.
+export async function createFilter(
+  filter?: Record<string, string[]>,
+): Promise<Record<string, unknown>> {
+  const isAdult = filter?.['adultos']?.[0] === 'si';
+
+  let generoOptions: Record<string, string>;
+  if (isAdult) {
+    generoOptions = _ADULT_GENRE_OPTIONS;
+  } else {
+    const [mangaGenres, animeGenres] = await Promise.all([
+      _fetchMangaGenres(),
+      _fetchAnimeGenres(),
+    ]);
+    const generoSet = new Set<string>([...mangaGenres, ...animeGenres]);
+    generoOptions = { '': 'Todos' };
+    for (const g of [...generoSet].sort((a, b) => a.localeCompare(b))) generoOptions[g] = g;
+  }
 
   return {
     tipo: { title: 'Tipo', options: _TYPE_OPTIONS, default: '', min: 1, max: 1 },
     orden: { title: 'Orden', options: _ORDEN_OPTIONS, default: 'populares', min: 1, max: 1 },
-    genero: { title: 'Género', options: generoOptions, default: '', min: 1, max: 1 },
+    // El título dice de qué zona son los géneros que se están ofreciendo, así
+    // queda claro que la lista cambió al prender el +18 y no parece un bug.
+    genero: {
+      title: isAdult ? 'Género (+18)' : 'Género',
+      options: generoOptions,
+      default: '',
+      min: 1,
+      max: 1,
+    },
     adultos: {
       title: 'Adultos',
       options: _ADULT_OPTIONS,
