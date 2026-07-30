@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         XVideos
-// @version      1.0.3
+// @version      1.0.4
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -8,7 +8,7 @@
 // @type         bangumi
 // @nsfw         true
 // @webSite      https://www.xvideos.com
-// @description  Vídeos para adultos con buscador, filtros de orden, duración y calidad, y reproducción directa (contenido +18).
+// @description  Vídeos para adultos con buscador, filtros de orden, duración y calidad, y reproducción directa (contenido +18). [1.0.4 incluye diagnóstico temporal]
 // ==/PrismHubExtension==
 // sdk/html.ts
 function stripTags(html) {
@@ -248,7 +248,29 @@ async function search(keyword, page, filter) {
   const items = _parseList(html);
   if (items.length > 0) return items;
   const ampHtml = await _get(`${AMP}/?${query}`);
-  return _parseList(ampHtml);
+  const ampItems = _parseList(ampHtml);
+  if (ampItems.length > 0) return ampItems;
+  return _diagnostic("search", [
+    [`${BASE}/?${query}`, html],
+    [`${AMP}/?${query}`, ampHtml]
+  ]);
+}
+function _diagnostic(step, tries) {
+  var _a, _b, _c, _d;
+  const parts = [];
+  for (const [url, html] of tries) {
+    const host = (_b = (_a = /https?:\/\/([^/]+)/.exec(url)) == null ? void 0 : _a[1]) != null ? _b : url;
+    const body = html != null ? html : "";
+    const links = (_d = (_c = body.match(/\/video[.\-][a-z0-9]+\//g)) == null ? void 0 : _c.length) != null ? _d : 0;
+    const marker = body.indexOf("thumb-block") !== -1 ? "thumb-block" : body.indexOf("video-thumb") !== -1 ? "video-thumb" : "sin-marcador";
+    parts.push(`${host}: ${body.length}b, ${marker}, ${links} enlaces`);
+  }
+  return [
+    {
+      title: `\u26A0 diagn\xF3stico ${step} \u2014 ${parts.join(" | ")}`,
+      url: tries.length > 0 ? tries[0][0] : BASE
+    }
+  ];
 }
 var _ORDER_OPTIONS = {
   "": "Relevancia",

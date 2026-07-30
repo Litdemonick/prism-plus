@@ -186,7 +186,48 @@ export async function search(
 
   // Respaldo por host AMP — ver el comentario de la constante AMP.
   const ampHtml = await _get(`${AMP}/?${query}`);
-  return _parseList(ampHtml);
+  const ampItems = _parseList(ampHtml);
+  if (ampItems.length > 0) return ampItems;
+
+  return _diagnostic('search', [
+    [`${BASE}/?${query}`, html],
+    [`${AMP}/?${query}`, ampHtml],
+  ]);
+}
+
+// ─── Diagnóstico temporal ───────────────────────────────────────────────────
+// TEMPORAL — sacar cuando se resuelva lo de Android.
+//
+// Por qué existe: la búsqueda funciona en Windows y devuelve cero en Android con
+// el MISMO bundle, y desde afuera no hay forma de ver qué recibe el teléfono —
+// la pantalla de depuración con el log de red de la app usa
+// desktop_multi_window, o sea que SOLO existe en escritorio.
+//
+// Entonces, cuando el resultado sería vacío (y solo ahí: nunca tapa resultados
+// reales), en vez de no devolver nada se devuelve una tarjeta cuyo título dice
+// qué llegó de verdad: cuántos bytes, si el HTML trae los marcadores que busca
+// el parser y si hay enlaces de vídeo. Con eso se distingue "no llegó nada",
+// "llegó una página de error", "llegó la página pero con otro maquetado" y
+// "llegó bien pero el parser falló" — sin adivinar.
+function _diagnostic(step: string, tries: [string, string][]): PrismItem[] {
+  const parts: string[] = [];
+  for (const [url, html] of tries) {
+    const host = /https?:\/\/([^/]+)/.exec(url)?.[1] ?? url;
+    const body = html ?? '';
+    const links = body.match(/\/video[.\-][a-z0-9]+\//g)?.length ?? 0;
+    const marker = body.indexOf('thumb-block') !== -1
+      ? 'thumb-block'
+      : body.indexOf('video-thumb') !== -1
+        ? 'video-thumb'
+        : 'sin-marcador';
+    parts.push(`${host}: ${body.length}b, ${marker}, ${links} enlaces`);
+  }
+  return [
+    {
+      title: `⚠ diagnóstico ${step} — ${parts.join(' | ')}`,
+      url: tries.length > 0 ? tries[0][0] : BASE,
+    },
+  ];
 }
 
 // ─── Filtros ────────────────────────────────────────────────────────────────
