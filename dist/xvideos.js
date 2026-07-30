@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         XVideos
-// @version      1.0.6
+// @version      1.0.7
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -150,10 +150,17 @@ var _NAMED_ENTITIES = {
 // extensions/xvideos/index.ts
 var BASE = "https://www.xvideos.com";
 var AMP = "https://amp.xvideos.com";
+var _DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 async function _get(url) {
   const raw = await sendMessage(
     "request",
-    JSON.stringify([url, { method: "get", headers: { Referer: `${BASE}/` } }])
+    JSON.stringify([
+      url,
+      {
+        method: "get",
+        headers: { Referer: `${BASE}/`, "User-Agent": _DESKTOP_UA }
+      }
+    ])
   );
   try {
     const parsed = JSON.parse(raw);
@@ -206,6 +213,7 @@ function _parseList(html) {
 function _parseListLoose(html) {
   const items = [];
   const seen = {};
+  html = html.split("\\/").join("/");
   for (const m of html.matchAll(_RE_LOOSE)) {
     const url = `${BASE}${m[0]}`;
     if (seen[url]) continue;
