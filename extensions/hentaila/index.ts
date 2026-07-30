@@ -56,12 +56,23 @@ function _unescapeJs(s: string): string {
 
 // ─── Catálogo ───────────────────────────────────────────────────────────────
 
-// La portada de cada card viene con alt="Portada de X"; el bloque de hover
-// repite la imagen con alt="Póster de X", así que filtrar por "Portada de"
-// evita quedarse con la duplicada. El href al detalle aparece DESPUÉS del
-// <h3> del título, de ahí el salto acotado entre medio.
-const _CARD_RE =
-  /<img[^>]+class="aspect-poster[^"]*"[^>]+src="([^"]+)"[^>]*alt="Portada de ([^"]*)"[\s\S]{0,1500}?href="(\/media\/[a-z0-9-]+)"/g;
+// Marcador literal por el que se corta el HTML en cards. Cada card tiene DOS
+// imágenes con esta clase: la portada (alt="Portada de X") y la del bloque de
+// hover (alt="Póster de X"), y el orden real es
+//   img(Portada) … <h3>título</h3> … href="/media/slug" … img(Póster)
+// así que el trozo que arranca en la primera imagen contiene su propia portada,
+// su título y su enlace. Los trozos de la imagen de hover se descartan porque no
+// llevan alt="Portada de".
+//
+// Se corta con indexOf/split de texto literal y NO con una expresión regular a
+// propósito: una regex que salte de la imagen al href (algo tipo
+// [\s\S]{0,1500}?) obliga al motor a retroceder en cada card, y el motor de
+// regex de QuickJS usa la pila para eso. En Android el runtime arranca con 1 MB
+// de stack y en escritorio con el default (ver extension_service.dart), o sea
+// que el mismo bundle puede funcionar en PC y devolver NADA en celular — pasó
+// exactamente eso con el parser de la extensión de xvideos. Un split literal es
+// lineal, no retrocede y da el mismo resultado en cualquier motor.
+const _CARD_MARKER = 'class="aspect-poster';
 
 // Respaldo por si cambian las clases de la card: el enlace al detalle siempre
 // lleva un <span class="sr-only">Ver TÍTULO</span> para accesibilidad. Da
@@ -73,14 +84,23 @@ const _CARD_FALLBACK_RE =
 function _parseCatalog(html: string): PrismItem[] {
   const items: PrismItem[] = [];
   const seen: Record<string, boolean> = {};
-  for (const m of html.matchAll(_CARD_RE)) {
-    const url = `${BASE}${m[3]}`;
+  // Los regex de acá abajo corren sobre trozos chicos (una card), no sobre la
+  // página entera — por eso son baratos y no hay riesgo de retroceso profundo.
+  const chunks = html.split(_CARD_MARKER);
+  for (let i = 1; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    const title = /alt="Portada de ([^"]*)"/.exec(chunk)?.[1];
+    if (!title) continue; // trozo de la imagen de hover, no es la portada
+    const href = /href="(\/media\/[a-z0-9-]+)"/.exec(chunk)?.[1];
+    if (!href) continue;
+    const url = `${BASE}${href}`;
     if (seen[url]) continue;
     seen[url] = true;
+    const cover = /src="([^"]+)"/.exec(chunk)?.[1];
     items.push({
-      title: decodeEntities(m[2].trim()),
+      title: decodeEntities(title.trim()),
       url,
-      cover: _fullUrl(m[1]),
+      cover: cover ? _fullUrl(cover) : undefined,
     });
   }
   if (items.length > 0) return items;

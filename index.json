@@ -38,7 +38,7 @@
     {
       "name": "HentaiLA",
       "package": "io.prismhub.hentaila",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -48,8 +48,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/hentaila.js",
-      "sha256": "ba6c681cd6a963ac0cf477f54572d90810f717f24d698e4247a68f02c62eef1e",
-      "signature": "piBqjoTqAWei0o29uo8fw+/2PQzN1c4n3lWcuWTylETKXBeiNun4rxbu+E2Wt4O+RB6jiooGXL2B9rvk4H4rDA=="
+      "sha256": "60131bc3b94a33b1f18a10f8923df29a480c54dc6a2698345620003d9c94a076",
+      "signature": "SAOdbEf4UdQMHFGSiy/z/GH0JH4F4y8eCXZCxi+PX8axLngl1ucVV3UqJt8uOVVEUIozuWB04wYmyNRqyZiFDg=="
     },
     {
       "name": "JKAnime",
@@ -166,7 +166,7 @@
     {
       "name": "XVideos",
       "package": "io.prismhub.xvideos",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -176,8 +176,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/xvideos.js",
-      "sha256": "af07b4d5ca5da2d0a34caa0d2a2e9000a7bd6d771297787505f480060efde4c1",
-      "signature": "MRlWzNQEJd9vy5J21QEQSfd1AsQ3aFJwOfPa6fdrp6FED00PcJcR7ygdoCe8UgJarJcyqihE4JG8FYqT7K8wAQ=="
+      "sha256": "b57334e7df03da9057f530922032354b8d8450ae5e0c8466c7cab4d9af8724ec",
+      "signature": "5jXnEvzGX5WgjxmmTlfsGgQBwKx2+8Npx36/XK6HYu2u/NCVkIPzHdE/lzWMLaxdjCfWwlxNHYPbl5hzjxq6CA=="
     },
     {
       "name": "LaMovie",

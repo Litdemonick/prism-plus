@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         HentaiLA
-// @version      1.0.0
+// @version      1.0.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -450,19 +450,27 @@ function _fullUrl(url) {
 function _unescapeJs(s) {
   return s.replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16))).replace(/\\n/g, "\n").replace(/\\r/g, "").replace(/\\t/g, " ").replace(/\\\//g, "/").replace(/\\"/g, '"').replace(/\\'/g, "'").replace(/\\\\/g, "\\");
 }
-var _CARD_RE = /<img[^>]+class="aspect-poster[^"]*"[^>]+src="([^"]+)"[^>]*alt="Portada de ([^"]*)"[\s\S]{0,1500}?href="(\/media\/[a-z0-9-]+)"/g;
+var _CARD_MARKER = 'class="aspect-poster';
 var _CARD_FALLBACK_RE = /href="(\/media\/[a-z0-9-]+)"[^>]*>\s*<span class="sr-only">Ver ([^<]+)<\/span>/g;
 function _parseCatalog(html) {
+  var _a, _b, _c;
   const items = [];
   const seen = {};
-  for (const m of html.matchAll(_CARD_RE)) {
-    const url = `${BASE}${m[3]}`;
+  const chunks = html.split(_CARD_MARKER);
+  for (let i = 1; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    const title = (_a = /alt="Portada de ([^"]*)"/.exec(chunk)) == null ? void 0 : _a[1];
+    if (!title) continue;
+    const href = (_b = /href="(\/media\/[a-z0-9-]+)"/.exec(chunk)) == null ? void 0 : _b[1];
+    if (!href) continue;
+    const url = `${BASE}${href}`;
     if (seen[url]) continue;
     seen[url] = true;
+    const cover = (_c = /src="([^"]+)"/.exec(chunk)) == null ? void 0 : _c[1];
     items.push({
-      title: decodeEntities(m[2].trim()),
+      title: decodeEntities(title.trim()),
       url,
-      cover: _fullUrl(m[1])
+      cover: cover ? _fullUrl(cover) : void 0
     });
   }
   if (items.length > 0) return items;

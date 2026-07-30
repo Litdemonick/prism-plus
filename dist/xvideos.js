@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         XVideos
-// @version      1.0.0
+// @version      1.0.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -42,7 +42,9 @@ function _normalizeUrl(url) {
 }
 function _parseList(html) {
   var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k;
-  const chunks = html.split(/class="(?:[^"]*\s)?(?:thumb-block|video-thumb)/);
+  const marker = html.indexOf("thumb-block") !== -1 ? "thumb-block" : html.indexOf("video-thumb") !== -1 ? "video-thumb" : "";
+  if (!marker) return [];
+  const chunks = html.split(marker);
   const items = [];
   const seen = {};
   for (let i = 1; i < chunks.length; i++) {

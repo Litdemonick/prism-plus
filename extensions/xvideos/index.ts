@@ -41,7 +41,21 @@ function _normalizeUrl(url: string): string {
 // por ese marcador deja el enlace, la miniatura y el <p class="title"> del MISMO
 // vídeo dentro del trozo (el siguiente trozo empieza en la card siguiente).
 function _parseList(html: string): PrismItem[] {
-  const chunks = html.split(/class="(?:[^"]*\s)?(?:thumb-block|video-thumb)/);
+  // Corte por texto LITERAL, no por expresión regular, y a propósito: la versión
+  // con regex —class="(?:[^"]*\s)?(?:thumb-block|video-thumb)— obliga al motor a
+  // retroceder en cada `class="` de una página de ~100 KB, y el motor de regex
+  // de QuickJS usa la pila para eso. En Android el runtime arranca con 1 MB de
+  // stack y en escritorio con el default (ver extension_service.dart), así que
+  // el mismo bundle devolvía resultados en PC y NADA en celular. Un split
+  // literal es lineal, no retrocede y se comporta igual en cualquier motor.
+  const marker =
+    html.indexOf('thumb-block') !== -1
+      ? 'thumb-block'
+      : html.indexOf('video-thumb') !== -1
+        ? 'video-thumb'
+        : '';
+  if (!marker) return [];
+  const chunks = html.split(marker);
   const items: PrismItem[] = [];
   const seen: Record<string, boolean> = {};
   for (let i = 1; i < chunks.length; i++) {
