@@ -111,7 +111,9 @@
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/shademanga.js",
       "sha256": "06614ea930edcdae332f16cb6406f95248744de07e45b54cea0b4565deac4812",
-      "signature": "VUPIBYBeVJKrlYUneqWQ/dii36b7bP3ERSbQWH7sjZaGyCEE5RNm1QsWIKzUAcOCVJBEganuOgUVM9FeGbHeBQ=="
+      "signature": "VUPIBYBeVJKrlYUneqWQ/dii36b7bP3ERSbQWH7sjZaGyCEE5RNm1QsWIKzUAcOCVJBEganuOgUVM9FeGbHeBQ==",
+      "unstable": true,
+      "unstableReason": "broken"
     },
     {
       "name": "TioAnime",
@@ -141,7 +143,9 @@
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tumangaonline.js",
       "sha256": "e4d6c52183471657f57fd3f0774810c26911d7bdcea361b718cdf5a972e07b9f",
-      "signature": "xXtz0vmXu1DlbV/yAsIPeHqFvX/XDX78n+ymv9N5a600r5lKn3rmgsjxzmBO/JziPUSPVkbQdtJIDL88mA4YCg=="
+      "signature": "xXtz0vmXu1DlbV/yAsIPeHqFvX/XDX78n+ymv9N5a600r5lKn3rmgsjxzmBO/JziPUSPVkbQdtJIDL88mA4YCg==",
+      "unstable": true,
+      "unstableReason": "broken"
     },
     {
       "name": "VeoHentai",

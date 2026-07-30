@@ -7,6 +7,10 @@
     "consecutiveFailures": 0,
     "lastReason": null
   },
+  "io.prismhub.hentaila": {
+    "consecutiveFailures": 0,
+    "lastReason": null
+  },
   "io.prismhub.jkanime": {
     "consecutiveFailures": 0,
     "lastReason": null
@@ -16,11 +20,11 @@
     "lastReason": null
   },
   "io.prismhub.olympus": {
-    "consecutiveFailures": 0,
-    "lastReason": null
+    "consecutiveFailures": 1,
+    "lastReason": "broken"
   },
   "io.prismhub.shademanga": {
-    "consecutiveFailures": 1,
+    "consecutiveFailures": 2,
     "lastReason": "broken"
   },
   "io.prismhub.tioanime": {
@@ -28,7 +32,15 @@
     "lastReason": null
   },
   "io.prismhub.tumangaonline": {
+    "consecutiveFailures": 2,
+    "lastReason": "broken"
+  },
+  "io.prismhub.veohentai": {
     "consecutiveFailures": 1,
     "lastReason": "broken"
+  },
+  "io.prismhub.xvideos": {
+    "consecutiveFailures": 0,
+    "lastReason": null
   }
 }
