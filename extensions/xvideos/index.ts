@@ -222,13 +222,20 @@ function _diagnostic(step: string, tries: [string, string][]): PrismItem[] {
         : 'sin-marcador';
     parts.push(`${host}: ${body.length}b, ${marker}, ${links} enlaces`);
   }
+  const text = `${step}: ${parts.join('  ||  ')}`;
+  // El título de la card se corta a dos líneas en el celular, así que el texto
+  // completo viaja en la URL y detail() lo muestra como descripción, que sí se
+  // lee entera. La card solo invita a abrirla.
   return [
     {
-      title: `⚠ diagnóstico ${step} — ${parts.join(' | ')}`,
-      url: tries.length > 0 ? tries[0][0] : BASE,
+      title: '⚠ Abrí esto — diagnóstico',
+      url: `${BASE}/?${_DIAG_PARAM}=${encodeURIComponent(text)}`,
+      description: text,
     },
   ];
 }
+
+const _DIAG_PARAM = 'prismdiag';
 
 // ─── Filtros ────────────────────────────────────────────────────────────────
 
@@ -324,6 +331,19 @@ function _videoJsonLd(html: string): string {
 // detalle expone UN único "episodio" que apunta al propio vídeo. Es lo que
 // necesita el cliente para abrir el reproductor desde la ficha.
 export async function detail(url: string): Promise<PrismDetail> {
+  // TEMPORAL (ver _diagnostic): la card de diagnóstico lleva el texto en la URL
+  // porque su título se corta a dos líneas en el celular. Acá se decodifica y se
+  // devuelve como descripción, sin pedir nada a la red — así se lee completo
+  // desde la pestaña "Descripción general".
+  const diag = new RegExp(`[?&]${_DIAG_PARAM}=([^&]+)`).exec(url)?.[1];
+  if (diag) {
+    return {
+      title: 'Diagnóstico XVideos',
+      description: decodeURIComponent(diag),
+      episodes: [],
+    };
+  }
+
   const fullUrl = _normalizeUrl(url);
   const html = await _get(fullUrl);
 

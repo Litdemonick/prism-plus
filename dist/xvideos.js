@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         XVideos
-// @version      1.0.4
+// @version      1.0.5
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -265,13 +265,16 @@ function _diagnostic(step, tries) {
     const marker = body.indexOf("thumb-block") !== -1 ? "thumb-block" : body.indexOf("video-thumb") !== -1 ? "video-thumb" : "sin-marcador";
     parts.push(`${host}: ${body.length}b, ${marker}, ${links} enlaces`);
   }
+  const text = `${step}: ${parts.join("  ||  ")}`;
   return [
     {
-      title: `\u26A0 diagn\xF3stico ${step} \u2014 ${parts.join(" | ")}`,
-      url: tries.length > 0 ? tries[0][0] : BASE
+      title: "\u26A0 Abr\xED esto \u2014 diagn\xF3stico",
+      url: `${BASE}/?${_DIAG_PARAM}=${encodeURIComponent(text)}`,
+      description: text
     }
   ];
 }
+var _DIAG_PARAM = "prismdiag";
 var _ORDER_OPTIONS = {
   "": "Relevancia",
   uploaddate: "M\xE1s recientes",
@@ -338,21 +341,29 @@ function _videoJsonLd(html) {
   return html.slice(start, end);
 }
 async function detail(url) {
-  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n;
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o;
+  const diag = (_a = new RegExp(`[?&]${_DIAG_PARAM}=([^&]+)`).exec(url)) == null ? void 0 : _a[1];
+  if (diag) {
+    return {
+      title: "Diagn\xF3stico XVideos",
+      description: decodeURIComponent(diag),
+      episodes: []
+    };
+  }
   const fullUrl = _normalizeUrl(url);
   const html = await _get(fullUrl);
   const ld = _videoJsonLd(html);
-  const name = (_f = (_e = (_c = (_a = /"name":\s*"((?:[^"\\]|\\.)*)"/.exec(ld)) == null ? void 0 : _a[1]) != null ? _c : (_b = /property="og:title"\s+content="([^"]*)"/i.exec(html)) == null ? void 0 : _b[1]) != null ? _e : (_d = /<title>([\s\S]*?)<\/title>/i.exec(html)) == null ? void 0 : _d[1]) != null ? _f : "";
+  const name = (_g = (_f = (_d = (_b = /"name":\s*"((?:[^"\\]|\\.)*)"/.exec(ld)) == null ? void 0 : _b[1]) != null ? _d : (_c = /property="og:title"\s+content="([^"]*)"/i.exec(html)) == null ? void 0 : _c[1]) != null ? _f : (_e = /<title>([\s\S]*?)<\/title>/i.exec(html)) == null ? void 0 : _e[1]) != null ? _g : "";
   const title = decodeEntities(
     name.replace(/\\"/g, '"').replace(/\\\//g, "/").replace(/\s*-\s*XVIDEOS\.COM\s*$/i, "").trim()
   );
   const description = decodeEntities(
-    ((_h = (_g = /"description":\s*"((?:[^"\\]|\\.)*)"/.exec(ld)) == null ? void 0 : _g[1]) != null ? _h : "").replace(/\\"/g, '"').replace(/\\\//g, "/").trim()
+    ((_i = (_h = /"description":\s*"((?:[^"\\]|\\.)*)"/.exec(ld)) == null ? void 0 : _h[1]) != null ? _i : "").replace(/\\"/g, '"').replace(/\\\//g, "/").trim()
   );
-  const cover = (_j = (_i = /"thumbnailUrl":\s*\[?\s*"([^"]+)"/.exec(ld)) == null ? void 0 : _i[1]) == null ? void 0 : _j.replace(/\\\//g, "/");
+  const cover = (_k = (_j = /"thumbnailUrl":\s*\[?\s*"([^"]+)"/.exec(ld)) == null ? void 0 : _j[1]) == null ? void 0 : _k.replace(/\\\//g, "/");
   const durM = /"duration":\s*"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?"/.exec(ld);
-  const seconds = durM ? Number((_k = durM[1]) != null ? _k : 0) * 3600 + Number((_l = durM[2]) != null ? _l : 0) * 60 + Number((_m = durM[3]) != null ? _m : 0) : void 0;
-  const yearM = (_n = /"uploadDate":\s*"(\d{4})/.exec(ld)) == null ? void 0 : _n[1];
+  const seconds = durM ? Number((_l = durM[1]) != null ? _l : 0) * 3600 + Number((_m = durM[2]) != null ? _m : 0) * 60 + Number((_n = durM[3]) != null ? _n : 0) : void 0;
+  const yearM = (_o = /"uploadDate":\s*"(\d{4})/.exec(ld)) == null ? void 0 : _o[1];
   const tags = [];
   for (const m of html.matchAll(/href="\/(?:tags|c)\/([a-z0-9\-]+)"/g)) {
     const t = m[1].replace(/-\d+$/, "").replace(/-/g, " ");
