@@ -61,7 +61,51 @@ if (!existsSync(reportPath)) {
   console.error('❌  live-test no dejó reporte — no se toca el índice');
   process.exit(1);
 }
-const report = JSON.parse(readFileSync(reportPath, 'utf8'));
+let report = JSON.parse(readFileSync(reportPath, 'utf8'));
+
+// ─── 1b. Segunda oportunidad, una por una ───────────────────────────────────
+//
+// La corrida completa pide las 11 extensiones casi seguidas y varios sitios
+// responden con límite de peticiones cuando los golpean así. Eso se contaba
+// como "extensión rota" y, al repetirse todos los días, llegaba a las 2
+// corridas fallidas seguidas y las marcaba inestables. Pasó en vivo con
+// ShadeManga, TuMangaOnline y VeoHentai: las tres pasaban perfecto corriendo
+// solas, pero el índice publicado las servía marcadas y en el app pedían
+// "actualización requerida" para siempre.
+//
+// Así que antes de contar un fallo se reintenta ESA extensión sola. Si pasa,
+// era la tanda y no la extensión. Solo se reintenta lo que ya falló, así que
+// en una corrida sana no cuesta nada.
+const fallidas = report.filter((r) => !r.ok);
+if (fallidas.length > 0) {
+  console.log(
+    `\n🔁  ${fallidas.length} extensión(es) fallaron en la tanda — se reintentan una por una\n`,
+  );
+  for (const r of fallidas) {
+    // Un respiro entre reintentos, por el mismo motivo que existe todo esto.
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    const retryFile = `${REPORT_FILE}.retry.json`;
+    const retry = spawnSync(
+      process.execPath,
+      [
+        join(ROOT, 'scripts', 'live-test.mjs'),
+        '--report-only',
+        `--only=${r.package}`,
+        `--json=${retryFile}`,
+      ],
+      { stdio: 'inherit', cwd: ROOT },
+    );
+    if (retry.error) continue;
+    const retryPath = join(ROOT, retryFile);
+    if (!existsSync(retryPath)) continue;
+    const solo = JSON.parse(readFileSync(retryPath, 'utf8'));
+    const suyo = solo.find((x) => x.package === r.package);
+    if (suyo?.ok) {
+      console.log(`  ✅  ${r.package}: pasa sola — era la tanda, no la extensión`);
+      report = report.map((x) => (x.package === r.package ? suyo : x));
+    }
+  }
+}
 
 // ─── 2. Actualizar el contador de fallos consecutivos ───────────────────────
 
