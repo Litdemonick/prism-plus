@@ -20,8 +20,8 @@
     "lastReason": null
   },
   "io.prismhub.olympus": {
-    "consecutiveFailures": 1,
-    "lastReason": "broken"
+    "consecutiveFailures": 0,
+    "lastReason": null
   },
   "io.prismhub.shademanga": {
     "consecutiveFailures": 0,
