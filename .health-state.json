@@ -42,5 +42,9 @@
   "io.prismhub.xvideos": {
     "consecutiveFailures": 0,
     "lastReason": null
+  },
+  "io.prismhub.lamovie": {
+    "consecutiveFailures": 0,
+    "lastReason": null
   }
 }
