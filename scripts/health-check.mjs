@@ -117,6 +117,27 @@ for (const r of report) {
   if (r.ok) {
     // Pasó: se limpia el contador (y más abajo se desmarca si estaba marcada).
     nextState[r.package] = { consecutiveFailures: 0, lastReason: null };
+  } else if (r.reason === 'protected') {
+    // El sitio contestó con un desafío de Cloudflare: NO se pudo comprobar
+    // nada, ni a favor ni en contra. Eso no es un fallo de la extensión y no
+    // puede sumar al contador — el app pasa ese desafío por WebView y funciona
+    // igual.
+    //
+    // Este era el motivo real de que ShadeManga, TuMangaOnline y VeoHentai
+    // aparecieran inestables "de la nada" cada tanto: cuando Cloudflare subía
+    // la protección, el chequeo las daba por rotas dos corridas seguidas y el
+    // app les bloqueaba el contenido a todos los usuarios.
+    //
+    // Se conserva el contador anterior en vez de reiniciarlo: si venía
+    // fallando de verdad, una corrida que no pudo verificar nada tampoco es
+    // motivo para perdonarla.
+    nextState[r.package] = {
+      consecutiveFailures: prev,
+      lastReason: state[r.package]?.lastReason ?? null,
+    };
+    console.log(
+      `🛡️   ${r.name}: el sitio pide desafío de Cloudflare — no se puede verificar desde acá, se deja como estaba`,
+    );
   } else {
     nextState[r.package] = {
       consecutiveFailures: prev + 1,

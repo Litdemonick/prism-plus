@@ -25,19 +25,19 @@
   },
   "io.prismhub.shademanga": {
     "consecutiveFailures": 2,
-    "lastReason": "broken"
+    "lastReason": "site-down"
   },
   "io.prismhub.tioanime": {
     "consecutiveFailures": 0,
     "lastReason": null
   },
   "io.prismhub.tumangaonline": {
-    "consecutiveFailures": 2,
-    "lastReason": "broken"
+    "consecutiveFailures": 0,
+    "lastReason": null
   },
   "io.prismhub.veohentai": {
-    "consecutiveFailures": 2,
-    "lastReason": "broken"
+    "consecutiveFailures": 0,
+    "lastReason": null
   },
   "io.prismhub.xvideos": {
     "consecutiveFailures": 0,

@@ -98,6 +98,40 @@ function storeCookiesFrom(host, res) {
 // "la extensión está rota".
 let sawNetworkError = false;
 
+// Marca si el sitio contestó con un desafío de Cloudflare. Es un tercer estado
+// y NO significa que la extensión esté rota:
+//
+// El desafío exige ejecutar JavaScript en un navegador de verdad, cosa que este
+// script —fetch pelado— no puede hacer nunca. La app sí lo pasa, porque cae al
+// WebView, resuelve el desafío y se guarda la cookie cf_clearance.
+//
+// Sin distinguirlo, cada vez que Cloudflare subía la protección el chequeo
+// marcaba la extensión como rota y el app le bloqueaba el contenido a todo el
+// mundo, aunque funcionara perfecto. Medido en vivo: shademanga.com y
+// zonatmo.com contestando 503 con "challenge-platform" en el cuerpo.
+let sawChallenge = false;
+
+// Cloudflare manda 403 o 503 con la página del desafío. OJO: `fetch` NO lanza
+// en esos casos —la respuesta llega bien, solo que con el desafío en el cuerpo—
+// así que esto no lo detectaba el manejo de errores de red.
+function looksLikeChallenge(res, body) {
+  // cf-mitigated es la senal explicita y no necesita mirar el cuerpo.
+  if (res.headers.get('cf-mitigated')) return true;
+  if (res.status !== 403 && res.status !== 503) return false;
+  // Un 503 servido por el ORIGEN (mantenimiento del sitio) tambien pasa por
+  // Cloudflare, asi que la sola presencia de cf-ray no alcanza: hace falta ver
+  // el desafio en el cuerpo para no confundir mantenimiento con proteccion.
+  // Cuerpo COMPLETO: el script del desafio suele ir al pie del HTML, asi que
+  // mirar solo el principio lo dejaba pasar. Las paginas de desafio pesan unas
+  // decenas de KB, revisarlas enteras no cuesta nada.
+  const muestra = (body || '').toLowerCase();
+  return (
+    muestra.includes('challenge-platform') ||
+    muestra.includes('cf-browser-verification') ||
+    muestra.includes('just a moment')
+  );
+}
+
 globalThis.sendMessage = async (channel, data) => {
   if (channel !== 'request') throw new Error(`canal no soportado: ${channel}`);
   const [url, opts = {}] = JSON.parse(data);
@@ -121,7 +155,14 @@ globalThis.sendMessage = async (channel, data) => {
     throw e;
   }
   storeCookiesFrom(host, res);
-  return await res.text();
+  const body = await res.text();
+  if (looksLikeChallenge(res, body)) {
+    sawChallenge = true;
+    throw new Error(
+      `${host} respondió con un desafío de Cloudflare (HTTP ${res.status})`,
+    );
+  }
+  return body;
 };
 
 // Los bundles se publican como `export default class extends Extension`.
@@ -437,7 +478,10 @@ for (const file of bundles) {
 
   if (ONLY && ONLY !== pkg && ONLY !== file.replace('.js', '') && ONLY !== name) continue;
 
+  // Los dos flags se reinician por extension: si no, el desafio de un
+  // sitio contagiaba el diagnostico de todas las que vinieran despues.
   sawNetworkError = false;
+  sawChallenge = false;
   let checks;
   try {
     const mod = await import(pathToFileURL(join(DIST_DIR, file)).href);
@@ -453,7 +497,15 @@ for (const file of bundles) {
 
   // Clasificación para el chequeo de salud: si TODO lo que falló fue por red,
   // el problema es el sitio, no el código de la extensión.
-  const reason = ok ? null : sawNetworkError ? 'site-down' : 'broken';
+  // El desafío manda sobre los demás motivos: si el sitio ni siquiera nos dejó
+  // entrar, lo que la extensión haga o deje de hacer no se pudo comprobar.
+  const reason = ok
+    ? null
+    : sawChallenge
+      ? 'protected'
+      : sawNetworkError
+        ? 'site-down'
+        : 'broken';
 
   results.push({ name, package: pkg, ok, reason, checks });
 
@@ -464,7 +516,13 @@ for (const file of bundles) {
   }
   if (!ok) {
     console.log(
-      `      → motivo: ${reason === 'site-down' ? 'la página parece caída (error de red)' : 'la extensión responde pero no entrega contenido'}`,
+      `      → motivo: ${
+        reason === 'protected'
+          ? 'el sitio pide un desafío de Cloudflare — NO se puede verificar desde acá, la app sí lo pasa por WebView'
+          : reason === 'site-down'
+            ? 'la página parece caída (error de red)'
+            : 'la extensión responde pero no entrega contenido'
+      }`,
     );
   }
   console.log('');
