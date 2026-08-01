@@ -21,6 +21,22 @@
       "signature": "W2v6MI4skquxQ/IT5o6dPaAus+uAnuIA0qI3uHRrB91PYLSKWxURbZDw8vQhZDkiBmki0eK+EGcols4Pgo7bDA=="
     },
     {
+      "name": "Eporner",
+      "package": "io.prismhub.eporner",
+      "version": "1.0.0",
+      "author": "PrismPlus",
+      "type": "bangumi",
+      "icon": "",
+      "description": "Vídeos para adultos con buscador, 87 categorías, filtros de calidad (hasta 4K), duración y orden, y reproducción directa con selector de calidad (contenido +18).",
+      "lang": "es",
+      "webSite": "https://www.eporner.com",
+      "license": "MIT",
+      "nsfw": "true",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/eporner.js",
+      "sha256": "74108d3a7503ee530b01c358d2993c9f5fa113d3726724eff886aec5b53b4a61",
+      "signature": "8uc7XCclpnLSkdRL6r165Auxkr4WQKD/JRtxxV50vKQcM7/2kyjDlBCTxxULIFcY6YaiEMUrp5cL4gAQKyTFAA=="
+    },
+    {
       "name": "FuegoCine",
       "package": "io.prismhub.fuegocine",
       "version": "1.1.5",

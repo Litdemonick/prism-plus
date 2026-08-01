@@ -1,0 +1,13 @@
+{
+  "name": "Eporner",
+  "package": "io.prismhub.eporner",
+  "version": "1.0.0",
+  "author": "PrismPlus",
+  "type": "video",
+  "icon": "",
+  "description": "Vídeos para adultos con buscador, 87 categorías, filtros de calidad (hasta 4K), duración y orden, y reproducción directa con selector de calidad (contenido +18).",
+  "lang": "es",
+  "webSite": "https://www.eporner.com",
+  "license": "MIT",
+  "nsfw": "true"
+}
