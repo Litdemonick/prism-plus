@@ -11,6 +11,10 @@
     "consecutiveFailures": 0,
     "lastReason": null
   },
+  "io.prismhub.ikigai": {
+    "consecutiveFailures": 0,
+    "lastReason": null
+  },
   "io.prismhub.jkanime": {
     "consecutiveFailures": 0,
     "lastReason": null
