@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Ikigai Mangas
-// @version      1.1.0
+// @version      1.1.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -78,6 +78,68 @@ var RESULTADOS_OBJETIVO = 24;
 function _normalizar(s) {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
 }
+var TOPE_PAGINAS = 400;
+var VENTANA = 3;
+var PRIMERA_ORDENADA = 3;
+var PAGINAS_SUELTAS = [1, 2];
+function _pagCache() {
+  return /* @__PURE__ */ new Map();
+}
+async function _paginaDelPrefijo(prefijo, filter, pagina) {
+  let lo = PRIMERA_ORDENADA;
+  let hi = TOPE_PAGINAS;
+  while (lo < hi) {
+    const medio = lo + hi >> 1;
+    const items = await pagina(medio);
+    if (items.length === 0 || items[0].title >= prefijo) hi = medio;
+    else lo = medio + 1;
+  }
+  return lo;
+}
+async function _porPrincipioDelTitulo(keyword, filter, cache) {
+  const pagina = (n) => {
+    const clave = String(n);
+    let p = cache.get(clave);
+    if (!p) {
+      p = (async () => {
+        try {
+          return _itemsDe(
+            await _html(_consulta(n, filter, { ordenar: "name", direccion: "asc" }))
+          );
+        } catch (e) {
+          return [];
+        }
+      })();
+      cache.set(clave, p);
+    }
+    return p;
+  };
+  const inicial = keyword.slice(0, 1);
+  const variantes = [.../* @__PURE__ */ new Set([
+    inicial.toUpperCase() + keyword.slice(1),
+    inicial.toLowerCase() + keyword.slice(1)
+  ])];
+  const buscado = _normalizar(keyword);
+  const salida = [];
+  const vistos = /* @__PURE__ */ new Set();
+  const recoger = (items) => {
+    for (const it of items) {
+      if (vistos.has(it.url)) continue;
+      vistos.add(it.url);
+      if (_normalizar(it.title).startsWith(buscado)) salida.push(it);
+    }
+  };
+  recoger((await Promise.all(PAGINAS_SUELTAS.map(pagina))).flat());
+  for (const prefijo of variantes) {
+    const centro = await _paginaDelPrefijo(prefijo, filter, pagina);
+    const lote = await Promise.all(
+      Array.from({ length: VENTANA * 2 }, (_, k) => centro - VENTANA + k).filter((n) => n >= PRIMERA_ORDENADA && n <= TOPE_PAGINAS).map(pagina)
+    );
+    for (const items of lote) recoger(items);
+    if (salida.length > 0) break;
+  }
+  return salida;
+}
 async function search(keyword, page, filter) {
   if (!keyword || !keyword.trim()) {
     return _itemsDe(await _html(_consulta(page, filter)));
@@ -85,6 +147,15 @@ async function search(keyword, page, filter) {
   const buscado = _normalizar(keyword);
   const encontrados = [];
   const vistos = /* @__PURE__ */ new Set();
+  try {
+    for (const it of await _porPrincipioDelTitulo(keyword, filter, _pagCache())) {
+      if (vistos.has(it.url)) continue;
+      vistos.add(it.url);
+      encontrados.push(it);
+    }
+  } catch (e) {
+  }
+  const porPrefijo = encontrados.length;
   for (let p = 1; p <= PAGINAS_BUSQUEDA; p += PAGINAS_POR_TANDA) {
     const tanda = [];
     for (let k = p; k < p + PAGINAS_POR_TANDA && k <= PAGINAS_BUSQUEDA; k++) {
@@ -113,7 +184,11 @@ async function search(keyword, page, filter) {
     if (!huboItems) break;
     if (encontrados.length >= RESULTADOS_OBJETIVO) break;
   }
-  encontrados.sort((a, b) => a.title.localeCompare(b.title, "es"));
+  const abc = (a, b) => a.title.localeCompare(b.title, "es");
+  const cabeza = encontrados.slice(0, porPrefijo).sort(abc);
+  const resto = encontrados.slice(porPrefijo).sort(abc);
+  encontrados.length = 0;
+  encontrados.push(...cabeza, ...resto);
   const porPagina = 24;
   const desde = (page - 1) * porPagina;
   return encontrados.slice(desde, desde + porPagina);
@@ -222,10 +297,25 @@ async function detail(slug) {
   const type = esNovela ? "fikushon" : "manga";
   return { title, cover, description, episodes, genres, status, type };
 }
+function _cuerpoDelCapitulo(html) {
+  const abre = /<div[^>]*\bclass="[^"]*\bprose\b[^"]*"[^>]*>/i.exec(html);
+  if (!abre) return null;
+  let nivel = 1;
+  let i = abre.index + abre[0].length;
+  const desde = i;
+  const re = /<\/?div\b/gi;
+  re.lastIndex = i;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    nivel += m[0][1] === "/" ? -1 : 1;
+    if (nivel === 0) return html.slice(desde, m.index);
+    i = re.lastIndex;
+  }
+  return html.slice(desde);
+}
 function _parrafosDe(html) {
-  const ini = html.indexOf("<main");
-  const fin = html.lastIndexOf("</main>");
-  const cuerpo = ini !== -1 && fin > ini ? html.slice(ini, fin) : html;
+  const cuerpo = _cuerpoDelCapitulo(html);
+  if (cuerpo === null) return [];
   const limpio = cuerpo.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ");
   const parrafos = [];
   const re = /<p[^>]*>([\s\S]*?)<\/p>/gi;
@@ -264,15 +354,18 @@ async function watch(chapterId) {
     if (nb == null) return -1;
     return na - nb;
   });
-  if (urls.length === 0) {
-    const parrafos = _parrafosDe(html);
-    if (parrafos.length > 0) {
-      const tit = /<title[^>]*>([\s\S]*?)<\/title>/.exec(html);
-      const titulo = tit ? _decode(tit[1]).replace(/\s*\|\s*Ikigai Mangas\s*$/i, "") : "Cap\xEDtulo";
-      return { content: parrafos, title: titulo };
-    }
+  if (urls.length > 0) {
+    return { urls, headers: { Referer: LECTOR + "/" } };
   }
-  return { urls, headers: { Referer: LECTOR + "/" } };
+  const parrafos = _parrafosDe(html);
+  if (parrafos.length > 0) {
+    const tit = /<title[^>]*>([\s\S]*?)<\/title>/.exec(html);
+    const titulo = tit ? _decode(tit[1]).replace(/\s*\|\s*Ikigai Mangas\s*$/i, "") : "Cap\xEDtulo";
+    return { content: parrafos, title: titulo };
+  }
+  throw new Error(
+    "Este cap\xEDtulo no tiene contenido publicado todav\xEDa. Prob\xE1 con otro cap\xEDtulo o volv\xE9 m\xE1s tarde."
+  );
 }
 
 // OJO: nunca usar url.indexOf('.mp4')/('.m3u8') suelto — algunos dominios de

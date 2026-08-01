@@ -153,6 +153,132 @@ function _normalizar(s: string): string {
     .trim();
 }
 
+// ─── Buscar por el principio del titulo, en TODO el catalogo ────────────────
+//
+// El recorrido de mas abajo mira las primeras 600 obras de ~5740: el 11 % del
+// catalogo. Alcanzaba para lo popular y fallaba con todo lo demas — buscar
+// "Señoritas sabrosas x4", que EXISTE, no devolvia nada. Peor todavia: como el
+// tramo recorrido depende del orden, y el orden depende de los filtros, la
+// misma busqueda encontraba la obra desde el buscador general y no desde el de
+// la extension. Encontrar o no encontrar salia a suerte.
+//
+// El sitio no tiene busqueda en el servidor (se baja el catalogo entero y
+// filtra en el navegador), pero SI permite pedirlo ordenado por nombre. Y ese
+// orden es exacto por codigo de caracter: mayusculas, despues minusculas,
+// despues los signos de apertura. Eso permite ir directo al tramo del abecedario
+// donde caeria lo buscado, en vez de recorrer el catalogo de punta a punta:
+// trece pedidos en lugar de doscientos ochenta y siete.
+//
+// Cubre lo que la gente escribe de verdad —el titulo desde el principio— y el
+// recorrido de siempre queda para los casos en que se busca por una palabra
+// del medio.
+
+// Tope de paginas para la binaria. 400 x 20 = 8000 obras, con el catalogo en
+// ~5740: sobra para que crezca sin tocar esto. Una pagina vacia se trata como
+// "mas alla del final", asi que pasarse no rompe nada.
+const TOPE_PAGINAS = 400;
+// Paginas que se leen alrededor del punto encontrado. La binaria deja el corte
+// entre dos paginas y lo buscado puede quedar de cualquier lado; ademas el
+// orden del sitio es sobre el titulo CRUDO y aca se compara ya decodificado
+// («Querida Julie» con comillas tipograficas no cae donde uno diria). La
+// ventana absorbe esas diferencias.
+const VENTANA = 3;
+// Pedir el catalogo por nombre devuelve DOS primeras paginas que no siguen el
+// abecedario: la 1 va de "!Quiero comerme tus guisantes!" a "La Nueva Bebé" y
+// la 2 de "La Princesa Demonio" a «Yo... no quiero trabajar más», y recien la 3
+// empieza el orden de verdad ("#Short", "A Mi Amable...") y ya no se corta.
+//
+// Esas cuarenta obras no vuelven a aparecer mas adelante: son las unicas que no
+// se pueden encontrar por abecedario. Ahi vive "john wick en el murim", que la
+// primera version de esto no encontraba. Se leen siempre, son dos pedidos.
+const PRIMERA_ORDENADA = 3;
+const PAGINAS_SUELTAS = [1, 2];
+
+function _pagCache(): Map<string, Promise<PrismItem[]>> {
+  return new Map();
+}
+
+// Primera pagina cuyo primer titulo ya es >= al prefijo buscado.
+async function _paginaDelPrefijo(
+  prefijo: string,
+  filter: Record<string, string[]> | undefined,
+  pagina: (n: number) => Promise<PrismItem[]>,
+): Promise<number> {
+  // Arranca en la 3 a proposito: ver PAGINAS_SUELTAS.
+  let lo = PRIMERA_ORDENADA;
+  let hi = TOPE_PAGINAS;
+  while (lo < hi) {
+    const medio = (lo + hi) >> 1;
+    const items = await pagina(medio);
+    // Vacia = pasamos el final del catalogo, hay que volver hacia atras.
+    if (items.length === 0 || items[0].title >= prefijo) hi = medio;
+    else lo = medio + 1;
+  }
+  return lo;
+}
+
+async function _porPrincipioDelTitulo(
+  keyword: string,
+  filter: Record<string, string[]> | undefined,
+  cache: Map<string, Promise<PrismItem[]>>,
+): Promise<PrismItem[]> {
+  const pagina = (n: number): Promise<PrismItem[]> => {
+    const clave = String(n);
+    let p = cache.get(clave);
+    if (!p) {
+      p = (async () => {
+        try {
+          return _itemsDe(
+            await _html(_consulta(n, filter, { ordenar: 'name', direccion: 'asc' })),
+          );
+        } catch {
+          return [];
+        }
+      })();
+      cache.set(clave, p);
+    }
+    return p;
+  };
+
+  // El orden del sitio distingue mayusculas de minusculas y pone TODAS las
+  // mayusculas antes que las minusculas. Quien escribe "señoritas" en minuscula
+  // caeria en el tramo equivocado y no encontraria "Señoritas sabrosas x4", asi
+  // que se prueban las dos variantes de la primera letra.
+  const inicial = keyword.slice(0, 1);
+  const variantes = [...new Set([
+    inicial.toUpperCase() + keyword.slice(1),
+    inicial.toLowerCase() + keyword.slice(1),
+  ])];
+
+  const buscado = _normalizar(keyword);
+  const salida: PrismItem[] = [];
+  const vistos = new Set<string>();
+  const recoger = (items: PrismItem[]) => {
+    for (const it of items) {
+      if (vistos.has(it.url)) continue;
+      vistos.add(it.url);
+      if (_normalizar(it.title).startsWith(buscado)) salida.push(it);
+    }
+  };
+
+  recoger((await Promise.all(PAGINAS_SUELTAS.map(pagina))).flat());
+
+  for (const prefijo of variantes) {
+    const centro = await _paginaDelPrefijo(prefijo, filter, pagina);
+    const lote = await Promise.all(
+      Array.from({ length: VENTANA * 2 }, (_, k) => centro - VENTANA + k)
+        .filter((n) => n >= PRIMERA_ORDENADA && n <= TOPE_PAGINAS)
+        .map(pagina),
+    );
+    for (const items of lote) recoger(items);
+    // La segunda variante (la otra caja de la primera letra) son otros trece
+    // pedidos. Solo vale la pena si la primera no encontro nada: si alguien
+    // escribio bien la mayuscula, ya esta.
+    if (salida.length > 0) break;
+  }
+  return salida;
+}
+
 export async function search(
   keyword: string,
   page: number,
@@ -167,6 +293,19 @@ export async function search(
   const buscado = _normalizar(keyword);
   const encontrados: PrismItem[] = [];
   const vistos = new Set<string>();
+
+  // Primero por el principio del titulo, que cubre el catalogo entero. Lo que
+  // salga de aca va adelante: es lo que mas se parece a lo que se escribio.
+  try {
+    for (const it of await _porPrincipioDelTitulo(keyword, filter, _pagCache())) {
+      if (vistos.has(it.url)) continue;
+      vistos.add(it.url);
+      encontrados.push(it);
+    }
+  } catch {
+    // Que falle el atajo no puede dejar sin buscar: sigue el recorrido de abajo.
+  }
+  const porPrefijo = encontrados.length;
 
   for (let p = 1; p <= PAGINAS_BUSQUEDA; p += PAGINAS_POR_TANDA) {
     const tanda: number[] = [];
@@ -203,9 +342,18 @@ export async function search(
     if (encontrados.length >= RESULTADOS_OBJETIVO) break;
   }
 
-  // Alfabetico: con varias paginas llegando a destiempo, el orden en que
-  // terminan las peticiones no deberia decidir como se ven los resultados.
-  encontrados.sort((a, b) => a.title.localeCompare(b.title, 'es'));
+  // Alfabetico, pero SIN mezclar los dos grupos: lo que empieza como se escribio
+  // va primero. Si alguien busca "Señoritas sabrosas x4", esa obra tiene que
+  // quedar arriba y no perdida entre las que apenas comparten una palabra.
+  //
+  // Dentro de cada grupo, alfabetico: con varias paginas llegando a destiempo,
+  // el orden en que terminan las peticiones no deberia decidir como se ven los
+  // resultados.
+  const abc = (a: PrismItem, b: PrismItem) => a.title.localeCompare(b.title, 'es');
+  const cabeza = encontrados.slice(0, porPrefijo).sort(abc);
+  const resto = encontrados.slice(porPrefijo).sort(abc);
+  encontrados.length = 0;
+  encontrados.push(...cabeza, ...resto);
 
   // La paginación la resuelve esta función, no el sitio: el llamador pide
   // página 2 esperando los siguientes resultados de SU búsqueda.
@@ -398,15 +546,44 @@ interface IkigaiTextoWatch {
   title: string;
 }
 
-// Saca los parrafos del cuerpo del capitulo.
+// Recorta el HTML al contenedor donde el sitio pone el texto del capitulo.
 //
-// Se recorta a <main> antes de mirar nada: la cabecera y el pie traen menus,
-// avisos y tarjetas de "Tendencias", y sin recortar se colaban como si fueran
-// parte del capitulo.
+// Recortar a <main> no alcanzaba ni de lejos. Dentro de <main> tambien estan el
+// panel de ajustes del lector y un <article class="sr-only"> con texto para
+// lectores de pantalla, y entre los dos suman TREINTA parrafos que se colaban
+// antes del capitulo: "Lee el ultimo comic ... en Ikigai Mangas", "Un webtoon
+// es un tipo de comic digital...", "Modo noche", "Barra flotante", "Vista
+// previa". El capitulo de verdad recien empezaba en el parrafo 31.
+//
+// El sitio marca el cuerpo con la clase "prose" (el contenedor de tipografia de
+// Tailwind). Es el unico elemento de la pagina que contiene el texto de la obra
+// y nada mas, asi que se busca ese y se descarta todo lo de afuera.
+function _cuerpoDelCapitulo(html: string): string | null {
+  const abre = /<div[^>]*\bclass="[^"]*\bprose\b[^"]*"[^>]*>/i.exec(html);
+  if (!abre) return null;
+
+  // Hay que contar los <div> anidados: cortar en el primer </div> dejaria el
+  // capitulo a la mitad en cuanto el texto traiga cualquier bloque adentro.
+  let nivel = 1;
+  let i = abre.index + abre[0].length;
+  const desde = i;
+  const re = /<\/?div\b/gi;
+  re.lastIndex = i;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    nivel += m[0][1] === '/' ? -1 : 1;
+    if (nivel === 0) return html.slice(desde, m.index);
+    i = re.lastIndex;
+  }
+  // Sin cierre a la vista: mejor lo que hay que nada.
+  return html.slice(desde);
+}
+
+// Saca los parrafos del cuerpo del capitulo. Devuelve vacio si la pagina no
+// trae el contenedor del texto — o sea, si no es un capitulo de novela.
 function _parrafosDe(html: string): string[] {
-  const ini = html.indexOf('<main');
-  const fin = html.lastIndexOf('</main>');
-  const cuerpo = ini !== -1 && fin > ini ? html.slice(ini, fin) : html;
+  const cuerpo = _cuerpoDelCapitulo(html);
+  if (cuerpo === null) return [];
 
   // Fuera los <script>/<style>: su contenido no son etiquetas, asi que al
   // quitar solo las etiquetas quedaria el codigo suelto mezclado con el texto.
@@ -478,22 +655,40 @@ export async function watch(
     return na - nb;
   });
 
-  // Sin paginas es una novela: el mismo capitulo, pero en texto.
+  if (urls.length > 0) {
+    // Referer del lector: el CDN puede rechazar pedidos sin él.
+    return { urls, headers: { Referer: LECTOR + '/' } };
+  }
+
+  // Sin paginas puede ser una novela: el mismo capitulo, pero en texto.
   //
   // Se decide por lo que TRAE el capitulo y no por el tipo de la obra, porque
   // watch() solo recibe el id del capitulo — no sabe de que obra viene. Ademas
   // asi funciona igual si alguna obra estuviera mal clasificada en el sitio.
-  if (urls.length === 0) {
-    const parrafos = _parrafosDe(html);
-    if (parrafos.length > 0) {
-      const tit = /<title[^>]*>([\s\S]*?)<\/title>/.exec(html);
-      const titulo = tit
-        ? _decode(tit[1]).replace(/\s*\|\s*Ikigai Mangas\s*$/i, '')
-        : 'Capítulo';
-      return { content: parrafos, title: titulo };
-    }
+  //
+  // Lo que NO puede pasar es caer aca por descarte. Antes bastaba con no
+  // encontrar imagenes para devolver texto, y como el texto se sacaba de todo
+  // <main> siempre habia algo que devolver: un comic cuyo capitulo no trajera
+  // paginas devolvia treinta parrafos de la interfaz del sitio, con la forma
+  // del lector de TEXTO. El lector de paginas recibia entonces una lista de
+  // urls nula y la app se caia con "type 'Null' is not a subtype of type
+  // 'List<dynamic>'" (visto en "La Creadora de Escandalos Ha Regresado").
+  // Ahora el texto sale solo del contenedor del capitulo, que un comic no
+  // tiene, asi que ese caso llega al error de abajo en vez de mentir.
+  const parrafos = _parrafosDe(html);
+  if (parrafos.length > 0) {
+    const tit = /<title[^>]*>([\s\S]*?)<\/title>/.exec(html);
+    const titulo = tit
+      ? _decode(tit[1]).replace(/\s*\|\s*Ikigai Mangas\s*$/i, '')
+      : 'Capítulo';
+    return { content: parrafos, title: titulo };
   }
 
-  // Referer del lector: el CDN puede rechazar pedidos sin él.
-  return { urls, headers: { Referer: LECTOR + '/' } };
+  // Ni paginas ni texto. Pasa cuando el sitio publica el capitulo en la lista
+  // pero todavia no subio el contenido. Se avisa con un motivo entendible en
+  // vez de abrir un lector vacio o devolver una forma que no corresponde.
+  throw new Error(
+    'Este capítulo no tiene contenido publicado todavía. ' +
+      'Probá con otro capítulo o volvé más tarde.',
+  );
 }

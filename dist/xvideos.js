@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         XVideos
-// @version      1.1.1
+// @version      1.1.2
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -181,7 +181,7 @@ function _isVideoHref(href) {
   return _RE_ID_ANY.test(clean) || _RE_ID_ANY.test(`/${clean}`);
 }
 function _absolutize(href) {
-  const clean = href.split("\\/").join("/").split("?")[0].split("#")[0];
+  const clean = href.split("\\/").join("/").split("?")[0].split("#")[0].split("/THUMBNUM/").join("/0/");
   const sv = clean.indexOf(_SEARCH_LINK);
   if (sv !== -1) return `${BASE}${clean.slice(sv)}`;
   const at = clean.search(new RegExp(_VIDEO_ID));
@@ -193,8 +193,13 @@ function _normalizeUrl(url) {
   if (url.indexOf("http") === 0) return url;
   return `${BASE}${url.startsWith("/") ? "" : "/"}${url}`;
 }
+var _FOTOGRAMA = "1";
+function _resolverThumb(url) {
+  if (!url) return void 0;
+  return url.indexOf("THUMBNUM") === -1 ? url : url.split("THUMBNUM").join(_FOTOGRAMA);
+}
 function _parseList(html) {
-  var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
+  var _a, _b, _c, _d, _e, _f, _g, _h, _i;
   const marker = html.indexOf("thumb-block") !== -1 ? "thumb-block" : html.indexOf("video-thumb") !== -1 ? "video-thumb" : "";
   if (!marker) return _parseListLoose(html);
   const chunks = html.split(marker);
@@ -221,8 +226,10 @@ function _parseList(html) {
     }
     title = decodeEntities(title.replace(/\s+/g, " ").trim());
     if (!title) continue;
-    const cover = (_h = (_g = (_e = /data-src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp|avif))"/.exec(chunk)) == null ? void 0 : _e[1]) != null ? _g : (_f = /<amp-img[^>]+src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp|avif))"/.exec(chunk)) == null ? void 0 : _f[1]) != null ? _h : void 0;
-    const duration = (_j = (_i = /<span class="duration">([^<]+)<\/span>/.exec(chunk)) == null ? void 0 : _i[1]) == null ? void 0 : _j.trim();
+    const cover = _resolverThumb(
+      (_g = (_e = /data-src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp|avif))"/.exec(chunk)) == null ? void 0 : _e[1]) != null ? _g : (_f = /<amp-img[^>]+src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp|avif))"/.exec(chunk)) == null ? void 0 : _f[1]
+    );
+    const duration = (_i = (_h = /<span class="duration">([^<]+)<\/span>/.exec(chunk)) == null ? void 0 : _h[1]) == null ? void 0 : _i.trim();
     seen[url] = true;
     items.push({ title, url, cover, update: duration || void 0 });
   }

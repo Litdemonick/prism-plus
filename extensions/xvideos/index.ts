@@ -82,7 +82,19 @@ function _isVideoHref(href: string): boolean {
 
 // Lleva cualquier forma de href a una URL absoluta del host principal.
 function _absolutize(href: string): string {
-  const clean = href.split('\\/').join('/').split('?')[0].split('#')[0];
+  const clean = href
+    .split('\\/')
+    .join('/')
+    .split('?')[0]
+    .split('#')[0]
+    // El mismo THUMBNUM sin resolver de las miniaturas aparece tambien en el
+    // enlace: /video.<id>/<n>/THUMBNUM/<titulo>. El sitio pone un 0 ahi cuando
+    // lo resuelve, y ese tramo no cambia a que video se llega. Se normaliza
+    // porque la url es la identidad del video en favoritos e historial: sin
+    // esto, el mismo video guardado desde dos listados distintos quedaba como
+    // dos entradas separadas.
+    .split('/THUMBNUM/')
+    .join('/0/');
   // Los enlaces /search-video/<blob> se dejan INTACTOS: el blob es el
   // identificador y recortarlo rompería el enlace. Al pedir esa url el sitio
   // redirige solo a la ficha real, así que detail() y watch() funcionan igual.
@@ -103,6 +115,34 @@ function _normalizeUrl(url: string): string {
 }
 
 // ─── Listados ───────────────────────────────────────────────────────────────
+
+// El fotograma que se usa cuando la miniatura viene sin resolver. Existe para
+// todo video: el 1 es el unico numero garantizado —los videos cortos tienen
+// menos fotogramas— y se comprobo que no es un cuadro negro.
+const _FOTOGRAMA = '1';
+
+// Deja utilizable la miniatura de una card del listado.
+//
+// El sitio guarda en data-src una PLANTILLA de la vista previa animada, con el
+// literal THUMBNUM donde despues su JavaScript pone el numero de fotograma:
+//
+//     https://thumb-cdn77.xvideos-cdn.com/<id>/5/xv_THUMBNUM_t.jpg
+//
+// En la mayoria de las cards ese numero ya viene puesto y la direccion sirve
+// tal cual. En algunas no, y ahi se guardaba el THUMBNUM literal: el CDN
+// responde 404 y la tarjeta quedaba sin portada. Como al abrir el video la
+// portada sale de otro lado (el JSON-LD de la ficha), la imagen aparecia
+// adentro y no afuera — que es justo lo que se veia.
+//
+// No se usa data-mzl, la otra imagen de la card: es un mosaico de nueve
+// fotogramas en una sola imagen de 1104x624, pensado para la animacion al pasar
+// el mouse. De portada se veria como una grilla de miniaturas.
+function _resolverThumb(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  return url.indexOf('THUMBNUM') === -1
+    ? url
+    : url.split('THUMBNUM').join(_FOTOGRAMA);
+}
 
 // Un solo parser para los dos formatos: el host principal abre cada card con
 // class="thumb-block" y el AMP con class="video-thumb". En ambos casos, cortar
@@ -128,6 +168,7 @@ function _parseList(html: string): PrismItem[] {
   const seen: Record<string, boolean> = {};
   for (let i = 1; i < chunks.length; i++) {
     const chunk = chunks[i];
+    // (la portada se resuelve mas abajo con _resolverThumb)
     // Se recorren TODOS los href del trozo y se queda con el primero que tenga
     // forma de vídeo, en vez de exigir un formato de ruta concreto: los enlaces
     // pueden venir absolutos, desde la raíz o relativos según el maquetado que
@@ -166,10 +207,10 @@ function _parseList(html: string): PrismItem[] {
 
     // data-src en el host principal (el src real es un gif transparente de
     // lazy-load), src en las <amp-img> del AMP.
-    const cover =
+    const cover = _resolverThumb(
       /data-src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp|avif))"/.exec(chunk)?.[1] ??
-      /<amp-img[^>]+src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp|avif))"/.exec(chunk)?.[1] ??
-      undefined;
+        /<amp-img[^>]+src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp|avif))"/.exec(chunk)?.[1],
+    );
 
     const duration = /<span class="duration">([^<]+)<\/span>/.exec(chunk)?.[1]?.trim();
 

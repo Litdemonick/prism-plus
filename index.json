@@ -54,7 +54,7 @@
     {
       "name": "Ikigai Mangas",
       "package": "io.prismhub.ikigai",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "PrismPlus",
       "type": "mixedReading",
       "icon": "",
@@ -63,8 +63,8 @@
       "webSite": "https://visorikigai.gettocaboca.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/ikigai.js",
-      "sha256": "9473bff3a7d011b51cebf5d2842722d064670dbbc3dff1b1e045c1604bb75b07",
-      "signature": "9lonCCCgxjcAPyYbeUJ5r4CFal4J+knhIYugQb/bUooy+/LI1lrZB8K125Q1iELrqbzSDXOmut1wTCS8YyU0Aw=="
+      "sha256": "fbddaf0fb949b4ed9d2989b447f0968f4a77b59adf4604d852d7cdbaee487e23",
+      "signature": "As1f1+bus0LTvArhq0wXkBc6bboF6AArQW5Cks3zTngaDy45T0NGOkJ8mrgNV0O2fJdIKjr6svFWNwdummozCw=="
     },
     {
       "name": "JKAnime",
@@ -126,9 +126,7 @@
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/shademanga.js",
       "sha256": "06614ea930edcdae332f16cb6406f95248744de07e45b54cea0b4565deac4812",
-      "signature": "VUPIBYBeVJKrlYUneqWQ/dii36b7bP3ERSbQWH7sjZaGyCEE5RNm1QsWIKzUAcOCVJBEganuOgUVM9FeGbHeBQ==",
-      "unstable": true,
-      "unstableReason": "site-down"
+      "signature": "VUPIBYBeVJKrlYUneqWQ/dii36b7bP3ERSbQWH7sjZaGyCEE5RNm1QsWIKzUAcOCVJBEganuOgUVM9FeGbHeBQ=="
     },
     {
       "name": "TioAnime",
@@ -179,7 +177,7 @@
     {
       "name": "XVideos",
       "package": "io.prismhub.xvideos",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -189,8 +187,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/xvideos.js",
-      "sha256": "1b95b20b145b37cd2c6d775b08aa0a8afeffc0434ee2bee0597cc044069ecb09",
-      "signature": "r5aKkvTvrBUOOuzjzoiM83EOg9vQFCtYLXVCgZ9+x8eoRNu5CBUhzzpRpcNsNJmZYYVw9kTGGNrB9MzMWjUOBA=="
+      "sha256": "9c6b11255dab16359c8f80699ebd358bd51b6ede67bf118d9a894facc2e44d1a",
+      "signature": "YYePZ0vg657+m4/6z+ammMYHu5Rw7U9l44JdiromHqd+Ce42sNEkCNINaWHi20TEqT21WYGbp+sXRMKitEF9Ag=="
     },
     {
       "name": "LaMovie",
