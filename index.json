@@ -54,17 +54,17 @@
     {
       "name": "Ikigai Mangas",
       "package": "io.prismhub.ikigai",
-      "version": "1.0.0",
+      "version": "1.0.3",
       "author": "PrismPlus",
       "type": "manga",
       "icon": "",
-      "description": "Cómics, manhwas y novelas ligeras en español. Catálogo grande con filtros por tipo, género y estado.",
+      "description": "Cómics y manhwas en español, catálogo grande con filtros por género y orden. Traducciones de fans, actualizado seguido.",
       "lang": "es",
       "webSite": "https://visorikigai.gettocaboca.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/ikigai.js",
-      "sha256": "033887cd4f220e6b633d1b3abc15df98da56a4076f8f3f8fbf0a2c02f1f3d3fc",
-      "signature": "2+GGyaV9vRNL3huRPo6fHpWD5s4CYAWMldRL76Sf8VB8cvnKvCWLqDmygpGiKouFqBfYz1jBSWwmzn1iMd1MAA=="
+      "sha256": "9a2a5721f42e43db75895758a0ae5f7dc2a5de88340114e2858bed572d1c1493",
+      "signature": "n6ehXBrz1vqiy6fQV+YmsPCjflSvC8SEVJwCfH+6aM+nWKbEhdPVZdsoHktl2Sr5F3oKDTlgVSnNGP4pRvDzCA=="
     },
     {
       "name": "JKAnime",

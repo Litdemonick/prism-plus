@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Ikigai Mangas
-// @version      1.0.0
+// @version      1.0.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -8,7 +8,7 @@
 // @type         manga
 // @nsfw         false
 // @webSite      https://visorikigai.gettocaboca.com
-// @description  Cómics, manhwas y novelas ligeras en español. Catálogo grande con filtros por tipo, género y estado.
+// @description  Cómics y manhwas en español, catálogo grande con filtros por género y orden. Traducciones de fans, actualizado seguido.
 // ==/PrismHubExtension==
 // extensions/ikigai/index.ts
 var BASE = "https://visorikigai.gettocaboca.com";
@@ -24,9 +24,6 @@ function _decode(s) {
 }
 function _stripTags(s) {
   return _decode(s.replace(/<[^>]*>/g, " ").replace(/\s+/g, " "));
-}
-function _portadaGrande(url) {
-  return url.replace(/\/rs:fill:\d+:\d+:t\//, "/rs:fill:300:420:t/");
 }
 function _itemsDe(html) {
   const items = [];
@@ -46,7 +43,7 @@ function _itemsDe(html) {
     items.push({
       title: titulo,
       url: slug,
-      cover: img ? _portadaGrande(_decode(img[1])) : void 0
+      cover: img ? _decode(img[1]) : void 0
     });
   }
   return items;
@@ -58,8 +55,7 @@ function _consulta(page, filter, extra) {
     var _a2, _b2;
     return (_b2 = (_a2 = filter == null ? void 0 : filter[k]) == null ? void 0 : _a2[0]) != null ? _b2 : "";
   };
-  const tipo = uno("tipo");
-  if (tipo) partes.push(`tipos[]=${encodeURIComponent(tipo)}`);
+  partes.push("tipos[]=comic");
   const genero = uno("genero");
   if (genero) partes.push(`generos[]=${encodeURIComponent(genero)}`);
   const ordenar = (_a = extra == null ? void 0 : extra["ordenar"]) != null ? _a : uno("ordenar");
@@ -122,20 +118,9 @@ var GENEROS = {
 };
 async function createFilter() {
   return {
-    // Sin "Manga": el menu del sitio enlaza ?tipos[]=manga pero el catalogo no
-    // tiene ninguna serie con ese tipo, asi que elegirlo llevaba a una lista
-    // vacia. Solo quedan los dos que devuelven contenido.
-    //
-    // Novela va antes que Cómic a proposito: los cómics son ~5300 de las ~5700
-    // series, o sea que su primera pagina es identica a la de "Todos" y no deja
-    // ver que el filtro hizo algo. Novela sí cambia la lista de una.
-    tipo: {
-      title: "Tipo",
-      options: { "": "Todos", novel: "Novela", comic: "C\xF3mic" },
-      default: "",
-      min: 1,
-      max: 1
-    },
+    // Sin filtro de tipo: esta extension lista unicamente comics (ver el
+    // comentario en _consulta), asi que un selector con una sola opcion seria
+    // un control que no hace nada.
     genero: { title: "G\xE9nero", options: GENEROS, default: "", min: 1, max: 1 },
     ordenar: {
       title: "Ordenar por",
@@ -174,7 +159,7 @@ async function detail(slug) {
   const imgs = html.match(/https:\/\/image\d?\.ikigaimangas\.cloud\/[^"'\s]+/g) || [];
   for (const u of imgs) {
     if (/rs:fill:80:110/.test(u)) continue;
-    cover = _portadaGrande(u);
+    cover = u;
     break;
   }
   const episodes = [];
@@ -227,7 +212,8 @@ async function watch(chapterId) {
     urls.push(u);
   }
   const numeroDe = (u) => {
-    const m2 = /\/(\d+)\.[a-z]+$/.exec(u);
+    const nombre = u.slice(u.lastIndexOf("/") + 1);
+    const m2 = /(\d+)\.[a-z]+$/.exec(nombre);
     return m2 ? Number(m2[1]) : null;
   };
   urls.sort((a, b) => {

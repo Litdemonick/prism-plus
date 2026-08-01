@@ -34,13 +34,14 @@ function _stripTags(s: string): string {
   return _decode(s.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' '));
 }
 
-// Las portadas pasan por un redimensionador: las miniaturas llevan un
-// "rs:fill:<ancho>:<alto>" en la ruta. Se sube el tamaño para que la tarjeta no
-// se vea borrosa, sin romper la firma de la URL (el parámetro es parte de la
-// ruta, no de la firma).
-function _portadaGrande(url: string): string {
-  return url.replace(/\/rs:fill:\d+:\d+:t\//, '/rs:fill:300:420:t/');
-}
+// OJO: la URL de la portada NO se toca.
+//
+// Pasan por un redimensionador y van FIRMADAS, y la firma cubre la ruta entera
+// — incluido el tramo "rs:fill:<ancho>:<alto>". Cambiar ese tamaño para pedir
+// una imagen más grande invalida la firma y el CDN responde 403: en la app se
+// veía la tarjeta con el logo de relleno en vez de la portada. Comprobado
+// pidiendo la misma imagen con el tamaño original (200) y con uno cambiado
+// (403). Se usa tal cual viene; las del catálogo ya vienen a 300x400.
 
 // ─── Catálogo ────────────────────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ function _itemsDe(html: string): PrismItem[] {
     items.push({
       title: titulo,
       url: slug,
-      cover: img ? _portadaGrande(_decode(img[1])) : undefined,
+      cover: img ? _decode(img[1]) : undefined,
     });
   }
   return items;
@@ -90,8 +91,20 @@ function _consulta(
   const partes: string[] = [];
   const uno = (k: string) => filter?.[k]?.[0] ?? '';
 
-  const tipo = uno('tipo');
-  if (tipo) partes.push(`tipos[]=${encodeURIComponent(tipo)}`);
+  // SOLO comics, siempre.
+  //
+  // El sitio tiene ademas ~400 novelas ligeras, que son TEXTO. PrismHub decide
+  // con que lector abrir una obra segun el tipo de la EXTENSION, y solo mira el
+  // tipo por obra cuando la extension se declara "mixed" (ver
+  // ExtensionUtils.resolveType). Pero "mixed" en este app tambien significa que
+  // entra en los filtros de VIDEO, y aca no hay ni un video.
+  //
+  // Declarada como lectura de imagenes, una novela se abria con el lector de
+  // paginas y quedaba en blanco — no tiene imagenes que mostrar. Antes que
+  // ofrecer algo que no se puede leer, se listan solo los comics. Las novelas
+  // merecen su propia extension de tipo fikushon.
+  partes.push('tipos[]=comic');
+
   const genero = uno('genero');
   if (genero) partes.push(`generos[]=${encodeURIComponent(genero)}`);
 
@@ -197,20 +210,9 @@ const GENEROS: Record<string, string> = {
 
 export async function createFilter(): Promise<Record<string, unknown>> {
   return {
-    // Sin "Manga": el menu del sitio enlaza ?tipos[]=manga pero el catalogo no
-    // tiene ninguna serie con ese tipo, asi que elegirlo llevaba a una lista
-    // vacia. Solo quedan los dos que devuelven contenido.
-    //
-    // Novela va antes que Cómic a proposito: los cómics son ~5300 de las ~5700
-    // series, o sea que su primera pagina es identica a la de "Todos" y no deja
-    // ver que el filtro hizo algo. Novela sí cambia la lista de una.
-    tipo: {
-      title: 'Tipo',
-      options: { '': 'Todos', novel: 'Novela', comic: 'Cómic' },
-      default: '',
-      min: 1,
-      max: 1,
-    },
+    // Sin filtro de tipo: esta extension lista unicamente comics (ver el
+    // comentario en _consulta), asi que un selector con una sola opcion seria
+    // un control que no hace nada.
     genero: { title: 'Género', options: GENEROS, default: '', min: 1, max: 1 },
     ordenar: {
       title: 'Ordenar por',
@@ -268,7 +270,7 @@ export async function detail(slug: string): Promise<PrismDetail> {
   const imgs = html.match(/https:\/\/image\d?\.ikigaimangas\.cloud\/[^"'\s]+/g) || [];
   for (const u of imgs) {
     if (/rs:fill:80:110/.test(u)) continue;
-    cover = _portadaGrande(u);
+    cover = u;
     break;
   }
 
@@ -376,8 +378,13 @@ export async function watch(chapterId: string): Promise<PrismMangaWatch> {
   // el orden anterior se colaban ADELANTE, porque un nombre sin número valía 0
   // y quedaba antes que la página 1. Ahora se van al final: si es un sobrante
   // no molesta, y si resulta ser una página de verdad no se pierde.
+  // Se toma el ULTIMO grupo de digitos antes de la extension, no el nombre
+  // entero: hay capitulos cuyas paginas se llaman "0_01.webp", "1_02.webp".
+  // Exigiendo que el nombre fuera solo numeros, ninguna daba resultado y el
+  // orden quedaba librado a como viniera el HTML — funcionaba de casualidad.
   const numeroDe = (u: string): number | null => {
-    const m2 = /\/(\d+)\.[a-z]+$/.exec(u);
+    const nombre = u.slice(u.lastIndexOf('/') + 1);
+    const m2 = /(\d+)\.[a-z]+$/.exec(nombre);
     return m2 ? Number(m2[1]) : null;
   };
   urls.sort((a, b) => {
