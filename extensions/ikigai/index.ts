@@ -91,19 +91,12 @@ function _consulta(
   const partes: string[] = [];
   const uno = (k: string) => filter?.[k]?.[0] ?? '';
 
-  // SOLO comics, siempre.
-  //
-  // El sitio tiene ademas ~400 novelas ligeras, que son TEXTO. PrismHub decide
-  // con que lector abrir una obra segun el tipo de la EXTENSION, y solo mira el
-  // tipo por obra cuando la extension se declara "mixed" (ver
-  // ExtensionUtils.resolveType). Pero "mixed" en este app tambien significa que
-  // entra en los filtros de VIDEO, y aca no hay ni un video.
-  //
-  // Declarada como lectura de imagenes, una novela se abria con el lector de
-  // paginas y quedaba en blanco — no tiene imagenes que mostrar. Antes que
-  // ofrecer algo que no se puede leer, se listan solo los comics. Las novelas
-  // merecen su propia extension de tipo fikushon.
-  partes.push('tipos[]=comic');
+  // Comics Y novelas. La extension se declara "mixedReading": PrismHub resuelve
+  // el lector POR OBRA a partir del tipo que devuelve detail(), asi que una
+  // novela abre con el lector de texto y un comic con el de paginas, sin que
+  // esta extension aparezca en los filtros de video.
+  const tipo = uno('tipo');
+  if (tipo) partes.push(`tipos[]=${encodeURIComponent(tipo)}`);
 
   const genero = uno('genero');
   if (genero) partes.push(`generos[]=${encodeURIComponent(genero)}`);
@@ -242,9 +235,18 @@ const GENEROS: Record<string, string> = {
 
 export async function createFilter(): Promise<Record<string, unknown>> {
   return {
-    // Sin filtro de tipo: esta extension lista unicamente comics (ver el
-    // comentario en _consulta), asi que un selector con una sola opcion seria
-    // un control que no hace nada.
+    // Sin "Manga": el menu del sitio enlaza ?tipos[]=manga pero el catalogo no
+    // tiene ninguna serie con ese tipo, asi que elegirlo llevaba a una lista
+    // vacia. Novela va antes que Comic porque los comics son ~5300 de las
+    // ~5700 series: su primera pagina es identica a la de "Todos" y no deja
+    // ver que el filtro hizo algo.
+    tipo: {
+      title: 'Tipo',
+      options: { '': 'Todos', novel: 'Novela', comic: 'Cómic' },
+      default: '',
+      min: 1,
+      max: 1,
+    },
     genero: { title: 'Género', options: GENEROS, default: '', min: 1, max: 1 },
     ordenar: {
       title: 'Ordenar por',
@@ -372,12 +374,60 @@ export async function detail(slug: string): Promise<PrismDetail> {
     ? 'ongoing'
     : undefined;
 
-  return { title, cover, description, episodes, genres, status };
+  // Tipo de ESTA obra, para que PrismHub elija el lector correcto. La ficha lo
+  // muestra como etiqueta junto al titulo. Ante la duda se devuelve 'manga':
+  // es la enorme mayoria del catalogo, y equivocarse hacia el lector de
+  // paginas se nota al instante, mientras que abrir un comic como texto
+  // mostraria una pantalla vacia sin ninguna pista de por que.
+  const esNovela = /(^|>)\s*Novela\s*(<|$)/i.test(html) ||
+      /-novela\/?$/i.test(slug) ||
+      /\bnovela\b/i.test(title);
+  const type = esNovela ? 'fikushon' : 'manga';
+
+  return { title, cover, description, episodes, genres, status, type };
 }
 
 // ─── Lectura ─────────────────────────────────────────────────────────────────
 
-export async function watch(chapterId: string): Promise<PrismMangaWatch> {
+/// Capitulo de novela: parrafos de texto.
+///
+/// PrismHub tiene dos lectores y elige por el tipo que devolvio detail(). Este
+/// es el que espera el de texto: una lista de bloques y un titulo.
+interface IkigaiTextoWatch {
+  content: string[];
+  title: string;
+}
+
+// Saca los parrafos del cuerpo del capitulo.
+//
+// Se recorta a <main> antes de mirar nada: la cabecera y el pie traen menus,
+// avisos y tarjetas de "Tendencias", y sin recortar se colaban como si fueran
+// parte del capitulo.
+function _parrafosDe(html: string): string[] {
+  const ini = html.indexOf('<main');
+  const fin = html.lastIndexOf('</main>');
+  const cuerpo = ini !== -1 && fin > ini ? html.slice(ini, fin) : html;
+
+  // Fuera los <script>/<style>: su contenido no son etiquetas, asi que al
+  // quitar solo las etiquetas quedaria el codigo suelto mezclado con el texto.
+  const limpio = cuerpo
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ');
+
+  const parrafos: string[] = [];
+  const re = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(limpio)) !== null) {
+    // <br> como corte de linea, no pegado a la palabra siguiente.
+    const texto = _stripTags(m[1].replace(/<br\s*\/?>/gi, '\n'));
+    if (texto.length > 0) parrafos.push(texto);
+  }
+  return parrafos;
+}
+
+export async function watch(
+  chapterId: string,
+): Promise<PrismMangaWatch | IkigaiTextoWatch> {
   // forceSetNsfw: sin esto, un capítulo marcado +18 devuelve una pantalla de
   // aviso en vez de las páginas, aunque el usuario ya lo haya permitido en la
   // app. userHasLogin=false evita el cartel de "iniciá sesión para guardar tu
@@ -427,6 +477,22 @@ export async function watch(chapterId: string): Promise<PrismMangaWatch> {
     if (nb == null) return -1;
     return na - nb;
   });
+
+  // Sin paginas es una novela: el mismo capitulo, pero en texto.
+  //
+  // Se decide por lo que TRAE el capitulo y no por el tipo de la obra, porque
+  // watch() solo recibe el id del capitulo — no sabe de que obra viene. Ademas
+  // asi funciona igual si alguna obra estuviera mal clasificada en el sitio.
+  if (urls.length === 0) {
+    const parrafos = _parrafosDe(html);
+    if (parrafos.length > 0) {
+      const tit = /<title[^>]*>([\s\S]*?)<\/title>/.exec(html);
+      const titulo = tit
+        ? _decode(tit[1]).replace(/\s*\|\s*Ikigai Mangas\s*$/i, '')
+        : 'Capítulo';
+      return { content: parrafos, title: titulo };
+    }
+  }
 
   // Referer del lector: el CDN puede rechazar pedidos sin él.
   return { urls, headers: { Referer: LECTOR + '/' } };

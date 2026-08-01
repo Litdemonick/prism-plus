@@ -119,6 +119,10 @@ function mapType(t) {
   // (ExtensionDetail.type), no por el tipo de la extensión — ver
   // ExtensionUtils.resolveType() del lado de la app.
   if (s === 'mixed') return 'mixed';
+  // mixedReading: mismo criterio que mixed —pasa literal y el lector se decide
+  // por titulo— pero para sitios que solo tienen lectura. Se compara en
+  // minusculas porque mapType normaliza la entrada.
+  if (s === 'mixedreading') return 'mixedReading';
   if (['manga', 'comic', 'manhwa', 'manhua'].includes(s)) return 'manga';
   if (['novel', 'fikushon', 'ln'].includes(s)) return 'fikushon';
   return 'bangumi'; // anime, movie, series, tv, live → video

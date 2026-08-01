@@ -1,14 +1,14 @@
 // ==PrismHubExtension==
 // @name         Ikigai Mangas
-// @version      1.0.4
+// @version      1.1.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.ikigai
-// @type         manga
+// @type         mixedReading
 // @nsfw         false
 // @webSite      https://visorikigai.gettocaboca.com
-// @description  Cómics y manhwas en español, catálogo grande con filtros por género y orden. Traducciones de fans, actualizado seguido.
+// @description  Cómics, manhwas y novelas ligeras en español. Catálogo grande con filtros por tipo, género y orden.
 // ==/PrismHubExtension==
 // extensions/ikigai/index.ts
 var BASE = "https://visorikigai.gettocaboca.com";
@@ -55,7 +55,8 @@ function _consulta(page, filter, extra) {
     var _a2, _b2;
     return (_b2 = (_a2 = filter == null ? void 0 : filter[k]) == null ? void 0 : _a2[0]) != null ? _b2 : "";
   };
-  partes.push("tipos[]=comic");
+  const tipo = uno("tipo");
+  if (tipo) partes.push(`tipos[]=${encodeURIComponent(tipo)}`);
   const genero = uno("genero");
   if (genero) partes.push(`generos[]=${encodeURIComponent(genero)}`);
   const ordenar = (_a = extra == null ? void 0 : extra["ordenar"]) != null ? _a : uno("ordenar");
@@ -132,9 +133,18 @@ var GENEROS = {
 };
 async function createFilter() {
   return {
-    // Sin filtro de tipo: esta extension lista unicamente comics (ver el
-    // comentario en _consulta), asi que un selector con una sola opcion seria
-    // un control que no hace nada.
+    // Sin "Manga": el menu del sitio enlaza ?tipos[]=manga pero el catalogo no
+    // tiene ninguna serie con ese tipo, asi que elegirlo llevaba a una lista
+    // vacia. Novela va antes que Comic porque los comics son ~5300 de las
+    // ~5700 series: su primera pagina es identica a la de "Todos" y no deja
+    // ver que el filtro hizo algo.
+    tipo: {
+      title: "Tipo",
+      options: { "": "Todos", novel: "Novela", comic: "C\xF3mic" },
+      default: "",
+      min: 1,
+      max: 1
+    },
     genero: { title: "G\xE9nero", options: GENEROS, default: "", min: 1, max: 1 },
     ordenar: {
       title: "Ordenar por",
@@ -208,7 +218,23 @@ async function detail(slug) {
   }
   const plano = _stripTags(html);
   const status = /\bcompleta\b/i.test(plano) ? "completed" : /\bhiatus\b/i.test(plano) ? "hiatus" : /\ben curso\b/i.test(plano) ? "ongoing" : void 0;
-  return { title, cover, description, episodes, genres, status };
+  const esNovela = /(^|>)\s*Novela\s*(<|$)/i.test(html) || /-novela\/?$/i.test(slug) || /\bnovela\b/i.test(title);
+  const type = esNovela ? "fikushon" : "manga";
+  return { title, cover, description, episodes, genres, status, type };
+}
+function _parrafosDe(html) {
+  const ini = html.indexOf("<main");
+  const fin = html.lastIndexOf("</main>");
+  const cuerpo = ini !== -1 && fin > ini ? html.slice(ini, fin) : html;
+  const limpio = cuerpo.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ");
+  const parrafos = [];
+  const re = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+  let m;
+  while ((m = re.exec(limpio)) !== null) {
+    const texto = _stripTags(m[1].replace(/<br\s*\/?>/gi, "\n"));
+    if (texto.length > 0) parrafos.push(texto);
+  }
+  return parrafos;
 }
 async function watch(chapterId) {
   const url = `${LECTOR}/capitulo/${encodeURIComponent(chapterId)}/?forceSetTheme=dark&forceSetNsfw=true&userHasLogin=false`;
@@ -238,6 +264,14 @@ async function watch(chapterId) {
     if (nb == null) return -1;
     return na - nb;
   });
+  if (urls.length === 0) {
+    const parrafos = _parrafosDe(html);
+    if (parrafos.length > 0) {
+      const tit = /<title[^>]*>([\s\S]*?)<\/title>/.exec(html);
+      const titulo = tit ? _decode(tit[1]).replace(/\s*\|\s*Ikigai Mangas\s*$/i, "") : "Cap\xEDtulo";
+      return { content: parrafos, title: titulo };
+    }
+  }
   return { urls, headers: { Referer: LECTOR + "/" } };
 }
 

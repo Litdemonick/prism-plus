@@ -18,6 +18,11 @@ const VALID_TYPES = [
   // PrismHub decide lector-vs-reproductor por título (ExtensionDetail.type),
   // no por el tipo fijo de la extensión. Ver mapType() en build.mjs.
   'mixed',
+  // Varias clases de LECTURA en un mismo sitio y ningun video (ej. Ikigai:
+  // comics y novelas ligeras). Igual que 'mixed', PrismHub decide el lector
+  // por titulo (ExtensionDetail.type); a diferencia de 'mixed', NO aparece en
+  // los filtros de video del app. Ver mapType() en build.mjs.
+  'mixedReading',
 ];
 const REQUIRED_EXPORTS = ['latest', 'search', 'detail', 'watch'];
 
