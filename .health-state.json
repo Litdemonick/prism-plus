@@ -4,8 +4,8 @@
     "lastReason": null
   },
   "io.prismhub.eporner": {
-    "consecutiveFailures": 1,
-    "lastReason": "broken"
+    "consecutiveFailures": 0,
+    "lastReason": null
   },
   "io.prismhub.fuegocine": {
     "consecutiveFailures": 0,
@@ -48,8 +48,8 @@
     "lastReason": null
   },
   "io.prismhub.xvideos": {
-    "consecutiveFailures": 1,
-    "lastReason": "broken"
+    "consecutiveFailures": 0,
+    "lastReason": null
   },
   "io.prismhub.lamovie": {
     "consecutiveFailures": 0,
