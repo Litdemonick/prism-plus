@@ -141,6 +141,12 @@ export async function latest(page: number): Promise<PrismItem[]> {
 const PAGINAS_BUSQUEDA = 30;
 const PAGINAS_POR_TANDA = 6;
 const RESULTADOS_OBJETIVO = 24;
+// Cuantos resultados por el principio del titulo alcanzan para no pagar el
+// recorrido largo. Ver donde se usa.
+const RESULTADOS_SUFICIENTES = 5;
+// A partir de cuantos caracteres se considera que la busqueda es especifica.
+// Ver donde se usa.
+const LARGO_ESPECIFICO = 8;
 
 function _normalizar(s: string): string {
   return s
@@ -306,6 +312,31 @@ export async function search(
     // Que falle el atajo no puede dejar sin buscar: sigue el recorrido de abajo.
   }
   const porPrefijo = encontrados.length;
+
+  // Con suficientes resultados por el principio del titulo se corta aca.
+  //
+  // El recorrido de abajo son treinta pedidos mas, y sirve para un solo caso:
+  // buscar por una palabra del MEDIO del titulo. Si el atajo ya trajo varios,
+  // esa vuelta larga agrega poco y cuesta mucho — la busqueda general del app
+  // le da a cada extension quince segundos y despues la corta, asi que pasarse
+  // no es "un poco mas lento", es no aparecer.
+  //
+  // El umbral no es cero: con uno o dos resultados puede faltar lo que el
+  // usuario buscaba, y ahi si conviene pagar el recorrido.
+  //
+  // Y tampoco alcanza con contar. El caso mas comun es escribir un titulo
+  // entero —"Señoritas sabrosas x4"— y que aparezcan las dos versiones que
+  // existen: dos resultados, o sea por debajo del umbral, y sin embargo ya
+  // esta encontrado lo que se buscaba. Gastar treinta pedidos mas ahi es
+  // regalar cuatro segundos para no sumar nada. Con ocho caracteres o mas la
+  // busqueda ya es especifica, y todo lo que sale del atajo empieza como se
+  // escribio, asi que un acierto es un acierto de verdad.
+  const especifica = buscado.length >= LARGO_ESPECIFICO;
+  if (porPrefijo >= RESULTADOS_SUFICIENTES || (porPrefijo > 0 && especifica)) {
+    encontrados.sort((a, b) => a.title.localeCompare(b.title, 'es'));
+    const porPagina0 = 24;
+    return encontrados.slice((page - 1) * porPagina0, (page - 1) * porPagina0 + porPagina0);
+  }
 
   for (let p = 1; p <= PAGINAS_BUSQUEDA; p += PAGINAS_POR_TANDA) {
     const tanda: number[] = [];
