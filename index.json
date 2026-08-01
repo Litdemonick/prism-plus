@@ -52,6 +52,21 @@
       "signature": "d5VRfqje5didkOWL54pNDcxjuIAcCwGYRV2ngCT/eOD11QtEc9iK5Gf6sdNdgpiG4r20sfFaG400xrMqC5+KDA=="
     },
     {
+      "name": "Ikigai Mangas",
+      "package": "io.prismhub.ikigai",
+      "version": "1.0.0",
+      "author": "PrismPlus",
+      "type": "manga",
+      "icon": "",
+      "description": "Cómics, manhwas y novelas ligeras en español. Catálogo grande con filtros por tipo, género y estado.",
+      "lang": "es",
+      "webSite": "https://visorikigai.gettocaboca.com",
+      "license": "MIT",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/ikigai.js",
+      "sha256": "033887cd4f220e6b633d1b3abc15df98da56a4076f8f3f8fbf0a2c02f1f3d3fc",
+      "signature": "2+GGyaV9vRNL3huRPo6fHpWD5s4CYAWMldRL76Sf8VB8cvnKvCWLqDmygpGiKouFqBfYz1jBSWwmzn1iMd1MAA=="
+    },
+    {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
       "version": "1.11.1",
@@ -111,9 +126,7 @@
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/shademanga.js",
       "sha256": "06614ea930edcdae332f16cb6406f95248744de07e45b54cea0b4565deac4812",
-      "signature": "VUPIBYBeVJKrlYUneqWQ/dii36b7bP3ERSbQWH7sjZaGyCEE5RNm1QsWIKzUAcOCVJBEganuOgUVM9FeGbHeBQ==",
-      "unstable": true,
-      "unstableReason": "site-down"
+      "signature": "VUPIBYBeVJKrlYUneqWQ/dii36b7bP3ERSbQWH7sjZaGyCEE5RNm1QsWIKzUAcOCVJBEganuOgUVM9FeGbHeBQ=="
     },
     {
       "name": "TioAnime",

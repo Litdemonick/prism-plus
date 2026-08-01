@@ -1,0 +1,12 @@
+{
+  "name": "Ikigai Mangas",
+  "package": "io.prismhub.ikigai",
+  "version": "1.0.0",
+  "author": "PrismPlus",
+  "type": "manga",
+  "icon": "",
+  "description": "Cómics, manhwas y novelas ligeras en español. Catálogo grande con filtros por tipo, género y estado.",
+  "lang": "es",
+  "webSite": "https://visorikigai.gettocaboca.com",
+  "license": "MIT"
+}

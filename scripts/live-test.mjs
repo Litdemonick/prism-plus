@@ -54,6 +54,8 @@ const KEYWORDS = {
   'io.prismhub.manhwaweb': 'solo leveling',
   'io.prismhub.olympus': 'solo leveling',
   'io.prismhub.shademanga': 'one piece',
+  // Catalogo de webtoons romanticos en español: 'one piece' no existe ahi.
+  'io.prismhub.ikigai': 'vida',
   'io.prismhub.tumangaonline': 'one piece',
   // Sitios +18: su catálogo no tiene títulos mainstream, así que se busca algo
   // que esos catálogos SÍ contienen. Verificado a mano contra cada sitio.
