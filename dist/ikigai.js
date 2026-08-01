@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Ikigai Mangas
-// @version      1.0.3
+// @version      1.0.4
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -71,7 +71,8 @@ async function latest(page) {
   );
   return _itemsDe(html);
 }
-var PAGINAS_BUSQUEDA = 8;
+var PAGINAS_BUSQUEDA = 30;
+var PAGINAS_POR_TANDA = 6;
 var RESULTADOS_OBJETIVO = 24;
 function _normalizar(s) {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
@@ -83,22 +84,35 @@ async function search(keyword, page, filter) {
   const buscado = _normalizar(keyword);
   const encontrados = [];
   const vistos = /* @__PURE__ */ new Set();
-  for (let p = 1; p <= PAGINAS_BUSQUEDA; p++) {
-    let html;
-    try {
-      html = await _html(_consulta(p, filter));
-    } catch (e) {
-      break;
+  for (let p = 1; p <= PAGINAS_BUSQUEDA; p += PAGINAS_POR_TANDA) {
+    const tanda = [];
+    for (let k = p; k < p + PAGINAS_POR_TANDA && k <= PAGINAS_BUSQUEDA; k++) {
+      tanda.push(k);
     }
-    const lote = _itemsDe(html);
-    if (lote.length === 0) break;
-    for (const it of lote) {
-      if (vistos.has(it.url)) continue;
-      vistos.add(it.url);
-      if (_normalizar(it.title).includes(buscado)) encontrados.push(it);
+    const htmls = await Promise.all(
+      tanda.map(async (k) => {
+        try {
+          return await _html(_consulta(k, filter));
+        } catch (e) {
+          return "";
+        }
+      })
+    );
+    let huboItems = false;
+    for (const html of htmls) {
+      if (!html) continue;
+      const lote = _itemsDe(html);
+      if (lote.length > 0) huboItems = true;
+      for (const it of lote) {
+        if (vistos.has(it.url)) continue;
+        vistos.add(it.url);
+        if (_normalizar(it.title).includes(buscado)) encontrados.push(it);
+      }
     }
+    if (!huboItems) break;
     if (encontrados.length >= RESULTADOS_OBJETIVO) break;
   }
+  encontrados.sort((a, b) => a.title.localeCompare(b.title, "es"));
   const porPagina = 24;
   const desde = (page - 1) * porPagina;
   return encontrados.slice(desde, desde + porPagina);

@@ -134,7 +134,19 @@ export async function latest(page: number): Promise<PrismItem[]> {
 // En su lugar se recorren páginas del catálogo y se filtra por título. Se cortan
 // las vueltas apenas hay suficientes resultados o una página viene vacía, así
 // que una búsqueda que acierta rápido no paga el costo de las demás.
-const PAGINAS_BUSQUEDA = 8;
+// Cuantas paginas del catalogo se miran como maximo, y de a cuantas por vez.
+//
+// En fila, cada pagina es un viaje de ida y vuelta: ocho ya se sentian lentas y
+// cubrian ~160 obras de ~5300, o sea que buscar algo que no estuviera en las
+// primeras paginas devolvia "sin resultados" aunque el sitio SI lo tuviera
+// (reportado en vivo buscando "amigo").
+//
+// Pidiendolas de a seis en paralelo, treinta paginas cuestan cinco viajes en
+// vez de treinta: se cubren ~600 obras en menos tiempo del que antes tardaban
+// ocho. Sigue sin ser el catalogo completo —para eso haria falta el indice
+// entero del sitio, 2,8 MB— pero cambia bastante lo que se encuentra.
+const PAGINAS_BUSQUEDA = 30;
+const PAGINAS_POR_TANDA = 6;
 const RESULTADOS_OBJETIVO = 24;
 
 function _normalizar(s: string): string {
@@ -163,24 +175,44 @@ export async function search(
   const encontrados: PrismItem[] = [];
   const vistos = new Set<string>();
 
-  for (let p = 1; p <= PAGINAS_BUSQUEDA; p++) {
-    let html: string;
-    try {
-      html = await _html(_consulta(p, filter));
-    } catch {
-      // Un fallo de red a mitad de camino no debe tirar la búsqueda entera: se
-      // devuelve lo que se haya juntado hasta acá.
-      break;
+  for (let p = 1; p <= PAGINAS_BUSQUEDA; p += PAGINAS_POR_TANDA) {
+    const tanda: number[] = [];
+    for (let k = p; k < p + PAGINAS_POR_TANDA && k <= PAGINAS_BUSQUEDA; k++) {
+      tanda.push(k);
     }
-    const lote = _itemsDe(html);
-    if (lote.length === 0) break;
-    for (const it of lote) {
-      if (vistos.has(it.url)) continue;
-      vistos.add(it.url);
-      if (_normalizar(it.title).includes(buscado)) encontrados.push(it);
+
+    // Una pagina que falla no tira la busqueda: devuelve cadena vacia y se
+    // sigue con las demas.
+    const htmls = await Promise.all(
+      tanda.map(async (k) => {
+        try {
+          return await _html(_consulta(k, filter));
+        } catch {
+          return '';
+        }
+      }),
+    );
+
+    let huboItems = false;
+    for (const html of htmls) {
+      if (!html) continue;
+      const lote = _itemsDe(html);
+      if (lote.length > 0) huboItems = true;
+      for (const it of lote) {
+        if (vistos.has(it.url)) continue;
+        vistos.add(it.url);
+        if (_normalizar(it.title).includes(buscado)) encontrados.push(it);
+      }
     }
+
+    // Ninguna pagina de la tanda trajo nada: se acabo el catalogo.
+    if (!huboItems) break;
     if (encontrados.length >= RESULTADOS_OBJETIVO) break;
   }
+
+  // Alfabetico: con varias paginas llegando a destiempo, el orden en que
+  // terminan las peticiones no deberia decidir como se ven los resultados.
+  encontrados.sort((a, b) => a.title.localeCompare(b.title, 'es'));
 
   // La paginación la resuelve esta función, no el sitio: el llamador pide
   // página 2 esperando los siguientes resultados de SU búsqueda.

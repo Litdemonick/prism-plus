@@ -54,7 +54,7 @@
     {
       "name": "Ikigai Mangas",
       "package": "io.prismhub.ikigai",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "PrismPlus",
       "type": "manga",
       "icon": "",
@@ -63,8 +63,8 @@
       "webSite": "https://visorikigai.gettocaboca.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/ikigai.js",
-      "sha256": "9a2a5721f42e43db75895758a0ae5f7dc2a5de88340114e2858bed572d1c1493",
-      "signature": "n6ehXBrz1vqiy6fQV+YmsPCjflSvC8SEVJwCfH+6aM+nWKbEhdPVZdsoHktl2Sr5F3oKDTlgVSnNGP4pRvDzCA=="
+      "sha256": "d74f843da7924cd006e2860b8118520a7c894fec7f1211e3b14d6d6ae4378ed0",
+      "signature": "orWpTXbw0TYAOr4L7528l52+PphzED+dKhVS1ULxvLa2Z2TvcLzVNRrju5x//9ItSSDUuB2Le1AdDcOBPaR7Dw=="
     },
     {
       "name": "JKAnime",
