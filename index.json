@@ -23,7 +23,7 @@
     {
       "name": "Eporner",
       "package": "io.prismhub.eporner",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -33,8 +33,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/eporner.js",
-      "sha256": "74108d3a7503ee530b01c358d2993c9f5fa113d3726724eff886aec5b53b4a61",
-      "signature": "8uc7XCclpnLSkdRL6r165Auxkr4WQKD/JRtxxV50vKQcM7/2kyjDlBCTxxULIFcY6YaiEMUrp5cL4gAQKyTFAA=="
+      "sha256": "bdb89e589569798429193d6bc8cf455e757cd939a2937b18d4821e12f92714c8",
+      "signature": "BTWQUzwJp39ip8kh2CIAt3PxbC7qRy467LeseF+Sh7LD6zvgzEuvFvDKpBDPKknsQjJjaLPTM1SCPppQQiqIDw=="
     },
     {
       "name": "FuegoCine",
@@ -193,7 +193,7 @@
     {
       "name": "XVideos",
       "package": "io.prismhub.xvideos",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -203,8 +203,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/xvideos.js",
-      "sha256": "9c6b11255dab16359c8f80699ebd358bd51b6ede67bf118d9a894facc2e44d1a",
-      "signature": "YYePZ0vg657+m4/6z+ammMYHu5Rw7U9l44JdiromHqd+Ce42sNEkCNINaWHi20TEqT21WYGbp+sXRMKitEF9Ag=="
+      "sha256": "7202a64f877884268e5c4d6c1f72a140c100d882b2685f07edd0548bd15823b0",
+      "signature": "ZgwOFl0XIu/6fRukOV8jrtkHgoBTUKucKW5MdTLk7EzlMpqJKAhslosJLIjzMDX425l7URcmcq3FT+EknC4ZDg=="
     },
     {
       "name": "LaMovie",

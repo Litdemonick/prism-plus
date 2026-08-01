@@ -483,11 +483,19 @@ export async function detail(url: string): Promise<PrismDetail> {
     genres: tags.length > 0 ? tags : undefined,
     year: yearM ? Number(yearM) : undefined,
     episodes: [
+      // "Reproducir" y no el título del vídeo.
+      //
+      // Es un vídeo suelto, así que la lista tiene una sola entrada y esa
+      // entrada ES el botón de reproducir. Poniéndole el título quedaba un
+      // botón con el título entero adentro —a veces larguísimo— repitiendo lo
+      // que ya dice el encabezado de la ficha justo arriba, en vez de decir
+      // qué hace al tocarlo.
       {
-        title: title || 'Ver vídeo',
+        title: 'Reproducir',
         url: fullUrl,
         thumbnail: cover,
         duration: seconds && seconds > 0 ? seconds : undefined,
+        number: 1,
       },
     ],
   };

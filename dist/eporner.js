@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Eporner
-// @version      1.0.0
+// @version      1.0.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -63,9 +63,10 @@ function _itemsDe(html) {
   var _a, _b;
   const ini = html.indexOf('id="vidresults"');
   const cuerpo = ini !== -1 ? html.slice(ini) : html;
+  if (/No results/i.test(cuerpo)) return [];
   const items = [];
   const vistos = /* @__PURE__ */ new Set();
-  const trozos = cuerpo.split('class="mb ');
+  const trozos = cuerpo.split(/class="mb[\s"]/);
   for (let i = 1; i < trozos.length; i++) {
     const t = trozos[i];
     const href = /href="(\/video-[A-Za-z0-9]+\/[^"]*)"/.exec(t);
@@ -314,7 +315,7 @@ async function detail(url) {
   const title = _decode(((_a = /"name":\s*"((?:[^"\\]|\\.)*)"/.exec(ld)) == null ? void 0 : _a[1]) || "").replace(/\\"/g, '"') || _decode(((_b = /<h1[^>]*>([\s\S]{1,200}?)<\/h1>/.exec(html)) == null ? void 0 : _b[1]) || "").replace(/\s+/g, " ").trim() || "V\xEDdeo";
   const thumbs = ((_c = /"thumbnailUrl":\s*\[([^\]]*)\]/.exec(ld)) == null ? void 0 : _c[1]) || "";
   const urls = [...thumbs.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-  const cover = urls[urls.length - 1] || ((_d = /"image":\s*"([^"]+)"/.exec(ld)) == null ? void 0 : _d[1]) || ((_e = /<meta[^>]+property="og:image"[^>]+content="([^"]+)"/.exec(html)) == null ? void 0 : _e[1]);
+  const cover = urls.find((u) => u.indexOf("imggen") === -1) || urls[0] || ((_d = /"image":\s*"([^"]+)"/.exec(ld)) == null ? void 0 : _d[1]) || ((_e = /<meta[^>]+property="og:image"[^>]+content="([^"]+)"/.exec(html)) == null ? void 0 : _e[1]);
   const genres = [];
   for (const re of [
     /href="\/cat\/[a-z0-9-]+\/"[^>]*>([^<]{1,40})</g,

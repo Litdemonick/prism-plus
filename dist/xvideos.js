@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         XVideos
-// @version      1.1.2
+// @version      1.1.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -388,11 +388,19 @@ async function detail(url) {
     genres: tags.length > 0 ? tags : void 0,
     year: yearM ? Number(yearM) : void 0,
     episodes: [
+      // "Reproducir" y no el título del vídeo.
+      //
+      // Es un vídeo suelto, así que la lista tiene una sola entrada y esa
+      // entrada ES el botón de reproducir. Poniéndole el título quedaba un
+      // botón con el título entero adentro —a veces larguísimo— repitiendo lo
+      // que ya dice el encabezado de la ficha justo arriba, en vez de decir
+      // qué hace al tocarlo.
       {
-        title: title || "Ver v\xEDdeo",
+        title: "Reproducir",
         url: fullUrl,
         thumbnail: cover,
-        duration: seconds && seconds > 0 ? seconds : void 0
+        duration: seconds && seconds > 0 ? seconds : void 0,
+        number: 1
       }
     ]
   };

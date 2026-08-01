@@ -76,17 +76,38 @@ interface _Tarjeta extends PrismItem {
 /// enlaces de vídeo contra los 65 de la grilla real— y sin recortar se colaban
 /// como si fueran resultados de lo buscado.
 ///
-/// Cada tarjeta abre con class="mb ", así que se parte por ahí en vez de ir
+/// Cada tarjeta abre con class="mb", así que se parte por ahí en vez de ir
 /// enlace por enlace: dentro de una misma tarjeta el enlace al vídeo aparece
 /// dos veces (la portada y el título) y la insignia de calidad, la duración y
 /// la valoración están repartidas entre las dos.
+///
+/// El corte va por expresión y no por texto fijo porque el sitio usa DOS
+/// formas: class="mb" a secas y class="mb hdy". Cortando por 'class="mb ' —con
+/// el espacio— se perdían todas las primeras: medido, 47 tarjetas de 108 en un
+/// listado normal, casi la mitad, y en una búsqueda con dos resultados se veía
+/// uno solo. Peor todavía, esas tarjetas perdidas se llevaban su insignia de
+/// calidad, así que el filtro de 4K no tenía qué mirar y no descartaba nada.
+///
+/// El [\s"] final es lo que evita romper la tarjeta en pedazos: adentro hay
+/// mbimg, mbunder, mbtit y mbstats, y un corte por 'class="mb' pelado los
+/// tomaría como si cada uno abriera una tarjeta nueva.
 function _itemsDe(html: string): _Tarjeta[] {
   const ini = html.indexOf('id="vidresults"');
   const cuerpo = ini !== -1 ? html.slice(ini) : html;
 
+  // Pedir una página que no existe NO da una lista vacía: el sitio responde
+  // 404 y de yapa rellena la página con vídeos cualesquiera. Medido pidiendo la
+  // página 2 de una búsqueda con dos resultados: 52 vídeos, ninguno con
+  // relación con lo buscado. Sin esta comprobación, bajar en los resultados de
+  // algo con poco contenido llenaba la pantalla de cosas que nadie pidió.
+  //
+  // El <title> y el <h1> son IDÉNTICOS a los de la página buena, así que no
+  // sirven para distinguirlas; el aviso de que no hay resultados sí.
+  if (/No results/i.test(cuerpo)) return [];
+
   const items: _Tarjeta[] = [];
   const vistos = new Set<string>();
-  const trozos = cuerpo.split('class="mb ');
+  const trozos = cuerpo.split(/class="mb[\s"]/);
   // El primer trozo es lo que había ANTES de la primera tarjeta.
   for (let i = 1; i < trozos.length; i++) {
     const t = trozos[i];
@@ -419,12 +440,21 @@ export async function detail(url: string): Promise<PrismDetail> {
       .trim() ||
     'Vídeo';
 
-  // La primera miniatura del JSON-LD es la del listado; la segunda, cuando
-  // está, viene a la resolución real del vídeo y se ve bastante mejor de fondo.
+  // Se usa la PRIMERA miniatura del JSON-LD, no la última.
+  //
+  // El JSON-LD trae dos: la del CDN de miniaturas y otra que el sitio genera a
+  // pedido a la resolución completa del vídeo. Se estaba tomando la generada
+  // por ser más grande, y eso hacía que abrir una ficha se sintiera lento:
+  // medido, 269 KB y más de un segundo, contra 34 KB de la del CDN. Ocho veces
+  // más peso para una imagen que se muestra de fondo, desenfocada y recortada.
+  //
+  // Y encima es la MISMA que ya trae la tarjeta del listado, así que al abrir
+  // desde el catálogo la imagen suele estar ya en memoria y aparece de una.
   const thumbs = /"thumbnailUrl":\s*\[([^\]]*)\]/.exec(ld)?.[1] || '';
   const urls = [...thumbs.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
   const cover =
-    urls[urls.length - 1] ||
+    urls.find((u) => u.indexOf('imggen') === -1) ||
+    urls[0] ||
     /"image":\s*"([^"]+)"/.exec(ld)?.[1] ||
     /<meta[^>]+property="og:image"[^>]+content="([^"]+)"/.exec(html)?.[1];
 
