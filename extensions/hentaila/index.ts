@@ -413,6 +413,24 @@ export async function watch(url: string): Promise<PrismWatch> {
     if (iframe && !_isBlocked(iframe)) streams.push({ url: iframe, quality: 'Servidor' });
   }
 
+  // YourUpload primero: es el que arranca por defecto.
+  //
+  // El cliente toma el PRIMER servidor de la lista como el inicial, y hasta
+  // ahora ese era simplemente el que el sitio listara antes, que cambia de un
+  // episodio a otro. YourUpload es el que resuelve a un mp4 directo de forma
+  // mas confiable en esta extension, asi que abrir con ese evita empezar por
+  // uno que va a caer al WebView.
+  //
+  // Es un reordenamiento, no un filtro: los demas servidores siguen todos ahi
+  // y en su orden original. Si el episodio no tiene YourUpload, no cambia nada.
+  const esPreferido = (nombre: string) =>
+    nombre.toLowerCase().replace(/[^a-z]/g, '').indexOf('yourupload') !== -1;
+  streams.sort((a, b) => {
+    const pa = esPreferido(a.quality || '') ? 0 : 1;
+    const pb = esPreferido(b.quality || '') ? 0 : 1;
+    return pa - pb;
+  });
+
   // pageUrl siempre: si ningún resolver nativo saca el stream, el cliente cae
   // al WebView sobre la página real del episodio.
   return { streams, pageUrl: episodeUrl };

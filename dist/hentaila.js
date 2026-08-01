@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         HentaiLA
-// @version      1.0.2
+// @version      1.0.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -839,6 +839,12 @@ async function watch(url) {
     const iframe = (_a = /<iframe[^>]+src="([^"]+)"/i.exec(html)) == null ? void 0 : _a[1];
     if (iframe && !_isBlocked(iframe)) streams.push({ url: iframe, quality: "Servidor" });
   }
+  const esPreferido = (nombre) => nombre.toLowerCase().replace(/[^a-z]/g, "").indexOf("yourupload") !== -1;
+  streams.sort((a, b) => {
+    const pa = esPreferido(a.quality || "") ? 0 : 1;
+    const pb = esPreferido(b.quality || "") ? 0 : 1;
+    return pa - pb;
+  });
   return { streams, pageUrl: episodeUrl };
 }
 

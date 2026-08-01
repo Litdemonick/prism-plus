@@ -54,7 +54,7 @@
     {
       "name": "HentaiLA",
       "package": "io.prismhub.hentaila",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -64,8 +64,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/hentaila.js",
-      "sha256": "3fd3b17d46593726e2463b8b30e9353c671c06e5ac0f9f4746ec38a663abc180",
-      "signature": "d5VRfqje5didkOWL54pNDcxjuIAcCwGYRV2ngCT/eOD11QtEc9iK5Gf6sdNdgpiG4r20sfFaG400xrMqC5+KDA=="
+      "sha256": "bf57f0e3fef271247a44c234ec3117cf8d7cd1f99c30c8dd9e8c352134e33f4c",
+      "signature": "SyNXpm8Q/PL3H0zfjz/el6/YHP9Z9yI8LQF01Jr/xwxaUGR5iP210Z5kyshcw/d5+HYBV6nBNBbic9eH5jG5AQ=="
     },
     {
       "name": "Ikigai Mangas",
