@@ -391,22 +391,55 @@ async function _searchAnime(keyword: string): Promise<PrismItem[]> {
   return items.filter((a) => !a.esMayorDeEdad).map(_animeItemToPrismItem);
 }
 
-// /api/anime/adultos existe y funciona en vivo, pero a diferencia de
-// series-locales/adultos/home (que devuelve TODO en un solo dump agrupado)
-// este ignora por completo cualquier parámetro de paginación probado en vivo
-// (page, pagina, p, pageNumber, offset, skip, combinados con limit/pageSize):
-// siempre responde `page:1` y los mismos 24 items de un total real de 1129
-// (~2% del catálogo). No hay forma de alcanzar el resto vía este endpoint —
-// limitación real del sitio. Tampoco hay una versión de búsqueda con q= que
-// realmente filtre (confirmado en vivo: ignora el parámetro y devuelve el
-// catálogo completo igual). Se corta en page>1 (igual que manga adulto) para
-// no repetir de nuevo la misma llamada de red con el mismo resultado.
+// El anime +18 sale de /api/anime/adultos/home, NO de /api/anime/adultos.
+//
+// /api/anime/adultos parece el endpoint obvio y devuelve `total:1129`, pero
+// entrega siempre los mismos 36 ítems y punto: ignora `page`, `pageSize` (se
+// probó hasta 500), `q`, `tipo` y `estado`, y siempre responde `page:1`. No es
+// un catálogo paginable, es una vitrina fija — dos llamadas seguidas devuelven
+// exactamente los mismos tokens. La propia web tiene el mismo problema: su
+// buscador con ?q=overflow muestra igual el catálogo entero sin filtrar. Es un
+// bug del servidor de ellos, no algo que se pueda rodear con parámetros.
+//
+// /adultos/home en cambio devuelve el dump agrupado por género que la web
+// dibuja como filas (Más vistos, Netorare, Petit, …): 53 secciones y 651
+// títulos únicos, 18 veces lo que daba la vitrina. Se junta todo, se deduplica
+// por token —una serie aparece en varias filas— y se pagina del lado de acá,
+// que es lo mismo que se hace con el manga +18 y evita repetir el pedido.
+const _ANIME_ADULT_PAGE_SIZE = 48;
+
+let _animeAdultDump: Promise<_AnimeListItem[]> | null = null;
+
+function _animeAdultAll(): Promise<_AnimeListItem[]> {
+  if (_animeAdultDump) return _animeAdultDump;
+  _animeAdultDump = (async () => {
+    const json = await _get(`${BASE}/api/anime/adultos/home`);
+    if (!json || typeof json === 'string') return [];
+    const secciones: { items?: _AnimeListItem[] }[] = json.secciones ?? [];
+    const vistos = new Set<string>();
+    const items: _AnimeListItem[] = [];
+    for (const s of secciones) {
+      for (const it of s.items ?? []) {
+        if (!it?.token || vistos.has(it.token)) continue;
+        vistos.add(it.token);
+        items.push(it);
+      }
+    }
+    return items;
+  })().catch(() => {
+    // Que un fallo de red no deje el dump vacío cacheado para siempre: se
+    // limpia para que el próximo intento vuelva a pedirlo.
+    _animeAdultDump = null;
+    return [] as _AnimeListItem[];
+  });
+  return _animeAdultDump;
+}
+
 async function _latestAnimeAdult(page: number): Promise<PrismItem[]> {
-  if (page > 1) return [];
-  const json = await _get(`${BASE}/api/anime/adultos?page=1`);
-  if (!json || typeof json === 'string') return [];
-  const items: _AnimeListItem[] = json.items ?? [];
-  return items.map(_animeItemToPrismItem);
+  const todos = await _animeAdultAll();
+  const desde = (page - 1) * _ANIME_ADULT_PAGE_SIZE;
+  if (desde >= todos.length) return [];
+  return todos.slice(desde, desde + _ANIME_ADULT_PAGE_SIZE).map(_animeItemToPrismItem);
 }
 
 function _mapAnimeStatus(estado?: string): ContentStatus | undefined {

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ShadeManga
-// @version      1.3.1
+// @version      1.3.2
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -648,13 +648,36 @@ async function _searchAnime(keyword) {
   const items = (_a = json.items) != null ? _a : [];
   return items.filter((a) => !a.esMayorDeEdad).map(_animeItemToPrismItem);
 }
+var _ANIME_ADULT_PAGE_SIZE = 48;
+var _animeAdultDump = null;
+function _animeAdultAll() {
+  if (_animeAdultDump) return _animeAdultDump;
+  _animeAdultDump = (async () => {
+    var _a, _b;
+    const json = await _get(`${BASE}/api/anime/adultos/home`);
+    if (!json || typeof json === "string") return [];
+    const secciones = (_a = json.secciones) != null ? _a : [];
+    const vistos = /* @__PURE__ */ new Set();
+    const items = [];
+    for (const s of secciones) {
+      for (const it of (_b = s.items) != null ? _b : []) {
+        if (!(it == null ? void 0 : it.token) || vistos.has(it.token)) continue;
+        vistos.add(it.token);
+        items.push(it);
+      }
+    }
+    return items;
+  })().catch(() => {
+    _animeAdultDump = null;
+    return [];
+  });
+  return _animeAdultDump;
+}
 async function _latestAnimeAdult(page) {
-  var _a;
-  if (page > 1) return [];
-  const json = await _get(`${BASE}/api/anime/adultos?page=1`);
-  if (!json || typeof json === "string") return [];
-  const items = (_a = json.items) != null ? _a : [];
-  return items.map(_animeItemToPrismItem);
+  const todos = await _animeAdultAll();
+  const desde = (page - 1) * _ANIME_ADULT_PAGE_SIZE;
+  if (desde >= todos.length) return [];
+  return todos.slice(desde, desde + _ANIME_ADULT_PAGE_SIZE).map(_animeItemToPrismItem);
 }
 function _mapAnimeStatus(estado) {
   if (!estado) return void 0;
