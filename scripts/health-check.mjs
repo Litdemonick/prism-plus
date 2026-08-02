@@ -131,12 +131,33 @@ for (const r of report) {
     // Se conserva el contador anterior en vez de reiniciarlo: si venía
     // fallando de verdad, una corrida que no pudo verificar nada tampoco es
     // motivo para perdonarla.
+    //
+    // PERO con una excepción, y sin ella la extensión queda trabada para
+    // siempre: si estaba marcada como "site-down", el desafío la desmarca.
+    //
+    // Porque un desafío de Cloudflare ES una respuesta del sitio. "site-down"
+    // significa que la página no contesta, y acá contestó — está viva, solo
+    // protegida. Sin esta salida, una extensión detrás de Cloudflare que se
+    // marcó caída una vez ya no puede volver nunca: el chequeo no logra
+    // verificarla, así que jamás le limpia el contador, y el app le sigue
+    // bloqueando el contenido a todos los usuarios aunque ande perfecto.
+    //
+    // Pasó de verdad con ShadeManga: el sitio ya había vuelto, se comprobó a
+    // mano que las doce pruebas pasaban, y el catálogo la seguía dando por
+    // caída corrida tras corrida.
+    //
+    // Solo aplica a "site-down". Si estaba marcada "broken" —contesta pero
+    // devuelve vacío— el desafío no dice nada de eso y se deja como estaba.
+    const motivoPrevio = state[r.package]?.lastReason ?? null;
+    const revive = motivoPrevio === 'site-down';
     nextState[r.package] = {
-      consecutiveFailures: prev,
-      lastReason: state[r.package]?.lastReason ?? null,
+      consecutiveFailures: revive ? 0 : prev,
+      lastReason: revive ? null : motivoPrevio,
     };
     console.log(
-      `🛡️   ${r.name}: el sitio pide desafío de Cloudflare — no se puede verificar desde acá, se deja como estaba`,
+      revive
+        ? `🛡️   ${r.name}: pide desafío de Cloudflare, o sea que el sitio SÍ responde — se levanta la marca de caída`
+        : `🛡️   ${r.name}: el sitio pide desafío de Cloudflare — no se puede verificar desde acá, se deja como estaba`,
     );
   } else {
     nextState[r.package] = {
