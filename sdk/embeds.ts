@@ -228,13 +228,36 @@ function _voeDecode(raw: string): string | null {
 }
 
 /**
- * streamtape.com — formato 2024.
+ * streamtape.com — el link está en el JS, y los divs son SEÑUELOS.
  *
- * El link del vídeo está en un div oculto `id="ideoolink"` o `id="botlink"`:
- *   <div id="ideoolink">/streamtape.com/get_video?id=...&expires=...&token=...</div>
- * Se le antepone `https:` y se agrega `&stream=1`. El token va atado a la IP que
- * cargó el embed, así que se reproduce desde la misma máquina (PrismHub).
- * Conserva patrones viejos (get_video directo, robotlink concat) como fallback.
+ * El embed trae divs ocultos (`ideoolink`, `botlink`, `robotlink`) con una URL
+ * `get_video` de aspecto perfecto... y un token falso. Medido en vivo: pedir la
+ * del div devuelve `{"status":500,"msg":"Sorry, error on our side!"}` — que es
+ * exactamente el "servidor no disponible" que veía el usuario. Un navegador
+ * nunca ve ese token porque, más abajo, el JS pisa el innerHTML de los divs:
+ *
+ *   getElementById('botlink').innerHTML =
+ *     '//streamtape.' + ('xyzacom/get_video?id=..&token=..').substring(4);
+ *
+ * Y ahí está la segunda trampa. Esas líneas son cuatro, todas con el token
+ * bueno, pero dos arman una URL ROTA: le meten un carácter de más en alguna
+ * parte. Medido sobre cinco cargas seguidas del MISMO embed, el corte y el
+ * carácter sobrante se mueven en cada una:
+ *
+ *   /streamtape.com/get_video?bid=…     ← sobra una "b" en el id
+ *   //streamtape.com/get_videobid=…     ← se comió el "?"
+ *   /strebamtape.com/get_video?id=…     ← sobra una "b" en el dominio
+ *
+ * O sea que no alcanza con buscar "la que tenga get_video?": hay que hacer la
+ * cuenta de cada una y comprobar la forma ENTERA. Como el sobrante cae en un
+ * lugar distinto cada vez, la única comprobación que aguanta es exigir la forma
+ * exacta `//<mismo host del embed>/get_video?…`. Eso hace
+ * `_streamtapeDesdeElJs`, y así los señuelos caen solos aunque cambien de
+ * disfraz.
+ *
+ * El token va atado a la IP que cargó el embed, así que se reproduce desde la
+ * misma máquina (PrismHub). Devuelve un MP4 directo (302 a tapecontent.net),
+ * así que el reproductor nativo lo toma sin problema — no hace falta WebView.
  */
 export async function resolveStreamtape(
   url: string,
@@ -243,27 +266,99 @@ export async function resolveStreamtape(
   const html = await fetchEmbed(url, referer);
   if (!html) return null;
 
-  // Formato 2024: div oculto con la URL get_video.
+  const headers = { Referer: 'https://streamtape.com/' };
+
+  // Lo que ejecutaría el navegador. Es el único camino que da un token bueno.
+  const delJs = _streamtapeDesdeElJs(html, url);
+  if (delJs) return { url: delJs, headers };
+
+  // Fallback: el div tal cual. Hoy trae el señuelo, pero si algún día vuelven a
+  // servirlo sin JS —o aparece un clon que no copió la ofuscación— esto lo
+  // levanta igual. Va DESPUÉS del JS justamente por eso.
   const div =
-    /id=["'](?:ideoolink|botlink|robotlink)["'][^>]*>\s*(\/\/?[^<]*get_video[^<]*)</.exec(
+    /id=["'](?:ideoolink|botlink|robotlink)["'][^>]*>\s*(\/\/?[^<]*get_video\?[^<]*)</.exec(
       html,
     );
   if (div) {
-    let path = div[1].trim();
-    if (path.startsWith('//')) path = `https:${path}`;
-    else if (path.startsWith('/')) path = `https:/${path}`;
-    if (!/[?&]stream=/.test(path)) path += '&stream=1';
-    return { url: path, headers: { Referer: 'https://streamtape.com/' } };
+    console.log('[streamtape] sin JS utilizable, se usa el div (puede ser señuelo)');
+    return { url: _streamtapeNormalizar(div[1].trim()), headers };
   }
 
   // Fallbacks (formatos antiguos).
-  let m = /(https?:\/\/streamtape\.[a-z]+\/get_video[^"'\s<>]+)/.exec(html);
-  if (m) return { url: m[1], headers: { Referer: 'https://streamtape.com/' } };
+  let m = /(https?:\/\/streamtape\.[a-z]+\/get_video\?[^"'\s<>]+)/.exec(html);
+  if (m) return { url: _streamtapeNormalizar(m[1]), headers };
 
-  m = /(\/\/streamtape\.[a-z]+\/get_video[^"'\s<>]+)/.exec(html);
-  if (m) return { url: `https:${m[1]}`, headers: { Referer: 'https://streamtape.com/' } };
+  m = /(\/\/streamtape\.[a-z]+\/get_video\?[^"'\s<>]+)/.exec(html);
+  if (m) return { url: _streamtapeNormalizar(m[1]), headers };
 
+  console.log('[streamtape] no se encontró ninguna URL get_video en el embed');
   return null;
+}
+
+/**
+ * Resuelve las concatenaciones `"prefijo" + ('resto').substring(n)...` del
+ * embed de streamtape y devuelve la primera que arme una URL bien formada.
+ *
+ * Se hace la cuenta a mano en vez de ejecutar el JS: es un puñado de
+ * `substring` sobre literales, no hace falta un intérprete, y así no se corre
+ * código del servidor dentro de la extensión.
+ */
+function _streamtapeDesdeElJs(html: string, embedUrl: string): string | null {
+  // El prefijo se ancla en que EMPIEZA CON BARRA, no en su contenido: el corte
+  // se mueve en cada carga y llegó a quedar en '//str', que no tiene ni el
+  // nombre del host ni el del endpoint. Lo que sobre de más lo filtra después
+  // la comprobación de la forma.
+  //
+  //   '//streamtape.' + ''+ ('xyzacom/get_video?…')  .substring(4).substring(1)
+  //     \____(2)____/          \______(5)_______/     \________(6)________/
+  const armados =
+    /(["'])(\/{1,2}[^"']*)\1\s*\+\s*(?:(["'])\3\s*\+\s*)?\(\s*(["'])([^"']+)\4\s*\)((?:\s*\.\s*substring\(\s*\d+\s*(?:,\s*\d+\s*)?\))+)/g;
+  const recortes = /\.\s*substring\(\s*(\d+)\s*(?:,\s*(\d+)\s*)?\)/g;
+
+  const host = (/^https?:\/\/([^/]+)/.exec(embedUrl) || ['', ''])[1].replace(/^www\./, '');
+  // Sin host no hay con qué comparar, y sin comparación entra cualquier señuelo.
+  if (!host) return null;
+
+  let m: RegExpExecArray | null;
+  let vistos = 0;
+  armados.lastIndex = 0;
+  while ((m = armados.exec(html)) !== null) {
+    let resto = m[5];
+    recortes.lastIndex = 0;
+    let r: RegExpExecArray | null;
+    while ((r = recortes.exec(m[6])) !== null) {
+      resto =
+        r[2] === undefined
+          ? resto.substring(parseInt(r[1], 10))
+          : resto.substring(parseInt(r[1], 10), parseInt(r[2], 10));
+    }
+    const candidato = m[2] + resto;
+    vistos++;
+
+    // La forma ENTERA, no un pedazo: `//<host del embed>/get_video?…`. Los
+    // señuelos meten un carácter de más en algún lado —a veces en el dominio, a
+    // veces en el endpoint, a veces se comen el "?"— así que cualquier chequeo
+    // parcial deja pasar al menos uno de ellos.
+    const forma = /^\/\/([^/]+)\/get_video\?/.exec(candidato);
+    if (!forma) continue;
+    if (forma[1].replace(/^www\./, '') !== host) continue;
+    if (candidato.indexOf('token=') === -1) continue;
+
+    return _streamtapeNormalizar(candidato);
+  }
+  if (vistos > 0) {
+    console.log(`[streamtape] ${vistos} candidato(s) en el JS, ninguno bien formado`);
+  }
+  return null;
+}
+
+/** `//host/…` o `/host/…` → `https://host/…`, y se asegura `&stream=1`. */
+function _streamtapeNormalizar(path: string): string {
+  let out = path.trim();
+  if (out.indexOf('//') === 0) out = `https:${out}`;
+  else if (out.indexOf('/') === 0) out = `https:/${out}`;
+  if (!/[?&]stream=/.test(out)) out += '&stream=1';
+  return out;
 }
 
 /** mixdrop — `MDCore.wurl` dentro del eval empaquetado → mp4 directo */

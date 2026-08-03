@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeFenix
-// @version      1.1.2
+// @version      1.1.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -282,21 +282,57 @@ function _voeDecode(raw) {
 async function resolveStreamtape(url, referer) {
   const html = await fetchEmbed(url, referer);
   if (!html) return null;
-  const div = /id=["'](?:ideoolink|botlink|robotlink)["'][^>]*>\s*(\/\/?[^<]*get_video[^<]*)</.exec(
+  const headers = { Referer: "https://streamtape.com/" };
+  const delJs = _streamtapeDesdeElJs(html, url);
+  if (delJs) return { url: delJs, headers };
+  const div = /id=["'](?:ideoolink|botlink|robotlink)["'][^>]*>\s*(\/\/?[^<]*get_video\?[^<]*)</.exec(
     html
   );
   if (div) {
-    let path = div[1].trim();
-    if (path.startsWith("//")) path = `https:${path}`;
-    else if (path.startsWith("/")) path = `https:/${path}`;
-    if (!/[?&]stream=/.test(path)) path += "&stream=1";
-    return { url: path, headers: { Referer: "https://streamtape.com/" } };
+    console.log("[streamtape] sin JS utilizable, se usa el div (puede ser se\xF1uelo)");
+    return { url: _streamtapeNormalizar(div[1].trim()), headers };
   }
-  let m = /(https?:\/\/streamtape\.[a-z]+\/get_video[^"'\s<>]+)/.exec(html);
-  if (m) return { url: m[1], headers: { Referer: "https://streamtape.com/" } };
-  m = /(\/\/streamtape\.[a-z]+\/get_video[^"'\s<>]+)/.exec(html);
-  if (m) return { url: `https:${m[1]}`, headers: { Referer: "https://streamtape.com/" } };
+  let m = /(https?:\/\/streamtape\.[a-z]+\/get_video\?[^"'\s<>]+)/.exec(html);
+  if (m) return { url: _streamtapeNormalizar(m[1]), headers };
+  m = /(\/\/streamtape\.[a-z]+\/get_video\?[^"'\s<>]+)/.exec(html);
+  if (m) return { url: _streamtapeNormalizar(m[1]), headers };
+  console.log("[streamtape] no se encontr\xF3 ninguna URL get_video en el embed");
   return null;
+}
+function _streamtapeDesdeElJs(html, embedUrl) {
+  const armados = /(["'])(\/{1,2}[^"']*)\1\s*\+\s*(?:(["'])\3\s*\+\s*)?\(\s*(["'])([^"']+)\4\s*\)((?:\s*\.\s*substring\(\s*\d+\s*(?:,\s*\d+\s*)?\))+)/g;
+  const recortes = /\.\s*substring\(\s*(\d+)\s*(?:,\s*(\d+)\s*)?\)/g;
+  const host = (/^https?:\/\/([^/]+)/.exec(embedUrl) || ["", ""])[1].replace(/^www\./, "");
+  if (!host) return null;
+  let m;
+  let vistos = 0;
+  armados.lastIndex = 0;
+  while ((m = armados.exec(html)) !== null) {
+    let resto = m[5];
+    recortes.lastIndex = 0;
+    let r;
+    while ((r = recortes.exec(m[6])) !== null) {
+      resto = r[2] === void 0 ? resto.substring(parseInt(r[1], 10)) : resto.substring(parseInt(r[1], 10), parseInt(r[2], 10));
+    }
+    const candidato = m[2] + resto;
+    vistos++;
+    const forma = /^\/\/([^/]+)\/get_video\?/.exec(candidato);
+    if (!forma) continue;
+    if (forma[1].replace(/^www\./, "") !== host) continue;
+    if (candidato.indexOf("token=") === -1) continue;
+    return _streamtapeNormalizar(candidato);
+  }
+  if (vistos > 0) {
+    console.log(`[streamtape] ${vistos} candidato(s) en el JS, ninguno bien formado`);
+  }
+  return null;
+}
+function _streamtapeNormalizar(path) {
+  let out = path.trim();
+  if (out.indexOf("//") === 0) out = `https:${out}`;
+  else if (out.indexOf("/") === 0) out = `https:/${out}`;
+  if (!/[?&]stream=/.test(out)) out += "&stream=1";
+  return out;
 }
 async function resolveMixdrop(url, referer) {
   const html = await fetchEmbed(url, referer);
@@ -743,7 +779,7 @@ async function detail(url) {
   const status = statusText.includes("finalizado") || statusText.includes("concluido") ? "completed" : statusText.includes("emision") || statusText.includes("emisi\xF3n") ? "ongoing" : statusText.includes("proximamente") || statusText.includes("pr\xF3ximamente") ? "upcoming" : void 0;
   return { title, cover, description, genres, episodes, status };
 }
-var _NEVER_NATIVE = /* @__PURE__ */ new Set(["savefiles", "streamtape", "premiunvip", "streamwish", "mp4upload"]);
+var _NEVER_NATIVE = /* @__PURE__ */ new Set(["savefiles", "premiunvip", "streamwish", "mp4upload"]);
 var _NEVER_NATIVE_HOSTS = ["uqload.is"];
 async function _resolveIronhentai(url) {
   const html = await _get(url, _BROWSER_ACCEPT);

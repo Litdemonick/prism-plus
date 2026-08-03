@@ -1,5 +1,5 @@
 import { matchFirst, matchGroups, stripTags, decodeEntities } from '../../sdk/html';
-import { resolveEmbed } from '../../sdk/embeds';
+import { resolveEmbed, resolveStreamtape } from '../../sdk/embeds';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream } from '../../sdk/types';
 
 // sendMessage("request", ...) usa el dio de PrismHub (con UA, cookies y redirecciones),
@@ -808,34 +808,17 @@ async function _resolveVoeDio(url: string, label: string): Promise<PrismStream |
   return null;
 }
 
-// Streamtape (2024+): div oculto con get_video URL
+// Streamtape — se delega al SDK.
+//
+// Antes había acá una copia propia que leía el div oculto `get_video`. Ese div
+// trae un token SEÑUELO: pedirlo devuelve `{"status":500}` y el usuario ve
+// "servidor no disponible". El link bueno lo arma el JS de la página, y el SDK
+// ya sabe hacer esa cuenta (ver resolveStreamtape). Tener dos copias significó
+// justamente esto: se arregla una y la otra sigue rota.
 async function _resolveStreamtapeDio(url: string, label: string): Promise<PrismStream | null> {
   try {
-    const html = await _get(url, { 'Referer': BASE + '/' });
-    if (!html) return null;
-
-    // Div oculto con URL get_video
-    const div = /id=["'](?:ideoolink|botlink|robotlink)["'][^>]*>\s*(\/\/?[^<]*get_video[^<]*)</.exec(html);
-    if (div) {
-      let path = div[1].trim();
-      if (path.startsWith('//')) path = 'https:' + path;
-      else if (path.startsWith('/')) path = 'https:/' + path;
-      if (!/[?&]stream=/.test(path)) path += '&stream=1';
-      return { url: path, quality: label, headers: { 'Referer': 'https://streamtape.com/' } };
-    }
-
-    // Obfuscated robotlink concat
-    const robot = /robotlink['"]\)[^'"]+(\/\/?streamtape[^'"]+)['"]/i.exec(html);
-    if (robot) {
-      const p = robot[1].startsWith('//') ? 'https:' + robot[1] : robot[1];
-      return { url: p + '&stream=1', quality: label, headers: { 'Referer': 'https://streamtape.com/' } };
-    }
-
-    let m = /(https?:\/\/streamtape\.[a-z]+\/get_video[^"'\s<>]+)/.exec(html);
-    if (m) return { url: m[1], quality: label, headers: { 'Referer': 'https://streamtape.com/' } };
-
-    m = /(\/\/streamtape\.[a-z]+\/get_video[^"'\s<>]+)/.exec(html);
-    if (m) return { url: 'https:' + m[1], quality: label, headers: { 'Referer': 'https://streamtape.com/' } };
+    const res = await resolveStreamtape(url, BASE + '/');
+    if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
   } catch {}
   return null;
 }

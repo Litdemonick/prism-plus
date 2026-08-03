@@ -287,9 +287,15 @@ export async function detail(url: string): Promise<PrismDetail> {
 // del SDK que lo cubra. Confirmado en vivo (misma imagen "img.savefiles.com"
 // referenciada en su propio JS).
 //
-// StreamTape: descartado a pedido del usuario (falla siempre al abrir en la
-// app real, mismo error intermitente ya visto en otras extensiones de este
-// repo desde este entorno).
+// StreamTape: VUELVE a la lista. Se había descartado porque "falla siempre al
+// abrir en la app real", y ese síntoma ya tiene causa medida y arreglada: el
+// resolver leía el div oculto `get_video`, que trae un token SEÑUELO. Pedirlo
+// devuelve `{"status":500,"msg":"Sorry, error on our side!"}` — de ahí el
+// "servidor no disponible" constante. El link bueno lo arma el JS de la página
+// y hay que rehacer esa cuenta (ver sdk/embeds.ts resolveStreamtape, con la
+// comprobación de forma que descarta los señuelos aunque roten en cada carga).
+// Comprobado en vivo contra el bundle ya compilado: 6 de 6 intentos devuelven
+// HTTP 206 video/mp4. No era "intermitente", era siempre el token falso.
 //
 // PremiunVIP (re.ironhentai.com/hugging.php → huggingface.co): confirmado en
 // vivo en la app real (2 animes distintos, mismo síntoma exacto ambas veces)
@@ -317,7 +323,7 @@ export async function detail(url: string): Promise<PrismDetail> {
 // rebufferea todo el tiempo). El servidor en sí funciona bien (headers,
 // soporte de rangos y velocidad de descarga verificados en vivo), es la ruta
 // de red hacia ese host puntual la que no es confiable.
-const _NEVER_NATIVE = new Set(['savefiles', 'streamtape', 'premiunvip', 'streamwish', 'mp4upload']);
+const _NEVER_NATIVE = new Set(['savefiles', 'premiunvip', 'streamwish', 'mp4upload']);
 
 // El mirror uqload.is que usa este sitio (a diferencia de uqload.com, que sí
 // funciona en otras extensiones del repo) usa el MISMO formulario-gate POST
