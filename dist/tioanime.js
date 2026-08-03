@@ -184,6 +184,11 @@ async function resolveEmbed(server, embedUrl, referer) {
       result = await resolveMixdrop(embedUrl, referer);
     else if (s.includes("mp4upload")) result = await resolveMp4upload(embedUrl, referer);
     else if (s.includes("mediafire")) result = await resolveMediafire(embedUrl, referer);
+    else if (s.includes("hexload")) result = await resolveHexload(embedUrl, referer);
+    else if (s.includes("savefiles") || s.includes("streamhls"))
+      result = await resolveSavefiles(embedUrl, referer);
+    else if (s.includes("bysekoze") || s.includes("byse."))
+      result = await resolveByse(embedUrl, referer);
     else if (s.includes("yourupload") || s.includes("yupload"))
       result = await resolveYourupload(embedUrl, referer);
     else if (s.includes("pixeldrain")) result = resolvePixeldrain(embedUrl);
@@ -192,7 +197,7 @@ async function resolveEmbed(server, embedUrl, referer) {
     else if (s.includes("hqq") || s.includes("netu")) result = await resolveNetu(embedUrl, referer);
     else if (s.includes("ok.ru") || s.includes("okru") || s.includes("odnoklassniki"))
       result = await resolveOkru(embedUrl);
-    else if (s.includes("streamwish") || s.includes("wishfast") || s.includes("vidhide") || s.includes("filelions") || s.includes("vhide") || s.includes("vtube") || s.includes("luluvdo") || s.includes("vidmoly") || s.includes("filemoon") || s.includes("moonplayer") || s.includes("swdyu") || s.includes("bysekoze") || s.includes("bestx") || s.includes("embedrise") || s.includes("ridoo") || s.includes("uqload") || s.includes("flaxtv"))
+    else if (s.includes("streamwish") || s.includes("wishfast") || s.includes("vidhide") || s.includes("filelions") || s.includes("vhide") || s.includes("vtube") || s.includes("luluvdo") || s.includes("vidmoly") || s.includes("filemoon") || s.includes("moonplayer") || s.includes("swdyu") || s.includes("bestx") || s.includes("embedrise") || s.includes("ridoo") || s.includes("uqload") || s.includes("flaxtv"))
       result = await resolveStreamwish(embedUrl, referer);
     else if (s.includes("streamhg") || s.includes("hgcloud") || s.includes("vibuxer"))
       result = await resolveStreamHg(embedUrl, referer);
@@ -542,6 +547,133 @@ ${_unpackAll(html)}`;
   if (real) return { url: real, headers };
   return null;
 }
+async function _postForm(url, campos, referer) {
+  var _a;
+  const cuerpo = Object.keys(campos).map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(campos[k])}`).join("&");
+  try {
+    return await sendMessage(
+      "request",
+      JSON.stringify([
+        url,
+        {
+          method: "post",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "X-Requested-With": "XMLHttpRequest",
+            Referer: referer
+          },
+          data: cuerpo
+        }
+      ])
+    );
+  } catch (e) {
+    console.log(`[postForm] FAIL ${url.slice(0, 45)} :: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
+    return null;
+  }
+}
+function _codigoDe(url) {
+  const sinQuery = url.split("?")[0].split("#")[0].replace(/\/+$/, "");
+  const ultimo = sinQuery.slice(sinQuery.lastIndexOf("/") + 1);
+  return ultimo.replace(/^embed-/, "").replace(/\.html?$/, "");
+}
+async function resolveHexload(url, referer) {
+  const host = _hostOf(url) || "hexload.com";
+  const code = _codigoDe(url);
+  if (!code) return null;
+  const raw = await _postForm(
+    `https://${host}/download`,
+    { op: "download3", id: code, ajax: "1", method_free: "1" },
+    referer || `https://${host}/`
+  );
+  if (!raw) return null;
+  const m = /"url"\s*:\s*"([^"]+)"/.exec(raw);
+  if (!m) {
+    console.log("[hexload] el POST no devolvi\xF3 ninguna url");
+    return null;
+  }
+  return {
+    url: m[1].replace(/\\\//g, "/"),
+    headers: { Referer: `https://${host}/` }
+  };
+}
+async function resolveSavefiles(url, referer) {
+  const host = _hostOf(url) || "savefiles.com";
+  const code = _codigoDe(url);
+  if (!code) return null;
+  const html = await _postForm(
+    `https://${host}/dl`,
+    { op: "embed", file_code: code, auto: "1", referer: referer || "" },
+    referer || `https://${host}/`
+  );
+  if (!html) return null;
+  const plano = html.replace(/\\\//g, "/");
+  const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(plano);
+  if (m3u8) return { url: m3u8[1], headers: { Referer: `https://${host}/` } };
+  const mp4 = /(https?:[^"'\s\\]+\.mp4[^"'\s\\]*)/.exec(plano);
+  if (mp4) return { url: mp4[1], headers: { Referer: `https://${host}/` } };
+  console.log("[savefiles] el POST a /dl no trajo ninguna fuente");
+  return null;
+}
+async function resolveByse(url, referer) {
+  var _a;
+  const host = _hostOf(url) || "bysekoze.com";
+  const code = _codigoDe(url);
+  if (!code) return null;
+  const raw = await fetchEmbed(`https://${host}/api/videos/${code}`, referer || `https://${host}/`);
+  if (!raw) return null;
+  let meta;
+  try {
+    meta = JSON.parse(raw);
+  } catch (e) {
+    console.log("[byse] la API no devolvi\xF3 JSON");
+    return null;
+  }
+  const pb = meta.playback;
+  if (!pb || !pb.iv || !pb.payload || !Array.isArray(pb.key_parts)) {
+    console.log("[byse] la API no trajo datos de reproducci\xF3n");
+    return null;
+  }
+  const v = Number(pb.version);
+  const partes = pb.key_parts;
+  const indices = v >= 1 && v <= 20 && 31 - v <= partes.length ? [v, 31 - v] : null;
+  const elegidas = indices ? indices.map((i) => partes[i - 1]).filter((p) => typeof p === "string" && p.length > 0) : partes;
+  if (!elegidas.length) return null;
+  try {
+    let clave = _b64urlAWord(elegidas[0]);
+    for (let i = 1; i < elegidas.length; i++) {
+      clave = clave.concat(_b64urlAWord(elegidas[i]));
+    }
+    const iv = _b64urlAWord(pb.iv);
+    const contador = CryptoJS.lib.WordArray.create(iv.words.concat([2]), 16);
+    const cifrado = _b64urlAWord(pb.payload);
+    const sinEtiqueta = CryptoJS.lib.WordArray.create(
+      cifrado.words.slice(),
+      cifrado.sigBytes - 16
+    );
+    const claro = CryptoJS.AES.decrypt(
+      { ciphertext: sinEtiqueta },
+      clave,
+      { iv: contador, mode: CryptoJS.mode.CTR, padding: CryptoJS.pad.NoPadding }
+    ).toString(CryptoJS.enc.Utf8);
+    const m = /"url"\s*:\s*"([^"]+)"/.exec(claro);
+    if (!m) {
+      console.log("[byse] se descifr\xF3 pero no hab\xEDa ninguna url adentro");
+      return null;
+    }
+    return {
+      url: m[1].replace(/\\u0026/g, "&").replace(/\\\//g, "/"),
+      headers: { Referer: `https://${host}/` }
+    };
+  } catch (e) {
+    console.log(`[byse] no se pudo descifrar: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
+    return null;
+  }
+}
+function _b64urlAWord(s) {
+  const normal = s.replace(/-/g, "+").replace(/_/g, "/");
+  const relleno = normal.length % 4 === 0 ? "" : "=".repeat(4 - normal.length % 4);
+  return CryptoJS.enc.Base64.parse(normal + relleno);
+}
 function _unpackAll(html) {
   let out = "";
   const re = /eval\(function\(p,a,c,k,e,[dr]\)\{[\s\S]*?\.split\('\|'\)[^)]*\)\)/g;
@@ -818,6 +950,13 @@ var _KNOWN_EMBED_HOSTS = {
   // clave suelta lo haría pasar por página de embed y volvería a resolverse.
   'mediafire.com/file': 'Mediafire',
   doodstream: 'Doodstream', ds2play: 'Doodstream', ds2video: 'Doodstream',
+  // dsvplay/playmogo faltaban acá: son la misma red de Doodstream (dsvplay
+  // redirige a playmogo), y sin la clave el fast-path no los reconocía como
+  // embed y nunca llegaban al resolver que sí sabe resolverlos.
+  dsvplay: 'Doodstream', playmogo: 'Doodstream',
+  hexload: 'Hexload',
+  savefiles: 'Savefiles', streamhls: 'Savefiles',
+  bysekoze: 'Byse',
   streamwish: 'Streamwish', wishfast: 'Streamwish',
   vidhide: 'Streamwish', filelions: 'Streamwish',
   filemoon: 'Filemoon', moonplayer: 'Filemoon',

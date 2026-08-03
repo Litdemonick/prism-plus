@@ -1,14 +1,14 @@
 // ==PrismHubExtension==
-// @name         AnimeFenix
-// @version      1.1.3
+// @name         LatAnime
+// @version      1.0.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
-// @package      io.prismhub.animefenix
+// @package      io.prismhub.latanime
 // @type         bangumi
 // @nsfw         false
-// @webSite      https://animefenix2.tv
-// @description  Anime sub y latino con catálogo completo, filtros y varios servidores de respaldo para ver sin cortes.
+// @webSite      https://latanime.org
+// @description  Anime doblado al latino y castellano, con filtros por año, género, letra y categoría, y varios servidores por episodio.
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
 var __getOwnPropSymbols = Object.getOwnPropertySymbols;
@@ -738,26 +738,14 @@ function b64decode(s) {
   return result;
 }
 
-// extensions/animefenix/index.ts
-var BASE = "https://animefenix2.tv";
-var _BROWSER_ACCEPT = {
-  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-  "Accept-Language": "es-ES,es;q=0.9"
-};
-async function _get(url, extraHeaders) {
+// extensions/latanime/index.ts
+var BASE = "https://latanime.org";
+async function _get(url) {
   const raw = await sendMessage(
     "request",
     JSON.stringify([
       url,
-      {
-        method: "get",
-        // DESKTOP_UA va ANTES del spread para que un extraHeaders con su propio
-        // User-Agent lo siga pisando (lo usan los resolvers de servidores).
-        headers: __spreadValues({
-          Referer: `${BASE}/`,
-          "User-Agent": DESKTOP_UA
-        }, extraHeaders != null ? extraHeaders : {})
-      }
+      { method: "get", headers: { Referer: `${BASE}/`, "User-Agent": DESKTOP_UA } }
     ])
   );
   try {
@@ -766,226 +754,241 @@ async function _get(url, extraHeaders) {
     return raw;
   }
 }
-function _buildQuery(params) {
-  const parts = [];
-  for (const key of Object.keys(params)) {
-    const value = params[key];
-    if (value) parts.push(`${key}=${encodeURIComponent(value)}`);
-  }
-  return parts.join("&");
-}
 function _fullUrl(url) {
   if (url.indexOf("http") === 0) return url;
   return `${BASE}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 function _parseCatalog(html) {
-  var _a, _b;
+  var _a, _b, _c;
   const items = [];
-  const re = /<a href="(\/[a-z0-9-]+)">\s*<figure>\s*<span class="tipo">([^<]*)<\/span>\s*<span class="estreno">([^<]*)<\/span>[\s\S]*?<p class="gray">([^<]*)<\/p>[\s\S]*?<img[^>]*src="([^"]+)"[^>]*>[\s\S]*?<\/figure>\s*<p>([^<]+)<\/p>/g;
+  const re = /<a href="(https:\/\/latanime\.org\/anime\/[^"]+)">([\s\S]*?)<h3[^>]*>([^<]+)<\/h3>/g;
   for (const m of html.matchAll(re)) {
-    const year = parseInt(m[3].trim(), 10);
+    const bloque = m[2];
+    const portada = (_c = (_a = /data-src="([^"]+)"/.exec(bloque)) == null ? void 0 : _a[1]) != null ? _c : (_b = /<img[^>]*\ssrc="([^"]+)"/.exec(bloque)) == null ? void 0 : _b[1];
     items.push({
-      title: decodeEntities(m[6].trim()),
-      url: `${BASE}${m[1]}`,
-      cover: m[5],
-      update: ((_a = m[4]) == null ? void 0 : _a.trim()) ? decodeEntities(m[4].trim()) : void 0,
-      year: Number.isFinite(year) ? year : void 0,
-      tags: ((_b = m[2]) == null ? void 0 : _b.trim()) ? [decodeEntities(m[2].trim())] : void 0
+      title: decodeEntities(m[3].trim()),
+      url: m[1],
+      cover: portada ? _fullUrl(portada) : void 0
     });
   }
   return items;
 }
 async function latest(page) {
-  const query = _buildQuery({ p: page > 1 ? String(page) : void 0 });
-  const html = await _get(`${BASE}/directorio/anime${query ? `?${query}` : ""}`);
+  const html = await _get(`${BASE}/animes${page > 1 ? `?p=${page}` : ""}`);
   return _parseCatalog(html);
 }
-async function _searchOnce(keyword, page, genero, tipo, estado) {
-  const query = _buildQuery({
-    q: keyword.trim() || void 0,
-    genero,
-    tipo,
-    estado,
-    p: page > 1 ? String(page) : void 0
-  });
-  const html = await _get(`${BASE}/directorio/anime${query ? `?${query}` : ""}`);
-  return _parseCatalog(html);
+var _SIN_FILTRO = "false";
+function _valorFiltro(filter, clave) {
+  var _a;
+  const v = (_a = filter == null ? void 0 : filter[clave]) == null ? void 0 : _a[0];
+  return v && v.length > 0 ? v : _SIN_FILTRO;
 }
 async function search(keyword, page, filter) {
-  var _a, _b, _c;
-  const genero = (_a = filter == null ? void 0 : filter["genero"]) == null ? void 0 : _a[0];
-  const tipo = (_b = filter == null ? void 0 : filter["tipo"]) == null ? void 0 : _b[0];
-  const estado = (_c = filter == null ? void 0 : filter["estado"]) == null ? void 0 : _c[0];
-  const base = await _searchOnce(keyword, page, genero, tipo, estado);
-  if (tipo || page > 1 || !keyword.trim()) return base;
-  const _UNION_TYPES = ["1", "2", "3", "4"];
-  const perType = await Promise.all(
-    _UNION_TYPES.map(
-      (t) => _searchOnce(keyword, page, genero, t, estado).catch(() => [])
-    )
-  );
-  const merged = [];
-  const seen = {};
-  for (const item of base) {
-    if (seen[item.url]) continue;
-    seen[item.url] = true;
-    merged.push(item);
+  const kw = keyword.trim();
+  if (kw) {
+    const html2 = await _get(
+      `${BASE}/buscar?q=${encodeURIComponent(kw)}${page > 1 ? `&p=${page}` : ""}`
+    );
+    return _parseCatalog(html2);
   }
-  for (const list of perType) {
-    for (const item of list) {
-      if (seen[item.url]) continue;
-      seen[item.url] = true;
-      merged.push(item);
-    }
-  }
-  return merged;
+  const partes = [
+    `fecha=${encodeURIComponent(_valorFiltro(filter, "fecha"))}`,
+    `genero=${encodeURIComponent(_valorFiltro(filter, "genero"))}`,
+    `letra=${encodeURIComponent(_valorFiltro(filter, "letra"))}`,
+    `categoria=${encodeURIComponent(_valorFiltro(filter, "categoria"))}`
+  ];
+  if (page > 1) partes.push(`p=${page}`);
+  const html = await _get(`${BASE}/animes?${partes.join("&")}`);
+  return _parseCatalog(html);
 }
-var _GENRE_OPTIONS = {
-  "": "Todos",
-  "1": "Acci\xF3n",
-  "2": "Escolares",
-  "3": "Romance",
-  "4": "Shoujo",
-  "5": "Comedia",
-  "6": "Drama",
-  "7": "Seinen",
-  "8": "Deportes",
-  "9": "Shounen",
-  "10": "Recuentos de la vida",
-  "11": "Ecchi",
-  "12": "Sobrenatural",
-  "13": "Fantas\xEDa",
-  "14": "Magia",
-  "15": "Superpoderes",
-  "16": "Demencia",
-  "17": "Misterio",
-  "18": "Psicol\xF3gico",
-  "19": "Suspenso",
-  "20": "Ciencia Ficci\xF3n",
-  "21": "Mecha",
-  "22": "Militar",
-  "23": "Aventuras",
-  "24": "Historico",
-  "25": "Infantil",
-  "26": "Artes Marciales",
-  "27": "Terror",
-  "28": "Harem"
+var _ANIO_OPTIONS = { [_SIN_FILTRO]: "Todos" };
+for (let a = 2026; a >= 1982; a--) _ANIO_OPTIONS[String(a)] = String(a);
+var _GENERO_OPTIONS = {
+  [_SIN_FILTRO]: "Todos",
+  "accion": "Acci\xF3n",
+  "artes-marciales": "Artes Marciales",
+  "aventura": "Aventura",
+  "aenime": "Aenime",
+  "blu-ray": "Blu-ray",
+  "carreras": "Carreras",
+  "castellano": "Castellano",
+  "ciencia-ficcion": "Ciencia Ficci\xF3n",
+  "comedia": "Comedia",
+  "cyberpunk": "Cyberpunk",
+  "dementia": "Dementia",
+  "demonios": "Demonios",
+  "deportes": "Deportes",
+  "donghua": "Donghua",
+  "drama": "Drama",
+  "ecchi": "Ecchi",
+  "escolares": "Escolares",
+  "espacial": "Espacial",
+  "fantasia": "Fantas\xEDa",
+  "gore": "Gore",
+  "harem": "Harem",
+  "historico": "Hist\xF3rico",
+  "historia-paralela": "Historia paralela",
+  "horror": "Horror",
+  "isekai": "Isekai",
+  "josei": "Josei",
+  "latino": "Latino",
+  "lucha": "Lucha",
+  "magia": "Magia",
+  "mecha": "Mecha",
+  "militar": "Militar",
+  "misterio": "Misterio",
+  "monogatari": "Monogatari",
+  "musica": "M\xFAsica",
+  "parodias": "Parodias",
+  "policia": "Polic\xEDa",
+  "psicologico": "Psicol\xF3gico",
+  "recuerdos-de-la-vida": "Recuerdos de la vida",
+  "romance": "Romance",
+  "samurai": "Samurai",
+  "seinen": "Seinen",
+  "shojo": "Shojo",
+  "shonen": "Shonen",
+  "sobrenatural": "Sobrenatural",
+  "suspenso": "Suspenso",
+  "vampiros": "Vampiros",
+  "yaoi": "Yaoi",
+  "yuri": "Yuri"
 };
-var _TYPE_OPTIONS = {
-  "": "Todos",
-  "1": "TV Anime",
-  "2": "Pel\xEDcula",
-  "3": "OVA",
-  "4": "Especial",
-  "9": "Serie",
-  "11": "Dorama",
-  "14": "Corto",
-  "15": "Donghua"
-};
-var _STATUS_OPTIONS = {
-  "": "Todos",
-  "1": "Finalizado",
-  "2": "En emisi\xF3n",
-  "3": "Pr\xF3ximamente"
+var _LETRA_OPTIONS = { [_SIN_FILTRO]: "Todas", "09": "0-9" };
+for (let i = 0; i < 26; i++) {
+  const l = String.fromCharCode(65 + i);
+  _LETRA_OPTIONS[l] = l;
+}
+var _CATEGORIA_OPTIONS = {
+  [_SIN_FILTRO]: "Todas",
+  "anime": "Anime",
+  "ova": "Ova",
+  "Pel\xEDcula": "Pel\xEDcula",
+  "especial": "Especial",
+  "corto": "Corto",
+  "ona": "Ona",
+  "donghua": "Donghua",
+  "sin-censura": "Sin Censura",
+  "preestreno": "Preestreno",
+  "pelicula-1080p": "Pel\xEDcula 1080p",
+  "latino": "Latino",
+  "Pel\xEDcula Latino": "Pel\xEDcula Latino",
+  "castellano": "Castellano",
+  "Pel\xEDcula Castellano": "Pel\xEDcula Castellano",
+  "ova-latino": "Ova Latino",
+  "ova-castellano": "Ova Castellano",
+  "latino-sin-censura": "Latino Sin Censura",
+  "live-action": "Live Action",
+  "Cartoon": "Cartoon",
+  "catalan": "Catal\xE1n"
 };
 async function createFilter() {
   return {
-    genero: { title: "G\xE9nero", options: _GENRE_OPTIONS, default: "", min: 1, max: 1 },
-    tipo: { title: "Tipo", options: _TYPE_OPTIONS, default: "", min: 1, max: 1 },
-    estado: { title: "Estado", options: _STATUS_OPTIONS, default: "", min: 1, max: 1 }
+    genero: { title: "G\xE9nero", options: _GENERO_OPTIONS, default: _SIN_FILTRO, min: 1, max: 1 },
+    categoria: {
+      title: "Categor\xEDa",
+      options: _CATEGORIA_OPTIONS,
+      default: _SIN_FILTRO,
+      min: 1,
+      max: 1
+    },
+    fecha: { title: "A\xF1o", options: _ANIO_OPTIONS, default: _SIN_FILTRO, min: 1, max: 1 },
+    letra: { title: "Letra", options: _LETRA_OPTIONS, default: _SIN_FILTRO, min: 1, max: 1 }
   };
 }
 async function detail(url) {
   var _a, _b, _c, _d, _e, _f, _g, _h;
-  const fullUrl = _fullUrl(url);
-  const html = await _get(fullUrl);
-  const slug = fullUrl.replace(`${BASE}/`, "").replace(/\/$/, "");
-  const title = (_c = (_b = (_a = /<h1[^>]*>([^<]+)<\/h1>/i.exec(html)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : "";
-  const cover = (_d = /property="og:image"\s+content="([^"]+)"/i.exec(html)) == null ? void 0 : _d[1];
-  const description = stripTags(
-    (_f = (_e = /Sinopsis<\/h2>\s*<p[^>]*>([^<]*)<\/p>/i.exec(html)) == null ? void 0 : _e[1]) != null ? _f : ""
-  ).trim();
+  const html = await _get(_fullUrl(url));
+  const title = decodeEntities(
+    (_c = (_b = (_a = /<h2[^>]*>([^<]+)<\/h2>/i.exec(html)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : ""
+  );
+  const coverM = (_d = /class="serieimgficha"[\s\S]{0,200}?<img[^>]*src="([^"]+)"/i.exec(html)) == null ? void 0 : _d[1];
+  const description = decodeEntities(
+    stripTags((_f = (_e = /<p class="my-2 opacity-75">([\s\S]*?)<\/p>/i.exec(html)) == null ? void 0 : _e[1]) != null ? _f : "").trim()
+  );
   const genres = [];
-  const generosBlockM = /Géneros<\/h2>([\s\S]*?)<!--/i.exec(html);
-  if (generosBlockM) {
-    for (const m of generosBlockM[1].matchAll(/genero=\d+"[^>]*>\s*([^<]+?)\s*</g)) {
-      genres.push(decodeEntities(m[1].trim()));
-    }
+  for (const m of html.matchAll(
+    /href="https:\/\/latanime\.org\/genero\/[^"]*"[^>]*>\s*(?:<div[^>]*>\s*)?([^<]{2,30})</g
+  )) {
+    const g = decodeEntities(m[1].trim());
+    if (g && genres.indexOf(g) === -1) genres.push(g);
   }
-  const episodes = [];
-  const epRe = /<a href="(\/ver\/[^"]+)" class="episode-card">[\s\S]*?<span class="ep-title">([^<]+)<\/span>/g;
-  let start = 0;
-  for (let page = 0; page < 60; page++) {
-    const chunk = await _get(`${fullUrl}?id=${slug}&load=episodes&start=${start}`);
-    let found = 0;
-    for (const m of chunk.matchAll(epRe)) {
-      episodes.push({ title: decodeEntities(m[2].trim()), url: `${BASE}${m[1]}` });
-      found++;
-    }
-    if (found === 0) break;
-    start += 16;
-    if (found < 16) break;
+  const vistos = {};
+  const sueltos = [];
+  for (const m of html.matchAll(/href="(https:\/\/latanime\.org\/ver\/[^"]+)"/g)) {
+    const u = m[1];
+    if (vistos[u]) continue;
+    vistos[u] = true;
+    const nM = /-episodio-(\d+(?:\.\d+)?)/.exec(u);
+    sueltos.push({ n: nM ? parseFloat(nM[1]) : sueltos.length + 1, url: u });
   }
-  const statusText = ((_h = (_g = /Estado:\s*<\/span>\s*([^<]+)/i.exec(html)) == null ? void 0 : _g[1]) != null ? _h : "").trim().toLowerCase();
-  const status = statusText.includes("finalizado") || statusText.includes("concluido") ? "completed" : statusText.includes("emision") || statusText.includes("emisi\xF3n") ? "ongoing" : statusText.includes("proximamente") || statusText.includes("pr\xF3ximamente") ? "upcoming" : void 0;
-  return { title, cover, description, genres, episodes, status };
+  sueltos.sort((a, b) => a.n - b.n);
+  const episodes = sueltos.map((e) => ({
+    title: `Episodio ${e.n}`,
+    url: e.url
+  }));
+  const estado = (_h = (_g = /class="btn-estado[^"]*"[\s\S]{0,320}?<\/svg>\s*([A-Za-zÁÉÍÓÚáéíóúñÑ]+)/i.exec(html)) == null ? void 0 : _g[1]) == null ? void 0 : _h.toLowerCase();
+  const status = estado === "emision" || estado === "emisi\xF3n" ? "ongoing" : estado === "finalizado" ? "completed" : estado === "estreno" || estado === "proximamente" || estado === "pr\xF3ximamente" ? "upcoming" : void 0;
+  return {
+    title,
+    cover: coverM ? _fullUrl(coverM) : void 0,
+    description,
+    genres,
+    episodes,
+    status
+  };
 }
-var _NEVER_NATIVE = /* @__PURE__ */ new Set(["savefiles", "premiunvip", "streamwish", "mp4upload"]);
-var _NEVER_NATIVE_HOSTS = ["uqload.is"];
-async function _resolveIronhentai(url) {
-  const html = await _get(url, _BROWSER_ACCEPT);
-  const m = /eval\(atob\(atob\('([A-Za-z0-9+\/=]+)'\)\.split/.exec(html);
-  if (!m) return null;
-  const once = b64decode(m[1]);
-  const shifted = once.split("").map((c) => String.fromCharCode(c.charCodeAt(0) - 1)).join("");
-  const decoded = b64decode(shifted);
-  const hlsM = /loadSource\('([^']+\.m3u8[^']*)'\)/.exec(decoded);
-  if (hlsM) return { url: hlsM[1], quality: "Servidor", headers: { Referer: `${BASE}/` } };
-  const videoM = /videoId\s*=\s*'(https:\/\/re\.ironhentai\.com\/[^']+)'/.exec(decoded);
-  if (videoM) {
-    return {
-      url: videoM[1],
-      quality: "Servidor",
-      headers: __spreadValues({ Referer: url }, _BROWSER_ACCEPT)
-    };
-  }
-  return null;
+function _esMega(u) {
+  return u.indexOf("mega.nz") !== -1 || u.indexOf("mega.co.nz") !== -1;
 }
 async function watch(url) {
-  var _a;
-  if (url.indexOf("http") === 0 && url.indexOf("animefenix2.tv") === -1) {
-    if (url.indexOf("ironhentai.com") !== -1) {
-      const res = await _resolveIronhentai(url);
-      if (res) return { streams: [res], pageUrl: "" };
-      return { streams: [{ url, quality: "Servidor" }], pageUrl: "" };
-    }
-    try {
-      const res = await resolveEmbed("Servidor", url, `${BASE}/`);
-      if (res && res.url) {
-        return { streams: [{ url: res.url, quality: "Servidor", headers: res.headers }], pageUrl: "" };
+  if (url.indexOf("http") === 0 && url.indexOf("latanime.org") === -1) {
+    if (!_esMega(url)) {
+      try {
+        const res = await resolveEmbed(_nombreDe(url), url, `${BASE}/`);
+        if (res && res.url) {
+          return {
+            streams: [{ url: res.url, quality: _nombreDe(url), headers: res.headers }],
+            pageUrl: ""
+          };
+        }
+      } catch (e) {
       }
-    } catch (e) {
     }
-    return { streams: [{ url, quality: "Servidor" }], pageUrl: "" };
+    return { streams: [], pageUrl: url };
   }
   const episodeUrl = _fullUrl(url);
   const html = await _get(episodeUrl);
-  const labels = {};
-  for (const m of html.matchAll(/<a title="([^"]+)" href="#vid(\d+)">/g)) {
-    labels[m[2]] = m[1].trim();
-  }
   const streams = [];
-  const tabRe = /tabsArray\['(\d+)'\]\s*=\s*"[^"]*?src='https:\/\/re\.animepelix\.net\/redirect\.php\?id=([^']+)'/g;
-  for (const m of html.matchAll(tabRe)) {
-    const num = m[1];
-    const targetUrl = m[2];
-    const name = (_a = labels[num]) != null ? _a : `Servidor ${num}`;
-    if (_NEVER_NATIVE.has(name.toLowerCase()) || targetUrl.indexOf("streamhls") !== -1 || _NEVER_NATIVE_HOSTS.some((h) => targetUrl.indexOf(h) !== -1)) {
+  for (const m of html.matchAll(/data-player="([^"]+)"[^>]*>\s*([^<]*)</g)) {
+    let embed = "";
+    try {
+      embed = b64decode(m[1]).trim();
+    } catch (e) {
       continue;
     }
-    streams.push({ url: targetUrl, quality: name });
+    if (embed.indexOf("http") !== 0) continue;
+    const etiqueta = decodeEntities(m[2].trim()) || _nombreDe(embed);
+    streams.push({ url: embed, quality: _nombreBonito(etiqueta) });
   }
   return { streams, pageUrl: episodeUrl };
+}
+function _nombreDe(u) {
+  const l = u.toLowerCase();
+  if (l.indexOf("dsvplay") !== -1 || l.indexOf("playmogo") !== -1 || l.indexOf("dood") !== -1)
+    return "Doodstream";
+  if (l.indexOf("bysekoze") !== -1) return "Byse";
+  if (l.indexOf("hexload") !== -1) return "Hexload";
+  if (l.indexOf("savefiles") !== -1) return "Savefiles";
+  if (l.indexOf("mixdrop") !== -1) return "Mixdrop";
+  if (l.indexOf("voe") !== -1) return "Voe";
+  if (l.indexOf("mp4upload") !== -1) return "Mp4upload";
+  if (l.indexOf("mega") !== -1) return "Mega";
+  return "Servidor";
+}
+function _nombreBonito(s) {
+  if (!s) return "Servidor";
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 // OJO: nunca usar url.indexOf('.mp4')/('.m3u8') suelto — algunos dominios de

@@ -65,6 +65,13 @@ export async function resolveEmbed(
       result = await resolveMixdrop(embedUrl, referer);
     else if (s.includes('mp4upload')) result = await resolveMp4upload(embedUrl, referer);
     else if (s.includes('mediafire')) result = await resolveMediafire(embedUrl, referer);
+    else if (s.includes('hexload')) result = await resolveHexload(embedUrl, referer);
+    else if (s.includes('savefiles') || s.includes('streamhls'))
+      result = await resolveSavefiles(embedUrl, referer);
+    // ANTES que streamwish: bysekoze estaba en esa lista y nunca resolvió,
+    // porque ya no es ese motor — ahora cifra la dirección (ver resolveByse).
+    else if (s.includes('bysekoze') || s.includes('byse.'))
+      result = await resolveByse(embedUrl, referer);
     else if (s.includes('yourupload') || s.includes('yupload'))
       result = await resolveYourupload(embedUrl, referer);
     else if (s.includes('pixeldrain')) result = resolvePixeldrain(embedUrl);
@@ -81,7 +88,7 @@ export async function resolveEmbed(
       s.includes('streamwish') || s.includes('wishfast') || s.includes('vidhide') ||
       s.includes('filelions') || s.includes('vhide') || s.includes('vtube') ||
       s.includes('luluvdo') || s.includes('vidmoly') || s.includes('filemoon') ||
-      s.includes('moonplayer') || s.includes('swdyu') || s.includes('bysekoze') ||
+      s.includes('moonplayer') || s.includes('swdyu') ||
       s.includes('bestx') || s.includes('embedrise') || s.includes('ridoo') ||
       s.includes('uqload') || s.includes('flaxtv')
     )
@@ -760,6 +767,226 @@ export async function resolveGeneric(
   if (real) return { url: real, headers };
 
   return null;
+}
+
+// ─── Pedido POST con formulario ───────────────────────────────────────────────
+
+/**
+ * POST `application/x-www-form-urlencoded`, que es lo que piden los hosts de la
+ * familia XFileSharing (hexload, savefiles…). `fetchEmbed` solo hace GET.
+ */
+async function _postForm(
+  url: string,
+  campos: Record<string, string>,
+  referer: string,
+): Promise<string | null> {
+  const cuerpo = Object.keys(campos)
+    .map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(campos[k])}`)
+    .join('&');
+  try {
+    return await sendMessage(
+      'request',
+      JSON.stringify([
+        url,
+        {
+          method: 'post',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest',
+            Referer: referer,
+          },
+          data: cuerpo,
+        },
+      ]),
+    );
+  } catch (e) {
+    console.log(`[postForm] FAIL ${url.slice(0, 45)} :: ${(e as Error)?.message ?? e}`);
+    return null;
+  }
+}
+
+/** Último tramo del path, sin extensión ni prefijo `embed-`. */
+function _codigoDe(url: string): string {
+  const sinQuery = url.split('?')[0].split('#')[0].replace(/\/+$/, '');
+  const ultimo = sinQuery.slice(sinQuery.lastIndexOf('/') + 1);
+  return ultimo.replace(/^embed-/, '').replace(/\.html?$/, '');
+}
+
+/**
+ * hexload.com — un POST y devuelve el MP4 en un JSON.
+ *
+ * La página no trae el vídeo: lo pide por AJAX a `/download` con
+ * `op=download3`. Se replica ese mismo POST y la respuesta ya trae la URL
+ * directa. Medido en vivo: 206 con `video/mp4`, ~12,5 Mbps, y acepta pedir
+ * bytes del medio del archivo (o sea que se puede cambiar de minuto).
+ */
+export async function resolveHexload(
+  url: string,
+  referer: string,
+): Promise<ResolvedEmbed | null> {
+  const host = _hostOf(url) || 'hexload.com';
+  const code = _codigoDe(url);
+  if (!code) return null;
+  const raw = await _postForm(
+    `https://${host}/download`,
+    { op: 'download3', id: code, ajax: '1', method_free: '1' },
+    referer || `https://${host}/`,
+  );
+  if (!raw) return null;
+  // La respuesta es JSON, pero se lee con regex para no romperse si el host
+  // agrega campos o devuelve el JSON envuelto en algo.
+  const m = /"url"\s*:\s*"([^"]+)"/.exec(raw);
+  if (!m) {
+    console.log('[hexload] el POST no devolvió ninguna url');
+    return null;
+  }
+  return {
+    url: m[1].replace(/\\\//g, '/'),
+    headers: { Referer: `https://${host}/` },
+  };
+}
+
+/**
+ * savefiles.com / streamhls — el formulario oculto que el botón de play envía.
+ *
+ * El embed es una página casi vacía con un `<form action="/dl">` cuyo
+ * `file_code` lo rellena el JS con el código de la URL. Replicando ese POST
+ * llega la página del reproductor con un `master.m3u8` firmado. Medido en
+ * vivo: maestro con variante 1080p y su lista de pedacitos real.
+ *
+ * Estaba dado por irresoluble ("formulario POST estilo Openload, sin resolver
+ * que lo cubra") sin haberlo intentado nunca.
+ */
+export async function resolveSavefiles(
+  url: string,
+  referer: string,
+): Promise<ResolvedEmbed | null> {
+  const host = _hostOf(url) || 'savefiles.com';
+  const code = _codigoDe(url);
+  if (!code) return null;
+  const html = await _postForm(
+    `https://${host}/dl`,
+    { op: 'embed', file_code: code, auto: '1', referer: referer || '' },
+    referer || `https://${host}/`,
+  );
+  if (!html) return null;
+  const plano = html.replace(/\\\//g, '/');
+  const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(plano);
+  if (m3u8) return { url: m3u8[1], headers: { Referer: `https://${host}/` } };
+  const mp4 = /(https?:[^"'\s\\]+\.mp4[^"'\s\\]*)/.exec(plano);
+  if (mp4) return { url: mp4[1], headers: { Referer: `https://${host}/` } };
+  console.log('[savefiles] el POST a /dl no trajo ninguna fuente');
+  return null;
+}
+
+/**
+ * bysekoze.com ("byse") — la dirección viene cifrada, pero la llave también.
+ *
+ * El embed es una página vacía que se arma sola; los datos salen de
+ * `/api/videos/<código>`, que devuelve el vídeo cifrado con AES-256-GCM junto
+ * con el IV, el texto cifrado y **treinta** trozos de clave.
+ *
+ * Los treinta son puro ruido: se usan solo DOS, y cuáles salen de una cuenta
+ * trivial sobre el número de versión —`[v, 31 - v]`— sacada del propio código
+ * del sitio. Se decodifican esos dos, se pegan, y eso es la clave de 32 bytes.
+ * Adentro del texto cifrado está el `master.m3u8` en claro.
+ *
+ * Se descifra como AES-CTR y no como GCM porque el runtime solo trae CryptoJS:
+ * son el mismo algoritmo, GCM es CTR con el contador arrancando en `IV‖2` más
+ * una etiqueta de autenticidad al final. Esa etiqueta acá no aporta nada —
+ * sirve para detectar que alguien manipuló el mensaje, no para leerlo— así que
+ * se descarta y se descifra el resto.
+ *
+ * OJO: el token del CDN dura unas 3 horas. Hay que pedir y descifrar en el
+ * momento de reproducir, no cachear la URL resuelta.
+ */
+export async function resolveByse(
+  url: string,
+  referer: string,
+): Promise<ResolvedEmbed | null> {
+  const host = _hostOf(url) || 'bysekoze.com';
+  const code = _codigoDe(url);
+  if (!code) return null;
+
+  const raw = await fetchEmbed(`https://${host}/api/videos/${code}`, referer || `https://${host}/`);
+  if (!raw) return null;
+
+  let meta: {
+    playback?: { iv?: string; payload?: string; key_parts?: string[]; version?: number };
+  };
+  try {
+    meta = JSON.parse(raw);
+  } catch {
+    console.log('[byse] la API no devolvió JSON');
+    return null;
+  }
+  const pb = meta.playback;
+  if (!pb || !pb.iv || !pb.payload || !Array.isArray(pb.key_parts)) {
+    console.log('[byse] la API no trajo datos de reproducción');
+    return null;
+  }
+
+  const v = Number(pb.version);
+  const partes = pb.key_parts;
+  // El mismo cálculo que hace el sitio. Si la versión se sale de rango se usan
+  // todos los trozos, que es también lo que hace su código.
+  const indices = v >= 1 && v <= 20 && 31 - v <= partes.length ? [v, 31 - v] : null;
+  const elegidas = indices
+    ? indices.map((i) => partes[i - 1]).filter((p) => typeof p === 'string' && p.length > 0)
+    : partes;
+  if (!elegidas.length) return null;
+
+  try {
+    // Cada trozo se decodifica POR SEPARADO y recién después se pegan los
+    // bytes. Juntar los base64 y decodificar el resultado da otra cosa: los
+    // trozos no miden lo mismo (32 y 22 caracteres), así que el segundo queda
+    // desalineado y sale una clave que descifra basura.
+    let clave = _b64urlAWord(elegidas[0]);
+    for (let i = 1; i < elegidas.length; i++) {
+      clave = clave.concat(_b64urlAWord(elegidas[i]));
+    }
+    // Contador inicial de GCM: IV (12 bytes) seguido del entero 2.
+    const iv = _b64urlAWord(pb.iv);
+    const contador = CryptoJS.lib.WordArray.create(iv.words.concat([2]), 16);
+    const cifrado = _b64urlAWord(pb.payload);
+    // Fuera los 16 bytes finales: son la etiqueta, no parte del mensaje.
+    const sinEtiqueta = CryptoJS.lib.WordArray.create(
+      cifrado.words.slice(),
+      cifrado.sigBytes - 16,
+    );
+    const claro = CryptoJS.AES.decrypt(
+      { ciphertext: sinEtiqueta } as never,
+      clave,
+      { iv: contador, mode: CryptoJS.mode.CTR, padding: CryptoJS.pad.NoPadding },
+    ).toString(CryptoJS.enc.Utf8);
+
+    const m = /"url"\s*:\s*"([^"]+)"/.exec(claro);
+    if (!m) {
+      console.log('[byse] se descifró pero no había ninguna url adentro');
+      return null;
+    }
+    return {
+      url: m[1].replace(/\\u0026/g, '&').replace(/\\\//g, '/'),
+      headers: { Referer: `https://${host}/` },
+    };
+  } catch (e) {
+    console.log(`[byse] no se pudo descifrar: ${(e as Error)?.message ?? e}`);
+    return null;
+  }
+}
+
+/** base64url (con `-` y `_`, y sin relleno) → WordArray de CryptoJS. */
+function _b64urlAWord(s: string): WordArrayLike {
+  const normal = s.replace(/-/g, '+').replace(/_/g, '/');
+  const relleno = normal.length % 4 === 0 ? '' : '='.repeat(4 - (normal.length % 4));
+  return CryptoJS.enc.Base64.parse(normal + relleno) as unknown as WordArrayLike;
+}
+
+interface WordArrayLike {
+  words: number[];
+  sigBytes: number;
+  concat(otro: WordArrayLike): WordArrayLike;
+  toString(encoder?: unknown): string;
 }
 
 // ─── Desempaquetador de eval(p,a,c,k,e,d) (Dean Edwards) ──────────────────────

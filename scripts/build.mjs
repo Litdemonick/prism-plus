@@ -198,6 +198,13 @@ var _KNOWN_EMBED_HOSTS = {
   // clave suelta lo haría pasar por página de embed y volvería a resolverse.
   'mediafire.com/file': 'Mediafire',
   doodstream: 'Doodstream', ds2play: 'Doodstream', ds2video: 'Doodstream',
+  // dsvplay/playmogo faltaban acá: son la misma red de Doodstream (dsvplay
+  // redirige a playmogo), y sin la clave el fast-path no los reconocía como
+  // embed y nunca llegaban al resolver que sí sabe resolverlos.
+  dsvplay: 'Doodstream', playmogo: 'Doodstream',
+  hexload: 'Hexload',
+  savefiles: 'Savefiles', streamhls: 'Savefiles',
+  bysekoze: 'Byse',
   streamwish: 'Streamwish', wishfast: 'Streamwish',
   vidhide: 'Streamwish', filelions: 'Streamwish',
   filemoon: 'Filemoon', moonplayer: 'Filemoon',

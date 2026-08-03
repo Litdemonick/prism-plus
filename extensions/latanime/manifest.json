@@ -1,0 +1,12 @@
+{
+  "name": "LatAnime",
+  "package": "io.prismhub.latanime",
+  "version": "1.0.0",
+  "author": "PrismPlus",
+  "type": "anime",
+  "icon": "",
+  "description": "Anime doblado al latino y castellano, con filtros por año, género, letra y categoría, y varios servidores por episodio.",
+  "lang": "es",
+  "webSite": "https://latanime.org",
+  "license": "MIT"
+}
