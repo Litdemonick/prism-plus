@@ -1,14 +1,14 @@
 // ==PrismHubExtension==
 // @name         HQPorner
-// @version      1.0.0
+// @version      1.0.1
 // @author       PrismPlus
 // @lang         en
 // @license      MIT
 // @package      io.prismhub.hqporner
 // @type         bangumi
-// @nsfw         false
+// @nsfw         true
 // @webSite      https://hqporner.com
-// @description  Catálogo para adultos con reproducción directa en 360p, 720p y 1080p, buscador y 64 categorías.
+// @description  Catálogo para adultos con reproducción directa en 360p, 720p y 1080p, buscador y 64 categorías (contenido +18).
 // ==/PrismHubExtension==
 // sdk/http.ts
 var DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";

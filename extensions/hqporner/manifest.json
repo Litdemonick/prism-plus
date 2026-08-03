@@ -1,12 +1,13 @@
 {
   "name": "HQPorner",
   "package": "io.prismhub.hqporner",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "PrismPlus",
-  "type": "anime",
+  "type": "video",
   "icon": "",
-  "description": "Catálogo para adultos con reproducción directa en 360p, 720p y 1080p, buscador y 64 categorías.",
+  "description": "Catálogo para adultos con reproducción directa en 360p, 720p y 1080p, buscador y 64 categorías (contenido +18).",
   "lang": "en",
   "webSite": "https://hqporner.com",
-  "license": "MIT"
+  "license": "MIT",
+  "nsfw": "true"
 }

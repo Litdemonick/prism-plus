@@ -70,17 +70,18 @@
     {
       "name": "HQPorner",
       "package": "io.prismhub.hqporner",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
-      "description": "Catálogo para adultos con reproducción directa en 360p, 720p y 1080p, buscador y 64 categorías.",
+      "description": "Catálogo para adultos con reproducción directa en 360p, 720p y 1080p, buscador y 64 categorías (contenido +18).",
       "lang": "en",
       "webSite": "https://hqporner.com",
       "license": "MIT",
+      "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/hqporner.js",
-      "sha256": "231382eef0bf435c25d25e08e6c75ac5ead6eae0b4a141424dda2eb83ba9e408",
-      "signature": "pf6ZOhnWQC5Py1AZ1+F3n2y6BxkPKhcaJw+Cv5Uhb/pNCF4hI7uNDf3g0nU/e05upz2ibyb3KIdFXkaU+QKNAw=="
+      "sha256": "d873a44eba625f7e27ce45080461362a285042ecb1c6316c0c672c297a1c91fa",
+      "signature": "t08qIduKAXu9WatNk3wRzj9qbzNISgVUom5bYwYDFPmaYWufZ3rkQA7VVzOxx/A3bzQDveUseKw+sEFV2nzaAg=="
     },
     {
       "name": "Ikigai Mangas",
