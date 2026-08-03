@@ -4,12 +4,12 @@
     "lastReason": null
   },
   "io.prismhub.eporner": {
-    "consecutiveFailures": 0,
-    "lastReason": null
+    "consecutiveFailures": 1,
+    "lastReason": "broken"
   },
   "io.prismhub.fuegocine": {
-    "consecutiveFailures": 2,
-    "lastReason": "broken"
+    "consecutiveFailures": 0,
+    "lastReason": null
   },
   "io.prismhub.hentaila": {
     "consecutiveFailures": 0,

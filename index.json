@@ -49,9 +49,7 @@
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/fuegocine.js",
       "sha256": "bf65fd09d7019c0791d64ef54716d79175192361f730bff728a91c1e2a2bb962",
-      "signature": "qXr4AIfrdBn9OK2oMJ5KMDEn+0XkKZ0Ohi0pB7FfCixGWF6ORLfBLRFbyeKLc6v1EeLGNT5tMw0tNVHI3zXSBw==",
-      "unstable": true,
-      "unstableReason": "broken"
+      "signature": "qXr4AIfrdBn9OK2oMJ5KMDEn+0XkKZ0Ohi0pB7FfCixGWF6ORLfBLRFbyeKLc6v1EeLGNT5tMw0tNVHI3zXSBw=="
     },
     {
       "name": "HentaiLA",
