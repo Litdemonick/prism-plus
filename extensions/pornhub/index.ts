@@ -1,0 +1,302 @@
+import { DESKTOP_UA } from '../../sdk/http';
+import { decodeEntities } from '../../sdk/html';
+import type { PrismDetail, PrismItem, PrismWatch, PrismStream } from '../../sdk/types';
+
+declare function sendMessage(channel: string, data: string): Promise<string>;
+
+const BASE = 'https://es.pornhub.com';
+
+async function _get(url: string): Promise<string> {
+  const raw = await sendMessage(
+    'request',
+    JSON.stringify([
+      url,
+      {
+        method: 'get',
+        headers: {
+          Referer: `${BASE}/`,
+          'User-Agent': DESKTOP_UA,
+          // Sin esto el sitio contesta en ingles aunque se pida el dominio
+          // en español: los nombres de las categorias llegarian en otro idioma
+          // que el que muestran los filtros.
+          'Accept-Language': 'es-ES,es;q=0.9',
+        },
+      },
+    ]),
+  );
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function _urlDeVideo(viewkey: string): string {
+  return `${BASE}/view_video.php?viewkey=${viewkey}`;
+}
+
+// ─── Listados ───────────────────────────────────────────────────────────────
+
+/**
+ * Tarjetas de cualquier listado (portada, busqueda, categoria u orden).
+ *
+ * El titulo se toma del atributo `title` del enlace y no del texto visible: el
+ * texto va recortado con puntos suspensivos cuando es largo, y el atributo trae
+ * el titulo entero.
+ */
+function _parseListado(html: string): PrismItem[] {
+  const items: PrismItem[] = [];
+  const vistos: Record<string, boolean> = {};
+  // Se exige `linkVideoThumb` en la clase, que es el enlace de la MINIATURA.
+  // Cada tarjeta trae DOS enlaces al mismo video —la miniatura y el titulo de
+  // abajo— y sin esto enganchaba el del titulo, que no lleva imagen: el
+  // listado salia vacio mientras que la busqueda (que arma la tarjeta de otra
+  // forma) andaba bien.
+  // OJO con los espacios: el listado escribe `<a   href=` con varios y la
+  // busqueda con uno solo, asi que la separacion va como \s+ y no literal.
+  // Con un espacio fijo el listado devolvia CERO y la busqueda funcionaba, que
+  // es justo el sintoma que hace pensar que el sitio bloquea cuando en realidad
+  // solo cambia el sangrado del HTML.
+  const re =
+    /<a\s+href="\/view_video\.php\?viewkey=([a-z0-9]+)"\s+title="([^"]+)"[^>]*linkVideoThumb[^>]*>[\s\S]{0,900}?<img[^>]+src="([^"]+)"/g;
+  for (const m of html.matchAll(re)) {
+    if (vistos[m[1]]) continue;
+    vistos[m[1]] = true;
+    items.push({
+      title: decodeEntities(m[2].trim()),
+      url: _urlDeVideo(m[1]),
+      cover: m[3],
+    });
+  }
+  return items;
+}
+
+export async function latest(page: number): Promise<PrismItem[]> {
+  const html = await _get(`${BASE}/video${page > 1 ? `?page=${page}` : ''}`);
+  return _parseListado(html);
+}
+
+export async function search(
+  keyword: string,
+  page: number,
+  filter?: Record<string, string[]>,
+): Promise<PrismItem[]> {
+  const kw = keyword.trim();
+  if (kw) {
+    const html = await _get(
+      `${BASE}/video/search?search=${encodeURIComponent(kw)}${page > 1 ? `&page=${page}` : ''}`,
+    );
+    return _parseListado(html);
+  }
+  // Categoria y orden se combinan en la misma ruta, asi que se pueden usar
+  // juntos (por ejemplo: lo mas visto dentro de una categoria).
+  const partes: string[] = [];
+  const cat = filter?.['categoria']?.[0];
+  if (cat && cat.length > 0) partes.push(`c=${encodeURIComponent(cat)}`);
+  const orden = filter?.['orden']?.[0];
+  if (orden && orden.length > 0) partes.push(`o=${encodeURIComponent(orden)}`);
+  if (page > 1) partes.push(`page=${page}`);
+  const html = await _get(`${BASE}/video${partes.length ? `?${partes.join('&')}` : ''}`);
+  return _parseListado(html);
+}
+
+// Las 96 categorias del sitio, con el nombre en español tal cual las muestra.
+const _CATEGORIA_OPTIONS: Record<string, string> = {
+  '': 'Todas',
+  '612': '360°',
+  '105': '60FPS',
+  '3': 'Aficionado',
+  '592': 'Al Dedo',
+  '95': 'Alemanas',
+  '35': 'Anal',
+  '1': 'Asiáticas',
+  '90': 'Audiciones',
+  '76': 'Bisexual Masculino',
+  '10': 'Bondage',
+  '102': 'Brasileras',
+  '96': 'Británicas',
+  '14': 'Bukkake',
+  '86': 'Caricaturas',
+  '12': 'Celebridades',
+  '100': 'Checas',
+  '103': 'Coreanas',
+  '242': 'Cornudos',
+  '241': 'Cosplay',
+  '15': 'Creampie',
+  '4': 'Culos Grandes',
+  '61': 'Cámara Web',
+  '141': 'Detrás De Cámaras',
+  '32': 'Divertidos',
+  '72': 'Doble penetración',
+  '88': 'Escuela (18+)',
+  '33': 'Estriptís',
+  '55': 'Europeos',
+  '115': 'Exclusivo',
+  '16': 'Eyaculaciones',
+  '444': 'Fantasias de Padrastro',
+  '18': 'Fetiches',
+  '761': 'FFM',
+  '53': 'Fiestas',
+  '19': 'Fisting',
+  '94': 'Francesas',
+  '91': 'Fumadores',
+  '6': 'Gordas',
+  '101': 'Indias',
+  '25': 'Interracial',
+  '97': 'Italianas',
+  '111': 'Japonésas',
+  '181': 'Jovencitas/Viejos (18+)',
+  '881': 'Juego',
+  '81': 'Juegos de Rol',
+  '23': 'Juguetes',
+  '131': 'Lamidas de Coño',
+  '26': 'Latinas',
+  '27': 'Lesbianas',
+  '28': 'Maduras',
+  '13': 'Mamadas',
+  '78': 'Masajes',
+  '22': 'Masturbación',
+  '29': 'MILF',
+  '11': 'Morenas',
+  '562': 'Mujeres Tatuadas',
+  '512': 'Musculosos',
+  '121': 'Música',
+  '17': 'Negras',
+  '89': 'Niñeras (18+)',
+  '502': 'Orgasmo Femenino',
+  '80': 'Orgía',
+  '2': 'Orgías',
+  '211': 'Orinadas',
+  '20': 'Pajas',
+  '201': 'Parodia',
+  '42': 'Pelirojas',
+  '93': 'Pies',
+  '891': 'Podcast xxx',
+  '41': 'POV',
+  '24': 'Público',
+  '31': 'Real',
+  '57': 'Recopilación',
+  '522': 'Romance',
+  '9': 'Rubias',
+  '99': 'Rusas',
+  '532': 'Scissoring',
+  '21': 'Sexo Duro',
+  '67': 'Sexo Duro',
+  '492': 'Solitaria',
+  '92': 'Solitario',
+  '69': 'Squirt',
+  '542': 'Strap On',
+  '732': 'Subtítulos',
+  '8': 'Tetas Grandes',
+  '59': 'Tetas pequeñas',
+  '572': 'Trans With Girl',
+  '65': 'Tríos',
+  '722': 'Uncensored',
+  '712': 'Uncensored',
+  '482': 'Verdaderas Parejas',
+  '138': 'Verdaderos Aficionados',
+  '139': 'Verdaderos Modelos',
+  '7': 'Vergas grandes',
+  '43': 'Vintage',
+  '98': 'Árabe',
+};
+
+const _ORDEN_OPTIONS: Record<string, string> = {
+  '': 'Destacados',
+  'mr': 'Mas recientes',
+  'mv': 'Mas vistos',
+  'tr': 'Mejor valorados',
+  'ht': 'Mas populares',
+  'cm': 'Mas comentados',
+};
+
+export async function createFilter(): Promise<Record<string, unknown>> {
+  return {
+    categoria: { title: 'Categoria', options: _CATEGORIA_OPTIONS, default: '', min: 1, max: 1 },
+    orden: { title: 'Orden', options: _ORDEN_OPTIONS, default: '', min: 1, max: 1 },
+  };
+}
+
+// ─── Ficha ──────────────────────────────────────────────────────────────────
+
+export async function detail(url: string): Promise<PrismDetail> {
+  const html = await _get(url);
+
+  const title = decodeEntities(
+    (/<h1[^>]*>\s*(?:<span[^>]*>)?\s*([^<]{2,160}?)\s*</.exec(html)?.[1] ?? '').trim(),
+  );
+
+  // La portada sale del propio reproductor (`image_url` de flashvars): es la
+  // del video que se esta viendo, a diferencia de las imagenes de la pagina,
+  // que son en su mayoria de la tira de recomendados.
+  const cover = (/"image_url":"([^"]+)"/.exec(html)?.[1] ?? '').replace(/\\\//g, '/');
+
+  // Etiquetas: categorias y actrices del video.
+  const genres: string[] = [];
+  for (const m of html.matchAll(
+    /href="\/(?:video\?c=\d+|pornstar\/[^"]+|hd-porn\/[^"]*)"[^>]*>\s*([^<]{2,40}?)\s*</g,
+  )) {
+    const g = decodeEntities(m[1].trim());
+    if (g && g.length > 1 && genres.indexOf(g) === -1) genres.push(g);
+  }
+
+  return {
+    title,
+    cover: cover || undefined,
+    description: '',
+    genres: genres.slice(0, 20),
+    // Un video suelto, no una serie: una sola entrada para reproducir.
+    episodes: [{ title: 'Reproducir', url, thumbnail: cover || undefined, number: 1 }],
+  };
+}
+
+// ─── Reproduccion ───────────────────────────────────────────────────────────
+
+/**
+ * Las fuentes estan a la vista en `mediaDefinitions`, dentro de las flashvars
+ * del reproductor.
+ *
+ * Cada calidad trae su propio `master.m3u8` ya firmado (`h=` y `e=`), asi que
+ * no hay nada que desofuscar: alcanza con leerlas. Medido en vivo: 240p, 480p,
+ * 720p y 1080p responden 200 con una lista HLS valida.
+ *
+ * OJO: la firma caduca (el parametro `e` es una marca de tiempo, y en la
+ * medicion daba alrededor de una hora). Hay que resolver en el momento de
+ * reproducir y no guardar la URL para despues.
+ */
+export async function watch(url: string): Promise<PrismWatch> {
+  const html = await _get(url);
+
+  const streams: PrismStream[] = [];
+  const vistas: Record<string, boolean> = {};
+  // Se leen los pares videoUrl/quality en el orden en que aparecen, sin
+  // intentar parsear las flashvars enteras como JSON: es un objeto JS gigante
+  // con mas cosas adentro y cualquier cambio del sitio romperia el parseo.
+  for (const m of html.matchAll(/"videoUrl":"([^"]+?)"[^}]*?"quality":"?(\d+)"?/g)) {
+    const fuente = m[1].replace(/\\\//g, '/');
+    if (!fuente || vistas[fuente]) continue;
+    vistas[fuente] = true;
+    streams.push({
+      url: fuente,
+      quality: `${m[2]}p`,
+      headers: { Referer: `${BASE}/` },
+    });
+  }
+
+  if (streams.length === 0) {
+    // Sin fuentes no hay nada que reproducir: se deja la propia pagina para que
+    // el cliente la abra en el navegador interno.
+    return { streams: [], pageUrl: url };
+  }
+
+  // De mayor a menor: el cliente toma la primera como predeterminada, y en las
+  // flashvars vienen desordenadas (medido: 1080, 240, 480, 720).
+  streams.sort((a, b) => _altura(b.quality) - _altura(a.quality));
+  return { streams, pageUrl: url };
+}
+
+/** "1080p" -> 1080, para poder ordenar las calidades. */
+function _altura(etiqueta: string | undefined): number {
+  const m = /(\d{3,4})/.exec(etiqueta || '');
+  return m ? parseInt(m[1], 10) : 0;
+}

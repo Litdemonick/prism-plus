@@ -1,14 +1,14 @@
 // ==PrismHubExtension==
-// @name         HQPorner
-// @version      1.0.2
+// @name         Pornhub
+// @version      1.0.0
 // @author       PrismPlus
-// @lang         en
+// @lang         es
 // @license      MIT
-// @package      io.prismhub.hqporner
+// @package      io.prismhub.pornhub
 // @type         bangumi
 // @nsfw         true
-// @webSite      https://hqporner.com
-// @description  Catálogo para adultos con reproducción directa en 360p, 720p y 1080p, buscador y 64 categorías (contenido +18).
+// @webSite      https://es.pornhub.com
+// @description  Catálogo para adultos en español, con buscador, 96 categorías, cinco órdenes y reproducción directa con selector de calidad hasta 1080p (contenido +18).
 // ==/PrismHubExtension==
 // sdk/http.ts
 var DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -147,55 +147,24 @@ var _NAMED_ENTITIES = {
   zwj: ""
 };
 
-// sdk/cache.ts
-var TTL = {
-  /** Listas (latest/search) — cambian con frecuencia */
-  LIST: 5 * 6e4,
-  // 5 minutos
-  /** Detalles (detail) — estables, cambian poco */
-  DETAIL: 30 * 6e4,
-  // 30 minutos
-  /** Streams (watch) — no cachear, las URLs expiran */
-  WATCH: 0
-};
-function createCache() {
-  const store = /* @__PURE__ */ new Map();
-  function get(key) {
-    const entry = store.get(key);
-    if (!entry) return void 0;
-    if (entry.expiresAt > 0 && Date.now() > entry.expiresAt) {
-      store.delete(key);
-      return void 0;
-    }
-    return entry.value;
-  }
-  function set(key, value, ttlMs = TTL.LIST) {
-    if (ttlMs === 0) return;
-    store.set(key, {
-      value,
-      expiresAt: ttlMs > 0 ? Date.now() + ttlMs : -1
-    });
-  }
-  function has(key) {
-    return get(key) !== void 0;
-  }
-  function del(key) {
-    store.delete(key);
-  }
-  function clear() {
-    store.clear();
-  }
-  return { get, set, has, delete: del, clear };
-}
-
-// extensions/hqporner/index.ts
-var BASE = "https://hqporner.com";
+// extensions/pornhub/index.ts
+var BASE = "https://es.pornhub.com";
 async function _get(url) {
   const raw = await sendMessage(
     "request",
     JSON.stringify([
       url,
-      { method: "get", headers: { Referer: `${BASE}/`, "User-Agent": DESKTOP_UA } }
+      {
+        method: "get",
+        headers: {
+          Referer: `${BASE}/`,
+          "User-Agent": DESKTOP_UA,
+          // Sin esto el sitio contesta en ingles aunque se pida el dominio
+          // en español: los nombres de las categorias llegarian en otro idioma
+          // que el que muestran los filtros.
+          "Accept-Language": "es-ES,es;q=0.9"
+        }
+      }
     ])
   );
   try {
@@ -204,124 +173,152 @@ async function _get(url) {
     return raw;
   }
 }
-function _conEsquema(u) {
-  if (u.indexOf("//") === 0) return `https:${u}`;
-  if (u.indexOf("http") === 0) return u;
-  return `${BASE}${u.startsWith("/") ? "" : "/"}${u}`;
+function _urlDeVideo(viewkey) {
+  return `${BASE}/view_video.php?viewkey=${viewkey}`;
 }
 function _parseListado(html) {
   const items = [];
   const vistos = {};
-  const re = /defaultImage\("([^"]+)"[\s\S]{0,4000}?<h3 class="meta-data-title"><a href="(\/hdporn\/[^"]+)"[^>]*>([^<]+)<\/a>/g;
+  const re = /<a\s+href="\/view_video\.php\?viewkey=([a-z0-9]+)"\s+title="([^"]+)"[^>]*linkVideoThumb[^>]*>[\s\S]{0,900}?<img[^>]+src="([^"]+)"/g;
   for (const m of html.matchAll(re)) {
-    const url = `${BASE}${m[2]}`;
-    if (vistos[url]) continue;
-    vistos[url] = true;
+    if (vistos[m[1]]) continue;
+    vistos[m[1]] = true;
     items.push({
-      title: decodeEntities(m[3].trim()),
-      url,
-      cover: _conEsquema(m[1])
+      title: decodeEntities(m[2].trim()),
+      url: _urlDeVideo(m[1]),
+      cover: m[3]
     });
   }
   return items;
 }
 async function latest(page) {
-  const html = await _get(page > 1 ? `${BASE}/hdporn/${page}` : `${BASE}/`);
+  const html = await _get(`${BASE}/video${page > 1 ? `?page=${page}` : ""}`);
   return _parseListado(html);
 }
 async function search(keyword, page, filter) {
   var _a, _b;
   const kw = keyword.trim();
   if (kw) {
-    const html = await _get(
-      `${BASE}/?q=${encodeURIComponent(kw)}${page > 1 ? `&p=${page}` : ""}`
+    const html2 = await _get(
+      `${BASE}/video/search?search=${encodeURIComponent(kw)}${page > 1 ? `&page=${page}` : ""}`
     );
-    return _parseListado(html);
+    return _parseListado(html2);
   }
+  const partes = [];
   const cat = (_a = filter == null ? void 0 : filter["categoria"]) == null ? void 0 : _a[0];
-  if (cat && cat.length > 0) {
-    const html = await _get(`${BASE}/category/${cat}${page > 1 ? `/${page}` : ""}`);
-    return _parseListado(html);
-  }
+  if (cat && cat.length > 0) partes.push(`c=${encodeURIComponent(cat)}`);
   const orden = (_b = filter == null ? void 0 : filter["orden"]) == null ? void 0 : _b[0];
-  if (orden && orden.length > 0) {
-    const html = await _get(`${BASE}/${orden}${page > 1 ? `/${page}` : ""}`);
-    return _parseListado(html);
-  }
-  return latest(page);
+  if (orden && orden.length > 0) partes.push(`o=${encodeURIComponent(orden)}`);
+  if (page > 1) partes.push(`page=${page}`);
+  const html = await _get(`${BASE}/video${partes.length ? `?${partes.join("&")}` : ""}`);
+  return _parseListado(html);
 }
 var _CATEGORIA_OPTIONS = {
   "": "Todas",
-  "1080p-porn": "1080p porn HD",
-  "4k-porn": "4K porn",
-  "60fps-porn": "60 FPS porn",
-  "amateur": "Amateur",
-  "anal-sex-hd": "Anal",
-  "asian": "Asian",
-  "babe": "Babe",
-  "bdsm": "Bdsm",
-  "beach-porn": "Beach",
-  "big-ass": "Big ass",
-  "big-dick": "Big dick",
-  "big-tits": "Big tits",
-  "bisexual": "Bisexual",
-  "blonde": "Blonde",
-  "blowjob": "Blowjob",
-  "bondage": "Bondage",
-  "brunette": "Brunette",
-  "casting": "Casting",
-  "creampie": "Creampie",
-  "cumshot": "Cumshot",
-  "deepthroat": "Deepthroat",
-  "ebony": "Ebony",
-  "fetish": "Fetish",
-  "fingering": "Fingering",
-  "fisting": "Fisting",
-  "gangbang": "Gangbang",
-  "group-sex": "Group sex",
-  "hairy-pussy": "Hairy pussy",
-  "handjob": "Handjob",
-  "hentai": "Hentai",
-  "interracial": "Interracial",
-  "japanese-girls-porn": "Japanese",
-  "latina": "Latina",
-  "lesbian": "Lesbian",
-  "long-hair": "Long hair",
-  "masturbation": "Masturbation",
-  "mature": "Mature",
-  "milf": "Milf",
-  "moaning": "Moaning",
-  "old-and-young": "Old and young",
-  "orgasm": "Orgasm",
-  "orgy": "Orgy",
-  "outdoor": "Outdoor",
-  "pickup": "Pickup",
-  "pov": "Pov",
-  "public": "Public",
-  "pussy-licking": "Pussy licking",
-  "redhead": "Redhead",
-  "russian": "Russian",
-  "porn-massage": "Sex massage",
-  "sex-parties": "Sex party",
-  "shaved-pussy": "Shaved pussy",
-  "shemale": "Shemale",
-  "small-tits": "Small tits",
-  "squeezing-tits": "Squeezing tits",
-  "squirt": "Squirt",
-  "stockings": "Stockings",
-  "tattooed": "Tattooed",
-  "teen-porn": "Teen porn",
-  "threesome": "Threesome",
-  "undressing": "Undressing",
-  "uniforms": "Uniforms",
-  "vibrator": "Vibrator",
-  "vintage": "Vintage"
+  "612": "360\xB0",
+  "105": "60FPS",
+  "3": "Aficionado",
+  "592": "Al Dedo",
+  "95": "Alemanas",
+  "35": "Anal",
+  "1": "Asi\xE1ticas",
+  "90": "Audiciones",
+  "76": "Bisexual Masculino",
+  "10": "Bondage",
+  "102": "Brasileras",
+  "96": "Brit\xE1nicas",
+  "14": "Bukkake",
+  "86": "Caricaturas",
+  "12": "Celebridades",
+  "100": "Checas",
+  "103": "Coreanas",
+  "242": "Cornudos",
+  "241": "Cosplay",
+  "15": "Creampie",
+  "4": "Culos Grandes",
+  "61": "C\xE1mara Web",
+  "141": "Detr\xE1s De C\xE1maras",
+  "32": "Divertidos",
+  "72": "Doble penetraci\xF3n",
+  "88": "Escuela (18+)",
+  "33": "Estript\xEDs",
+  "55": "Europeos",
+  "115": "Exclusivo",
+  "16": "Eyaculaciones",
+  "444": "Fantasias de Padrastro",
+  "18": "Fetiches",
+  "761": "FFM",
+  "53": "Fiestas",
+  "19": "Fisting",
+  "94": "Francesas",
+  "91": "Fumadores",
+  "6": "Gordas",
+  "101": "Indias",
+  "25": "Interracial",
+  "97": "Italianas",
+  "111": "Japon\xE9sas",
+  "181": "Jovencitas/Viejos (18+)",
+  "881": "Juego",
+  "81": "Juegos de Rol",
+  "23": "Juguetes",
+  "131": "Lamidas de Co\xF1o",
+  "26": "Latinas",
+  "27": "Lesbianas",
+  "28": "Maduras",
+  "13": "Mamadas",
+  "78": "Masajes",
+  "22": "Masturbaci\xF3n",
+  "29": "MILF",
+  "11": "Morenas",
+  "562": "Mujeres Tatuadas",
+  "512": "Musculosos",
+  "121": "M\xFAsica",
+  "17": "Negras",
+  "89": "Ni\xF1eras (18+)",
+  "502": "Orgasmo Femenino",
+  "80": "Org\xEDa",
+  "2": "Org\xEDas",
+  "211": "Orinadas",
+  "20": "Pajas",
+  "201": "Parodia",
+  "42": "Pelirojas",
+  "93": "Pies",
+  "891": "Podcast xxx",
+  "41": "POV",
+  "24": "P\xFAblico",
+  "31": "Real",
+  "57": "Recopilaci\xF3n",
+  "522": "Romance",
+  "9": "Rubias",
+  "99": "Rusas",
+  "532": "Scissoring",
+  "21": "Sexo Duro",
+  "67": "Sexo Duro",
+  "492": "Solitaria",
+  "92": "Solitario",
+  "69": "Squirt",
+  "542": "Strap On",
+  "732": "Subt\xEDtulos",
+  "8": "Tetas Grandes",
+  "59": "Tetas peque\xF1as",
+  "572": "Trans With Girl",
+  "65": "Tr\xEDos",
+  "722": "Uncensored",
+  "712": "Uncensored",
+  "482": "Verdaderas Parejas",
+  "138": "Verdaderos Aficionados",
+  "139": "Verdaderos Modelos",
+  "7": "Vergas grandes",
+  "43": "Vintage",
+  "98": "\xC1rabe"
 };
 var _ORDEN_OPTIONS = {
-  "": "Recientes",
-  "top/week": "Top de la semana",
-  "top/month": "Top del mes",
-  "top": "Top de siempre"
+  "": "Destacados",
+  "mr": "Mas recientes",
+  "mv": "Mas vistos",
+  "tr": "Mejor valorados",
+  "ht": "Mas populares",
+  "cm": "Mas comentados"
 };
 async function createFilter() {
   return {
@@ -330,75 +327,45 @@ async function createFilter() {
   };
 }
 async function detail(url) {
-  var _a, _b;
+  var _a, _b, _c, _d;
   const html = await _get(url);
   const title = decodeEntities(
-    ((_b = (_a = /<h1[^>]*>([\s\S]{2,120}?)<\/h1>/.exec(html)) == null ? void 0 : _a[1]) != null ? _b : "").trim()
+    ((_b = (_a = /<h1[^>]*>\s*(?:<span[^>]*>)?\s*([^<]{2,160}?)\s*</.exec(html)) == null ? void 0 : _a[1]) != null ? _b : "").trim()
   );
+  const cover = ((_d = (_c = /"image_url":"([^"]+)"/.exec(html)) == null ? void 0 : _c[1]) != null ? _d : "").replace(/\\\//g, "/");
   const genres = [];
-  for (const m of html.matchAll(/href="\/(?:category|actress)\/[^"]+"[^>]*>\s*([^<]{2,40}?)\s*</g)) {
+  for (const m of html.matchAll(
+    /href="\/(?:video\?c=\d+|pornstar\/[^"]+|hd-porn\/[^"]*)"[^>]*>\s*([^<]{2,40}?)\s*</g
+  )) {
     const g = decodeEntities(m[1].trim());
-    if (g && genres.indexOf(g) === -1) genres.push(g);
+    if (g && g.length > 1 && genres.indexOf(g) === -1) genres.push(g);
   }
-  const cover = await _portadaDelReproductor(html);
   return {
     title,
-    cover,
+    cover: cover || void 0,
     description: "",
-    genres,
+    genres: genres.slice(0, 20),
     // Un video suelto, no una serie: una sola entrada para reproducir.
-    episodes: [{ title: "Reproducir", url, thumbnail: cover, number: 1 }]
+    episodes: [{ title: "Reproducir", url, thumbnail: cover || void 0, number: 1 }]
   };
-}
-var _cachePlayer = createCache();
-async function _paginaDelReproductor(iframe) {
-  const url = _conEsquema(iframe);
-  const guardada = _cachePlayer.get(url);
-  if (guardada) return guardada;
-  const html = await _get(url);
-  _cachePlayer.set(url, html, TTL.DETAIL);
-  return html;
-}
-async function _portadaDelReproductor(htmlFicha) {
-  const iframe = _iframeDelReproductor(htmlFicha);
-  if (!iframe) return void 0;
-  try {
-    const player = await _paginaDelReproductor(iframe);
-    const m = /poster=\\?"([^"\\]+)\\?"/.exec(player);
-    return m ? _conEsquema(m[1]) : void 0;
-  } catch (e) {
-    return void 0;
-  }
-}
-function _iframeDelReproductor(html) {
-  var _a;
-  return (_a = /<iframe[^>]+src="(\/\/[^"]*\/video\/[^"]*)"/.exec(html)) == null ? void 0 : _a[1];
 }
 async function watch(url) {
   const html = await _get(url);
-  const iframe = _iframeDelReproductor(html);
-  if (!iframe) {
-    return { streams: [], pageUrl: url };
-  }
-  const player = await _paginaDelReproductor(iframe);
   const streams = [];
   const vistas = {};
-  for (const m of player.matchAll(
-    // Las comillas vienen ESCAPADAS: el reproductor arma el <video> desde
-    // JavaScript, asi que en el HTML el texto real es src=\"...\". El \\? de
-    // cada lado acepta con y sin barra, por si alguna variante lo sirve plano.
-    /<source[^>]+src=\\?"([^"\\]+\.mp4)\\?"[^>]*title=\\?"([^"\\]+)\\?"/g
-  )) {
-    const fuente = _conEsquema(m[1]);
-    if (vistas[fuente]) continue;
+  for (const m of html.matchAll(/"videoUrl":"([^"]+?)"[^}]*?"quality":"?(\d+)"?/g)) {
+    const fuente = m[1].replace(/\\\//g, "/");
+    if (!fuente || vistas[fuente]) continue;
     vistas[fuente] = true;
     streams.push({
       url: fuente,
-      quality: m[2].trim(),
-      headers: { Referer: _conEsquema(iframe) }
+      quality: `${m[2]}p`,
+      headers: { Referer: `${BASE}/` }
     });
   }
-  if (streams.length === 0) return { streams: [], pageUrl: url };
+  if (streams.length === 0) {
+    return { streams: [], pageUrl: url };
+  }
   streams.sort((a, b) => _altura(b.quality) - _altura(a.quality));
   return { streams, pageUrl: url };
 }

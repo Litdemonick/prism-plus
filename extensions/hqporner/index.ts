@@ -1,5 +1,6 @@
 import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities } from '../../sdk/html';
+import { createCache, TTL } from '../../sdk/cache';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream } from '../../sdk/types';
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
@@ -208,12 +209,36 @@ export async function detail(url: string): Promise<PrismDetail> {
   };
 }
 
+/**
+ * La pagina del reproductor, guardada un rato.
+ *
+ * Hace falta DOS veces seguidas —la ficha la pide para la portada y watch()
+ * para las fuentes— y es el pedido caro de las dos: medido, 690 ms de los 947
+ * que tardaba la ficha, para traer 6 KB. Es lento por el saludo TLS contra un
+ * host nuevo, no por el tamaño.
+ *
+ * Guardandola, tocar "Reproducir" ya no vuelve a pagar esa espera. El TTL es
+ * el de los detalles y no el de las fuentes: lo que se guarda es la PAGINA,
+ * cuyas URLs de video son fijas (sin firma ni caducidad, ver watch), asi que
+ * no hay nada que se venza adentro.
+ */
+const _cachePlayer = createCache();
+
+async function _paginaDelReproductor(iframe: string): Promise<string> {
+  const url = _conEsquema(iframe);
+  const guardada = _cachePlayer.get<string>(url);
+  if (guardada) return guardada;
+  const html = await _get(url);
+  _cachePlayer.set(url, html, TTL.DETAIL);
+  return html;
+}
+
 /** El `poster` del `<video>` del reproductor: la portada real del video. */
 async function _portadaDelReproductor(htmlFicha: string): Promise<string | undefined> {
   const iframe = _iframeDelReproductor(htmlFicha);
   if (!iframe) return undefined;
   try {
-    const player = await _get(_conEsquema(iframe));
+    const player = await _paginaDelReproductor(iframe);
     // Las comillas vienen escapadas porque el <video> se arma desde JS.
     const m = /poster=\\?"([^"\\]+)\\?"/.exec(player);
     return m ? _conEsquema(m[1]) : undefined;
@@ -257,7 +282,9 @@ export async function watch(url: string): Promise<PrismWatch> {
     return { streams: [], pageUrl: url };
   }
 
-  const player = await _get(_conEsquema(iframe));
+  // Reutiliza la que ya bajo la ficha, si sigue guardada: es el pedido lento
+  // de los dos y sin esto se paga entero otra vez al tocar Reproducir.
+  const player = await _paginaDelReproductor(iframe);
   const streams: PrismStream[] = [];
   const vistas: Record<string, boolean> = {};
   for (const m of player.matchAll(

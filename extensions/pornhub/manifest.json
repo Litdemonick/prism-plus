@@ -1,0 +1,13 @@
+{
+  "name": "Pornhub",
+  "package": "io.prismhub.pornhub",
+  "version": "1.0.0",
+  "author": "PrismPlus",
+  "type": "video",
+  "icon": "",
+  "description": "Catálogo para adultos en español, con buscador, 96 categorías, cinco órdenes y reproducción directa con selector de calidad hasta 1080p (contenido +18).",
+  "lang": "es",
+  "webSite": "https://es.pornhub.com",
+  "license": "MIT",
+  "nsfw": "true"
+}

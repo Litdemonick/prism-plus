@@ -70,7 +70,7 @@
     {
       "name": "HQPorner",
       "package": "io.prismhub.hqporner",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -80,8 +80,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/hqporner.js",
-      "sha256": "d873a44eba625f7e27ce45080461362a285042ecb1c6316c0c672c297a1c91fa",
-      "signature": "t08qIduKAXu9WatNk3wRzj9qbzNISgVUom5bYwYDFPmaYWufZ3rkQA7VVzOxx/A3bzQDveUseKw+sEFV2nzaAg=="
+      "sha256": "81c48d4342e93540eb851f73a07703f43a8e14336302b3441ea32d27736fef6d",
+      "signature": "KyAR7sxZTD2xO7NHAZxAhFmlAcNNVpymtg3ETtDfGZJSJub3qKIbGvxtidtczDot0OqXe0wAjK0dj2k2bWguAQ=="
     },
     {
       "name": "Ikigai Mangas",
@@ -158,6 +158,22 @@
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/olympus.js",
       "sha256": "5ca16a6e497403012f70e8c5d6c2d3b158b67be70e5d522ebada3ffbcd3bfd16",
       "signature": "3zyAZs0gqbwrXlA9c8vQvV5gOPv3Z0QgnocCkSE27JT1xPowu9xZdgjVucpraLkL4K2r4iSHKXo9h0viDBhnBA=="
+    },
+    {
+      "name": "Pornhub",
+      "package": "io.prismhub.pornhub",
+      "version": "1.0.0",
+      "author": "PrismPlus",
+      "type": "bangumi",
+      "icon": "",
+      "description": "Catálogo para adultos en español, con buscador, 96 categorías, cinco órdenes y reproducción directa con selector de calidad hasta 1080p (contenido +18).",
+      "lang": "es",
+      "webSite": "https://es.pornhub.com",
+      "license": "MIT",
+      "nsfw": "true",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/pornhub.js",
+      "sha256": "aab2716537632fd7c17d10d7a5cce2f2dc6234a13d90d26505dc216a782df016",
+      "signature": "yqFrYwKWLNF5iMrUxLXx/m1NRYbCl/dzdnzoIdjuf/qdXwX/JccKqxSpUFNRwW1fxGGeXG+lmT9Jey9IzdkFDg=="
     },
     {
       "name": "ShadeManga",
