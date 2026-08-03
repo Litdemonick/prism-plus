@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         HQPorner
-// @version      1.0.2
+// @version      1.0.3
 // @author       PrismPlus
 // @lang         en
 // @license      MIT
@@ -359,16 +359,24 @@ async function _paginaDelReproductor(iframe) {
   _cachePlayer.set(url, html, TTL.DETAIL);
   return html;
 }
+var _ESPERA_PORTADA = 1200;
 async function _portadaDelReproductor(htmlFicha) {
   const iframe = _iframeDelReproductor(htmlFicha);
   if (!iframe) return void 0;
   try {
-    const player = await _paginaDelReproductor(iframe);
+    const player = await _conLimite(_paginaDelReproductor(iframe), _ESPERA_PORTADA);
+    if (!player) return void 0;
     const m = /poster=\\?"([^"\\]+)\\?"/.exec(player);
     return m ? _conEsquema(m[1]) : void 0;
   } catch (e) {
     return void 0;
   }
+}
+function _conLimite(promesa, ms) {
+  return Promise.race([
+    promesa,
+    new Promise((resolver) => setTimeout(() => resolver(null), ms))
+  ]);
 }
 function _iframeDelReproductor(html) {
   var _a;

@@ -70,7 +70,7 @@
     {
       "name": "HQPorner",
       "package": "io.prismhub.hqporner",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -80,8 +80,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/hqporner.js",
-      "sha256": "81c48d4342e93540eb851f73a07703f43a8e14336302b3441ea32d27736fef6d",
-      "signature": "KyAR7sxZTD2xO7NHAZxAhFmlAcNNVpymtg3ETtDfGZJSJub3qKIbGvxtidtczDot0OqXe0wAjK0dj2k2bWguAQ=="
+      "sha256": "96e79d7e4cbc68ba07a0e63752bb4a03502eec756fea67e240c7ab32768dfe94",
+      "signature": "uuNsyGUDe3gLEX188SepPqfStV0xgrLTqA67vNQlG0aW4YPaOofRVN7xNe10S1Z6Bv2daFpSOuVli8qJd0iZBg=="
     },
     {
       "name": "Ikigai Mangas",
@@ -162,7 +162,7 @@
     {
       "name": "Pornhub",
       "package": "io.prismhub.pornhub",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -172,8 +172,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/pornhub.js",
-      "sha256": "1887d3369f0b7b2724e45e6f2a580ce29b541ecbd04505f196e125f30af37acc",
-      "signature": "q0KbOOnxVtWupj1Fxq6eOF5TvV6jXk6B3BborfBp2W7qgXYLAOTx40Lkx/SJpxO7GxSV+3H46oTGeFY+5I5mCg=="
+      "sha256": "6b6b101e662564c5567da2bb2d8eeefbeca57190e00f97c13e360615726913e0",
+      "signature": "0LxEfBN8FHu3l3dnaPHLFXaxJeyseSiu1vugNJFXoFwwWwkdUHSMP921MRQV4GNUXnPWUrJ3IZIGqDFsy0o9Dg=="
     },
     {
       "name": "ShadeManga",

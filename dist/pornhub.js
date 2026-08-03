@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Pornhub
-// @version      1.0.1
+// @version      1.0.2
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -147,6 +147,47 @@ var _NAMED_ENTITIES = {
   zwj: ""
 };
 
+// sdk/cache.ts
+var TTL = {
+  /** Listas (latest/search) — cambian con frecuencia */
+  LIST: 5 * 6e4,
+  // 5 minutos
+  /** Detalles (detail) — estables, cambian poco */
+  DETAIL: 30 * 6e4,
+  // 30 minutos
+  /** Streams (watch) — no cachear, las URLs expiran */
+  WATCH: 0
+};
+function createCache() {
+  const store = /* @__PURE__ */ new Map();
+  function get(key) {
+    const entry = store.get(key);
+    if (!entry) return void 0;
+    if (entry.expiresAt > 0 && Date.now() > entry.expiresAt) {
+      store.delete(key);
+      return void 0;
+    }
+    return entry.value;
+  }
+  function set(key, value, ttlMs = TTL.LIST) {
+    if (ttlMs === 0) return;
+    store.set(key, {
+      value,
+      expiresAt: ttlMs > 0 ? Date.now() + ttlMs : -1
+    });
+  }
+  function has(key) {
+    return get(key) !== void 0;
+  }
+  function del(key) {
+    store.delete(key);
+  }
+  function clear() {
+    store.clear();
+  }
+  return { get, set, has, delete: del, clear };
+}
+
 // extensions/pornhub/index.ts
 var BASE = "https://es.pornhub.com";
 async function _get(url) {
@@ -175,6 +216,14 @@ async function _get(url) {
 }
 function _urlDeVideo(viewkey) {
   return `${BASE}/view_video.php?viewkey=${viewkey}`;
+}
+var _cachePagina = createCache();
+async function _pagina(url) {
+  const guardada = _cachePagina.get(url);
+  if (guardada) return guardada;
+  const html = await _get(url);
+  _cachePagina.set(url, html, TTL.DETAIL);
+  return html;
 }
 function _parseListado(html) {
   const items = [];
@@ -338,7 +387,7 @@ async function createFilter() {
 }
 async function detail(url) {
   var _a, _b, _c, _d;
-  const html = await _get(url);
+  const html = await _pagina(url);
   const title = decodeEntities(
     ((_b = (_a = /<h1[^>]*>\s*(?:<span[^>]*>)?\s*([^<]{2,160}?)\s*</.exec(html)) == null ? void 0 : _a[1]) != null ? _b : "").trim()
   );
@@ -360,7 +409,7 @@ async function detail(url) {
   };
 }
 async function watch(url) {
-  const html = await _get(url);
+  const html = await _pagina(url);
   const streams = [];
   const vistas = {};
   for (const m of html.matchAll(/"videoUrl":"([^"]+?)"[^}]*?"quality":"?(\d+)"?/g)) {

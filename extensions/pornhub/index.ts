@@ -1,5 +1,6 @@
 import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities } from '../../sdk/html';
+import { createCache, TTL } from '../../sdk/cache';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream } from '../../sdk/types';
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
@@ -33,6 +34,28 @@ async function _get(url: string): Promise<string> {
 
 function _urlDeVideo(viewkey: string): string {
   return `${BASE}/view_video.php?viewkey=${viewkey}`;
+}
+
+/**
+ * La ficha de un video, guardada un rato.
+ *
+ * detail() y watch() necesitan LA MISMA pagina, y pesa 1,3 MB: medido, 571 ms
+ * cada una, o sea que tocar "Reproducir" pagaba de nuevo la espera entera que
+ * ya se habia pagado al abrir la ficha.
+ *
+ * Se guarda con el TTL de los detalles y no el de las fuentes: lo que se guarda
+ * es la PAGINA. Las direcciones de video que trae adentro si caducan (llevan
+ * firma y vencimiento), pero eso no importa porque se vuelven a leer de la
+ * pagina en cada watch(), y media hora esta muy por debajo de lo que duran.
+ */
+const _cachePagina = createCache();
+
+async function _pagina(url: string): Promise<string> {
+  const guardada = _cachePagina.get<string>(url);
+  if (guardada) return guardada;
+  const html = await _get(url);
+  _cachePagina.set(url, html, TTL.DETAIL);
+  return html;
 }
 
 // ─── Listados ───────────────────────────────────────────────────────────────
@@ -77,17 +100,6 @@ export async function latest(page: number): Promise<PrismItem[]> {
 }
 
 /**
- * Recorta el HTML al bloque de RESULTADOS antes de leer las tarjetas.
- *
- * La pagina de busqueda trae, ademas de lo buscado, tiras de recomendados que
- * aparecen ANTES en el HTML. Sin recortar, lo primero que se leia eran esas
- * tiras: buscar el nombre de una modelo devolvia videos que no tenian nada que
- * ver, y el titulo exacto de un video tampoco lo encontraba.
- *
- * Si el bloque no esta (el sitio cambio el nombre), se devuelve todo y al menos
- * sigue habiendo resultados, aunque mezclados.
- */
-/**
  * Limpia la consulta antes de mandarla al buscador del sitio.
  *
  * Los signos de puntuacion lo rompen. Medido con el titulo exacto de un video:
@@ -106,6 +118,17 @@ function _consultaLimpia(keyword: string): string {
     .replace(/\s+/g, ' ');
 }
 
+/**
+ * Recorta el HTML al bloque de RESULTADOS antes de leer las tarjetas.
+ *
+ * La pagina de busqueda trae, ademas de lo buscado, tiras de recomendados que
+ * aparecen ANTES en el HTML. Sin recortar, lo primero que se leia eran esas
+ * tiras: buscar el nombre de una modelo devolvia videos que no tenian nada que
+ * ver, y el titulo exacto de un video tampoco lo encontraba.
+ *
+ * Si el bloque no esta (el sitio cambio el nombre), se devuelve todo y al menos
+ * sigue habiendo resultados, aunque mezclados.
+ */
 function _soloResultados(html: string): string {
   for (const marca of ['id="videoSearchResult"', 'class="nf-videos videosListingSection"']) {
     const i = html.indexOf(marca);
@@ -258,7 +281,7 @@ export async function createFilter(): Promise<Record<string, unknown>> {
 // ─── Ficha ──────────────────────────────────────────────────────────────────
 
 export async function detail(url: string): Promise<PrismDetail> {
-  const html = await _get(url);
+  const html = await _pagina(url);
 
   const title = decodeEntities(
     (/<h1[^>]*>\s*(?:<span[^>]*>)?\s*([^<]{2,160}?)\s*</.exec(html)?.[1] ?? '').trim(),
@@ -303,7 +326,9 @@ export async function detail(url: string): Promise<PrismDetail> {
  * reproducir y no guardar la URL para despues.
  */
 export async function watch(url: string): Promise<PrismWatch> {
-  const html = await _get(url);
+  // Reutiliza la que ya bajo la ficha: es la misma pagina de 1,3 MB y sin esto
+  // se paga la espera entera otra vez al tocar Reproducir.
+  const html = await _pagina(url);
 
   const streams: PrismStream[] = [];
   const vistas: Record<string, boolean> = {};

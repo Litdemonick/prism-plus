@@ -233,18 +233,48 @@ async function _paginaDelReproductor(iframe: string): Promise<string> {
   return html;
 }
 
+/**
+ * Cuánto se espera como MUCHO por la portada, en milisegundos.
+ *
+ * La página del reproductor pesa 6 KB pero tarda: medido, 690 ms una vez y
+ * 1141 ms otra, y eso era el 85% de lo que tardaba la ficha entera. Es el
+ * saludo TLS contra ese host, no el tamaño, así que no hay nada que optimizar
+ * del lado nuestro salvo dejar de esperarla.
+ *
+ * Con el límite: si contesta rápido, la ficha muestra la portada exacta del
+ * vídeo; si se hace la lenta, se abre igual y el cliente se queda con la
+ * portada que ya traía del listado. Antes se esperaba lo que hiciera falta y la
+ * tarjeta quedaba vacía todo ese rato.
+ */
+const _ESPERA_PORTADA = 1200;
+
 /** El `poster` del `<video>` del reproductor: la portada real del video. */
 async function _portadaDelReproductor(htmlFicha: string): Promise<string | undefined> {
   const iframe = _iframeDelReproductor(htmlFicha);
   if (!iframe) return undefined;
   try {
-    const player = await _paginaDelReproductor(iframe);
+    const player = await _conLimite(_paginaDelReproductor(iframe), _ESPERA_PORTADA);
+    if (!player) return undefined;
     // Las comillas vienen escapadas porque el <video> se arma desde JS.
     const m = /poster=\\?"([^"\\]+)\\?"/.exec(player);
     return m ? _conEsquema(m[1]) : undefined;
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Devuelve null si tarda más de `ms`, sin cortar el pedido.
+ *
+ * A propósito NO se cancela: el pedido sigue y, cuando termina, queda guardado.
+ * Así la ficha no espera, pero tocar "Reproducir" un segundo después ya lo
+ * encuentra hecho en vez de arrancarlo de cero.
+ */
+function _conLimite<T>(promesa: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promesa,
+    new Promise<null>((resolver) => setTimeout(() => resolver(null), ms)),
+  ]);
 }
 
 /** El iframe del reproductor dentro de la ficha, si lo hay. */
