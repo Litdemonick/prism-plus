@@ -76,17 +76,55 @@ export async function latest(page: number): Promise<PrismItem[]> {
   return _parseListado(html);
 }
 
+/**
+ * Recorta el HTML al bloque de RESULTADOS antes de leer las tarjetas.
+ *
+ * La pagina de busqueda trae, ademas de lo buscado, tiras de recomendados que
+ * aparecen ANTES en el HTML. Sin recortar, lo primero que se leia eran esas
+ * tiras: buscar el nombre de una modelo devolvia videos que no tenian nada que
+ * ver, y el titulo exacto de un video tampoco lo encontraba.
+ *
+ * Si el bloque no esta (el sitio cambio el nombre), se devuelve todo y al menos
+ * sigue habiendo resultados, aunque mezclados.
+ */
+/**
+ * Limpia la consulta antes de mandarla al buscador del sitio.
+ *
+ * Los signos de puntuacion lo rompen. Medido con el titulo exacto de un video:
+ * con los ":" y "-" que trae, el buscador devuelve cosas que no tienen nada que
+ * ver; sacandolos, ese mismo video aparece PRIMERO. Asi que pegar un titulo
+ * entero —que es lo mas natural cuando uno busca algo puntual— era justo el
+ * caso que peor andaba.
+ *
+ * Se reemplazan por espacios en vez de borrarlos, para no pegar palabras que
+ * estaban separadas.
+ */
+function _consultaLimpia(keyword: string): string {
+  return keyword
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function _soloResultados(html: string): string {
+  for (const marca of ['id="videoSearchResult"', 'class="nf-videos videosListingSection"']) {
+    const i = html.indexOf(marca);
+    if (i > 0) return html.slice(i);
+  }
+  return html;
+}
+
 export async function search(
   keyword: string,
   page: number,
   filter?: Record<string, string[]>,
 ): Promise<PrismItem[]> {
-  const kw = keyword.trim();
+  const kw = _consultaLimpia(keyword);
   if (kw) {
     const html = await _get(
       `${BASE}/video/search?search=${encodeURIComponent(kw)}${page > 1 ? `&page=${page}` : ''}`,
     );
-    return _parseListado(html);
+    return _parseListado(_soloResultados(html));
   }
   // Categoria y orden se combinan en la misma ruta, asi que se pueden usar
   // juntos (por ejemplo: lo mas visto dentro de una categoria).

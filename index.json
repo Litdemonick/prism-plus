@@ -162,7 +162,7 @@
     {
       "name": "Pornhub",
       "package": "io.prismhub.pornhub",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -172,8 +172,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/pornhub.js",
-      "sha256": "aab2716537632fd7c17d10d7a5cce2f2dc6234a13d90d26505dc216a782df016",
-      "signature": "yqFrYwKWLNF5iMrUxLXx/m1NRYbCl/dzdnzoIdjuf/qdXwX/JccKqxSpUFNRwW1fxGGeXG+lmT9Jey9IzdkFDg=="
+      "sha256": "1887d3369f0b7b2724e45e6f2a580ce29b541ecbd04505f196e125f30af37acc",
+      "signature": "q0KbOOnxVtWupj1Fxq6eOF5TvV6jXk6B3BborfBp2W7qgXYLAOTx40Lkx/SJpxO7GxSV+3H46oTGeFY+5I5mCg=="
     },
     {
       "name": "ShadeManga",

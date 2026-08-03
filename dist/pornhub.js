@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Pornhub
-// @version      1.0.0
+// @version      1.0.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -195,14 +195,24 @@ async function latest(page) {
   const html = await _get(`${BASE}/video${page > 1 ? `?page=${page}` : ""}`);
   return _parseListado(html);
 }
+function _consultaLimpia(keyword) {
+  return keyword.replace(/[^\p{L}\p{N}]+/gu, " ").trim().replace(/\s+/g, " ");
+}
+function _soloResultados(html) {
+  for (const marca of ['id="videoSearchResult"', 'class="nf-videos videosListingSection"']) {
+    const i = html.indexOf(marca);
+    if (i > 0) return html.slice(i);
+  }
+  return html;
+}
 async function search(keyword, page, filter) {
   var _a, _b;
-  const kw = keyword.trim();
+  const kw = _consultaLimpia(keyword);
   if (kw) {
     const html2 = await _get(
       `${BASE}/video/search?search=${encodeURIComponent(kw)}${page > 1 ? `&page=${page}` : ""}`
     );
-    return _parseListado(html2);
+    return _parseListado(_soloResultados(html2));
   }
   const partes = [];
   const cat = (_a = filter == null ? void 0 : filter["categoria"]) == null ? void 0 : _a[0];
