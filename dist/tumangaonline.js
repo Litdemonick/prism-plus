@@ -409,6 +409,10 @@ var _KNOWN_EMBED_HOSTS = {
   streamtape: 'Streamtape', stape: 'Streamtape',
   mixdrop: 'Mixdrop', mxdrop: 'Mixdrop',
   mp4upload: 'Mp4Upload',
+  // La clave lleva "/file" a propósito: el enlace YA resuelto vive en
+  // download####.mediafire.com y también contiene "mediafire", así que una
+  // clave suelta lo haría pasar por página de embed y volvería a resolverse.
+  'mediafire.com/file': 'Mediafire',
   doodstream: 'Doodstream', ds2play: 'Doodstream', ds2video: 'Doodstream',
   streamwish: 'Streamwish', wishfast: 'Streamwish',
   vidhide: 'Streamwish', filelions: 'Streamwish',

@@ -64,6 +64,7 @@ export async function resolveEmbed(
       // sobrevive en el nombre.
       result = await resolveMixdrop(embedUrl, referer);
     else if (s.includes('mp4upload')) result = await resolveMp4upload(embedUrl, referer);
+    else if (s.includes('mediafire')) result = await resolveMediafire(embedUrl, referer);
     else if (s.includes('yourupload') || s.includes('yupload'))
       result = await resolveYourupload(embedUrl, referer);
     else if (s.includes('pixeldrain')) result = resolvePixeldrain(embedUrl);
@@ -319,8 +320,13 @@ function _streamtapeDesdeElJs(html: string, embedUrl: string): string | null {
   // Sin host no hay con qué comparar, y sin comparación entra cualquier señuelo.
   if (!host) return null;
 
+  // El id del archivo ya lo sabemos: viene en la URL del embed (/e/<id>/…).
+  // Es el dato que los señuelos NO pueden falsificar, porque el carácter que
+  // les sobra los corre y deja de coincidir.
+  const idEmbed = (/\/[ev]\/([A-Za-z0-9_-]+)/.exec(embedUrl) || ['', ''])[1];
+
+  const candidatos: string[] = [];
   let m: RegExpExecArray | null;
-  let vistos = 0;
   armados.lastIndex = 0;
   while ((m = armados.exec(html)) !== null) {
     let resto = m[5];
@@ -332,23 +338,63 @@ function _streamtapeDesdeElJs(html: string, embedUrl: string): string | null {
           ? resto.substring(parseInt(r[1], 10))
           : resto.substring(parseInt(r[1], 10), parseInt(r[2], 10));
     }
-    const candidato = m[2] + resto;
-    vistos++;
-
-    // La forma ENTERA, no un pedazo: `//<host del embed>/get_video?…`. Los
-    // señuelos meten un carácter de más en algún lado —a veces en el dominio, a
-    // veces en el endpoint, a veces se comen el "?"— así que cualquier chequeo
-    // parcial deja pasar al menos uno de ellos.
-    const forma = /^\/\/([^/]+)\/get_video\?/.exec(candidato);
-    if (!forma) continue;
-    if (forma[1].replace(/^www\./, '') !== host) continue;
-    if (candidato.indexOf('token=') === -1) continue;
-
-    return _streamtapeNormalizar(candidato);
+    candidatos.push(m[2] + resto);
   }
-  if (vistos > 0) {
-    console.log(`[streamtape] ${vistos} candidato(s) en el JS, ninguno bien formado`);
+  if (!candidatos.length) return null;
+
+  // Estructura mínima: `//<host del embed>/get_video?…&token=…`. Descarta al
+  // señuelo cuyo carácter sobrante cayó en el dominio o en el endpoint.
+  const bienFormados = candidatos.filter((c) => {
+    const forma = /^\/\/([^/]+)\/get_video\?/.exec(c);
+    return !!forma && forma[1].replace(/^www\./, '') === host && c.indexOf('token=') !== -1;
+  });
+
+  // El id exacto. Esto es lo que atrapa al señuelo que corrompe la query
+  // (`?ib=` en vez de `?id=`, medido en vivo), donde la estructura sigue
+  // pareciendo correcta.
+  if (idEmbed) {
+    const conElId = bienFormados.filter((c) => c.indexOf(`id=${idEmbed}&`) !== -1);
+    if (conElId.length) return _streamtapeNormalizar(conElId[0]);
   }
+
+  // Red de seguridad por si el id no se pudo sacar del embed: el link bueno lo
+  // arman DOS líneas distintas (botlink y robotlink) y sale idéntico las dos
+  // veces, mientras que cada señuelo es único. El que se repite, gana.
+  for (const c of bienFormados) {
+    if (bienFormados.filter((o) => o === c).length > 1) {
+      console.log('[streamtape] elegido por repetición, sin id en el embed');
+      return _streamtapeNormalizar(c);
+    }
+  }
+
+  console.log(
+    `[streamtape] ${candidatos.length} candidato(s) en el JS, ninguno confiable ` +
+      `(id esperado: ${idEmbed || 'desconocido'})`,
+  );
+  return null;
+}
+
+/**
+ * mediafire.com — el enlace de descarga está en texto plano en la página.
+ *
+ * No es un servidor de vídeo sino un alojamiento de archivos, pero el MP4 que
+ * sirve es reproducible tal cual: medido en vivo, 206 con `video/mp4`, y acepta
+ * rangos arbitrarios (se comprobó pidiendo bytes del medio del archivo), que es
+ * lo que hace falta para poder cambiar de minuto en la barra.
+ *
+ * Antes esto no lo resolvía nadie, así que el servidor terminaba abriendo el
+ * WebView aunque el archivo se pudiera reproducir nativo sin más vueltas.
+ */
+export async function resolveMediafire(
+  url: string,
+  referer: string,
+): Promise<ResolvedEmbed | null> {
+  const html = await fetchEmbed(url, referer);
+  if (!html) return null;
+  // El host lleva número (download2391.mediafire.com) y cambia por archivo.
+  const m = /https:\/\/download[0-9]*\.mediafire\.com\/[^"'<>\s\\]+/.exec(html);
+  if (m) return { url: m[0], headers: { Referer: 'https://www.mediafire.com/' } };
+  console.log('[mediafire] no se encontró el enlace de descarga en la página');
   return null;
 }
 

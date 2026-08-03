@@ -522,10 +522,15 @@ type PrismEpisode = { title: string; url: string; number?: number };
 // Esta lista los excluía sin haberlo probado nunca de verdad.
 // voe.sx/voe. también se sacaron: _resolveVoeDio() funciona (verificado con
 // curl, direct_access_url real y reproducible).
+// vidhide y mixdrop también se sacaron, y por lo mismo: nunca se habían
+// probado. Medidos en vivo contra el bundle ya compilado:
+//   vidhide  → 3 de 3 intentos dan la lista HLS real (master.m3u8 en
+//              acek-cdn.com, 200 application/vnd.apple.mpegurl)
+//   mixdrop  → 206 video/mp4, el archivo entero
+// Los dos reproducen nativo perfectamente y estaban sin botón.
 const _JS_ONLY_HOSTS = [
-  'vidhide', 'filelions',
+  'filelions',
   'filemoon', 'moonplayer',
-  'mixdrop', 'mxdrop',
 ];
 
 // URLs internas de jkanime que son embeds propios (desu, magi, desuka, etc.),
@@ -692,11 +697,22 @@ export async function watch(url: string): Promise<PrismWatch> {
   // confirmado en vivo que fallaba TAMBIÉN por WebView en un intento
   // anterior — puede seguir sin andar; si vuelve a fallar así, es candidato
   // a sacarse de nuevo.
-  const isMega = (u: string) => u.indexOf('mega.nz') !== -1 || u.indexOf('mega.co.nz') !== -1;
-  const usable = resolved.filter(s => {
-    const uLow = s.url.toLowerCase();
-    return !isMega(uLow) && !_JS_ONLY_HOSTS.some(h => uLow.indexOf(h) !== -1);
-  });
+  // Los de _JS_ONLY_HOSTS SIGUEN EN LA LISTA. Esa lista solo quiere decir "no
+  // pierdas tiempo con dio, andá derecho al WebView", y acá además los estaba
+  // BORRANDO: el servidor desaparecía de la app aunque el sitio lo ofreciera, y
+  // el usuario se quedaba sin saber si el problema era la app, la red o el
+  // episodio. Un botón que abre en WebView es mucho mejor que ningún botón.
+  //
+  // (Filemoon aparecía igual, pero de casualidad: su URL es bysekoze.com y no
+  // contiene la palabra "filemoon", así que se escapaba del filtro.)
+  //
+  // Mega también vuelve. Cifra todo del lado del navegador, así que nativo NO
+  // va a andar nunca y no tiene sentido pelearlo — pero el que lo reproduce es
+  // justamente un navegador, y la app tiene uno. Al fallar el nativo,
+  // _setServerFailed le pasa la URL del embed a webViewFallback y se abre el
+  // reproductor WebView, que con mega.nz funciona. Sacarlo de la lista era
+  // quitarle al usuario la única forma que sí tenía de verlo.
+  const usable = resolved;
 
   // Direct streams (mp4/m3u8) antes que embeds crudos
   const direct = usable.filter(s => _isDirect(s.url));

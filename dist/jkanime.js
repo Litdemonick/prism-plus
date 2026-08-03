@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.11.2
+// @version      1.11.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -196,6 +196,7 @@ async function resolveEmbed(server, embedUrl, referer) {
     else if (s.includes("mixdrop") || s.includes("mxdrop") || s.includes("mdrop") || s.includes("xdrop"))
       result = await resolveMixdrop(embedUrl, referer);
     else if (s.includes("mp4upload")) result = await resolveMp4upload(embedUrl, referer);
+    else if (s.includes("mediafire")) result = await resolveMediafire(embedUrl, referer);
     else if (s.includes("yourupload") || s.includes("yupload"))
       result = await resolveYourupload(embedUrl, referer);
     else if (s.includes("pixeldrain")) result = resolvePixeldrain(embedUrl);
@@ -317,8 +318,9 @@ function _streamtapeDesdeElJs(html, embedUrl) {
   const recortes = /\.\s*substring\(\s*(\d+)\s*(?:,\s*(\d+)\s*)?\)/g;
   const host = (/^https?:\/\/([^/]+)/.exec(embedUrl) || ["", ""])[1].replace(/^www\./, "");
   if (!host) return null;
+  const idEmbed = (/\/[ev]\/([A-Za-z0-9_-]+)/.exec(embedUrl) || ["", ""])[1];
+  const candidatos = [];
   let m;
-  let vistos = 0;
   armados.lastIndex = 0;
   while ((m = armados.exec(html)) !== null) {
     let resto = m[5];
@@ -327,17 +329,34 @@ function _streamtapeDesdeElJs(html, embedUrl) {
     while ((r = recortes.exec(m[6])) !== null) {
       resto = r[2] === void 0 ? resto.substring(parseInt(r[1], 10)) : resto.substring(parseInt(r[1], 10), parseInt(r[2], 10));
     }
-    const candidato = m[2] + resto;
-    vistos++;
-    const forma = /^\/\/([^/]+)\/get_video\?/.exec(candidato);
-    if (!forma) continue;
-    if (forma[1].replace(/^www\./, "") !== host) continue;
-    if (candidato.indexOf("token=") === -1) continue;
-    return _streamtapeNormalizar(candidato);
+    candidatos.push(m[2] + resto);
   }
-  if (vistos > 0) {
-    console.log(`[streamtape] ${vistos} candidato(s) en el JS, ninguno bien formado`);
+  if (!candidatos.length) return null;
+  const bienFormados = candidatos.filter((c) => {
+    const forma = /^\/\/([^/]+)\/get_video\?/.exec(c);
+    return !!forma && forma[1].replace(/^www\./, "") === host && c.indexOf("token=") !== -1;
+  });
+  if (idEmbed) {
+    const conElId = bienFormados.filter((c) => c.indexOf(`id=${idEmbed}&`) !== -1);
+    if (conElId.length) return _streamtapeNormalizar(conElId[0]);
   }
+  for (const c of bienFormados) {
+    if (bienFormados.filter((o) => o === c).length > 1) {
+      console.log("[streamtape] elegido por repetici\xF3n, sin id en el embed");
+      return _streamtapeNormalizar(c);
+    }
+  }
+  console.log(
+    `[streamtape] ${candidatos.length} candidato(s) en el JS, ninguno confiable (id esperado: ${idEmbed || "desconocido"})`
+  );
+  return null;
+}
+async function resolveMediafire(url, referer) {
+  const html = await fetchEmbed(url, referer);
+  if (!html) return null;
+  const m = /https:\/\/download[0-9]*\.mediafire\.com\/[^"'<>\s\\]+/.exec(html);
+  if (m) return { url: m[0], headers: { Referer: "https://www.mediafire.com/" } };
+  console.log("[mediafire] no se encontr\xF3 el enlace de descarga en la p\xE1gina");
   return null;
 }
 function _streamtapeNormalizar(path) {
@@ -981,12 +1000,9 @@ async function detail(url) {
   return { title, cover, description, episodes, genres, status };
 }
 var _JS_ONLY_HOSTS = [
-  "vidhide",
   "filelions",
   "filemoon",
-  "moonplayer",
-  "mixdrop",
-  "mxdrop"
+  "moonplayer"
 ];
 function _isJkInternalEmbed(url) {
   if (url.indexOf("jkanime.net") === -1) return false;
@@ -1083,11 +1099,7 @@ async function watch(url) {
   }
   servers.sort((a, b) => (a.lang || 0) - (b.lang || 0));
   const resolved = servers.map((s) => _rawServerStream(s)).filter((s) => s !== null);
-  const isMega = (u) => u.indexOf("mega.nz") !== -1 || u.indexOf("mega.co.nz") !== -1;
-  const usable = resolved.filter((s) => {
-    const uLow = s.url.toLowerCase();
-    return !isMega(uLow) && !_JS_ONLY_HOSTS.some((h) => uLow.indexOf(h) !== -1);
-  });
+  const usable = resolved;
   const direct = usable.filter((s) => _isDirect(s.url));
   const embeds = usable.filter((s) => !_isDirect(s.url));
   const streams = [...subStreams, ...direct, ...embeds];
@@ -1527,6 +1539,10 @@ var _KNOWN_EMBED_HOSTS = {
   streamtape: 'Streamtape', stape: 'Streamtape',
   mixdrop: 'Mixdrop', mxdrop: 'Mixdrop',
   mp4upload: 'Mp4Upload',
+  // La clave lleva "/file" a propósito: el enlace YA resuelto vive en
+  // download####.mediafire.com y también contiene "mediafire", así que una
+  // clave suelta lo haría pasar por página de embed y volvería a resolverse.
+  'mediafire.com/file': 'Mediafire',
   doodstream: 'Doodstream', ds2play: 'Doodstream', ds2video: 'Doodstream',
   streamwish: 'Streamwish', wishfast: 'Streamwish',
   vidhide: 'Streamwish', filelions: 'Streamwish',
