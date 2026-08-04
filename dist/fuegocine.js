@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.1.7
+// @version      1.1.8
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -990,6 +990,12 @@ async function detail(url) {
   };
 }
 var _NEVER_NATIVE_HOSTS = ["drive.google.com"];
+function _conEsquema(url) {
+  const u = url.trim();
+  if (u.indexOf("//") === 0) return `https:${u}`;
+  if (!/^https?:\/\//i.test(u)) return `https://${u.replace(/^\/+/, "")}`;
+  return u;
+}
 async function _resolveFinal(url) {
   if (/\.(mp4|mkv|webm|m3u8)(\?|$)/i.test(url) || url.indexOf("rumble.cloud") !== -1) {
     return { url, quality: "Servidor" };
@@ -1011,11 +1017,11 @@ async function _resolveUnlimplay(url) {
 async function _resolveServerUrl(url) {
   if (url.indexOf("blogspot.com") !== -1) {
     const linkM = /[?&]link=([^&]+)/.exec(url);
-    if (linkM) return _resolveFinal(decodeURIComponent(linkM[1]));
+    if (linkM) return _resolveFinal(_conEsquema(decodeURIComponent(linkM[1])));
     const rM = /[?&]r=([A-Za-z0-9+/=]+)$/.exec(url);
     if (rM) {
       try {
-        return _resolveFinal(b64decode(rM[1]));
+        return _resolveFinal(_conEsquema(b64decode(rM[1])));
       } catch (e) {
         return null;
       }

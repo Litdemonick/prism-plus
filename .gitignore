@@ -13,3 +13,8 @@ jiru_index.json
 # entre corridas programadas, que es lo que evita marcar una extension sana por
 # un parpadeo de red.
 .health-report.json
+
+# Lo temporal de trabajar: guiones de prueba, paginas descargadas para mirarlas,
+# mediciones, salidas sueltas. Todo lo de usar y tirar va aca y no en la raiz ni
+# al lado del codigo, para no ensuciar la estructura del proyecto.
+temp/

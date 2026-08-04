@@ -301,6 +301,23 @@ export async function detail(url: string): Promise<PrismDetail> {
 // puede. Ocultarlo de la lista solo le quita esa segunda oportunidad.
 const _NEVER_NATIVE_HOSTS = ['drive.google.com'];
 
+/**
+ * Le pone `https:` a las direcciones que vienen sin protocolo.
+ *
+ * Varios wrappers guardan el destino como `//host/ruta` — valido dentro de una
+ * pagina web, donde el navegador le pone el protocolo de la pagina, pero no
+ * cuando se pide desde afuera. Medido en vivo con el servidor GS(ads):
+ * "Unsupported scheme '' in URI //gscdn.cam/video/embed/..." — el pedido ni se
+ * hacia, el resolver devolvia nulo y el servidor terminaba abriendose en el
+ * navegador interno (con sus anuncios) pudiendo reproducirse en la app.
+ */
+function _conEsquema(url: string): string {
+  const u = url.trim();
+  if (u.indexOf('//') === 0) return `https:${u}`;
+  if (!/^https?:\/\//i.test(u)) return `https://${u.replace(/^\/+/, '')}`;
+  return u;
+}
+
 async function _resolveFinal(url: string): Promise<PrismStream | null> {
   if (/\.(mp4|mkv|webm|m3u8)(\?|$)/i.test(url) || url.indexOf('rumble.cloud') !== -1) {
     return { url, quality: 'Servidor' };
@@ -336,11 +353,11 @@ async function _resolveUnlimplay(url: string): Promise<PrismStream | null> {
 async function _resolveServerUrl(url: string): Promise<PrismStream | null> {
   if (url.indexOf('blogspot.com') !== -1) {
     const linkM = /[?&]link=([^&]+)/.exec(url);
-    if (linkM) return _resolveFinal(decodeURIComponent(linkM[1]));
+    if (linkM) return _resolveFinal(_conEsquema(decodeURIComponent(linkM[1])));
     const rM = /[?&]r=([A-Za-z0-9+/=]+)$/.exec(url);
     if (rM) {
       try {
-        return _resolveFinal(b64decode(rM[1]));
+        return _resolveFinal(_conEsquema(b64decode(rM[1])));
       } catch {
         return null;
       }
