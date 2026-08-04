@@ -205,6 +205,21 @@ const short = (e) => String(e?.message ?? e).split('\n')[0].slice(0, 160);
 async function checkExtension(inst, pkg) {
   const checks = [];
   const add = (name, ok, detail) => checks.push({ name, ok, detail });
+  // Igual que add, pero lo que falle acá NO cuenta para dar la extension por
+  // rota: se informa y nada mas.
+  //
+  // Se usa para lo que afea la pantalla pero no impide usar la extension. Una
+  // ficha sin titulo o sin portada se sigue abriendo y se sigue reproduciendo;
+  // marcarla "rota" por eso bloquea el contenido en el app por un detalle
+  // cosmetico.
+  //
+  // Y el motivo concreto: estas dos comprobaciones fallaron en el robot
+  // mientras en una conexion normal pasaban perfecto (comprobado con la misma
+  // pelicula). Varios sitios le sirven otra pagina a las direcciones de un
+  // centro de datos. Como el sitio SI contesta, no cae en "sitio caido" ni en
+  // "protegido", y terminaba clasificado como "roto" — el peor de los tres —
+  // por algo que del lado del usuario funciona.
+  const avisar = (name, ok, detail) => checks.push({ name, ok, detail, leve: true });
 
   // 1. latest(1) — tiene que traer ítems bien formados.
   let firstPage = [];
@@ -434,16 +449,16 @@ async function checkExtension(inst, pkg) {
     // 6b. El detalle tiene que traer título y portada propios.
     if (best?.probed) {
       if (best.title) {
-        add('detail — título', true, JSON.stringify(best.title));
+        avisar('detail — título', true, JSON.stringify(best.title));
       } else {
-        add(
+        avisar(
           'detail — título',
           false,
           `detail() devolvió título vacío para ${best.probed.url}`,
         );
       }
-      if (best.cover) add('detail — portada', true, 'ok');
-      else add('detail — portada', false, `detail() devolvió portada vacía para ${best.probed.url}`);
+      if (best.cover) avisar('detail — portada', true, 'ok');
+      else avisar('detail — portada', false, `detail() devolvió portada vacía para ${best.probed.url}`);
     }
   } catch (e) {
     add('detail', false, short(e));
@@ -493,7 +508,11 @@ for (const file of bundles) {
     checks = [{ name: 'cargar bundle', ok: false, detail: short(e) }];
   }
 
-  const failures = checks.filter((c) => !c.ok);
+  // Los avisos no cuentan: ver `avisar` en checkExtension. Son cosas que se
+  // ven mal pero no impiden usar la extension, y dar por rota una extension
+  // que funciona le bloquea el contenido al usuario para nada.
+  const failures = checks.filter((c) => !c.ok && !c.leve);
+  const avisos = checks.filter((c) => !c.ok && c.leve);
   const ok = failures.length === 0;
   if (!ok) failedCount++;
 
@@ -514,7 +533,13 @@ for (const file of bundles) {
   console.log(`${ok ? '✅' : '❌'}  ${name}  (${pkg})`);
   for (const c of checks) {
     if (c.ok) console.log(`      ok    ${c.name} — ${c.detail}`);
+    else if (c.leve) console.log(`      aviso ${c.name} — ${c.detail}`);
     else console.log(`      FALLA ${c.name} — ${c.detail}`);
+  }
+  if (ok && avisos.length > 0) {
+    console.log(
+      `      → ${avisos.length} aviso(s): se ve mal pero se puede usar, no se marca inestable`,
+    );
   }
   if (!ok) {
     console.log(
