@@ -147,6 +147,19 @@ for (const r of report) {
   } else if (r.ok) {
     // Pasó: se limpia el contador (y más abajo se desmarca si estaba marcada).
     nextState[r.package] = { consecutiveFailures: 0, lastReason: null };
+  } else if (r.reason === 'unverifiable') {
+    // Ninguna comprobación trajo contenido, pero el sitio contestó. No se pudo
+    // verificar nada, así que no puede sumar al contador.
+    //
+    // Y a diferencia del desafío de Cloudflare, acá SÍ se la perdona aunque
+    // viniera marcada rota. Sin eso queda trabada para siempre: desde el robot
+    // este caso nunca va a poder pasar en verde, así que el contador jamás se
+    // limpiaría y el app le seguiría bloqueando el contenido a todo el mundo
+    // por una extensión que funciona.
+    //
+    // Comprobado con Eporner: cero ítems desde el robot, las once
+    // comprobaciones en verde desde una conexión normal.
+    nextState[r.package] = { consecutiveFailures: 0, lastReason: null };
   } else if (r.reason === 'protected') {
     // El sitio contestó con un desafío de Cloudflare: NO se pudo comprobar
     // nada, ni a favor ni en contra. Eso no es un fallo de la extensión y no

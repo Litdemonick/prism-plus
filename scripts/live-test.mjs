@@ -542,8 +542,13 @@ for (const file of bundles) {
       ? 'protected'
       : sawNetworkError
         ? 'site-down'
+        // Motivo propio y no 'protected': los dos significan "desde aca no se
+        // puede comprobar", pero se recuperan distinto. Un desafio de
+        // Cloudflare no perdona una extension que ya venia marcada rota; esto
+        // SI tiene que perdonarla, porque si no queda trabada para siempre —
+        // desde el robot nunca va a poder pasar en verde. Ver health-check.
         : nadaTrajoContenido
-          ? 'protected'
+          ? 'unverifiable'
           : 'broken';
 
   results.push({ name, package: pkg, ok, reason, checks });
