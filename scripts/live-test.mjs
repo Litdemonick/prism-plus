@@ -520,13 +520,31 @@ for (const file of bundles) {
   // el problema es el sitio, no el código de la extensión.
   // El desafío manda sobre los demás motivos: si el sitio ni siquiera nos dejó
   // entrar, lo que la extensión haga o deje de hacer no se pudo comprobar.
+  // Ni UNA comprobacion trajo contenido, pero el sitio contesto igual.
+  //
+  // Eso no se puede llamar "rota". Si el codigo se hubiera roto, alguna
+  // comprobacion seguiria pasando: se rompe un parseo, no los siete a la vez.
+  // Que TODO venga vacio mientras las peticiones salen bien apunta al sitio,
+  // que le entrega otra cosa a las direcciones de un centro de datos.
+  //
+  // Comprobado con Eporner: desde el robot, cero items en todo; desde una
+  // conexion normal, las once comprobaciones en verde. Se marcaba "rota" y el
+  // app le bloqueaba el contenido a todo el mundo por algo que funciona.
+  //
+  // Se trata como "protegida": no es que ande mal, es que desde aca no se
+  // puede comprobar.
+  const nadaTrajoContenido =
+    !ok && checks.length > 1 && checks.every((c) => !c.ok || c.leve);
+
   const reason = ok
     ? null
     : sawChallenge
       ? 'protected'
       : sawNetworkError
         ? 'site-down'
-        : 'broken';
+        : nadaTrajoContenido
+          ? 'protected'
+          : 'broken';
 
   results.push({ name, package: pkg, ok, reason, checks });
 

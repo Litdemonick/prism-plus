@@ -4,8 +4,8 @@
     "lastReason": null
   },
   "io.prismhub.eporner": {
-    "consecutiveFailures": 2,
-    "lastReason": "broken"
+    "consecutiveFailures": 0,
+    "lastReason": null
   },
   "io.prismhub.fuegocine": {
     "consecutiveFailures": 0,

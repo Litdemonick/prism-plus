@@ -112,9 +112,39 @@ if (fallidas.length > 0) {
 const state = existsSync(STATE_FILE) ? JSON.parse(readFileSync(STATE_FILE, 'utf8')) : {};
 const nextState = {};
 
+// ─── Freno de emergencia ────────────────────────────────────────────────────
+// Si en UNA corrida falla más de la mitad del catálogo, no se marca nada.
+//
+// Que se rompan a la vez ocho extensiones de sitios distintos, de un momento
+// para el otro, no pasa: lo que pasa es que se cayó la red del robot, que
+// GitHub cambió el rango de direcciones desde donde sale, o que algo del
+// entorno se rompió. Marcar en ese momento deja al usuario sin contenido en
+// media app por un problema que no es suyo ni de las extensiones.
+//
+// Es a propósito conservador: preferir no avisar de una rotura real —que en la
+// corrida siguiente se va a volver a detectar— antes que bloquear medio
+// catálogo por un fallo del entorno. El daño de equivocarse no es simétrico.
+const totales = report.length;
+const cuantasFallan = report.filter((r) => !r.ok).length;
+const demasiadas = totales >= 4 && cuantasFallan > totales / 2;
+if (demasiadas) {
+  console.log(
+    `\n🛑  ${cuantasFallan} de ${totales} extensiones fallaron en esta corrida.\n` +
+      '    Eso no es que se hayan roto todas: es el entorno. No se marca ninguna.\n' +
+      '    Si fuera real, la próxima corrida lo vuelve a ver.',
+  );
+}
+
 for (const r of report) {
   const prev = state[r.package]?.consecutiveFailures ?? 0;
-  if (r.ok) {
+  if (demasiadas && !r.ok) {
+    // Freno de emergencia (ver arriba): se deja el contador como estaba, sin
+    // sumar ni restar. Esta corrida no cuenta para nadie.
+    nextState[r.package] = {
+      consecutiveFailures: prev,
+      lastReason: state[r.package]?.lastReason ?? null,
+    };
+  } else if (r.ok) {
     // Pasó: se limpia el contador (y más abajo se desmarca si estaba marcada).
     nextState[r.package] = { consecutiveFailures: 0, lastReason: null };
   } else if (r.reason === 'protected') {
