@@ -34,7 +34,9 @@
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/eporner.js",
       "sha256": "36b59ecd3cea8830bf1890f5d2f4dda93b5d11167634ece340e42a00b7ac2310",
-      "signature": "y7uniPfU51QhJYXR5FD72vFawcJAXOg4D/Tt9f/rXwA/jCQeD91gjlQT1Jlq/z1Xc0Hj3dexvb+/ckO9OtH7AQ=="
+      "signature": "y7uniPfU51QhJYXR5FD72vFawcJAXOg4D/Tt9f/rXwA/jCQeD91gjlQT1Jlq/z1Xc0Hj3dexvb+/ckO9OtH7AQ==",
+      "unstable": true,
+      "unstableReason": "broken"
     },
     {
       "name": "FuegoCine",
@@ -49,9 +51,7 @@
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/fuegocine.js",
       "sha256": "4e904d6354a158e50d4437a3cc08926db453a6052385b0e731f4d05ea4bbf4fb",
-      "signature": "ZGCS/SSFVy1ZgbQ5mYG18iluLv+TNUmubWL7vCtoFFwQS8dOVqlbfauSYjyLRQ1777dFaEsvHmgDZ2C9Hpk9CA==",
-      "unstable": true,
-      "unstableReason": "broken"
+      "signature": "ZGCS/SSFVy1ZgbQ5mYG18iluLv+TNUmubWL7vCtoFFwQS8dOVqlbfauSYjyLRQ1777dFaEsvHmgDZ2C9Hpk9CA=="
     },
     {
       "name": "HentaiLA",
