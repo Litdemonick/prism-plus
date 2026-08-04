@@ -463,6 +463,19 @@ var _KNOWN_EMBED_HOSTS = {
   sendvid: 'Sendvid', uqload: 'Uqload',
   upstream: 'Upstream',
 };
+// Solo la RUTA, sin lo que venga despues de ? o #.
+//
+// Mirar la direccion entera daba falsos positivos que terminaban en "Error de
+// reproduccion": hay servidores que son una pagina normal y llevan el video de
+// verdad DENTRO de un parametro, por ejemplo
+//   https://un-blog.blogspot.com/?player=fluidplayer&link=https%3A%2F%2F...%2Fpeli.mp4
+// Eso termina en ".mp4", asi que se daba por buena la pagina y se le mandaba al
+// reproductor un HTML en vez de un video. Con la ruta sola, esa direccion ya no
+// pasa por directa y sigue su camino normal hasta resolverse.
+function _rutaDe(u) {
+  var sinAncla = u.split('#')[0];
+  return sinAncla.split('?')[0];
+}
 function _isDirectMediaUrl(u) {
   if (typeof u !== 'string') return false;
   if (/\/embed\//i.test(u)) return false;
@@ -470,10 +483,10 @@ function _isDirectMediaUrl(u) {
   for (var _k in _KNOWN_EMBED_HOSTS) {
     if (lower.indexOf(_k) !== -1) return false;
   }
-  return /\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(u);
+  return /\.(mp4|m3u8|mkv|webm)$/i.test(_rutaDe(u));
 }
 function _mediaType(u) {
-  return /\.mp4(\?|#|$)/i.test(u) ? 'mp4' : 'hls';
+  return /\.mp4$/i.test(_rutaDe(u)) ? 'mp4' : 'hls';
 }
 
 export default class extends Extension {

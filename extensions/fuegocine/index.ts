@@ -287,7 +287,8 @@ export async function detail(url: string): Promise<PrismDetail> {
 //    plantillas de wrapper distintas). El destino puede ser un archivo
 //    directo (mp4 en rumble.cloud, confirmado con Content-Type: video/mp4 y
 //    Accept-Ranges) o un embed de terceros que sí necesita resolveEmbed
-//    (ej. firestream.to).
+//    (ej. firestream.to, que desde ahora resuelve nativo — ver
+//    resolveFirestream en el SDK).
 //  - unlimplay.com: la página del embed trae en texto plano un campo
 //    "direct":"https://sN.vimeos.net/hls2/.../master.m3u8?..." — mismo estilo
 //    de CDN firmado que uqload, sin necesidad de desempaquetar nada.
@@ -309,8 +310,23 @@ async function _resolveFinal(url: string): Promise<PrismStream | null> {
   return null;
 }
 
+/**
+ * La ruta actual de un embed de unlimplay: `/f/embed/...`.
+ *
+ * El sitio guarda enlaces con rutas viejas —`/play/embed/...` y
+ * `/play.php/embed/...`— y con esas devuelve su portada en vez del embed, asi
+ * que el reproductor abria la pagina de inicio del sitio. Medido con los
+ * mismos titulos: `/play.php/embed/movie/7131` y `/play/embed/movie/7131` no
+ * traen nada, y `/f/embed/movie/7131` si. Las que hoy funcionan con
+ * `/play/embed/` tambien funcionan con `/f/embed/`, o sea que normalizar no le
+ * saca nada a las que ya andaban.
+ */
+function _unlimplayAlDia(url: string): string {
+  return url.replace(/\/(?:play\.php|play|f)\/embed\//, '/f/embed/');
+}
+
 async function _resolveUnlimplay(url: string): Promise<PrismStream | null> {
-  const html = await _get(url);
+  const html = await _get(_unlimplayAlDia(url));
   if (typeof html !== 'string') return null;
   const m = /"direct[^"]*":"([^"]+\.m3u8[^"]*)"/.exec(html);
   if (!m) return null;
@@ -372,7 +388,13 @@ export async function watch(url: string): Promise<PrismWatch> {
   const streams: PrismStream[] = [];
   for (const link of links) {
     if (_NEVER_NATIVE_HOSTS.some((h) => link.url.indexOf(h) !== -1)) continue;
-    streams.push({ url: link.url, quality: link.name || 'Servidor' });
+    // Se normaliza acá también, y no solo al resolver: esta es la dirección que
+    // se le entrega a la app, y es la que abre el navegador interno cuando el
+    // camino nativo no alcanza. Con la ruta vieja, ahí se veía la portada del
+    // sitio en vez del reproductor.
+    const url =
+      link.url.indexOf('unlimplay.com') !== -1 ? _unlimplayAlDia(link.url) : link.url;
+    streams.push({ url, quality: link.name || 'Servidor' });
   }
   return { streams, pageUrl: fullUrl };
 }

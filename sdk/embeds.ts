@@ -66,6 +66,7 @@ export async function resolveEmbed(
     else if (s.includes('mp4upload')) result = await resolveMp4upload(embedUrl, referer);
     else if (s.includes('mediafire')) result = await resolveMediafire(embedUrl, referer);
     else if (s.includes('hexload')) result = await resolveHexload(embedUrl, referer);
+    else if (s.includes('firestream')) result = await resolveFirestream(embedUrl, referer);
     else if (s.includes('savefiles') || s.includes('streamhls'))
       result = await resolveSavefiles(embedUrl, referer);
     // ANTES que streamwish: bysekoze estaba en esa lista y nunca resolvió,
@@ -838,6 +839,101 @@ export async function resolveHexload(
   const m = /"url"\s*:\s*"([^"]+)"/.exec(raw);
   if (!m) {
     console.log('[hexload] el POST no devolvió ninguna url');
+    return null;
+  }
+  return {
+    url: m[1].replace(/\\\//g, '/'),
+    headers: { Referer: `https://${host}/` },
+  };
+}
+
+/**
+ * POST con cuerpo JSON. `_postForm` manda formulario, que no sirve donde el
+ * servidor exige `application/json`.
+ */
+async function _postJson(
+  url: string,
+  cuerpo: unknown,
+  referer: string,
+): Promise<string | null> {
+  try {
+    return await sendMessage(
+      'request',
+      JSON.stringify([
+        url,
+        {
+          method: 'post',
+          headers: {
+            'Content-Type': 'application/json',
+            Referer: referer,
+          },
+          data: JSON.stringify(cuerpo),
+        },
+      ]),
+    );
+  } catch (e) {
+    console.log(`[postJson] FAIL ${url.slice(0, 45)} :: ${(e as Error)?.message ?? e}`);
+    return null;
+  }
+}
+
+/**
+ * firestream.to — la página trae un vale de un solo uso; se cambia por la URL.
+ *
+ * El HTML no lleva el vídeo, pero sí dos cosas en TEXTO PLANO: un JSON con los
+ * datos del vídeo y un `token-blob`. Ese vale se manda a
+ * `/api/videos/<código>/resolve` y la respuesta ya trae el `.m3u8` firmado.
+ *
+ * La página además resuelve una prueba de trabajo (SHA-256 con ceros a la
+ * izquierda) antes de reproducir, y eso hacía pensar que no se podía sin
+ * ejecutar JS. Leyendo su código se ve que esa prueba es solo para CONTAR la
+ * visita —va a `/api/videos/<código>/view`— y no interviene para nada en
+ * conseguir el vídeo. Se saltea entera.
+ *
+ * El vale es de un solo uso: hay que pedir la página y canjearlo en el momento,
+ * no sirve guardarlo.
+ */
+export async function resolveFirestream(
+  url: string,
+  referer: string,
+): Promise<ResolvedEmbed | null> {
+  const host = _hostOf(url) || 'firestream.to';
+  const codigo = _codigoDe(url);
+  if (!codigo) return null;
+
+  const html = await fetchEmbed(url, referer || `https://${host}/`);
+  if (typeof html !== 'string') return null;
+
+  // Algunas veces la propia página ya trae la URL firmada; ahí no hace falta
+  // canjear nada.
+  const yaFirmada = /"signedVideoUrl"\s*:\s*"([^"]+)"/.exec(html);
+  if (yaFirmada && yaFirmada[1] && yaFirmada[1] !== 'null') {
+    return {
+      url: yaFirmada[1].replace(/\\\//g, '/'),
+      headers: { Referer: `https://${host}/` },
+    };
+  }
+
+  const vale = /<script[^>]+id="token-blob"[^>]*>([^<]+)<\/script>/.exec(html);
+  if (!vale) {
+    console.log('[firestream] la página no trae el vale para canjear');
+    return null;
+  }
+
+  const raw = await _postJson(
+    `https://${host}/api/videos/${encodeURIComponent(codigo)}/resolve`,
+    { blob: vale[1].trim() },
+    url,
+  );
+  if (!raw) return null;
+
+  // Se lee con regex y no con JSON.parse para no romperse si el host agrega
+  // campos o envuelve la respuesta.
+  const m =
+    /"signedVideoUrl"\s*:\s*"([^"]+)"/.exec(raw) ??
+    /"signedVideoSdUrl"\s*:\s*"([^"]+)"/.exec(raw);
+  if (!m) {
+    console.log('[firestream] el canje no devolvió ninguna url');
     return null;
   }
   return {

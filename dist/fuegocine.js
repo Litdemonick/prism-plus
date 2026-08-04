@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.1.6
+// @version      1.1.7
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -182,6 +182,7 @@ async function resolveEmbed(server, embedUrl, referer) {
     else if (s.includes("mp4upload")) result = await resolveMp4upload(embedUrl, referer);
     else if (s.includes("mediafire")) result = await resolveMediafire(embedUrl, referer);
     else if (s.includes("hexload")) result = await resolveHexload(embedUrl, referer);
+    else if (s.includes("firestream")) result = await resolveFirestream(embedUrl, referer);
     else if (s.includes("savefiles") || s.includes("streamhls"))
       result = await resolveSavefiles(embedUrl, referer);
     else if (s.includes("bysekoze") || s.includes("byse."))
@@ -593,6 +594,63 @@ async function resolveHexload(url, referer) {
     headers: { Referer: `https://${host}/` }
   };
 }
+async function _postJson(url, cuerpo, referer) {
+  var _a;
+  try {
+    return await sendMessage(
+      "request",
+      JSON.stringify([
+        url,
+        {
+          method: "post",
+          headers: {
+            "Content-Type": "application/json",
+            Referer: referer
+          },
+          data: JSON.stringify(cuerpo)
+        }
+      ])
+    );
+  } catch (e) {
+    console.log(`[postJson] FAIL ${url.slice(0, 45)} :: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
+    return null;
+  }
+}
+async function resolveFirestream(url, referer) {
+  var _a;
+  const host = _hostOf(url) || "firestream.to";
+  const codigo = _codigoDe(url);
+  if (!codigo) return null;
+  const html = await fetchEmbed(url, referer || `https://${host}/`);
+  if (typeof html !== "string") return null;
+  const yaFirmada = /"signedVideoUrl"\s*:\s*"([^"]+)"/.exec(html);
+  if (yaFirmada && yaFirmada[1] && yaFirmada[1] !== "null") {
+    return {
+      url: yaFirmada[1].replace(/\\\//g, "/"),
+      headers: { Referer: `https://${host}/` }
+    };
+  }
+  const vale = /<script[^>]+id="token-blob"[^>]*>([^<]+)<\/script>/.exec(html);
+  if (!vale) {
+    console.log("[firestream] la p\xE1gina no trae el vale para canjear");
+    return null;
+  }
+  const raw = await _postJson(
+    `https://${host}/api/videos/${encodeURIComponent(codigo)}/resolve`,
+    { blob: vale[1].trim() },
+    url
+  );
+  if (!raw) return null;
+  const m = (_a = /"signedVideoUrl"\s*:\s*"([^"]+)"/.exec(raw)) != null ? _a : /"signedVideoSdUrl"\s*:\s*"([^"]+)"/.exec(raw);
+  if (!m) {
+    console.log("[firestream] el canje no devolvi\xF3 ninguna url");
+    return null;
+  }
+  return {
+    url: m[1].replace(/\\\//g, "/"),
+    headers: { Referer: `https://${host}/` }
+  };
+}
 async function resolveSavefiles(url, referer) {
   const host = _hostOf(url) || "savefiles.com";
   const code = _codigoDe(url);
@@ -940,8 +998,11 @@ async function _resolveFinal(url) {
   if (res == null ? void 0 : res.url) return { url: res.url, quality: "Servidor", headers: res.headers };
   return null;
 }
+function _unlimplayAlDia(url) {
+  return url.replace(/\/(?:play\.php|play|f)\/embed\//, "/f/embed/");
+}
 async function _resolveUnlimplay(url) {
-  const html = await _get(url);
+  const html = await _get(_unlimplayAlDia(url));
   if (typeof html !== "string") return null;
   const m = /"direct[^"]*":"([^"]+\.m3u8[^"]*)"/.exec(html);
   if (!m) return null;
@@ -994,7 +1055,8 @@ async function watch(url) {
   const streams = [];
   for (const link of links) {
     if (_NEVER_NATIVE_HOSTS.some((h) => link.url.indexOf(h) !== -1)) continue;
-    streams.push({ url: link.url, quality: link.name || "Servidor" });
+    const url2 = link.url.indexOf("unlimplay.com") !== -1 ? _unlimplayAlDia(link.url) : link.url;
+    streams.push({ url: url2, quality: link.name || "Servidor" });
   }
   return { streams, pageUrl: fullUrl };
 }
@@ -1047,6 +1109,19 @@ var _KNOWN_EMBED_HOSTS = {
   sendvid: 'Sendvid', uqload: 'Uqload',
   upstream: 'Upstream',
 };
+// Solo la RUTA, sin lo que venga despues de ? o #.
+//
+// Mirar la direccion entera daba falsos positivos que terminaban en "Error de
+// reproduccion": hay servidores que son una pagina normal y llevan el video de
+// verdad DENTRO de un parametro, por ejemplo
+//   https://un-blog.blogspot.com/?player=fluidplayer&link=https%3A%2F%2F...%2Fpeli.mp4
+// Eso termina en ".mp4", asi que se daba por buena la pagina y se le mandaba al
+// reproductor un HTML en vez de un video. Con la ruta sola, esa direccion ya no
+// pasa por directa y sigue su camino normal hasta resolverse.
+function _rutaDe(u) {
+  var sinAncla = u.split('#')[0];
+  return sinAncla.split('?')[0];
+}
 function _isDirectMediaUrl(u) {
   if (typeof u !== 'string') return false;
   if (/\/embed\//i.test(u)) return false;
@@ -1054,10 +1129,10 @@ function _isDirectMediaUrl(u) {
   for (var _k in _KNOWN_EMBED_HOSTS) {
     if (lower.indexOf(_k) !== -1) return false;
   }
-  return /\.(mp4|m3u8|mkv|webm)(\?|#|$)/i.test(u);
+  return /\.(mp4|m3u8|mkv|webm)$/i.test(_rutaDe(u));
 }
 function _mediaType(u) {
-  return /\.mp4(\?|#|$)/i.test(u) ? 'mp4' : 'hls';
+  return /\.mp4$/i.test(_rutaDe(u)) ? 'mp4' : 'hls';
 }
 
 export default class extends Extension {
