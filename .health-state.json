@@ -8,8 +8,8 @@
     "lastReason": null
   },
   "io.prismhub.fuegocine": {
-    "consecutiveFailures": 0,
-    "lastReason": null
+    "consecutiveFailures": 1,
+    "lastReason": "broken"
   },
   "io.prismhub.hentaila": {
     "consecutiveFailures": 0,
