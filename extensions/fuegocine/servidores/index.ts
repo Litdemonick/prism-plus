@@ -35,7 +35,12 @@ import * as upns from './upns';
 import * as vimeos from './vimeos';
 
 export { type ServidorResuelto } from './comun';
-export { rutaAlDia as unlimplayAlDia, MARCA_MULTI as unlimplayMarcaMulti } from './unlimplay';
+export {
+  rutaAlDia as unlimplayAlDia,
+  MARCA_MULTI as unlimplayMarcaMulti,
+  servidoresDe as servidoresDeUnlimplay,
+  type ServidorDeUnlimplay,
+} from './unlimplay';
 
 export interface Servidor {
   /** El botón como lo muestra el sitio. */
@@ -106,6 +111,31 @@ export const SERVIDORES: Servidor[] = [
     botones: 49,
     nativo: true,
     resolver: vimeos.resolver,
+  },
+  // ── Los que vienen ADENTRO de UA ────────────────────────────────────────
+  //
+  // unlimplay es un reproductor con nueve servidores adentro, y su página los
+  // publica en texto plano (ver `servidoresDe` en la carpeta de unlimplay).
+  // Ahora se ofrecen como botones propios en vez de mandar al usuario al
+  // navegador, que es donde estaban los anuncios.
+  //
+  // Medido el 2026-08-05 con From 3x5, uno por uno y pidiendo el vídeo:
+  //
+  //   ⚡ Goodstream   1551 ms · 200 hls ok   (ya tenía ficha propia arriba)
+  //   ⚡ Vidhide      2020 ms · 200 hls ok   dramiyos-cdn
+  //   ⚡ Directo 2    ya viene resuelto, es el m3u8 firmado
+  //   🌐 Streamhg · Filemoon · Voe · Streamwish · Netu · Doodstream
+  //
+  // Los seis que van al navegador NO están medidos como imposibles: es que esta
+  // extensión todavía no tiene su resolver. Varios existen en otras del repo
+  // —voe está en cinco, streamwish en jkanime— y traerlos acá es copiar y
+  // medir, no investigar. Queda como lo próximo.
+  {
+    boton: 'UA Vidhide',
+    hosts: ['vidhidepro', 'vidhide', 'vhide'],
+    botones: 0,
+    nativo: true,
+    resolver: goodstream.resolver,
   },
   {
     boton: 'DL',

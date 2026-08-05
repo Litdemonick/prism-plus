@@ -68,6 +68,72 @@ export function rutaAlDia(url: string): string {
  */
 export const MARCA_MULTI = '#multi';
 
+/** Un servidor de los que unlimplay lleva adentro. */
+export interface ServidorDeUnlimplay {
+  nombre: string;
+  url: string;
+  /** true si ya viene resuelto y no hay nada que pedir (los "direct"). */
+  yaResuelto: boolean;
+}
+
+/**
+ * Los servidores que unlimplay lleva ADENTRO.
+ *
+ * unlimplay no es un servidor: es un reproductor con su propio menú. La página
+ * publica ese menú en texto plano, en un `const EMBEDS = {...}` con los idiomas
+ * arriba y los servidores adentro de cada uno:
+ *
+ *   {"latino":{"direct":"https://s8.vimeos.net/…master.m3u8?t=…",
+ *              "goodstream":"https://goodstream.one/embed-….html",
+ *              "streamhg":"https://hlswish.com/e/…",
+ *              "filemoon":"https://filemoon.sx/e/…",
+ *              "voe":"https://voe.sx/e/…",
+ *              "streamwish":"https://streamwish.to/e/…",
+ *              "vidhide":"https://vidhidepro.com/v/…",
+ *              "netu":"https://waaw.to/f/…",
+ *              "direct 2":"https://s8.vimeos.net/…"}}
+ *
+ * Sacarlos de ahí es lo que permite ofrecerlos como botones propios en vez de
+ * mandar al usuario al navegador a buscarlos: la mayoría son servidores que el
+ * repo ya sabe resolver, así que pasan a reproducir en la app.
+ *
+ * Los `direct` son un regalo: **ya vienen resueltos**, son el m3u8 firmado. No
+ * hay que pedir nada más.
+ *
+ * Cuesta UN pedido (la página del embed), y es el mismo que igual haría falta
+ * para resolver el Direct.
+ */
+export async function servidoresDe(
+  url: string,
+  referer: string,
+): Promise<ServidorDeUnlimplay[]> {
+  const html = await pedir(rutaAlDia(url), referer);
+  if (typeof html !== 'string') return [];
+
+  const ini = html.indexOf('const EMBEDS');
+  if (ini === -1) return [];
+  // Se corta un trozo generoso y se leen los pares con regex: no se hace
+  // JSON.parse porque el bloque sigue con más cosas después y encontrarle el
+  // cierre exacto es más frágil que buscar los pares que interesan.
+  const bloque = html.slice(ini, ini + 6000);
+
+  const salida: ServidorDeUnlimplay[] = [];
+  const vistos: Record<string, boolean> = {};
+  for (const m of bloque.matchAll(/"([a-z0-9 _-]{3,20})"\s*:\s*"(https?:\/\/[^"]+)"/gi)) {
+    const nombre = m[1].trim();
+    const dir = m[2].replace(/\\\//g, '/');
+    if (vistos[nombre]) continue;
+    vistos[nombre] = true;
+    salida.push({
+      nombre,
+      url: dir,
+      // Los "direct" ya son el m3u8; el resto son páginas de embed.
+      yaResuelto: /\.m3u8/.test(dir),
+    });
+  }
+  return salida;
+}
+
 export async function resolver(
   url: string,
   referer: string,

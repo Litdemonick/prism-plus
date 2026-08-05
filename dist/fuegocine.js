@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.2.1
+// @version      1.3.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -352,6 +352,28 @@ function rutaAlDia(url) {
   return url.replace(/\/(?:play\.php|play|f)\/embed\//, "/f/embed/");
 }
 var MARCA_MULTI = "#multi";
+async function servidoresDe(url, referer) {
+  const html = await pedir(rutaAlDia(url), referer);
+  if (typeof html !== "string") return [];
+  const ini = html.indexOf("const EMBEDS");
+  if (ini === -1) return [];
+  const bloque = html.slice(ini, ini + 6e3);
+  const salida = [];
+  const vistos = {};
+  for (const m of bloque.matchAll(/"([a-z0-9 _-]{3,20})"\s*:\s*"(https?:\/\/[^"]+)"/gi)) {
+    const nombre = m[1].trim();
+    const dir = m[2].replace(/\\\//g, "/");
+    if (vistos[nombre]) continue;
+    vistos[nombre] = true;
+    salida.push({
+      nombre,
+      url: dir,
+      // Los "direct" ya son el m3u8; el resto son páginas de embed.
+      yaResuelto: /\.m3u8/.test(dir)
+    });
+  }
+  return salida;
+}
 async function resolver7(url, referer) {
   if (url.indexOf(MARCA_MULTI) !== -1) return null;
   const html = await pedir(rutaAlDia(url), referer);
@@ -434,6 +456,31 @@ var SERVIDORES = [
     botones: 49,
     nativo: true,
     resolver: resolver9
+  },
+  // ── Los que vienen ADENTRO de UA ────────────────────────────────────────
+  //
+  // unlimplay es un reproductor con nueve servidores adentro, y su página los
+  // publica en texto plano (ver `servidoresDe` en la carpeta de unlimplay).
+  // Ahora se ofrecen como botones propios en vez de mandar al usuario al
+  // navegador, que es donde estaban los anuncios.
+  //
+  // Medido el 2026-08-05 con From 3x5, uno por uno y pidiendo el vídeo:
+  //
+  //   ⚡ Goodstream   1551 ms · 200 hls ok   (ya tenía ficha propia arriba)
+  //   ⚡ Vidhide      2020 ms · 200 hls ok   dramiyos-cdn
+  //   ⚡ Directo 2    ya viene resuelto, es el m3u8 firmado
+  //   🌐 Streamhg · Filemoon · Voe · Streamwish · Netu · Doodstream
+  //
+  // Los seis que van al navegador NO están medidos como imposibles: es que esta
+  // extensión todavía no tiene su resolver. Varios existen en otras del repo
+  // —voe está en cinco, streamwish en jkanime— y traerlos acá es copiar y
+  // medir, no investigar. Queda como lo próximo.
+  {
+    boton: "UA Vidhide",
+    hosts: ["vidhidepro", "vidhide", "vhide"],
+    botones: 0,
+    nativo: true,
+    resolver: resolver5
   },
   {
     boton: "DL",
@@ -651,6 +698,10 @@ async function detail(url) {
     extra: Object.keys(extra).length > 0 ? extra : void 0
   };
 }
+function _conMayuscula(s) {
+  const n = s.toLowerCase() === "direct 2" ? "directo 2" : s;
+  return n.charAt(0).toUpperCase() + n.slice(1);
+}
 function _conEsquema(url) {
   const u = url.trim();
   if (u.indexOf("//") === 0) return `https:${u}`;
@@ -725,12 +776,20 @@ async function watch(url) {
       nativo: ficha == null ? void 0 : ficha.nativo
     });
     if (esUnlimplay) {
-      fichas.push((_b = ficha == null ? void 0 : ficha.boton) != null ? _b : "");
-      streams.push({
-        url: `${url2}${MARCA_MULTI}`,
-        quality: `${link.name || "UA"} Multi`,
-        nativo: false
-      });
+      const adentro = await servidoresDe(url2, `${BASE}/`);
+      for (const sv of adentro) {
+        if (sv.nombre.toLowerCase() === "direct") continue;
+        const fichaAdentro = fichaDe(sv.url);
+        fichas.push((_b = fichaAdentro == null ? void 0 : fichaAdentro.boton) != null ? _b : "");
+        streams.push({
+          url: sv.url,
+          // Se deja ver de dónde salió, que si no "goodstream" a secas parece
+          // un servidor del sitio y no uno de adentro de UA.
+          quality: `UA ${_conMayuscula(sv.nombre)}`,
+          // Un "direct 2" ya viene resuelto: es un m3u8 y reproduce derecho.
+          nativo: sv.yaResuelto ? true : fichaAdentro == null ? void 0 : fichaAdentro.nativo
+        });
+      }
     }
   }
   const orden = streams.map((s, i) => ({ s, boton: fichas[i], i }));

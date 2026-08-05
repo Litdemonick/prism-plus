@@ -5,6 +5,7 @@ import {
   resolverServidor,
   unlimplayAlDia,
   unlimplayMarcaMulti,
+  servidoresDeUnlimplay,
   type ServidorResuelto,
 } from './servidores';
 import { b64aTexto } from './servidores/comun';
@@ -316,6 +317,12 @@ export async function detail(url: string): Promise<PrismDetail> {
  * hacia, el resolver devolvia nulo y el servidor terminaba abriendose en el
  * navegador interno (con sus anuncios) pudiendo reproducirse en la app.
  */
+/** "goodstream" -> "Goodstream", "direct 2" -> "Directo 2". */
+function _conMayuscula(s: string): string {
+  const n = s.toLowerCase() === 'direct 2' ? 'directo 2' : s;
+  return n.charAt(0).toUpperCase() + n.slice(1);
+}
+
 function _conEsquema(url: string): string {
   const u = url.trim();
   if (u.indexOf('//') === 0) return `https:${u}`;
@@ -424,27 +431,34 @@ export async function watch(url: string): Promise<PrismWatch> {
       nativo: ficha?.nativo,
     });
 
-    // El segundo botón de unlimplay: la MISMA página, pero para abrirla en el
-    // navegador interno y usar SU selector.
+    // unlimplay no es un servidor: es un reproductor con NUEVE adentro. Su
+    // página publica el menú en texto plano, así que en vez de mandar al
+    // usuario al navegador a elegir ahí —con los anuncios que eso trae— se
+    // sacan y se ofrecen como botones propios.
     //
-    // unlimplay no es un servidor, son nueve: adentro de su reproductor hay un
-    // menú con Direct, Goodstream, Streamhg, Filemoon, Voe, Streamwish, Vidhide
-    // y Netu. Lo que esta extensión resuelve es el "Direct" —el campo `direct`
-    // de la página, que da un m3u8 y reproduce en la app—, así que con un solo
-    // botón el usuario se quedaba sin los otros ocho: o le tocaba el directo, o
-    // nada.
+    // La mayoría son servidores que este repo ya sabe resolver, así que pasan a
+    // reproducir en el reproductor de la app. Y los "direct" ni siquiera hay
+    // que resolverlos: la página los publica ya como m3u8 firmado.
     //
-    // Ahora van los dos: "UA Directo" con el rayo, que es el que se resuelve, y
-    // "UA Multi" con el mundo, que abre la página para que elija ahí. La marca
-    // en el fragmento es lo único que los distingue —son la misma dirección— y
-    // es lo que hace que el resolver devuelva null para el segundo.
+    // Cuesta UN pedido, el de la página del embed — el mismo que igual haría
+    // falta para resolver el Direct. Si falla, no pasa nada: queda el botón de
+    // arriba, que es lo que había antes.
     if (esUnlimplay) {
-      fichas.push(ficha?.boton ?? '');
-      streams.push({
-        url: `${url}${unlimplayMarcaMulti}`,
-        quality: `${link.name || 'UA'} Multi`,
-        nativo: false,
-      });
+      const adentro = await servidoresDeUnlimplay(url, `${BASE}/`);
+      for (const sv of adentro) {
+        // El "direct" ya está arriba como "UA Directo": no se repite.
+        if (sv.nombre.toLowerCase() === 'direct') continue;
+        const fichaAdentro = fichaDe(sv.url);
+        fichas.push(fichaAdentro?.boton ?? '');
+        streams.push({
+          url: sv.url,
+          // Se deja ver de dónde salió, que si no "goodstream" a secas parece
+          // un servidor del sitio y no uno de adentro de UA.
+          quality: `UA ${_conMayuscula(sv.nombre)}`,
+          // Un "direct 2" ya viene resuelto: es un m3u8 y reproduce derecho.
+          nativo: sv.yaResuelto ? true : fichaAdentro?.nativo,
+        });
+      }
     }
   }
 
