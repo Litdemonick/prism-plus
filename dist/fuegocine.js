@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.1.10
+// @version      1.2.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -649,7 +649,6 @@ async function detail(url) {
     extra: Object.keys(extra).length > 0 ? extra : void 0
   };
 }
-var _NEVER_NATIVE_HOSTS = ["drive.google.com"];
 function _conEsquema(url) {
   const u = url.trim();
   if (u.indexOf("//") === 0) return `https:${u}`;
@@ -686,7 +685,11 @@ function _parseSvLinks(html) {
   const re = /lang:\s*"([^"]*)"\s*,\s*name:\s*"([^"]*)"\s*,\s*quality:\s*"([^"]*)"\s*,\s*url:\s*"([^"]*)"/g;
   const out = [];
   for (const m of block.matchAll(re)) {
-    out.push({ name: m[2].replace(/&#\d+;/g, "").trim(), url: m[4] });
+    out.push({
+      name: m[2].replace(/&#\d+;/g, "").trim(),
+      calidad: m[3].replace(/&#\d+;/g, "").replace(/^#/, "").trim(),
+      url: m[4]
+    });
   }
   return out;
 }
@@ -705,17 +708,25 @@ async function watch(url) {
   if (typeof html !== "string") return { streams: [], pageUrl: fullUrl };
   const links = _parseSvLinks(html);
   const streams = [];
+  const fichas = [];
   for (const link of links) {
-    if (_NEVER_NATIVE_HOSTS.some((h) => link.url.indexOf(h) !== -1)) continue;
     const url2 = link.url.indexOf("unlimplay.com") !== -1 ? rutaAlDia(link.url) : link.url;
     const destino = _destinoDe(url2);
+    const ficha = destino ? fichaDe(destino) : null;
+    fichas.push((_a = ficha == null ? void 0 : ficha.boton) != null ? _a : "");
     streams.push({
       url: url2,
       quality: link.name || "Servidor",
-      nativo: destino ? (_a = fichaDe(destino)) == null ? void 0 : _a.nativo : void 0
+      nativo: ficha == null ? void 0 : ficha.nativo,
+      // La calidad que declara el propio sitio ("FHD (1080p)", "Multicalidad").
+      // Sale del bloque _SV_LINKS, así que no cuesta ni un pedido.
+      label: link.calidad || void 0
     });
   }
-  return { streams, pageUrl: fullUrl };
+  const orden = streams.map((s, i) => ({ s, boton: fichas[i], i }));
+  const peso = (x) => x.boton === "FC" ? 0 : x.s.nativo === false ? 2 : 1;
+  orden.sort((a, b) => peso(a) - peso(b) || a.i - b.i);
+  return { streams: orden.map((x) => x.s), pageUrl: fullUrl };
 }
 
 // OJO: nunca usar url.indexOf('.mp4')/('.m3u8') suelto — algunos dominios de

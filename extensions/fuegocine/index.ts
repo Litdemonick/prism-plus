@@ -293,14 +293,12 @@ export async function detail(url: string): Promise<PrismDetail> {
 //  - unlimplay.com: la página del embed trae en texto plano un campo
 //    "direct":"https://sN.vimeos.net/hls2/.../master.m3u8?..." — mismo estilo
 //    de CDN firmado que uqload, sin necesidad de desempaquetar nada.
-// drive.google.com (requiere sesión/token, muy inestable para streaming
-// directo) se descarta. upns.online (US) es una SPA sin datos en el HTML
-// estático — no resoluble por regex acá — PERO se deja pasar sin resolver
-// en vez de ocultarlo: confirmado en vivo que cuando el resolver nativo
-// falla, PrismHub reintenta ESE mismo servidor con su propio WebView-sniffer
-// (ejecuta JS real), que sí puede lograrlo donde este scraping estático no
-// puede. Ocultarlo de la lista solo le quita esa segunda oportunidad.
-const _NEVER_NATIVE_HOSTS = ['drive.google.com'];
+// Antes acá se ocultaba drive.google.com. Se quitó: el sitio lo ofrece y el
+// usuario lo veía en la web pero no en la app —confirmado con Superman, donde
+// la página lista FS, US, Drive y UA y la app mostraba solo tres—. Ahora sale
+// con el mundo, como US: si el camino nativo no alcanza, la app lo reintenta
+// con su navegador interno, que es donde Drive sí reproduce. Ocultarlo solo le
+// quitaba esa oportunidad.
 
 /**
  * Le pone `https:` a las direcciones que vienen sin protocolo.
@@ -352,15 +350,23 @@ async function _resolveServerUrl(url: string): Promise<PrismStream | null> {
   return _resolveFinal(destino);
 }
 
-function _parseSvLinks(html: string): { name: string; url: string }[] {
+// El sitio publica la calidad de cada servidor en el mismo bloque, y hasta
+// ahora se estaba tirando: el patrón la capturaba y nadie la usaba. Es lo que
+// se ve en la página como "#FHD (1080p)" o "#Multicalidad", así que sale
+// gratis — no hay que resolver nada para saberla.
+function _parseSvLinks(html: string): { name: string; url: string; calidad: string }[] {
   const start = html.indexOf('const _SV_LINKS');
   if (start === -1) return [];
   const end = html.indexOf('</script>', start);
   const block = html.slice(start, end === -1 ? undefined : end);
   const re = /lang:\s*"([^"]*)"\s*,\s*name:\s*"([^"]*)"\s*,\s*quality:\s*"([^"]*)"\s*,\s*url:\s*"([^"]*)"/g;
-  const out: { name: string; url: string }[] = [];
+  const out: { name: string; url: string; calidad: string }[] = [];
   for (const m of block.matchAll(re)) {
-    out.push({ name: m[2].replace(/&#\d+;/g, '').trim(), url: m[4] });
+    out.push({
+      name: m[2].replace(/&#\d+;/g, '').trim(),
+      calidad: m[3].replace(/&#\d+;/g, '').replace(/^#/, '').trim(),
+      url: m[4],
+    });
   }
   return out;
 }
@@ -384,8 +390,10 @@ export async function watch(url: string): Promise<PrismWatch> {
 
   const links = _parseSvLinks(html);
   const streams: PrismStream[] = [];
+  // Con qué ficha se reconoció cada stream, en el mismo orden. Se usa para
+  // ordenar más abajo.
+  const fichas: string[] = [];
   for (const link of links) {
-    if (_NEVER_NATIVE_HOSTS.some((h) => link.url.indexOf(h) !== -1)) continue;
     // Se normaliza acá también, y no solo al resolver: esta es la dirección que
     // se le entrega a la app, y es la que abre el navegador interno cuando el
     // camino nativo no alcanza. Con la ruta vieja, ahí se veía la portada del
@@ -397,11 +405,45 @@ export async function watch(url: string): Promise<PrismWatch> {
     // de este sitio son etiquetas de dos letras ("FC", "UA", "GS(ads)") y todos
     // los envoltorios de blogspot son iguales por fuera.
     const destino = _destinoDe(url);
+    const ficha = destino ? fichaDe(destino) : null;
+    // Se guarda con qué ficha se reconoció, para ordenar abajo sin tener que
+    // volver a desenvolver el envoltorio de blogspot.
+    fichas.push(ficha?.boton ?? '');
     streams.push({
       url,
       quality: link.name || 'Servidor',
-      nativo: destino ? fichaDe(destino)?.nativo : undefined,
+      nativo: ficha?.nativo,
+      // La calidad que declara el propio sitio ("FHD (1080p)", "Multicalidad").
+      // Sale del bloque _SV_LINKS, así que no cuesta ni un pedido.
+      label: link.calidad || undefined,
     });
   }
-  return { streams, pageUrl: fullUrl };
+
+  // FC primero; después el resto de los que reproducen en la app; los de
+  // navegador, al final.
+  //
+  // El cliente toma el PRIMER servidor de la lista como el inicial, y hasta
+  // ahora ese era simplemente el que el sitio listara antes. Medido el
+  // 2026-08-05 sobre seis títulos, eso daba dos problemas:
+  //
+  //   · **FC quedaba atrás siendo el mejor.** Es un mp4 directo y va a
+  //     27-107 Mbps medidos; los demás son listas HLS de 2 a 12 Mbps. Cuando
+  //     está, es el que conviene abrir.
+  //   · **En un título el primario era US, que abre el NAVEGADOR.** O sea que
+  //     ese episodio arrancaba fuera del reproductor de la app sin motivo,
+  //     habiendo un UA nativo en la misma lista.
+  //
+  // Es un reordenamiento, no un filtro: están todos y en su orden original
+  // dentro de cada grupo. Si el título no tiene FC, no cambia nada.
+  //
+  // Ojo con FC igual: hay títulos suyos que se cortan, y no es el servidor sino
+  // cómo quedó armado el archivo (el audio entero al final, lejos del vídeo —
+  // ver la carpeta `directo/`). Cuando pasa, la app cae sola al siguiente.
+  const orden = streams.map((s, i) => ({ s, boton: fichas[i], i }));
+  const peso = (x: { s: PrismStream; boton: string }) =>
+    x.boton === 'FC' ? 0 : x.s.nativo === false ? 2 : 1;
+  // El `i` desempata para que dentro de cada grupo se respete el orden del sitio.
+  orden.sort((a, b) => peso(a) - peso(b) || a.i - b.i);
+
+  return { streams: orden.map((x) => x.s), pageUrl: fullUrl };
 }
