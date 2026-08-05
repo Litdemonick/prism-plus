@@ -101,7 +101,7 @@
     {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
-      "version": "1.11.4",
+      "version": "1.12.0",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -110,8 +110,8 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "e23ed69d65ccc9f8ab6cb9dbfdeb23fbc73b8f7f781d86ce1bf5f25c5e5448fe",
-      "signature": "PCQfNEPfKY3jLYBvAhtRnsxaRfkFI4rr4k4QO561bKmLCXg/nFOezJ0aadxedTpEiWo5thGkah5FAEW+V7rEBQ=="
+      "sha256": "e2e9d06a647627b984ff6d20188092a3196f12757fb9184cdbbb94de1fe9d283",
+      "signature": "sbFzFcjQ6tzGkpFZ4ouYQqWCZiJN18M6oWqAAEHAU4Lhaz7SupRqHAicbxvBzbOjZCxImpGr7Kt2FYynVEa6CA=="
     },
     {
       "name": "LatAnime",

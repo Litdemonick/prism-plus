@@ -1,5 +1,5 @@
 import { matchFirst, matchGroups, stripTags, decodeEntities } from '../../sdk/html';
-import { resolveEmbed, resolveStreamtape } from '../../sdk/embeds';
+import { fichaDe, resolverServidor, resolverReproductorPropio } from './servidores';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream } from '../../sdk/types';
 
 // sendMessage("request", ...) usa el dio de PrismHub (con UA, cookies y redirecciones),
@@ -582,15 +582,14 @@ function _rawServerStream(server: JKServer): PrismStream | null {
   raw = _resolveRedirect(raw);
   const name = server.server || 'Embed';
   const langSuffix = server.lang === 1 ? ' LAT' : server.lang === 2 ? ' CAST' : '';
-  // Mundo para los de _JS_ONLY_HOSTS: esta extensión ya los manda derecho al
-  // sniffer sin intentar resolverlos, así que se sabe con certeza que abren en
-  // el navegador. Del resto no se dice nada acá a propósito — no están medidos
-  // uno por uno todavía, y la app los sigue decidiendo como venía haciéndolo.
+  // El rayo/mundo sale de la tabla de `servidores/`, que es donde está lo que se
+  // midió de cada uno. Los de _JS_ONLY_HOSTS van al navegador sí o sí: esta
+  // extensión ya los manda derecho al sniffer sin intentar resolverlos.
   const soloConJs = _JS_ONLY_HOSTS.some((h) => raw.toLowerCase().indexOf(h) !== -1);
   return {
     url: raw,
     quality: `${name}${langSuffix}`,
-    nativo: soloConJs ? false : undefined,
+    nativo: soloConJs ? false : fichaDe(raw)?.nativo,
   };
 }
 
@@ -614,12 +613,18 @@ export async function watch(url: string): Promise<PrismWatch> {
     const uLow = url.toLowerCase();
     const isDesu = uLow.indexOf('/desu') !== -1 || uLow.indexOf('desudesuka') !== -1;
     const isMagi = uLow.indexOf('/magi') !== -1;
-    if (isDesu) {
-      const stream = await _resolveDesu(url, `${BASE}/`, 'Desu');
-      if (stream) return { streams: [stream], pageUrl: '' };
-    } else if (isMagi) {
-      const stream = await _resolveMagi(url, `${BASE}/`, 'Magi');
-      if (stream) return { streams: [stream], pageUrl: '' };
+    // Los dos salen de la tabla: sus fichas se reconocen justamente por el
+    // nombre en el path (/desu/, /magi/), que es el formato viejo.
+    if (isDesu || isMagi) {
+      const res = await resolverServidor(url, `${BASE}/`);
+      if (res && res.url) {
+        return {
+          streams: [
+            { url: res.url, quality: isDesu ? 'Desu' : 'Magi', headers: res.headers, nativo: true },
+          ],
+          pageUrl: '',
+        };
+      }
     }
     return { streams: [], pageUrl: url };
   }
@@ -721,7 +726,15 @@ export async function watch(url: string): Promise<PrismWatch> {
   // _setServerFailed le pasa la URL del embed a webViewFallback y se abre el
   // reproductor WebView, que con mega.nz funciona. Sacarlo de la lista era
   // quitarle al usuario la única forma que sí tenía de verlo.
-  const usable = resolved;
+  // Mediafire sale de la lista, a pedido del usuario: **no es un servidor de
+  // vídeo sino alojamiento de archivos**, y además reportó que cuando abre se ve
+  // mal (carga la imagen en vez de reproducir). Que la medición diera 206
+  // video/mp4 solo dice que el archivo baja, no que se reproduzca bien.
+  //
+  // Es la única cosa que se saca: todo lo demás sigue en la lista, incluidos los
+  // que van al navegador, porque un botón que abre en el navegador es mucho
+  // mejor que ningún botón.
+  const usable = resolved.filter((s) => (s.url ?? '').toLowerCase().indexOf('mediafire') === -1);
 
   // Direct streams (mp4/m3u8) antes que embeds crudos
   const direct = usable.filter(s => _isDirect(s.url));
@@ -743,169 +756,17 @@ async function _resolveEmbedDio(
   url: string,
   referer: string,
 ): Promise<PrismStream | null> {
-  const label = name;
-  const u = url.toLowerCase();
-
-  if (u.indexOf('voe') !== -1) return _resolveVoeDio(url, label);
-  if (u.indexOf('streamtape') !== -1 || u.indexOf('stape') !== -1) return _resolveStreamtapeDio(url, label);
-  if (u.indexOf('streamwish') !== -1 || u.indexOf('sfastwish') !== -1 ||
-      u.indexOf('wishfast') !== -1 || u.indexOf('vidhide') !== -1) return _resolveStreamwishDio(url, label);
-  if (u.indexOf('mp4upload') !== -1) {
-    // _get() (sendMessage/dio) en vez de resolveEmbed/fetchEmbed: la URL real
-    // ya viene en texto plano en `player.src({ src: "..." })`, sin cifrar —
-    // esta extracción está verificada en vivo con curl, funciona bien. El
-    // bug real que hacía fallar mp4upload SIEMPRE estaba en otro lado (ver
-    // build.mjs: el wrapper hacía url.indexOf('.mp4') suelto, y "mp4upload.com"
-    // como *nombre de dominio* ya contiene esa subcadena — el fast-path
-    // creía que la URL de embed ya era un archivo directo y ni llegaba a
-    // llamar watch(), mucho antes de que este código se ejecutara).
-    try {
-      const html = await _get(url, { Referer: referer });
-      const candidates = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g) ?? [];
-      const real = candidates.find(c => !/\.(?:css|js|jpg|png)/.test(c));
-      if (real) {
-        return {
-          url: real,
-          quality: label,
-          headers: { Referer: 'https://www.mp4upload.com/' },
-        };
-      }
-    } catch {}
-    return null;
-  }
-  // Genérico con SDK
-  try {
-    const res = await resolveEmbed(name, url, referer);
-    if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
-  } catch {}
+  // Todo el enrutado por host vive ahora en `servidores/`: una carpeta por
+  // servidor, con su resolver y lo que se midio de el. Aca solo se le pega la
+  // etiqueta que ve el usuario.
+  const res = await resolverServidor(url, referer);
+  if (res && res.url) return { url: res.url, quality: name, headers: res.headers };
   return null;
 }
 
-// Voe (2024+): formato encrypted JSON en <script type="application/json">
-async function _resolveVoeDio(url: string, label: string): Promise<PrismStream | null> {
-  try {
-    let html = await _get(url, { 'Referer': BASE + '/' });
-    if (!html) return null;
-
-    // Seguir redirección JS al dominio espejo
-    const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html);
-    if (redir) {
-      const mirror = await _get(redir[1], { 'Referer': 'https://voe.sx/' });
-      if (mirror) html = mirror;
-    }
-
-    // Formato 2024: JSON cifrado en <script type="application/json">["..."]</script>
-    const jsonScript = /<script[^>]*type=["']application\/json["'][^>]*>\s*\[\s*"([^"]+)"\s*\]\s*<\/script>/.exec(html);
-    if (jsonScript) {
-      const decoded = _voeDecode(jsonScript[1]);
-      if (decoded) {
-        // Preferir direct_access_url (mp4 plano) sobre el .m3u8: confirmado
-        // en vivo (Streamwish) que el HLS de estos hosts de terceros reparte
-        // los segmentos en un servidor de CDN elegido al azar en cada
-        // resolución, con episodios de inestabilidad real — un mp4 directo
-        // es una sola conexión, sin esa lotería de backend.
-        const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(decoded);
-        if (mp4) return { url: mp4[1].replace(/\\\//g, '/'), quality: label };
-        const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(decoded);
-        if (src) return { url: src[1].replace(/\\\//g, '/'), quality: label };
-        const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, '/'));
-        if (m3u8) return { url: m3u8[1], quality: label };
-      }
-    }
-
-    // Fallbacks para páginas voe más antiguas
-    let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
-    if (m) return { url: m[1], quality: label };
-
-    // atob() decode fallback
-    const atobM = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
-    if (atobM) {
-      try {
-        const dec = _b64decode(atobM[1]);
-        const hls = /['"]hls['"]\s*:\s*['"]([^'"]+)['"]/.exec(dec);
-        if (hls) return { url: hls[1], quality: label };
-      } catch {}
-    }
-
-    m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
-    if (m) return { url: m[0], quality: label };
-  } catch {}
-  return null;
-}
-
-// Streamtape — se delega al SDK.
-//
-// Antes había acá una copia propia que leía el div oculto `get_video`. Ese div
-// trae un token SEÑUELO: pedirlo devuelve `{"status":500}` y el usuario ve
-// "servidor no disponible". El link bueno lo arma el JS de la página, y el SDK
-// ya sabe hacer esa cuenta (ver resolveStreamtape). Tener dos copias significó
-// justamente esto: se arregla una y la otra sigue rota.
-async function _resolveStreamtapeDio(url: string, label: string): Promise<PrismStream | null> {
-  try {
-    const res = await resolveStreamtape(url, BASE + '/');
-    if (res && res.url) return { url: res.url, quality: label, headers: res.headers };
-  } catch {}
-  return null;
-}
-
-// Streamwish / sfastwish / wishfast / vidhide (motor open-source streamwish)
-async function _resolveStreamwishDio(url: string, label: string): Promise<PrismStream | null> {
-  try {
-    const hostM = /^https?:\/\/([^/]+)/.exec(url);
-    const host = hostM ? hostM[1] : null;
-    if (!host) return null;
-
-    const hdrs = { 'Referer': 'https://' + host + '/' };
-
-    // Intentar API JSON: /api/file/{id}?json=1
-    const idM = /\/(?:e|f|d|v)\/([A-Za-z0-9]+)/.exec(url);
-    if (idM) {
-      const id = idM[1];
-      try {
-        const json = await _get(
-          'https://' + host + '/api/file/' + id + '?json=1',
-          { ...hdrs, 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-        );
-        if (json) {
-          const fileM = /"file"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(json);
-          if (fileM) return { url: fileM[1].replace(/\\\//g, '/'), quality: label, headers: hdrs };
-          const mp4M = /"file"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(json);
-          if (mp4M) return { url: mp4M[1].replace(/\\\//g, '/'), quality: label, headers: hdrs };
-        }
-      } catch {}
-    }
-
-    // Fallback: scraping HTML del embed
-    const html = await _get(url, hdrs);
-    if (!html) return null;
-
-    // Buscar en eval(p,a,c,k) desempaquetado
-    const unpacked = _unpackEval(html);
-    const full = (html + '\n' + unpacked).replace(/\\\//g, '/');
-
-    const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(full);
-    if (m3u8) return { url: m3u8[1], quality: label, headers: hdrs };
-
-    // JW Player file/source/src
-    const file = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/i.exec(full);
-    if (file) return { url: file[1], quality: label, headers: hdrs };
-
-    // atob
-    const atobM = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
-    if (atobM) {
-      try {
-        const dec = _b64decode(atobM[1]);
-        const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(dec.replace(/\\\//g, '/'));
-        if (src) return { url: src[1], quality: label, headers: hdrs };
-      } catch {}
-    }
-
-    const mp4s = full.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g) ?? [];
-    const real = mp4s.find((u: string) => !/\.(?:css|js|jpg|png|woff)/.test(u));
-    if (real) return { url: real, quality: label, headers: hdrs };
-  } catch {}
-  return null;
-}
+// Los resolvers por servidor se mudaron a `servidores/`, una carpeta cada uno,
+// con lo que se midio arriba de todo. Lo que sigue aca es solo el armado de la
+// lista de servidores del episodio, que es propio de este sitio.
 
 // ─── Servidores SUB propios de JKAnime (Desu/Magi vía jkplayer interno) ────────
 //
@@ -945,102 +806,12 @@ async function _resolveJkInternalPlayer(
   referer: string,
   label: string,
 ): Promise<PrismStream | null> {
-  try {
-    const hdrs = { 'Referer': referer || `${BASE}/` };
-    const html = await _get(iframeSrc, hdrs);
-
-    // Código activo: la URL viaja ofuscada en atob('...'). Probar esto
-    // primero — el bloque con la URL en texto plano está comentado (/* ... */)
-    // y puede quedar desactualizado.
-    const atobM = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
-    if (atobM) {
-      try {
-        const decoded = _b64decode(atobM[1]);
-        if (decoded.indexOf('.m3u8') !== -1 || decoded.indexOf('.mp4') !== -1) {
-          return { url: decoded, quality: label, headers: hdrs };
-        }
-      } catch {}
-    }
-
-    // Fallback: URL en texto plano (por si el sitio deja de ofuscarla).
-    // Confirmado en vivo: Magi no usa atob() como Desu — trae la URL directo
-    // en un <source src='...'> HTML normal, sin ningún cifrado. Sin este
-    // patrón, Magi (que apunta al MISMO archivo que Desu en playmudos.com,
-    // igual de confiable) nunca se resolvía.
-    const plain =
-      matchFirst(html, /<source\s+src=['"]([^'"]+\.m3u8[^'"]*)['"]/i) ||
-      matchFirst(html, /url\s*:\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i) ||
-      matchFirst(html, /loadSource\(\s*['"]([^'"]+\.m3u8[^'"]*)['"]/i) ||
-      matchFirst(html, /<source\s+src=['"]([^'"]+\.mp4[^'"]*)['"]/i) ||
-      matchFirst(html, /url\s*:\s*['"]([^'"]+\.mp4[^'"]*)['"]/i);
-    if (plain) return { url: plain, quality: label, headers: hdrs };
-  } catch {}
-  return null;
-}
-
-// ─── Resolvers Desu / Magi (formato legacy: URL con path /desu/, /magi/) ───────
-
-async function _resolveDesu(
-  url: string,
-  referer: string,
-  label: string,
-): Promise<PrismStream | null> {
-  try {
-    const hdrs = { 'Referer': referer || `${BASE}/` };
-    const html = await _get(url, hdrs);
-    const stream =
-      matchFirst(html, /"url"\s*:\s*"(https?:\/\/[^"]+\.m3u8[^"]*)"/i) ||
-      matchFirst(html, /"file"\s*:\s*"(https?:\/\/[^"]+\.m3u8[^"]*)"/i) ||
-      matchFirst(html, /"url"\s*:\s*"(https?:\/\/[^"]+\.mp4[^"]*)"/i) ||
-      matchFirst(html, /<source[^>]+src="(https?:\/\/[^"]+\.m3u8[^"]*)"/i);
-    // Incluir Referer en el stream para que libmpv/CDN lo acepte
-    if (stream) return { url: stream, quality: label, headers: hdrs };
-  } catch {}
-  return null;
-}
-
-async function _resolveMagi(
-  url: string,
-  referer: string,
-  label: string,
-): Promise<PrismStream | null> {
-  try {
-    const hdrs = { 'Referer': referer || `${BASE}/` };
-    const html = await _get(url, hdrs);
-    const stream =
-      matchFirst(html, /<source[^>]+src="(https?:\/\/[^"]+\.m3u8[^"]*)"/i) ||
-      matchFirst(html, /<source[^>]+src="(https?:\/\/[^"]+\.mp4[^"]*)"/i) ||
-      matchFirst(html, /source\s*:\s*['"]?(https?:\/\/[^'">\s]+\.m3u8)/i);
-    if (stream) return { url: stream, quality: label, headers: hdrs };
-  } catch {}
-  return null;
-}
-
-// ─── Helpers de criptografía (Voe 2024) ──────────────────────────────────────
-
-function _rot13(s: string): string {
-  return s.replace(/[a-zA-Z]/g, (c) => {
-    const base = c <= 'Z' ? 65 : 97;
-    return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
-  });
-}
-
-function _voeDecode(raw: string): string | null {
-  try {
-    let r = _rot13(raw);
-    for (const p of ['@$', '^^', '#&', '~@', '%?', '*~', '!!', '`']) {
-      r = r.split(p).join('');
-    }
-    const step3 = _b64decode(r);
-    let shifted = '';
-    for (let i = 0; i < step3.length; i++) {
-      shifted += String.fromCharCode(step3.charCodeAt(i) - 3);
-    }
-    const reversed = shifted.split('').reverse().join('');
-    return _b64decode(reversed);
-  } catch {
-    return null;
-  }
+  const res = await resolverReproductorPropio(iframeSrc, referer || `${BASE}/`);
+  if (!res) return null;
+  // Desu y Magi salen de aca ya resueltos, marcados como nativos: se midio que
+  // reproducen (206 application/vnd.apple.mpegurl) en todos los episodios
+  // probados.
+  return { url: res.url, quality: label, headers: res.headers, nativo: true };
 }
 
 // Desempaqueta eval(function(p,a,c,k,e,d){...}) de Dean Edwards
