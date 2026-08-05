@@ -1,4 +1,4 @@
-import { resolveEmbed } from '../../sdk/embeds';
+import { fichaDe, resolverServidor } from './servidores';
 import type {
   PrismDetail,
   PrismItem,
@@ -512,6 +512,10 @@ async function _watchEpisode(token: string, numero: string): Promise<PrismWatch>
   const streams: PrismStream[] = embeds.map((e) => ({
     url: e.embedUrl,
     quality: e.idioma ? `${e.servidor} (${e.idioma})` : e.servidor,
+    // El rayo/mundo sale de la tabla de `servidores/`, que es donde está lo que
+    // se midió de cada uno. El nombre solo no alcanza: acá el mismo servidor se
+    // rotula "Mp4upload (SUB)", "Mp4upload (DUB)" o "mp4upload" según la ficha.
+    nativo: fichaDe(e.embedUrl)?.nativo,
   }));
   return { streams };
 }
@@ -774,7 +778,7 @@ export async function watch(url: string): Promise<PrismMangaWatch | PrismWatch> 
   // extensiones de este repo).
   if (url.indexOf('http') === 0 && url.indexOf(HOST) === -1) {
     try {
-      const res = await resolveEmbed('Servidor', url, `${BASE}/`);
+      const res = await resolverServidor(url, `${BASE}/`);
       if (res && res.url) {
         return { streams: [{ url: res.url, quality: 'Servidor', headers: res.headers }] };
       }
