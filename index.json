@@ -54,7 +54,7 @@
     {
       "name": "HentaiLA",
       "package": "io.prismhub.hentaila",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -64,8 +64,8 @@
       "license": "MIT",
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/hentaila.js",
-      "sha256": "fb45468f47ed37f73e76d54c5971b5067f22975dd7e2605a245136f01e77fb6c",
-      "signature": "HXK0u/RYV/xNFymlqBql5HUmRW4fS0VyVG8B+zHwshmP2WGC9qcJGQ6FC+eyr6IofkeSWAY1lbAfaBPi4nPbAw=="
+      "sha256": "ecbc0ba862a9992b09dee634dd5b3d696ddd1dbbd034cde2519d91a039a8715e",
+      "signature": "g6ouyCvOuN2JivB2rAOuorhfWfV6iLm3hl9/eGP/h9NQvbvacpBic3kLZUePu9gLuR610y8jSQ7ce+fHVpiaBg=="
     },
     {
       "name": "HQPorner",

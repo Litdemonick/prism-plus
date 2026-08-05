@@ -1,6 +1,6 @@
 import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities } from '../../sdk/html';
-import { resolveEmbed } from '../../sdk/embeds';
+import { resolverServidor } from './servidores';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode } from '../../sdk/types';
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
@@ -352,8 +352,9 @@ export async function detail(url: string): Promise<PrismDetail> {
 
 // ─── Reproducción ───────────────────────────────────────────────────────────
 
-// Mega: cifrado del lado del cliente, sin URL interceptable — el propio
-// sdk/embeds.ts lo rechaza de entrada, así que no se ofrece como servidor.
+// Mega: cifrado del lado del cliente, sin URL interceptable. No se ofrece como
+// servidor, y si llegara igual por el atajo de abajo se descarta sin pedir nada
+// —era lo que hacía el rechazo rápido de sdk/embeds.ts antes de aislar esto—.
 const _NEVER_NATIVE = ['mega.nz', 'mega.co.nz'];
 
 function _isBlocked(url: string): boolean {
@@ -367,7 +368,7 @@ export async function watch(url: string): Promise<PrismWatch> {
   // manda la URL del embed directamente — mismo patrón que el resto del repo.
   if (url.indexOf('http') === 0 && url.indexOf('hentaila.com') === -1) {
     try {
-      const res = await resolveEmbed('Servidor', url, `${BASE}/`);
+      const res = _isBlocked(url) ? null : await resolverServidor(url, `${BASE}/`);
       if (res && res.url) {
         return {
           streams: [{ url: res.url, quality: 'Servidor', headers: res.headers }],
