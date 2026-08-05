@@ -14,6 +14,30 @@
 // andaban.
 //
 // Medido el 2026-08-04: ~3,5 s (la página pesa 113 KB) hasta el m3u8.
+//
+// ── Este servidor llega hasta 720p, y se sabe sin bajar nada ────────────────
+//
+// Medido el 2026-08-05: la lista que devuelve trae SOLO DOS variantes, 480p y
+// 720p. No hay 1080p, así que ver "Calidad de arranque: 720p" no es que la app
+// esté eligiendo mal — es el máximo que hay.
+//
+//   Van Helsing    888x480  0,81 Mbps  ·  1328x720  1,98 Mbps
+//   Matilda       1152x480  0,93 Mbps  ·  1728x720  2,38 Mbps
+//
+// **El truco:** las calidades están escritas en la propia dirección, en el
+// tramo `_,n,h,.urlset` de antes del `master.m3u8`. Cada letra es una variante:
+// `n` es 480p y `h` es 720p. Los de goodstream, por ejemplo, traen
+// `_,l,n,h,x,.urlset` — cuatro. O sea que mirando la dirección ya se sabe qué
+// calidades hay, sin pedir el m3u8.
+//
+// ── Y ojo: hay títulos que unlimplay directamente no tiene ──────────────────
+//
+// Medido sobre 5 títulos: 4 resuelven y 1 no. El que no (`/f/embed/movie/1212763`,
+// Evil Dead: En Llamas) devuelve una página de 113 KB que carga bien pero **no
+// trae ninguna dirección de vídeo adentro** — el único `.m3u8` que aparece es
+// una expresión regular dentro del JS del reproductor. No es que el resolver
+// falle: el archivo no está. Ahí no sirve ni el navegador interno, porque la
+// página tampoco tiene nada que encontrar.
 
 import { pedir, type ServidorResuelto } from '../comun';
 
