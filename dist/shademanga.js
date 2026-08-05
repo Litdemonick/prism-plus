@@ -946,16 +946,30 @@ export default class extends Extension {
     for (var i = 0; i < streams.length; i++) {
       var s = streams[i];
       var nm = s.quality || s.server || ('Servidor ' + (i + 1));
+      // Un sitio puede ofrecer DOS veces el mismo servidor —FuegoCine lista dos
+      // "FC" en Ghost Rider 2 y dos "Drive" en Supergirl, cada uno con su propia
+      // direccion— y como esto es un objeto con el nombre de clave, el segundo
+      // pisaba al primero y esa opcion se PERDIA. El usuario las veia en la web
+      // y no en la app. Se numeran a partir del segundo para que salgan todos:
+      // a veces uno de los dos anda mejor o se ve mejor.
+      if (servers[nm] !== undefined) {
+        var rep = 2;
+        while (servers[nm + ' ' + rep] !== undefined) rep++;
+        nm = nm + ' ' + rep;
+      }
       servers[nm] = s.url;
       if (s.headers && s.headers.Referer) referers[nm] = s.headers.Referer;
       // El rayo/mundo de la tira de servidores, cuando la extension lo sabe.
       // Solo viaja lo que la extension declara: si no dice nada, la app sigue
       // decidiendolo como venia haciendolo.
       if (typeof s.nativo === 'boolean') { nativos[nm] = s.nativo; hayNativos = true; }
-      // La calidad que declara el SITIO para ese servidor ("FHD (1080p)",
-      // "Multicalidad"). Es lo que el sitio dice, no lo que se midio — la app
-      // la muestra tal cual y con esa vara hay que leerla.
-      if (s.label) { calidades[nm] = String(s.label); hayCalidades = true; }
+      // La calidad que declara el sitio NO viaja: es lo que el sitio promete,
+      // no lo que se midio, y no coincide. Medido en FuegoCine: dice
+      // "FHD (1080p)" de UA y UA solo publica 480p y 720p. Mostrarselo al
+      // usuario como si fuera la calidad real seria repetirle una promesa que
+      // no se cumple — mejor que el reproductor diga lo que de verdad esta
+      // reproduciendo. Se deja el canal armado por si algun dia hay una
+      // calidad MEDIDA que valga la pena mandar.
     }
     var p = streams[0];
     var extra = {
