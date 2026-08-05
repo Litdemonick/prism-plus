@@ -48,10 +48,34 @@ export function rutaAlDia(url: string): string {
   return url.replace(/\/(?:play\.php|play|f)\/embed\//, '/f/embed/');
 }
 
+/**
+ * La marca que separa los dos usos de este mismo embed.
+ *
+ * unlimplay sirve para dos cosas distintas y conviene ofrecerlas por separado:
+ *
+ *   **UA Directo** — su opción "Direct", que es la que este resolver saca del
+ *   campo `direct`: un m3u8 que reproduce en la app. ⚡
+ *
+ *   **UA Multi** — la MISMA página, pero abierta en el navegador interno para
+ *   que el usuario use el selector propio de unlimplay, que ofrece otros ocho
+ *   servidores (Goodstream, Streamhg, Filemoon, Voe, Streamwish, Vidhide,
+ *   Netu…). Eso no se puede resolver desde acá: hay que dejar que la página lo
+ *   maneje. 🌐
+ *
+ * Como los dos son la misma dirección, se distinguen con este fragmento. Al
+ * sitio no le molesta —los fragmentos ni se mandan al servidor— y acá alcanza
+ * para saber que ese botón NO tiene que resolverse.
+ */
+export const MARCA_MULTI = '#multi';
+
 export async function resolver(
   url: string,
   referer: string,
 ): Promise<ServidorResuelto | null> {
+  // El botón "UA Multi" va al navegador a propósito: lo que se quiere de él es
+  // el selector de la propia página, no el vídeo directo.
+  if (url.indexOf(MARCA_MULTI) !== -1) return null;
+
   const html = await pedir(rutaAlDia(url), referer);
   if (typeof html !== 'string') return null;
   const m = /"direct[^"]*":"([^"]+\.m3u8[^"]*)"/.exec(html);

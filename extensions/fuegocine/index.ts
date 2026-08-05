@@ -1,6 +1,12 @@
 import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities } from '../../sdk/html';
-import { fichaDe, resolverServidor, unlimplayAlDia, type ServidorResuelto } from './servidores';
+import {
+  fichaDe,
+  resolverServidor,
+  unlimplayAlDia,
+  unlimplayMarcaMulti,
+  type ServidorResuelto,
+} from './servidores';
 import { b64aTexto } from './servidores/comun';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode, PrismSeason } from '../../sdk/types';
 
@@ -406,45 +412,40 @@ export async function watch(url: string): Promise<PrismWatch> {
     // los envoltorios de blogspot son iguales por fuera.
     const destino = _destinoDe(url);
     const ficha = destino ? fichaDe(destino) : null;
+    const esUnlimplay = url.indexOf('unlimplay.com') !== -1;
     // Se guarda con qué ficha se reconoció, para ordenar abajo sin tener que
     // volver a desenvolver el envoltorio de blogspot.
     fichas.push(ficha?.boton ?? '');
     streams.push({
       url,
-      quality: link.name || 'Servidor',
+      // unlimplay se ofrece partido en dos porque de verdad son dos cosas
+      // (ver abajo). Este es el que reproduce en la app.
+      quality: esUnlimplay ? `${link.name || 'UA'} Directo` : link.name || 'Servidor',
       nativo: ficha?.nativo,
-      // La calidad que declara el propio sitio ("FHD (1080p)",
-      // "Multicalidad"). Sale del bloque _SV_LINKS, así que no cuesta ni un
-      // pedido.
-      //
-      // ── OJO: es lo que DICE el sitio, no lo que se midió ──────────────────
-      //
-      // Se pasa tal cual y a propósito, pero hay que saber que en un servidor
-      // no coincide con lo que reporta el reproductor:
-      //
-      //   FC  el sitio dice FHD (1080p) · MEDIDO: 1920x804 leído del propio
-      //       archivo. Coincide, ahí no hay duda.
-      //   UA  el sitio dice "Multicalidad" · MEDIDO: solo 480p y 720p. Las
-      //       calidades están en la propia dirección, en el tramo
-      //       `_,n,h,.urlset` — `n` es 480p y `h` es 720p.
-      //   FS  el sitio dice FHD (1080p) · el reproductor de la app muestra
-      //       720p · **el alto real NO se midió todavía.**
-      //
-      // Lo de FS es lo único abierto. Se sabe que firestream devuelve UNA sola
-      // versión —su API contesta `signedVideoUrl` con `signedVideoSdUrl: null`,
-      // y la lista no trae ningún `#EXT-X-STREAM-INF`—, o sea que no hay
-      // variantes que elegir y el resolver ya se lleva la única que hay. Lo que
-      // falta saber es de qué alto es esa única versión.
-      //
-      // El usuario reporta que **se ve bien**, no como un 720p estirado, así
-      // que puede ser que la etiqueta del sitio esté bien y lo que informa mal
-      // sea el reproductor. Hasta medirlo, las dos siguen abiertas.
-      //
-      // **Cómo cerrarlo:** bajar el primer segmento `.ts` de esa lista y leer
-      // el alto del SPS de H.264. Es la misma clase de medición que se le hizo
-      // a FC leyendo el `tkhd` del `moov`, que dio 1920x804 y cerró el tema.
-      label: link.calidad || undefined,
     });
+
+    // El segundo botón de unlimplay: la MISMA página, pero para abrirla en el
+    // navegador interno y usar SU selector.
+    //
+    // unlimplay no es un servidor, son nueve: adentro de su reproductor hay un
+    // menú con Direct, Goodstream, Streamhg, Filemoon, Voe, Streamwish, Vidhide
+    // y Netu. Lo que esta extensión resuelve es el "Direct" —el campo `direct`
+    // de la página, que da un m3u8 y reproduce en la app—, así que con un solo
+    // botón el usuario se quedaba sin los otros ocho: o le tocaba el directo, o
+    // nada.
+    //
+    // Ahora van los dos: "UA Directo" con el rayo, que es el que se resuelve, y
+    // "UA Multi" con el mundo, que abre la página para que elija ahí. La marca
+    // en el fragmento es lo único que los distingue —son la misma dirección— y
+    // es lo que hace que el resolver devuelva null para el segundo.
+    if (esUnlimplay) {
+      fichas.push(ficha?.boton ?? '');
+      streams.push({
+        url: `${url}${unlimplayMarcaMulti}`,
+        quality: `${link.name || 'UA'} Multi`,
+        nativo: false,
+      });
+    }
   }
 
   // FC primero; después el resto de los que reproducen en la app; los de

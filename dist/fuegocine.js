@@ -351,7 +351,9 @@ async function resolver6(url) {
 function rutaAlDia(url) {
   return url.replace(/\/(?:play\.php|play|f)\/embed\//, "/f/embed/");
 }
+var MARCA_MULTI = "#multi";
 async function resolver7(url, referer) {
+  if (url.indexOf(MARCA_MULTI) !== -1) return null;
   const html = await pedir(rutaAlDia(url), referer);
   if (typeof html !== "string") return null;
   const m = /"direct[^"]*":"([^"]+\.m3u8[^"]*)"/.exec(html);
@@ -694,7 +696,7 @@ function _parseSvLinks(html) {
   return out;
 }
 async function watch(url) {
-  var _a;
+  var _a, _b;
   if (url.indexOf("http") === 0 && url.indexOf(HOST) === -1) {
     try {
       const resolved = await _resolveServerUrl(url);
@@ -713,43 +715,23 @@ async function watch(url) {
     const url2 = link.url.indexOf("unlimplay.com") !== -1 ? rutaAlDia(link.url) : link.url;
     const destino = _destinoDe(url2);
     const ficha = destino ? fichaDe(destino) : null;
+    const esUnlimplay = url2.indexOf("unlimplay.com") !== -1;
     fichas.push((_a = ficha == null ? void 0 : ficha.boton) != null ? _a : "");
     streams.push({
       url: url2,
-      quality: link.name || "Servidor",
-      nativo: ficha == null ? void 0 : ficha.nativo,
-      // La calidad que declara el propio sitio ("FHD (1080p)",
-      // "Multicalidad"). Sale del bloque _SV_LINKS, así que no cuesta ni un
-      // pedido.
-      //
-      // ── OJO: es lo que DICE el sitio, no lo que se midió ──────────────────
-      //
-      // Se pasa tal cual y a propósito, pero hay que saber que en un servidor
-      // no coincide con lo que reporta el reproductor:
-      //
-      //   FC  el sitio dice FHD (1080p) · MEDIDO: 1920x804 leído del propio
-      //       archivo. Coincide, ahí no hay duda.
-      //   UA  el sitio dice "Multicalidad" · MEDIDO: solo 480p y 720p. Las
-      //       calidades están en la propia dirección, en el tramo
-      //       `_,n,h,.urlset` — `n` es 480p y `h` es 720p.
-      //   FS  el sitio dice FHD (1080p) · el reproductor de la app muestra
-      //       720p · **el alto real NO se midió todavía.**
-      //
-      // Lo de FS es lo único abierto. Se sabe que firestream devuelve UNA sola
-      // versión —su API contesta `signedVideoUrl` con `signedVideoSdUrl: null`,
-      // y la lista no trae ningún `#EXT-X-STREAM-INF`—, o sea que no hay
-      // variantes que elegir y el resolver ya se lleva la única que hay. Lo que
-      // falta saber es de qué alto es esa única versión.
-      //
-      // El usuario reporta que **se ve bien**, no como un 720p estirado, así
-      // que puede ser que la etiqueta del sitio esté bien y lo que informa mal
-      // sea el reproductor. Hasta medirlo, las dos siguen abiertas.
-      //
-      // **Cómo cerrarlo:** bajar el primer segmento `.ts` de esa lista y leer
-      // el alto del SPS de H.264. Es la misma clase de medición que se le hizo
-      // a FC leyendo el `tkhd` del `moov`, que dio 1920x804 y cerró el tema.
-      label: link.calidad || void 0
+      // unlimplay se ofrece partido en dos porque de verdad son dos cosas
+      // (ver abajo). Este es el que reproduce en la app.
+      quality: esUnlimplay ? `${link.name || "UA"} Directo` : link.name || "Servidor",
+      nativo: ficha == null ? void 0 : ficha.nativo
     });
+    if (esUnlimplay) {
+      fichas.push((_b = ficha == null ? void 0 : ficha.boton) != null ? _b : "");
+      streams.push({
+        url: `${url2}${MARCA_MULTI}`,
+        quality: `${link.name || "UA"} Multi`,
+        nativo: false
+      });
+    }
   }
   const orden = streams.map((s, i) => ({ s, boton: fichas[i], i }));
   const peso = (x) => x.boton === "FC" ? 0 : x.s.nativo === false ? 2 : 1;

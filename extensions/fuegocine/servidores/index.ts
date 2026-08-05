@@ -35,7 +35,7 @@ import * as upns from './upns';
 import * as vimeos from './vimeos';
 
 export { type ServidorResuelto } from './comun';
-export { rutaAlDia as unlimplayAlDia } from './unlimplay';
+export { rutaAlDia as unlimplayAlDia, MARCA_MULTI as unlimplayMarcaMulti } from './unlimplay';
 
 export interface Servidor {
   /** El botón como lo muestra el sitio. */
