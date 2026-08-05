@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.1.9
+// @version      1.1.10
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -661,21 +661,22 @@ async function _resolveFinal(url) {
   if (res == null ? void 0 : res.url) return { url: res.url, quality: "Servidor", headers: res.headers };
   return null;
 }
-async function _resolveServerUrl(url) {
-  if (url.indexOf("blogspot.com") !== -1) {
+function _destinoDe(url) {
+  if (url.indexOf("blogspot.com") === -1) return url;
+  try {
     const linkM = /[?&]link=([^&]+)/.exec(url);
-    if (linkM) return _resolveFinal(_conEsquema(decodeURIComponent(linkM[1])));
+    if (linkM) return _conEsquema(decodeURIComponent(linkM[1]));
     const rM = /[?&]r=([A-Za-z0-9+/=]+)$/.exec(url);
-    if (rM) {
-      try {
-        return _resolveFinal(_conEsquema(b64aTexto(rM[1])));
-      } catch (e) {
-        return null;
-      }
-    }
+    if (rM) return _conEsquema(b64aTexto(rM[1]));
+  } catch (e) {
     return null;
   }
-  return _resolveFinal(url);
+  return null;
+}
+async function _resolveServerUrl(url) {
+  const destino = _destinoDe(url);
+  if (!destino) return null;
+  return _resolveFinal(destino);
 }
 function _parseSvLinks(html) {
   const start = html.indexOf("const _SV_LINKS");
@@ -690,6 +691,7 @@ function _parseSvLinks(html) {
   return out;
 }
 async function watch(url) {
+  var _a;
   if (url.indexOf("http") === 0 && url.indexOf(HOST) === -1) {
     try {
       const resolved = await _resolveServerUrl(url);
@@ -706,7 +708,12 @@ async function watch(url) {
   for (const link of links) {
     if (_NEVER_NATIVE_HOSTS.some((h) => link.url.indexOf(h) !== -1)) continue;
     const url2 = link.url.indexOf("unlimplay.com") !== -1 ? rutaAlDia(link.url) : link.url;
-    streams.push({ url: url2, quality: link.name || "Servidor" });
+    const destino = _destinoDe(url2);
+    streams.push({
+      url: url2,
+      quality: link.name || "Servidor",
+      nativo: destino ? (_a = fichaDe(destino)) == null ? void 0 : _a.nativo : void 0
+    });
   }
   return { streams, pageUrl: fullUrl };
 }
@@ -911,12 +918,16 @@ export default class extends Extension {
       }
       return { type: 'hls', url: 'error://Sin servidores disponibles', headers: {} };
     }
-    var servers = {}, referers = {};
+    var servers = {}, referers = {}, nativos = {}, hayNativos = false;
     for (var i = 0; i < streams.length; i++) {
       var s = streams[i];
       var nm = s.quality || s.server || ('Servidor ' + (i + 1));
       servers[nm] = s.url;
       if (s.headers && s.headers.Referer) referers[nm] = s.headers.Referer;
+      // El rayo/mundo de la tira de servidores, cuando la extension lo sabe.
+      // Solo viaja lo que la extension declara: si no dice nada, la app sigue
+      // decidiendolo como venia haciendolo.
+      if (typeof s.nativo === 'boolean') { nativos[nm] = s.nativo; hayNativos = true; }
     }
     var p = streams[0];
     var extra = {
@@ -924,6 +935,7 @@ export default class extends Extension {
       'X-Primary-Server': p.quality || p.server || 'Servidor 1',
       'X-Server-Referers': JSON.stringify(referers)
     };
+    if (hayNativos) extra['X-Server-Native'] = JSON.stringify(nativos);
     if (pageUrl) extra['X-Page-Url'] = pageUrl;
     return {
       type: _mediaType(p.url),

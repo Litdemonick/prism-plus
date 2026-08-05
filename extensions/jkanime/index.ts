@@ -582,7 +582,16 @@ function _rawServerStream(server: JKServer): PrismStream | null {
   raw = _resolveRedirect(raw);
   const name = server.server || 'Embed';
   const langSuffix = server.lang === 1 ? ' LAT' : server.lang === 2 ? ' CAST' : '';
-  return { url: raw, quality: `${name}${langSuffix}` };
+  // Mundo para los de _JS_ONLY_HOSTS: esta extensión ya los manda derecho al
+  // sniffer sin intentar resolverlos, así que se sabe con certeza que abren en
+  // el navegador. Del resto no se dice nada acá a propósito — no están medidos
+  // uno por uno todavía, y la app los sigue decidiendo como venía haciéndolo.
+  const soloConJs = _JS_ONLY_HOSTS.some((h) => raw.toLowerCase().indexOf(h) !== -1);
+  return {
+    url: raw,
+    quality: `${name}${langSuffix}`,
+    nativo: soloConJs ? false : undefined,
+  };
 }
 
 export async function watch(url: string): Promise<PrismWatch> {

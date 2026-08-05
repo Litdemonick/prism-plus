@@ -142,6 +142,22 @@ export interface PrismStream {
   headers?: Record<string, string>;
   /** MIME type del stream (application/x-mpegURL, video/mp4, etc.) */
   mimeType?: string;
+  /**
+   * Si este servidor reproduce en el reproductor de la app (rayo) o hay que
+   * abrirlo en el navegador interno (mundo). Es lo que la app muestra en la
+   * tira de servidores.
+   *
+   * Lo dice la extensión porque es la única que sabe: el mismo nombre de
+   * servidor resuelve nativo en un sitio y no en otro. "StreamWish" es el
+   * caso de manual — en JKAnime reproduce nativo y en hentaila y AnimeFenix
+   * cae en premilkyway.com, que está bloqueado. Adivinándolo por el nombre no
+   * hay forma de acertarle a los dos.
+   *
+   * **Solo se pone si se midió**, pidiendo un rango real y mirando que llegara
+   * vídeo — no por si el resolver devuelve una dirección. Si se deja sin
+   * poner, la app se las arregla como venía haciéndolo.
+   */
+  nativo?: boolean;
 }
 
 /** Pista de subtítulos */

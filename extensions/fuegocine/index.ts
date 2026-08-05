@@ -1,6 +1,6 @@
 import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities } from '../../sdk/html';
-import { resolverServidor, unlimplayAlDia, type ServidorResuelto } from './servidores';
+import { fichaDe, resolverServidor, unlimplayAlDia, type ServidorResuelto } from './servidores';
 import { b64aTexto } from './servidores/comun';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode, PrismSeason } from '../../sdk/types';
 
@@ -325,23 +325,31 @@ async function _resolveFinal(url: string): Promise<PrismStream | null> {
   return null;
 }
 
-async function _resolveServerUrl(url: string): Promise<PrismStream | null> {
-  // El envoltorio de blogspot no reproduce nada: lleva la direccion real
-  // adentro, en ?link= o en r=<base64>. Lo que vale es a donde apunta.
-  if (url.indexOf('blogspot.com') !== -1) {
+/**
+ * A donde apunta de verdad una direccion, o null si es un envoltorio vacio.
+ *
+ * El envoltorio de blogspot no reproduce nada: lleva la direccion real adentro,
+ * en `?link=` o en `r=<base64>`. Lo que vale es a donde apunta — tanto para
+ * resolverlo como para saber si lleva rayo o mundo, porque mirando el
+ * envoltorio no se puede saber nada: todos son iguales.
+ */
+function _destinoDe(url: string): string | null {
+  if (url.indexOf('blogspot.com') === -1) return url;
+  try {
     const linkM = /[?&]link=([^&]+)/.exec(url);
-    if (linkM) return _resolveFinal(_conEsquema(decodeURIComponent(linkM[1])));
+    if (linkM) return _conEsquema(decodeURIComponent(linkM[1]));
     const rM = /[?&]r=([A-Za-z0-9+/=]+)$/.exec(url);
-    if (rM) {
-      try {
-        return _resolveFinal(_conEsquema(b64aTexto(rM[1])));
-      } catch {
-        return null;
-      }
-    }
+    if (rM) return _conEsquema(b64aTexto(rM[1]));
+  } catch {
     return null;
   }
-  return _resolveFinal(url);
+  return null;
+}
+
+async function _resolveServerUrl(url: string): Promise<PrismStream | null> {
+  const destino = _destinoDe(url);
+  if (!destino) return null;
+  return _resolveFinal(destino);
 }
 
 function _parseSvLinks(html: string): { name: string; url: string }[] {
@@ -384,7 +392,16 @@ export async function watch(url: string): Promise<PrismWatch> {
     // sitio en vez del reproductor.
     const url =
       link.url.indexOf('unlimplay.com') !== -1 ? unlimplayAlDia(link.url) : link.url;
-    streams.push({ url, quality: link.name || 'Servidor' });
+    // El rayo/mundo sale de la tabla de `servidores/`, que es donde está lo que
+    // se midió de cada uno. Se mira el destino y no el envoltorio: los botones
+    // de este sitio son etiquetas de dos letras ("FC", "UA", "GS(ads)") y todos
+    // los envoltorios de blogspot son iguales por fuera.
+    const destino = _destinoDe(url);
+    streams.push({
+      url,
+      quality: link.name || 'Servidor',
+      nativo: destino ? fichaDe(destino)?.nativo : undefined,
+    });
   }
   return { streams, pageUrl: fullUrl };
 }

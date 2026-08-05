@@ -1246,12 +1246,16 @@ export default class extends Extension {
       }
       return { type: 'hls', url: 'error://Sin servidores disponibles', headers: {} };
     }
-    var servers = {}, referers = {};
+    var servers = {}, referers = {}, nativos = {}, hayNativos = false;
     for (var i = 0; i < streams.length; i++) {
       var s = streams[i];
       var nm = s.quality || s.server || ('Servidor ' + (i + 1));
       servers[nm] = s.url;
       if (s.headers && s.headers.Referer) referers[nm] = s.headers.Referer;
+      // El rayo/mundo de la tira de servidores, cuando la extension lo sabe.
+      // Solo viaja lo que la extension declara: si no dice nada, la app sigue
+      // decidiendolo como venia haciendolo.
+      if (typeof s.nativo === 'boolean') { nativos[nm] = s.nativo; hayNativos = true; }
     }
     var p = streams[0];
     var extra = {
@@ -1259,6 +1263,7 @@ export default class extends Extension {
       'X-Primary-Server': p.quality || p.server || 'Servidor 1',
       'X-Server-Referers': JSON.stringify(referers)
     };
+    if (hayNativos) extra['X-Server-Native'] = JSON.stringify(nativos);
     if (pageUrl) extra['X-Page-Url'] = pageUrl;
     return {
       type: _mediaType(p.url),

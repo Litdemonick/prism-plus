@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.11.3
+// @version      1.11.4
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -1230,7 +1230,12 @@ function _rawServerStream(server) {
   raw = _resolveRedirect(raw);
   const name = server.server || "Embed";
   const langSuffix = server.lang === 1 ? " LAT" : server.lang === 2 ? " CAST" : "";
-  return { url: raw, quality: `${name}${langSuffix}` };
+  const soloConJs = _JS_ONLY_HOSTS.some((h) => raw.toLowerCase().indexOf(h) !== -1);
+  return {
+    url: raw,
+    quality: `${name}${langSuffix}`,
+    nativo: soloConJs ? false : void 0
+  };
 }
 async function watch(url) {
   if (url.indexOf("http") === 0 && url.indexOf("jkanime.net") === -1) {
@@ -1901,12 +1906,16 @@ export default class extends Extension {
       }
       return { type: 'hls', url: 'error://Sin servidores disponibles', headers: {} };
     }
-    var servers = {}, referers = {};
+    var servers = {}, referers = {}, nativos = {}, hayNativos = false;
     for (var i = 0; i < streams.length; i++) {
       var s = streams[i];
       var nm = s.quality || s.server || ('Servidor ' + (i + 1));
       servers[nm] = s.url;
       if (s.headers && s.headers.Referer) referers[nm] = s.headers.Referer;
+      // El rayo/mundo de la tira de servidores, cuando la extension lo sabe.
+      // Solo viaja lo que la extension declara: si no dice nada, la app sigue
+      // decidiendolo como venia haciendolo.
+      if (typeof s.nativo === 'boolean') { nativos[nm] = s.nativo; hayNativos = true; }
     }
     var p = streams[0];
     var extra = {
@@ -1914,6 +1923,7 @@ export default class extends Extension {
       'X-Primary-Server': p.quality || p.server || 'Servidor 1',
       'X-Server-Referers': JSON.stringify(referers)
     };
+    if (hayNativos) extra['X-Server-Native'] = JSON.stringify(nativos);
     if (pageUrl) extra['X-Page-Url'] = pageUrl;
     return {
       type: _mediaType(p.url),

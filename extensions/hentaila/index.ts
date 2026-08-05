@@ -1,6 +1,6 @@
 import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities } from '../../sdk/html';
-import { resolverServidor } from './servidores';
+import { fichaDe, resolverServidor } from './servidores';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode } from '../../sdk/types';
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
@@ -405,13 +405,19 @@ export async function watch(url: string): Promise<PrismWatch> {
     const embedUrl = _unescapeJs(m[2]);
     if (!embedUrl || _isBlocked(embedUrl) || seen[embedUrl]) continue;
     seen[embedUrl] = true;
-    streams.push({ url: embedUrl, quality: server });
+    // El rayo/mundo sale de la tabla de `servidores/`, que es donde está lo
+    // que se midió de cada uno. Sin esto la app lo adivinaba por el nombre y
+    // le erraba a dos: YourUpload salía con el mundo aunque reproduce nativo,
+    // y StreamWish con el rayo aunque termina en el navegador.
+    streams.push({ url: embedUrl, quality: server, nativo: fichaDe(embedUrl)?.nativo });
   }
 
   // Último recurso: el iframe que ya viene renderizado en la página.
   if (streams.length === 0) {
     const iframe = /<iframe[^>]+src="([^"]+)"/i.exec(html)?.[1];
-    if (iframe && !_isBlocked(iframe)) streams.push({ url: iframe, quality: 'Servidor' });
+    if (iframe && !_isBlocked(iframe)) {
+      streams.push({ url: iframe, quality: 'Servidor', nativo: fichaDe(iframe)?.nativo });
+    }
   }
 
   // YourUpload primero: es el que arranca por defecto.

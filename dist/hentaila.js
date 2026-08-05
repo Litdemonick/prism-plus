@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         HentaiLA
-// @version      1.0.5
+// @version      1.0.6
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -671,7 +671,7 @@ function _isBlocked(url) {
   return false;
 }
 async function watch(url) {
-  var _a;
+  var _a, _b, _c;
   if (url.indexOf("http") === 0 && url.indexOf("hentaila.com") === -1) {
     try {
       const res = _isBlocked(url) ? null : await resolverServidor(url, `${BASE}/`);
@@ -703,11 +703,13 @@ async function watch(url) {
     const embedUrl = _unescapeJs(m[2]);
     if (!embedUrl || _isBlocked(embedUrl) || seen[embedUrl]) continue;
     seen[embedUrl] = true;
-    streams.push({ url: embedUrl, quality: server });
+    streams.push({ url: embedUrl, quality: server, nativo: (_a = fichaDe(embedUrl)) == null ? void 0 : _a.nativo });
   }
   if (streams.length === 0) {
-    const iframe = (_a = /<iframe[^>]+src="([^"]+)"/i.exec(html)) == null ? void 0 : _a[1];
-    if (iframe && !_isBlocked(iframe)) streams.push({ url: iframe, quality: "Servidor" });
+    const iframe = (_b = /<iframe[^>]+src="([^"]+)"/i.exec(html)) == null ? void 0 : _b[1];
+    if (iframe && !_isBlocked(iframe)) {
+      streams.push({ url: iframe, quality: "Servidor", nativo: (_c = fichaDe(iframe)) == null ? void 0 : _c.nativo });
+    }
   }
   const esPreferido = (nombre) => nombre.toLowerCase().replace(/[^a-z]/g, "").indexOf("yourupload") !== -1;
   streams.sort((a, b) => {
@@ -918,12 +920,16 @@ export default class extends Extension {
       }
       return { type: 'hls', url: 'error://Sin servidores disponibles', headers: {} };
     }
-    var servers = {}, referers = {};
+    var servers = {}, referers = {}, nativos = {}, hayNativos = false;
     for (var i = 0; i < streams.length; i++) {
       var s = streams[i];
       var nm = s.quality || s.server || ('Servidor ' + (i + 1));
       servers[nm] = s.url;
       if (s.headers && s.headers.Referer) referers[nm] = s.headers.Referer;
+      // El rayo/mundo de la tira de servidores, cuando la extension lo sabe.
+      // Solo viaja lo que la extension declara: si no dice nada, la app sigue
+      // decidiendolo como venia haciendolo.
+      if (typeof s.nativo === 'boolean') { nativos[nm] = s.nativo; hayNativos = true; }
     }
     var p = streams[0];
     var extra = {
@@ -931,6 +937,7 @@ export default class extends Extension {
       'X-Primary-Server': p.quality || p.server || 'Servidor 1',
       'X-Server-Referers': JSON.stringify(referers)
     };
+    if (hayNativos) extra['X-Server-Native'] = JSON.stringify(nativos);
     if (pageUrl) extra['X-Page-Url'] = pageUrl;
     return {
       type: _mediaType(p.url),
