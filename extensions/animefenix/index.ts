@@ -274,56 +274,27 @@ export async function detail(url: string): Promise<PrismDetail> {
 
 // ─── Reproducción ───────────────────────────────────────────────────────────
 
-// streamhls.to ("SaveFiles") es la MISMA red que savefiles.top/.com — un
-// formulario POST a /dl estilo Openload (op/file_code/referer), sin resolver
-// del SDK que lo cubra. Confirmado en vivo (misma imagen "img.savefiles.com"
-// referenciada en su propio JS).
+// Antes acá había dos listas —`_NEVER_NATIVE` y `_NEVER_NATIVE_HOSTS`— que
+// sacaban cuatro servidores de la lista: PremiunVIP, Uqload, StreamWish y
+// Mp4Upload. Unos 169 botones de 60 episodios que el usuario nunca veía.
 //
-// StreamTape: VUELVE a la lista. Se había descartado porque "falla siempre al
-// abrir en la app real", y ese síntoma ya tiene causa medida y arreglada: el
-// resolver leía el div oculto `get_video`, que trae un token SEÑUELO. Pedirlo
-// devuelve `{"status":500,"msg":"Sorry, error on our side!"}` — de ahí el
-// "servidor no disponible" constante. El link bueno lo arma el JS de la página
-// y hay que rehacer esa cuenta (ver sdk/embeds.ts resolveStreamtape, con la
-// comprobación de forma que descarta los señuelos aunque roten en cada carga).
-// Comprobado en vivo contra el bundle ya compilado: 6 de 6 intentos devuelven
-// HTTP 206 video/mp4. No era "intermitente", era siempre el token falso.
+// Se quitaron a pedido suyo: prefiere verlos y que se arreglen después. El
+// motivo de cada uno no se perdió, se mudó a su carpeta en `servidores/`, y
+// ahora en vez de desaparecer llevan el mundo, que dice "esto abre en el
+// navegador interno".
 //
-// PremiunVIP (re.ironhentai.com/hugging.php → huggingface.co): confirmado en
-// vivo en la app real (2 animes distintos, mismo síntoma exacto ambas veces)
-// que arranca — llega a determinar la resolución del video — pero después
-// se queda cargando para siempre. La causa: huggingface.co firma la URL
-// final del CDN (xet-bridge-us) con el rango de bytes EXACTO de la primera
-// petición ("ByteRange" queda grabado en el Policy firmado, confirmado
-// inspeccionando la redirección con curl). mpv reutiliza esa misma URL
-// firmada para pedir el resto del archivo, pero la firma solo autoriza el
-// rango inicial — cualquier pedido de rango distinto queda sin autorizar,
-// de ahí el cuelgue eterno. Es una incompatibilidad estructural entre el
-// backend de Hugging Face y el streaming progresivo por rangos que hace
-// cualquier reproductor nativo — no hay resolver que pueda arreglarlo.
+// Un resumen de por qué estaba cada uno, que sigue valiendo:
 //
-// StreamWish (flaswish.com en este sitio): confirmado en vivo que termina en
-// premilkyway.com — el mismo CDN bloqueado por fingerprint TLS que streamhg
-// (rechaza cualquier cliente que no sea un navegador real, ver sdk/embeds.ts
-// resolveEmbed). sdk/embeds.ts ya descarta esa URL si CUALQUIER resolver
-// termina ahí, pero eso solo evita el cuelgue de 20s al clickear — el botón
-// no debería ni aparecer, ya que sabemos que nunca va a andar.
-//
-// Mp4upload: descartado a pedido del usuario — confirmado en la app real que
-// su servidor (a3.mp4upload.com, puerto 183) tiene ancho de banda
-// inconsistente para su conexión (a veces carga, después se traba y
-// rebufferea todo el tiempo). El servidor en sí funciona bien (headers,
-// soporte de rangos y velocidad de descarga verificados en vivo), es la ruta
-// de red hacia ese host puntual la que no es confiable.
-const _NEVER_NATIVE = new Set(['savefiles', 'premiunvip', 'streamwish', 'mp4upload']);
-
-// El mirror uqload.is que usa este sitio (a diferencia de uqload.com, que sí
-// funciona en otras extensiones del repo) usa el MISMO formulario-gate POST
-// /dl que streamhls/savefiles — confirmado en vivo en 2 episodios de animes
-// distintos, ambos con el mismo action="/dl" op=embed/file_code/referer sin
-// datos de video en el HTML estático. No es un problema de la extensión ni
-// del host "Uqload" en general, es este mirror puntual.
-const _NEVER_NATIVE_HOSTS = ['uqload.is'];
+//   PremiunVIP  resuelve perfecto y IGUAL no sirve en el reproductor nativo:
+//               huggingface firma la dirección del CDN con el rango de bytes
+//               exacto del primer pedido, así que cualquier otro rango queda
+//               sin autorizar y se cuelga para siempre. En un navegador anda.
+//   Uqload      el espejo uqload.is de este sitio esconde todo detrás de un
+//               formulario POST /dl. Medido 0 de 5 episodios.
+//   StreamWish  termina en premilkyway.com, que rechaza la huella TLS de mpv.
+//   Mp4Upload   este resuelve y reproduce; se ocultó porque en la app real el
+//               nodo :183 rebufereaba en la conexión del usuario. Va con el
+//               rayo porque es lo que se midió.
 
 // La desofuscación de re.ironhentai.com (PlusTube y PremiunVIP) se mudó a
 // `servidores/`: el truco compartido —doble base64 con un corrimiento de -1
@@ -361,18 +332,25 @@ export async function watch(url: string): Promise<PrismWatch> {
     const num = m[1];
     const targetUrl = m[2];
     const name = labels[num] ?? `Servidor ${num}`;
-    if (
-      _NEVER_NATIVE.has(name.toLowerCase()) ||
-      targetUrl.indexOf('streamhls') !== -1 ||
-      _NEVER_NATIVE_HOSTS.some((h) => targetUrl.indexOf(h) !== -1)
-    ) {
-      continue;
-    }
+    // Ya no se filtra: se muestran todos y cada uno lleva su marca. El rayo y el
+    // mundo salen de la tabla de `servidores/`, que es donde está lo que se
+    // midió de cada uno — así el usuario ve que existen y cómo van a abrir, en
+    // vez de que le falten opciones sin explicación.
     // El rayo/mundo sale de la tabla de `servidores/`. Acá hace falta que vaya
     // por la dirección y no por el nombre: PlusTube y PremiunVIP comparten host
     // y solo los distingue el endpoint (vt.php contra face.php).
     streams.push({ url: targetUrl, quality: name, nativo: fichaDe(targetUrl)?.nativo });
   }
+
+  // Los que reproducen en la app, primero.
+  //
+  // Hace falta desde que se dejaron de ocultar cuatro servidores: el sitio
+  // lista **PremiunVIP primero** y el cliente toma el primero como el inicial,
+  // así que sin esto cada episodio habría abierto justo con el que se cuelga.
+  //
+  // Es un reordenamiento, no un filtro: están todos, y entre los nativos se
+  // respeta el orden del sitio.
+  streams.sort((a, b) => (a.nativo === false ? 1 : 0) - (b.nativo === false ? 1 : 0));
 
   return { streams, pageUrl: episodeUrl };
 }

@@ -1,7 +1,7 @@
 // ─── Uqload (uqload.is) 🌐 navegador ─────────────────────────────────────────
 //
-// Medido el 2026-08-04 sobre 60 episodios: **56 botones**. Hoy la extensión
-// **lo oculta**, así que el usuario no lo ve. Devuelve null a propósito.
+// Medido el 2026-08-04 sobre 60 episodios: **56 botones**. Va al navegador.
+// Devuelve null a propósito.
 //
 // ── Es el espejo, no el servidor ────────────────────────────────────────────
 //
@@ -19,12 +19,11 @@
 // Ojo con la forma de la dirección, que también despista: el sitio la sirve con
 // el nodo pegado en la query, `…/e/kkz0jmr5ntyw?e15.uqload.is/i/0…`.
 //
-// ── Lo que queda por decidir ────────────────────────────────────────────────
+// ── Por qué ahora aparece en la lista ───────────────────────────────────────
 //
-// Igual que PremiunVIP: hoy está OCULTO, que es distinto de "va al navegador".
-// El navegador interno sí podría con el portón, porque ejecuta el JS. Son 56
-// botones. No se cambió acá porque es una decisión del usuario, no una
-// medición.
+// Hasta el 2026-08-05 estaba OCULTO. El navegador interno sí puede con el
+// portón, porque ejecuta el JS que el raspado no ejecuta. A pedido del usuario
+// se dejó de esconder: son 56 botones que ahora se ofrecen con el mundo.
 
 import { type ServidorResuelto } from '../comun';
 

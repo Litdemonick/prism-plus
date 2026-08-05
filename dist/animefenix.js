@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeFenix
-// @version      1.2.0
+// @version      1.3.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -742,8 +742,6 @@ async function detail(url) {
   const status = statusText.includes("finalizado") || statusText.includes("concluido") ? "completed" : statusText.includes("emision") || statusText.includes("emisi\xF3n") ? "ongoing" : statusText.includes("proximamente") || statusText.includes("pr\xF3ximamente") ? "upcoming" : void 0;
   return { title, cover, description, genres, episodes, status };
 }
-var _NEVER_NATIVE = /* @__PURE__ */ new Set(["savefiles", "premiunvip", "streamwish", "mp4upload"]);
-var _NEVER_NATIVE_HOSTS = ["uqload.is"];
 async function watch(url) {
   var _a, _b;
   if (url.indexOf("http") === 0 && url.indexOf("animefenix2.tv") === -1) {
@@ -768,11 +766,9 @@ async function watch(url) {
     const num = m[1];
     const targetUrl = m[2];
     const name = (_a = labels[num]) != null ? _a : `Servidor ${num}`;
-    if (_NEVER_NATIVE.has(name.toLowerCase()) || targetUrl.indexOf("streamhls") !== -1 || _NEVER_NATIVE_HOSTS.some((h) => targetUrl.indexOf(h) !== -1)) {
-      continue;
-    }
     streams.push({ url: targetUrl, quality: name, nativo: (_b = fichaDe(targetUrl)) == null ? void 0 : _b.nativo });
   }
+  streams.sort((a, b) => (a.nativo === false ? 1 : 0) - (b.nativo === false ? 1 : 0));
   return { streams, pageUrl: episodeUrl };
 }
 

@@ -1,7 +1,10 @@
 // ─── StreamWish (flaswish.com) 🌐 navegador ──────────────────────────────────
 //
-// Medido el 2026-08-04 sobre 60 episodios: **3 botones**, casi no aparece. Hoy
-// la extensión **lo oculta**. Devuelve null a propósito.
+// Medido el 2026-08-04 sobre 60 episodios: **3 botones**, casi no aparece.
+// Va al navegador. Devuelve null a propósito.
+//
+// Hasta el 2026-08-05 estaba OCULTO; a pedido del usuario se dejó de esconder
+// y ahora se ofrece con el mundo, que es donde sí reproduce.
 //
 // El motivo no es el resolver: la dirección se saca sin problema, pero termina
 // en **premilkyway.com**, que está descartado desde antes porque rechaza la

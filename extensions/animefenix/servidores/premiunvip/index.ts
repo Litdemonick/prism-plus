@@ -1,8 +1,7 @@
 // ─── PremiunVIP (re.ironhentai.com/face.php) 🌐 navegador ────────────────────
 //
 // Medido el 2026-08-04 sobre 60 episodios: **59 botones**, casi tantos como
-// PlusTube. Hoy la extensión **lo oculta**, así que el usuario no lo ve.
-// Este resolver devuelve null a propósito.
+// PlusTube. Va al navegador. Devuelve null a propósito.
 //
 // ── El caso más engañoso de todos: resuelve bien y NO sirve ─────────────────
 //
@@ -29,13 +28,16 @@
 // que pueda arreglarlo**, por eso este devuelve null en vez de la dirección que
 // sí sabe encontrar.
 //
-// ── Lo que queda por decidir ────────────────────────────────────────────────
+// ── Por qué ahora aparece en la lista ───────────────────────────────────────
 //
-// Hoy además está OCULTO, que es distinto de "va al navegador": el usuario ni
-// lo ve. Y el navegador interno sí lo reproduciría — el problema es del
-// reproductor nativo pidiendo rangos, no del archivo. Son 59 botones que
-// podrían estar disponibles con el mundo, como se hizo con Mega en tioanime.
-// No se cambió acá porque es una decisión del usuario, no una medición.
+// Hasta el 2026-08-05 estaba OCULTO, que es distinto de "va al navegador": el
+// usuario ni lo veía. Y el navegador interno SÍ lo reproduce — el problema es
+// del reproductor nativo pidiendo rangos, no del archivo. A pedido del usuario
+// se dejó de esconder: son 59 botones que ahora se ofrecen con el mundo, igual
+// que Mega en tioanime.
+//
+// Ojo con el orden: el sitio lo lista PRIMERO de todos, así que la extensión
+// manda los nativos adelante. Sin eso, cada episodio abriría justo con este.
 
 import { type ServidorResuelto } from '../comun';
 
