@@ -1,6 +1,6 @@
 import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities, stripTags } from '../../sdk/html';
-import { resolveEmbed } from '../../sdk/embeds';
+import { fichaDe, resolverServidor } from './servidores';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode } from '../../sdk/types';
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
@@ -199,19 +199,26 @@ export async function detail(url: string): Promise<PrismDetail> {
 
 // ─── Reproducción ───────────────────────────────────────────────────────────
 
-// Mega: descartado a pedido del usuario (todo cifrado client-side, sin URL
-// interceptable — el propio sdk/embeds.ts ya lo rechaza de entrada).
-// Netu (hqq.tv en este sitio): probado en vivo, resolveEmbed devuelve NULL —
-// el formato de ofuscación de este mirror puntual no matchea ninguno de los
-// patrones que ya cubre sdk/embeds.ts::resolveNetu.
-const _NEVER_NATIVE = new Set(['mega', 'netu']);
+// Antes acá había un `_NEVER_NATIVE` que sacaba mega y netu de la lista, para
+// no ofrecer servidores que el reproductor nativo no puede abrir. Se quitó, y
+// el porqué está medido:
+//
+// Este sitio sirve SOLO TRES servidores —Mega, Voe y YourUpload— en todos los
+// episodios. Ocultar uno deja dos, y de 6 episodios sueltos hubo uno donde los
+// dos que quedaban fallaron: el usuario se quedaba sin nada teniendo un Mega
+// que el navegador interno reproduce bien. Ocultar el botón no evita el fallo,
+// lo convierte en un episodio muerto.
+//
+// Ahora Mega va en la lista marcado con el mundo (ver `servidores/mega/`), que
+// es lo mismo que ya se hace en latanime. Y netu directamente no aparece más en
+// el sitio: no estaba en ninguno de los 40 episodios revisados.
 
 export async function watch(url: string): Promise<PrismWatch> {
   // Fast-path: embed externo (switchServer pidiendo resolver UN servidor
   // puntual) — mismo patrón que las demás extensiones de este repo.
   if (url.indexOf('http') === 0 && url.indexOf('tioanime.com') === -1) {
     try {
-      const res = await resolveEmbed('Servidor', url, `${BASE}/`);
+      const res = await resolverServidor(url, `${BASE}/`);
       if (res && res.url) {
         return { streams: [{ url: res.url, quality: 'Servidor', headers: res.headers }], pageUrl: '' };
       }
@@ -229,10 +236,23 @@ export async function watch(url: string): Promise<PrismWatch> {
   if (videosM) {
     const videos = JSON.parse(videosM[1].replace(/\\\//g, '/')) as [string, string, number, number][];
     for (const [name, embedUrl] of videos) {
-      if (_NEVER_NATIVE.has(name.toLowerCase())) continue;
-      streams.push({ url: embedUrl, quality: name });
+      // Ya no se filtra nada: se muestran los tres y cada uno lleva su marca.
+      // El rayo/mundo sale de la tabla de `servidores/`, que es donde está lo
+      // que se midió de cada uno.
+      streams.push({ url: embedUrl, quality: name, nativo: fichaDe(embedUrl)?.nativo });
     }
   }
+
+  // Los que reproducen en la app, primero.
+  //
+  // Hace falta desde que Mega volvió a la lista: el sitio lo lista PRIMERO de
+  // los tres, y el cliente toma el primer servidor como el inicial. Sin esto,
+  // devolver Mega a la lista habría hecho que cada episodio abriera de entrada
+  // en el navegador interno en vez de en el reproductor de la app.
+  //
+  // Es un reordenamiento, no un filtro: están los tres, y entre los nativos se
+  // respeta el orden del sitio.
+  streams.sort((a, b) => (a.nativo === false ? 1 : 0) - (b.nativo === false ? 1 : 0));
 
   return { streams, pageUrl: episodeUrl };
 }
