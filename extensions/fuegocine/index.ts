@@ -1,6 +1,7 @@
 import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities } from '../../sdk/html';
-import { resolveEmbed, b64decode } from '../../sdk/embeds';
+import { resolverServidor, unlimplayAlDia, type ServidorResuelto } from './servidores';
+import { b64aTexto } from './servidores/comun';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode, PrismSeason } from '../../sdk/types';
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
@@ -319,56 +320,28 @@ function _conEsquema(url: string): string {
 }
 
 async function _resolveFinal(url: string): Promise<PrismStream | null> {
-  if (/\.(mp4|mkv|webm|m3u8)(\?|$)/i.test(url) || url.indexOf('rumble.cloud') !== -1) {
-    return { url, quality: 'Servidor' };
-  }
-  const res = await resolveEmbed('Servidor', url, `${BASE}/`);
+  const res = await resolverServidor(url, `${BASE}/`);
   if (res?.url) return { url: res.url, quality: 'Servidor', headers: res.headers };
   return null;
 }
 
-/**
- * La ruta actual de un embed de unlimplay: `/f/embed/...`.
- *
- * El sitio guarda enlaces con rutas viejas —`/play/embed/...` y
- * `/play.php/embed/...`— y con esas devuelve su portada en vez del embed, asi
- * que el reproductor abria la pagina de inicio del sitio. Medido con los
- * mismos titulos: `/play.php/embed/movie/7131` y `/play/embed/movie/7131` no
- * traen nada, y `/f/embed/movie/7131` si. Las que hoy funcionan con
- * `/play/embed/` tambien funcionan con `/f/embed/`, o sea que normalizar no le
- * saca nada a las que ya andaban.
- */
-function _unlimplayAlDia(url: string): string {
-  return url.replace(/\/(?:play\.php|play|f)\/embed\//, '/f/embed/');
-}
-
-async function _resolveUnlimplay(url: string): Promise<PrismStream | null> {
-  const html = await _get(_unlimplayAlDia(url));
-  if (typeof html !== 'string') return null;
-  const m = /"direct[^"]*":"([^"]+\.m3u8[^"]*)"/.exec(html);
-  if (!m) return null;
-  return { url: m[1].replace(/\\\//g, '/'), quality: 'Servidor' };
-}
-
 async function _resolveServerUrl(url: string): Promise<PrismStream | null> {
+  // El envoltorio de blogspot no reproduce nada: lleva la direccion real
+  // adentro, en ?link= o en r=<base64>. Lo que vale es a donde apunta.
   if (url.indexOf('blogspot.com') !== -1) {
     const linkM = /[?&]link=([^&]+)/.exec(url);
     if (linkM) return _resolveFinal(_conEsquema(decodeURIComponent(linkM[1])));
     const rM = /[?&]r=([A-Za-z0-9+/=]+)$/.exec(url);
     if (rM) {
       try {
-        return _resolveFinal(_conEsquema(b64decode(rM[1])));
+        return _resolveFinal(_conEsquema(b64aTexto(rM[1])));
       } catch {
         return null;
       }
     }
     return null;
   }
-  if (url.indexOf('unlimplay.com') !== -1) return _resolveUnlimplay(url);
-
-  const res = await resolveEmbed('Servidor', url, `${BASE}/`);
-  if (res?.url) return { url: res.url, quality: 'Servidor', headers: res.headers };
-  return null;
+  return _resolveFinal(url);
 }
 
 function _parseSvLinks(html: string): { name: string; url: string }[] {
@@ -410,7 +383,7 @@ export async function watch(url: string): Promise<PrismWatch> {
     // camino nativo no alcanza. Con la ruta vieja, ahí se veía la portada del
     // sitio en vez del reproductor.
     const url =
-      link.url.indexOf('unlimplay.com') !== -1 ? _unlimplayAlDia(link.url) : link.url;
+      link.url.indexOf('unlimplay.com') !== -1 ? unlimplayAlDia(link.url) : link.url;
     streams.push({ url, quality: link.name || 'Servidor' });
   }
   return { streams, pageUrl: fullUrl };
