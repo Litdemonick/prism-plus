@@ -718,8 +718,36 @@ async function watch(url) {
       url: url2,
       quality: link.name || "Servidor",
       nativo: ficha == null ? void 0 : ficha.nativo,
-      // La calidad que declara el propio sitio ("FHD (1080p)", "Multicalidad").
-      // Sale del bloque _SV_LINKS, así que no cuesta ni un pedido.
+      // La calidad que declara el propio sitio ("FHD (1080p)",
+      // "Multicalidad"). Sale del bloque _SV_LINKS, así que no cuesta ni un
+      // pedido.
+      //
+      // ── OJO: es lo que DICE el sitio, no lo que se midió ──────────────────
+      //
+      // Se pasa tal cual y a propósito, pero hay que saber que en un servidor
+      // no coincide con lo que reporta el reproductor:
+      //
+      //   FC  el sitio dice FHD (1080p) · MEDIDO: 1920x804 leído del propio
+      //       archivo. Coincide, ahí no hay duda.
+      //   UA  el sitio dice "Multicalidad" · MEDIDO: solo 480p y 720p. Las
+      //       calidades están en la propia dirección, en el tramo
+      //       `_,n,h,.urlset` — `n` es 480p y `h` es 720p.
+      //   FS  el sitio dice FHD (1080p) · el reproductor de la app muestra
+      //       720p · **el alto real NO se midió todavía.**
+      //
+      // Lo de FS es lo único abierto. Se sabe que firestream devuelve UNA sola
+      // versión —su API contesta `signedVideoUrl` con `signedVideoSdUrl: null`,
+      // y la lista no trae ningún `#EXT-X-STREAM-INF`—, o sea que no hay
+      // variantes que elegir y el resolver ya se lleva la única que hay. Lo que
+      // falta saber es de qué alto es esa única versión.
+      //
+      // El usuario reporta que **se ve bien**, no como un 720p estirado, así
+      // que puede ser que la etiqueta del sitio esté bien y lo que informa mal
+      // sea el reproductor. Hasta medirlo, las dos siguen abiertas.
+      //
+      // **Cómo cerrarlo:** bajar el primer segmento `.ts` de esa lista y leer
+      // el alto del SPS de H.264. Es la misma clase de medición que se le hizo
+      // a FC leyendo el `tkhd` del `moov`, que dio 1920x804 y cerró el tema.
       label: link.calidad || void 0
     });
   }
@@ -930,6 +958,7 @@ export default class extends Extension {
       return { type: 'hls', url: 'error://Sin servidores disponibles', headers: {} };
     }
     var servers = {}, referers = {}, nativos = {}, hayNativos = false;
+    var calidades = {}, hayCalidades = false;
     for (var i = 0; i < streams.length; i++) {
       var s = streams[i];
       var nm = s.quality || s.server || ('Servidor ' + (i + 1));
@@ -939,6 +968,10 @@ export default class extends Extension {
       // Solo viaja lo que la extension declara: si no dice nada, la app sigue
       // decidiendolo como venia haciendolo.
       if (typeof s.nativo === 'boolean') { nativos[nm] = s.nativo; hayNativos = true; }
+      // La calidad que declara el SITIO para ese servidor ("FHD (1080p)",
+      // "Multicalidad"). Es lo que el sitio dice, no lo que se midio — la app
+      // la muestra tal cual y con esa vara hay que leerla.
+      if (s.label) { calidades[nm] = String(s.label); hayCalidades = true; }
     }
     var p = streams[0];
     var extra = {
@@ -947,6 +980,7 @@ export default class extends Extension {
       'X-Server-Referers': JSON.stringify(referers)
     };
     if (hayNativos) extra['X-Server-Native'] = JSON.stringify(nativos);
+    if (hayCalidades) extra['X-Server-Quality'] = JSON.stringify(calidades);
     if (pageUrl) extra['X-Page-Url'] = pageUrl;
     return {
       type: _mediaType(p.url),

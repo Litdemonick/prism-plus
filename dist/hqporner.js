@@ -616,6 +616,7 @@ export default class extends Extension {
       return { type: 'hls', url: 'error://Sin servidores disponibles', headers: {} };
     }
     var servers = {}, referers = {}, nativos = {}, hayNativos = false;
+    var calidades = {}, hayCalidades = false;
     for (var i = 0; i < streams.length; i++) {
       var s = streams[i];
       var nm = s.quality || s.server || ('Servidor ' + (i + 1));
@@ -625,6 +626,10 @@ export default class extends Extension {
       // Solo viaja lo que la extension declara: si no dice nada, la app sigue
       // decidiendolo como venia haciendolo.
       if (typeof s.nativo === 'boolean') { nativos[nm] = s.nativo; hayNativos = true; }
+      // La calidad que declara el SITIO para ese servidor ("FHD (1080p)",
+      // "Multicalidad"). Es lo que el sitio dice, no lo que se midio — la app
+      // la muestra tal cual y con esa vara hay que leerla.
+      if (s.label) { calidades[nm] = String(s.label); hayCalidades = true; }
     }
     var p = streams[0];
     var extra = {
@@ -633,6 +638,7 @@ export default class extends Extension {
       'X-Server-Referers': JSON.stringify(referers)
     };
     if (hayNativos) extra['X-Server-Native'] = JSON.stringify(nativos);
+    if (hayCalidades) extra['X-Server-Quality'] = JSON.stringify(calidades);
     if (pageUrl) extra['X-Page-Url'] = pageUrl;
     return {
       type: _mediaType(p.url),
