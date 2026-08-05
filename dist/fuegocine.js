@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.3.0
+// @version      1.3.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -747,7 +747,7 @@ function _parseSvLinks(html) {
   return out;
 }
 async function watch(url) {
-  var _a, _b;
+  var _a, _b, _c;
   if (url.indexOf("http") === 0 && url.indexOf(HOST) === -1) {
     try {
       const resolved = await _resolveServerUrl(url);
@@ -787,7 +787,19 @@ async function watch(url) {
           // un servidor del sitio y no uno de adentro de UA.
           quality: `UA ${_conMayuscula(sv.nombre)}`,
           // Un "direct 2" ya viene resuelto: es un m3u8 y reproduce derecho.
-          nativo: sv.yaResuelto ? true : fichaAdentro == null ? void 0 : fichaAdentro.nativo
+          //
+          // Y si no hay ficha, se dice **false** y no se deja sin definir. Es
+          // el blindaje que faltaba: sin definir, la app cae a adivinar por
+          // NOMBRE, y "Voe", "Streamwish", "Vidhide" y "Doodstream" están en su
+          // lista de confiables — les pondría el rayo prometiendo que
+          // reproducen acá dentro, y ESTA extensión todavía no los resuelve.
+          // El usuario los elegiría esperando el reproductor de la app y
+          // terminaría en el navegador igual, pero después de la espera.
+          //
+          // O sea: acá solo lleva rayo lo que se midió que resuelve EN
+          // FuegoCine. Cuando se traigan los resolvers que faltan, cada uno
+          // pasa a true con su medición al lado.
+          nativo: sv.yaResuelto ? true : (_c = fichaAdentro == null ? void 0 : fichaAdentro.nativo) != null ? _c : false
         });
       }
     }
