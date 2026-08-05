@@ -1,6 +1,6 @@
 import { DESKTOP_UA } from '../../sdk/http';
 import { stripTags, decodeEntities } from '../../sdk/html';
-import { resolveEmbed, b64decode } from '../../sdk/embeds';
+import { fichaDe, resolverServidor } from './servidores';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode } from '../../sdk/types';
 
 // sendMessage("request", ...) usa el dio de PrismHub (UA/cookies/redirecciones
@@ -10,14 +10,6 @@ import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode } fr
 declare function sendMessage(channel: string, data: string): Promise<string>;
 
 const BASE = 'https://animefenix2.tv';
-
-// re.ironhentai.com (backend de los servidores "PremiuVIP"/"PlusTube") devuelve
-// 406 Not Acceptable sin un header Accept realista de navegador — confirmado
-// en vivo (curl con Accept:*/* -> 406, con el Accept completo de Chrome -> 200).
-const _BROWSER_ACCEPT: Record<string, string> = {
-  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-  'Accept-Language': 'es-ES,es;q=0.9',
-};
 
 async function _get(url: string, extraHeaders?: Record<string, string>): Promise<string> {
   const raw = await sendMessage(
@@ -333,54 +325,18 @@ const _NEVER_NATIVE = new Set(['savefiles', 'premiunvip', 'streamwish', 'mp4uplo
 // del host "Uqload" en general, es este mirror puntual.
 const _NEVER_NATIVE_HOSTS = ['uqload.is'];
 
-// PremiunVIP y PlusTube (backend re.ironhentai.com) ofuscan la URL real con
-// `eval(atob(atob(X).split('').map(shift -1).join('')))` — doble base64 con
-// un shift de -1 (Caesar) entre medio. Confirmado en vivo desempaquetando a
-// mano: PremiunVIP da un <video src> directo (que redirige 302 a un archivo
-// real en huggingface.co, sin ningún bloqueo), PlusTube da un hls.loadSource()
-// con un m3u8 real de vtube.network. Ambos requieren el header Accept
-// "de navegador" (ver _BROWSER_ACCEPT) o el host devuelve 406.
-async function _resolveIronhentai(url: string): Promise<PrismStream | null> {
-  const html = await _get(url, _BROWSER_ACCEPT);
-  const m = /eval\(atob\(atob\('([A-Za-z0-9+\/=]+)'\)\.split/.exec(html);
-  if (!m) return null;
-
-  const once = b64decode(m[1]);
-  const shifted = once
-    .split('')
-    .map((c) => String.fromCharCode(c.charCodeAt(0) - 1))
-    .join('');
-  const decoded = b64decode(shifted);
-
-  const hlsM = /loadSource\('([^']+\.m3u8[^']*)'\)/.exec(decoded);
-  if (hlsM) return { url: hlsM[1], quality: 'Servidor', headers: { Referer: `${BASE}/` } };
-
-  const videoM = /videoId\s*=\s*'(https:\/\/re\.ironhentai\.com\/[^']+)'/.exec(decoded);
-  if (videoM) {
-    // El propio backend exige que el Referer sea la página de origen
-    // (face.php), no animefenix2.tv — confirmado en vivo (con animefenix2.tv
-    // de Referer, hugging.php devuelve 406; con face.php?id=..., redirige
-    // 302 a un archivo real de huggingface.co).
-    return {
-      url: videoM[1],
-      quality: 'Servidor',
-      headers: { Referer: url, ..._BROWSER_ACCEPT },
-    };
-  }
-  return null;
-}
+// La desofuscación de re.ironhentai.com (PlusTube y PremiunVIP) se mudó a
+// `servidores/`: el truco compartido —doble base64 con un corrimiento de -1
+// entre medio— está en `comun.ts` como `desofuscarIronhentai`, y lo que cambia
+// entre los dos está en la carpeta de cada uno. Acá ya no hace falta nada:
+// `resolverServidor` los reconoce por el endpoint (vt.php contra face.php).
 
 export async function watch(url: string): Promise<PrismWatch> {
   // Fast-path: embed externo (switchServer pidiendo resolver UN servidor
   // puntual) — mismo patrón que las demás extensiones de este repo.
   if (url.indexOf('http') === 0 && url.indexOf('animefenix2.tv') === -1) {
-    if (url.indexOf('ironhentai.com') !== -1) {
-      const res = await _resolveIronhentai(url);
-      if (res) return { streams: [res], pageUrl: '' };
-      return { streams: [{ url, quality: 'Servidor' }], pageUrl: '' };
-    }
     try {
-      const res = await resolveEmbed('Servidor', url, `${BASE}/`);
+      const res = await resolverServidor(url, `${BASE}/`);
       if (res && res.url) {
         return { streams: [{ url: res.url, quality: 'Servidor', headers: res.headers }], pageUrl: '' };
       }
@@ -412,7 +368,10 @@ export async function watch(url: string): Promise<PrismWatch> {
     ) {
       continue;
     }
-    streams.push({ url: targetUrl, quality: name });
+    // El rayo/mundo sale de la tabla de `servidores/`. Acá hace falta que vaya
+    // por la dirección y no por el nombre: PlusTube y PremiunVIP comparten host
+    // y solo los distingue el endpoint (vt.php contra face.php).
+    streams.push({ url: targetUrl, quality: name, nativo: fichaDe(targetUrl)?.nativo });
   }
 
   return { streams, pageUrl: episodeUrl };
