@@ -116,7 +116,7 @@
     {
       "name": "LatAnime",
       "package": "io.prismhub.latanime",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -125,8 +125,8 @@
       "webSite": "https://latanime.org",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/latanime.js",
-      "sha256": "a03de198bc5a9d3e42d017b41094ca91c649425fa7e063426b839fadd68b1684",
-      "signature": "a9smWGXmyW9hi41q+uPqaoppXC/sCsdBb3lpbrZR4l5MtdOmy/kZHWDWEJIX986PQqvjbjRd7sM8nFXd7wPkCA=="
+      "sha256": "9a25c20f8f30991a7678d239661865f94fe074140cfdb73cb84b6cdf1ce4a72a",
+      "signature": "1CGqIqXAi8vxamSICN6VgO/12raCRyIJsF4u+b6SRFgNDx5tUL2O62G7VRJT4ykCRg/z/E0FWVkrPLNTSd8UDA=="
     },
     {
       "name": "ManhwaWeb",
@@ -178,7 +178,7 @@
     {
       "name": "ShadeManga",
       "package": "io.prismhub.shademanga",
-      "version": "1.4.0",
+      "version": "1.4.1",
       "author": "PrismPlus",
       "type": "mixed",
       "icon": "",
@@ -188,8 +188,8 @@
       "license": "MIT",
       "nsfw": "false",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/shademanga.js",
-      "sha256": "0f30efb76ee8802e0fb84348ee157ff5cc24ce378197b7a9eb5e5143b4e50cb5",
-      "signature": "JYl/okF3xbhUJBJkf7e8VaqaATtPmnCqPciE+8IfGrBeGlVpVTyCVzlEGAbiFXpzqSk/PVOHOxgICSgtAwaaBw=="
+      "sha256": "0b0380071014b76405c3ed5278431f5974db9b86b8a4d414b61b13eab5d8c500",
+      "signature": "oLrNin/ZaWT4S6OlJassHqJaGzcnX/H+xsnn7oOBJkdWSkQex0/7dNcxU5D+qQsI7Sg5GMXDDcKvoUIM9AdzCg=="
     },
     {
       "name": "TioAnime",

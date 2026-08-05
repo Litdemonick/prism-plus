@@ -1,6 +1,7 @@
 import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities, stripTags } from '../../sdk/html';
-import { resolveEmbed, b64decode } from '../../sdk/embeds';
+import { b64decode } from '../../sdk/embeds';
+import { fichaDe, resolverServidor } from './servidores';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode } from '../../sdk/types';
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
@@ -290,7 +291,7 @@ export async function watch(url: string): Promise<PrismWatch> {
   if (url.indexOf('http') === 0 && url.indexOf('latanime.org') === -1) {
     if (!_esMega(url)) {
       try {
-        const res = await resolveEmbed(_nombreDe(url), url, `${BASE}/`);
+        const res = await resolverServidor(url, `${BASE}/`);
         if (res && res.url) {
           return {
             streams: [{ url: res.url, quality: _nombreDe(url), headers: res.headers }],
@@ -321,7 +322,15 @@ export async function watch(url: string): Promise<PrismWatch> {
     }
     if (embed.indexOf('http') !== 0) continue;
     const etiqueta = decodeEntities(m[2].trim()) || _nombreDe(embed);
-    streams.push({ url: embed, quality: _nombreBonito(etiqueta) });
+    // El rayo/mundo sale de la tabla de `servidores/`, que va por HOST. Acá
+    // hace falta que sea así: el sitio rotula algunos botones como "Ok", el
+    // mismo nombre para servidores distintos, así que por la etiqueta no se
+    // puede decidir nada.
+    streams.push({
+      url: embed,
+      quality: _nombreBonito(etiqueta),
+      nativo: fichaDe(embed)?.nativo,
+    });
   }
 
   return { streams, pageUrl: episodeUrl };

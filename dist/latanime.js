@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LatAnime
-// @version      1.0.0
+// @version      1.1.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -168,387 +168,37 @@ var _NAMED_ENTITIES = {
 };
 
 // sdk/embeds.ts
-async function resolveEmbed(server, embedUrl, referer) {
-  var _a;
-  const s = `${server} ${embedUrl}`.toLowerCase();
-  if (s.includes("mega.nz") || s.includes("mega.co.nz") || s.includes("abyssplayer.com") || s.includes("abyss.to") || s.includes("short.icu")) {
-    console.log(`[resolveEmbed] ${server} -> NULL (host conocido irresoluble, sin fetch)`);
-    return null;
+function b64decode(s) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const clean = s.replace(/[^A-Za-z0-9+/]/g, "");
+  let result = "";
+  let i = 0;
+  while (i < clean.length) {
+    const b1 = chars.indexOf(clean[i++]);
+    const b2 = chars.indexOf(clean[i++]);
+    const b3 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
+    const b4 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
+    result += String.fromCharCode(b1 << 2 | b2 >> 4);
+    if (b3 !== -1) result += String.fromCharCode((b2 & 15) << 4 | b3 >> 2);
+    if (b4 !== -1) result += String.fromCharCode((b3 & 3) << 6 | b4);
   }
-  let result;
-  try {
-    if (s.includes("voe")) result = await resolveVoe(embedUrl, referer);
-    else if (s.includes("streamtape") || s.includes("stape") || s.includes("strtape"))
-      result = await resolveStreamtape(embedUrl, referer);
-    else if (s.includes("mixdrop") || s.includes("mxdrop") || s.includes("mdrop") || s.includes("xdrop"))
-      result = await resolveMixdrop(embedUrl, referer);
-    else if (s.includes("mp4upload")) result = await resolveMp4upload(embedUrl, referer);
-    else if (s.includes("mediafire")) result = await resolveMediafire(embedUrl, referer);
-    else if (s.includes("hexload")) result = await resolveHexload(embedUrl, referer);
-    else if (s.includes("firestream")) result = await resolveFirestream(embedUrl, referer);
-    else if (s.includes("savefiles") || s.includes("streamhls"))
-      result = await resolveSavefiles(embedUrl, referer);
-    else if (s.includes("bysekoze") || s.includes("byse."))
-      result = await resolveByse(embedUrl, referer);
-    else if (s.includes("yourupload") || s.includes("yupload"))
-      result = await resolveYourupload(embedUrl, referer);
-    else if (s.includes("pixeldrain")) result = resolvePixeldrain(embedUrl);
-    else if (s.includes("dood") || s.includes("dsvplay") || s.includes("playmogo") || s.includes("d000d") || s.includes("ds2play") || s.includes("ds2video") || s.includes("vidply") || s.includes("do0od") || s.includes("all3do"))
-      result = await resolveDoodstream(embedUrl, referer);
-    else if (s.includes("hqq") || s.includes("netu")) result = await resolveNetu(embedUrl, referer);
-    else if (s.includes("ok.ru") || s.includes("okru") || s.includes("odnoklassniki"))
-      result = await resolveOkru(embedUrl);
-    else if (s.includes("streamwish") || s.includes("wishfast") || s.includes("vidhide") || s.includes("filelions") || s.includes("vhide") || s.includes("vtube") || s.includes("luluvdo") || s.includes("vidmoly") || s.includes("filemoon") || s.includes("moonplayer") || s.includes("swdyu") || s.includes("bestx") || s.includes("embedrise") || s.includes("ridoo") || s.includes("uqload") || s.includes("flaxtv"))
-      result = await resolveStreamwish(embedUrl, referer);
-    else if (s.includes("streamhg") || s.includes("hgcloud") || s.includes("vibuxer"))
-      result = await resolveStreamHg(embedUrl, referer);
-    else result = await resolveGeneric(embedUrl, referer);
-  } catch (e) {
-    console.log(`[resolveEmbed] ${server} THREW: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
-    return null;
-  }
-  if (result && result.url.includes("premilkyway.com")) {
-    console.log(`[resolveEmbed] ${server} -> NULL (premilkyway.com, bloqueo TLS conocido)`);
-    return null;
-  }
-  console.log(
-    `[resolveEmbed] ${server} -> ${result ? result.url.slice(0, 60) : "NULL"}`
-  );
   return result;
 }
-async function resolveVoe(url, referer) {
-  const voeOpts = { timeout: 5e3, retries: 0 };
-  let html = await fetchEmbed(url, referer, voeOpts);
-  if (!html) return null;
-  const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(
-    html
-  );
-  if (redir) {
-    const mirror = await fetchEmbed(redir[1], "https://voe.sx/", voeOpts);
-    if (mirror) html = mirror;
-  }
-  const jsonScript = /<script[^>]*type=["']application\/json["'][^>]*>\s*\[\s*"([^"]+)"\s*\]\s*<\/script>/.exec(
-    html
-  );
-  if (jsonScript) {
-    const decoded = _voeDecode(jsonScript[1]);
-    if (decoded) {
-      const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(decoded);
-      if (src) return { url: _unescapeUrl(src[1]) };
-      const anyM3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(
-        decoded.replace(/\\\//g, "/")
-      );
-      if (anyM3u8) return { url: anyM3u8[1] };
-      const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(decoded);
-      if (mp4) return { url: _unescapeUrl(mp4[1]) };
-    }
-  }
-  let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
-  if (m) return { url: m[1] };
-  const atobMatch = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
-  if (atobMatch) {
-    try {
-      const decoded = b64decode(atobMatch[1]);
-      const hls = /['"]hls['"]\s*:\s*['"]([^'"]+)['"]/.exec(decoded);
-      if (hls) return { url: hls[1] };
-      const direct = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/.exec(decoded);
-      if (direct) return { url: direct[1] };
-    } catch (e) {
-    }
-  }
-  m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
-  if (m) return { url: m[0] };
-  return null;
-}
-function _rot13(s) {
-  return s.replace(/[a-zA-Z]/g, (c) => {
-    const base = c <= "Z" ? 65 : 97;
-    return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
-  });
-}
-function _unescapeUrl(s) {
-  return s.replace(/\\\//g, "/");
-}
-function _voeDecode(raw) {
+
+// extensions/latanime/servidores/comun.ts
+async function pedir(url, referer, headers) {
+  var _a;
   try {
-    let r = _rot13(raw);
-    for (const p of ["@$", "^^", "#&", "~@", "%?", "*~", "!!", "`"]) {
-      r = r.split(p).join("");
-    }
-    const step3 = b64decode(r);
-    let shifted = "";
-    for (let i = 0; i < step3.length; i++) {
-      shifted += String.fromCharCode(step3.charCodeAt(i) - 3);
-    }
-    const reversed = shifted.split("").reverse().join("");
-    return b64decode(reversed);
+    return await sendMessage(
+      "request",
+      JSON.stringify([url, { method: "get", headers: __spreadValues({ Referer: referer }, headers) }])
+    );
   } catch (e) {
+    console.log(`[la] no se pudo pedir ${url.slice(0, 45)} :: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
     return null;
   }
 }
-async function resolveStreamtape(url, referer) {
-  const html = await fetchEmbed(url, referer);
-  if (!html) return null;
-  const headers = { Referer: "https://streamtape.com/" };
-  const delJs = _streamtapeDesdeElJs(html, url);
-  if (delJs) return { url: delJs, headers };
-  const div = /id=["'](?:ideoolink|botlink|robotlink)["'][^>]*>\s*(\/\/?[^<]*get_video\?[^<]*)</.exec(
-    html
-  );
-  if (div) {
-    console.log("[streamtape] sin JS utilizable, se usa el div (puede ser se\xF1uelo)");
-    return { url: _streamtapeNormalizar(div[1].trim()), headers };
-  }
-  let m = /(https?:\/\/streamtape\.[a-z]+\/get_video\?[^"'\s<>]+)/.exec(html);
-  if (m) return { url: _streamtapeNormalizar(m[1]), headers };
-  m = /(\/\/streamtape\.[a-z]+\/get_video\?[^"'\s<>]+)/.exec(html);
-  if (m) return { url: _streamtapeNormalizar(m[1]), headers };
-  console.log("[streamtape] no se encontr\xF3 ninguna URL get_video en el embed");
-  return null;
-}
-function _streamtapeDesdeElJs(html, embedUrl) {
-  const armados = /(["'])(\/{1,2}[^"']*)\1\s*\+\s*(?:(["'])\3\s*\+\s*)?\(\s*(["'])([^"']+)\4\s*\)((?:\s*\.\s*substring\(\s*\d+\s*(?:,\s*\d+\s*)?\))+)/g;
-  const recortes = /\.\s*substring\(\s*(\d+)\s*(?:,\s*(\d+)\s*)?\)/g;
-  const host = (/^https?:\/\/([^/]+)/.exec(embedUrl) || ["", ""])[1].replace(/^www\./, "");
-  if (!host) return null;
-  const idEmbed = (/\/[ev]\/([A-Za-z0-9_-]+)/.exec(embedUrl) || ["", ""])[1];
-  const candidatos = [];
-  let m;
-  armados.lastIndex = 0;
-  while ((m = armados.exec(html)) !== null) {
-    let resto = m[5];
-    recortes.lastIndex = 0;
-    let r;
-    while ((r = recortes.exec(m[6])) !== null) {
-      resto = r[2] === void 0 ? resto.substring(parseInt(r[1], 10)) : resto.substring(parseInt(r[1], 10), parseInt(r[2], 10));
-    }
-    candidatos.push(m[2] + resto);
-  }
-  if (!candidatos.length) return null;
-  const bienFormados = candidatos.filter((c) => {
-    const forma = /^\/\/([^/]+)\/get_video\?/.exec(c);
-    return !!forma && forma[1].replace(/^www\./, "") === host && c.indexOf("token=") !== -1;
-  });
-  if (idEmbed) {
-    const conElId = bienFormados.filter((c) => c.indexOf(`id=${idEmbed}&`) !== -1);
-    if (conElId.length) return _streamtapeNormalizar(conElId[0]);
-  }
-  for (const c of bienFormados) {
-    if (bienFormados.filter((o) => o === c).length > 1) {
-      console.log("[streamtape] elegido por repetici\xF3n, sin id en el embed");
-      return _streamtapeNormalizar(c);
-    }
-  }
-  console.log(
-    `[streamtape] ${candidatos.length} candidato(s) en el JS, ninguno confiable (id esperado: ${idEmbed || "desconocido"})`
-  );
-  return null;
-}
-async function resolveMediafire(url, referer) {
-  const html = await fetchEmbed(url, referer);
-  if (!html) return null;
-  const m = /https:\/\/download[0-9]*\.mediafire\.com\/[^"'<>\s\\]+/.exec(html);
-  if (m) return { url: m[0], headers: { Referer: "https://www.mediafire.com/" } };
-  console.log("[mediafire] no se encontr\xF3 el enlace de descarga en la p\xE1gina");
-  return null;
-}
-function _streamtapeNormalizar(path) {
-  let out = path.trim();
-  if (out.indexOf("//") === 0) out = `https:${out}`;
-  else if (out.indexOf("/") === 0) out = `https:/${out}`;
-  if (!/[?&]stream=/.test(out)) out += "&stream=1";
-  return out;
-}
-async function resolveMixdrop(url, referer) {
-  const html = await fetchEmbed(url, referer);
-  if (!html) return null;
-  const unpacked = _unpackAll(html);
-  const wurl = /MDCore\.wurl\s*=\s*["']([^"']+)["']/.exec(unpacked);
-  let target = wurl == null ? void 0 : wurl[1];
-  if (!target) {
-    const mp4 = /(\/\/[^"'\s]+\.mp4[^"'\s]*)/.exec(unpacked);
-    target = mp4 == null ? void 0 : mp4[1];
-  }
-  if (!target) return null;
-  const full = target.startsWith("http") ? target : `https:${target}`;
-  return { url: full, headers: { Referer: "https://mixdrop.top/" } };
-}
-async function resolveMp4upload(url, referer) {
-  var _a;
-  const html = await fetchEmbed(url, referer);
-  if (!html) return null;
-  const candidates = (_a = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g)) != null ? _a : [];
-  const real = candidates.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
-  if (!real) return null;
-  return { url: real, headers: { Referer: "https://www.mp4upload.com/" } };
-}
-async function resolveYourupload(url, referer) {
-  const html = await fetchEmbed(url, referer, { timeout: 5e3, retries: 0 });
-  if (!html) return null;
-  const hdrs = { Referer: "https://www.yourupload.com/" };
-  const norm = (u) => u.replace(/\\\//g, "/").replace(/^\/\//, "https://");
-  let m = /(?:file|src|source)\s*:\s*["']([^"']+\.(?:mp4|m3u8)[^"']*)["']/i.exec(
-    html
-  );
-  if (m) return { url: norm(m[1]), headers: hdrs };
-  m = /(https?:\/\/[^"'\s<>]+\.mp4[^"'\s<>]*)/.exec(html);
-  if (m) return { url: m[1], headers: hdrs };
-  m = /(\/\/[^"'\s<>]+\.mp4[^"'\s<>]*)/.exec(html);
-  if (m) return { url: "https:" + m[1], headers: hdrs };
-  return null;
-}
-function resolvePixeldrain(url) {
-  const m = /pixeldrain\.com\/(?:u|d|api\/file)\/([A-Za-z0-9]+)/.exec(url);
-  if (!m) return null;
-  return {
-    url: `https://pixeldrain.com/api/file/${m[1]}`,
-    headers: { Referer: "https://pixeldrain.com/" }
-  };
-}
-async function resolveDoodstream(url, referer) {
-  const host = _hostOf(url);
-  if (!host) return null;
-  const html = await fetchEmbed(url, referer, { timeout: 5e3, retries: 0 });
-  if (!html) return null;
-  const md5 = /\/pass_md5\/[A-Za-z0-9\-]+\/[A-Za-z0-9]+/.exec(html);
-  if (!md5) return null;
-  const md5path = md5[0];
-  const token = md5path.slice(md5path.lastIndexOf("/") + 1);
-  const base = await fetchEmbed(
-    `https://${host}${md5path}`,
-    `https://${host}/`,
-    { timeout: 5e3, retries: 0 }
-  );
-  if (!base || !/^https?:\/\//.test(base.trim())) return null;
-  const rand = _randomStr(10);
-  const finalUrl = `${base.trim()}${rand}?token=${token}&expiry=${Date.now()}`;
-  return { url: finalUrl, headers: { Referer: `https://${host}/` } };
-}
-function _randomStr(len) {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let s = "";
-  for (let i = 0; i < len; i++) {
-    s += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return s;
-}
-async function resolveNetu(url, referer) {
-  var _a;
-  const host = (_a = _hostOf(url)) != null ? _a : "hqq.tv";
-  const siteHdrs = {
-    Referer: `https://${host}/`,
-    Origin: `https://${host}`
-  };
-  const html = await fetchEmbed(url, referer, {
-    timeout: 5e3,
-    retries: 0,
-    headers: { Origin: `https://${host}` }
-  });
-  if (!html) return null;
-  for (const m of html.matchAll(/atob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/g)) {
-    try {
-      const decoded = b64decode(m[1]);
-      const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, "/"));
-      if (src) return { url: src[1], headers: _cdnReferer(src[1], siteHdrs) };
-    } catch (e) {
-    }
-  }
-  const haystack = `${html}
-${_unpackAll(html)}`;
-  const direct = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(haystack.replace(/\\\//g, "/"));
-  if (direct) return { url: direct[1], headers: _cdnReferer(direct[1], siteHdrs) };
-  for (const m of html.matchAll(/=\s*['"]([A-Za-z0-9+/=]{80,})['"]/g)) {
-    try {
-      const decoded = b64decode(m[1]);
-      const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, "/"));
-      if (src) return { url: src[1], headers: _cdnReferer(src[1], siteHdrs) };
-    } catch (e) {
-    }
-  }
-  const fileM = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/.exec(html);
-  if (fileM) return { url: fileM[1].replace(/\\\//g, "/"), headers: siteHdrs };
-  return null;
-}
-function _cdnReferer(streamUrl, fallback) {
-  const h = _hostOf(streamUrl);
-  if (!h) return fallback;
-  return { Referer: `https://${h}/`, Origin: `https://${h}` };
-}
-async function resolveOkru(url) {
-  const html = await fetchEmbed(url, "https://ok.ru/");
-  if (!html) return null;
-  const marker = "hlsManifestUrl\\&quot;:\\&quot;";
-  const start = html.indexOf(marker);
-  if (start === -1) return null;
-  const from = start + marker.length;
-  const end = html.indexOf("\\&quot;", from);
-  if (end === -1) return null;
-  const url2 = html.slice(from, end).split("\\\\u0026").join("&");
-  if (!/^https?:\/\//.test(url2)) return null;
-  return { url: url2 };
-}
-async function resolveStreamwish(url, referer) {
-  const host = _hostOf(url);
-  if (!host) return null;
-  const hdrs = { Referer: `https://${host}/` };
-  const idM = /\/(?:e|f|d)\/([A-Za-z0-9]+)/.exec(url);
-  if (idM) {
-    const id = idM[1];
-    const apiJson = await fetchEmbed(
-      `https://${host}/api/file/${id}?json=1`,
-      `https://${host}/`,
-      { timeout: 7e3 }
-    );
-    if (apiJson) {
-      const fileM = /"file"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(apiJson);
-      if (fileM) return { url: fileM[1].replace(/\\\//g, "/"), headers: hdrs };
-      const mp4M = /"file"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(apiJson);
-      if (mp4M) return { url: mp4M[1].replace(/\\\//g, "/"), headers: hdrs };
-    }
-  }
-  return resolveGeneric(url, referer);
-}
-async function resolveStreamHg(url, referer) {
-  const idM = /\/e\/([A-Za-z0-9]+)/.exec(url);
-  if (!idM) return null;
-  const html = await fetchEmbed(`https://vibuxer.com/e/${idM[1]}`, referer, {
-    headers: { Referer: "https://hgcloud.to/" }
-  });
-  if (!html) return null;
-  const flat = `${html}
-${_unpackAll(html)}`.replace(/\\\//g, "/");
-  const m3u8 = /((?:https?:)?\/\/[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(flat);
-  if (!m3u8) return null;
-  const streamUrl = m3u8[1].startsWith("//") ? `https:${m3u8[1]}` : m3u8[1];
-  return { url: streamUrl, headers: { Referer: "https://vibuxer.com/" } };
-}
-async function resolveGeneric(url, referer) {
-  var _a;
-  const html = await fetchEmbed(url, referer);
-  if (!html) return null;
-  const host = _hostOf(url);
-  const headers = host ? { Referer: `https://${host}/` } : void 0;
-  const haystack = `${html}
-${_unpackAll(html)}`;
-  const flat = haystack.replace(/\\\//g, "/");
-  const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(flat);
-  if (m3u8) return { url: m3u8[1], headers };
-  for (const m of html.matchAll(/atob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/g)) {
-    try {
-      const decoded = b64decode(m[1]);
-      const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(decoded.replace(/\\\//g, "/"));
-      if (src) return { url: src[1], headers };
-    } catch (e) {
-    }
-  }
-  const file = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/.exec(flat);
-  if (file) return { url: file[1], headers };
-  const mp4s = (_a = flat.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g)) != null ? _a : [];
-  const real = mp4s.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
-  if (real) return { url: real, headers };
-  return null;
-}
-async function _postForm(url, campos, referer) {
+async function postForm(url, campos, referer) {
   var _a;
   const cuerpo = Object.keys(campos).map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(campos[k])}`).join("&");
   try {
@@ -568,127 +218,106 @@ async function _postForm(url, campos, referer) {
       ])
     );
   } catch (e) {
-    console.log(`[postForm] FAIL ${url.slice(0, 45)} :: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
+    console.log(`[la] POST fall\xF3 ${url.slice(0, 45)} :: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
     return null;
   }
 }
-function _codigoDe(url) {
+function codigoDe(url) {
   const sinQuery = url.split("?")[0].split("#")[0].replace(/\/+$/, "");
   const ultimo = sinQuery.slice(sinQuery.lastIndexOf("/") + 1);
   return ultimo.replace(/^embed-/, "").replace(/\.html?$/, "");
 }
-async function resolveHexload(url, referer) {
-  const host = _hostOf(url) || "hexload.com";
-  const code = _codigoDe(url);
-  if (!code) return null;
-  const raw = await _postForm(
-    `https://${host}/download`,
-    { op: "download3", id: code, ajax: "1", method_free: "1" },
-    referer || `https://${host}/`
-  );
-  if (!raw) return null;
-  const m = /"url"\s*:\s*"([^"]+)"/.exec(raw);
-  if (!m) {
-    console.log("[hexload] el POST no devolvi\xF3 ninguna url");
-    return null;
-  }
-  return {
-    url: m[1].replace(/\\\//g, "/"),
-    headers: { Referer: `https://${host}/` }
-  };
+function hostDe(url) {
+  const m = /^https?:\/\/([^/]+)/.exec(url);
+  return m ? m[1] : null;
 }
-async function _postJson(url, cuerpo, referer) {
+function b64aTexto(s) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const limpio = s.replace(/[^A-Za-z0-9+/]/g, "");
+  let out = "";
+  let i = 0;
+  while (i < limpio.length) {
+    const b1 = chars.indexOf(limpio[i++]);
+    const b2 = chars.indexOf(limpio[i++]);
+    const b3 = i < limpio.length ? chars.indexOf(limpio[i++]) : -1;
+    const b4 = i < limpio.length ? chars.indexOf(limpio[i++]) : -1;
+    out += String.fromCharCode(b1 << 2 | b2 >> 4);
+    if (b3 !== -1) out += String.fromCharCode((b2 & 15) << 4 | b3 >> 2);
+    if (b4 !== -1) out += String.fromCharCode((b3 & 3) << 6 | b4);
+  }
+  return out;
+}
+function desempaquetarUno(src) {
+  const m = new RegExp("\\}\\s*\\(\\s*'(.*?)'\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*'(.*?)'\\.split\\('\\|'\\)", "s").exec(src);
+  if (!m) return "";
+  let payload = m[1];
+  const radix = parseInt(m[2], 10);
+  const count = parseInt(m[3], 10);
+  const palabras = m[4].split("|");
+  payload = payload.split("\\'").join("'");
+  const enc = (n) => (n < radix ? "" : enc(Math.floor(n / radix))) + ((n = n % radix) > 35 ? String.fromCharCode(n + 29) : n.toString(36));
+  const dic = {};
+  for (let i = count - 1; i >= 0; i--) dic[enc(i)] = palabras[i] || enc(i);
+  return payload.replace(/\b\w+\b/g, (w) => {
+    var _a;
+    return (_a = dic[w]) != null ? _a : w;
+  });
+}
+function desempaquetarTodo(html) {
+  let out = "";
+  const re = /eval\(function\(p,a,c,k,e,[dr]\)\{[\s\S]*?\.split\('\|'\)[^)]*\)\)/g;
+  for (const m of html.matchAll(re)) {
+    const u = desempaquetarUno(m[0]);
+    if (u) out += `
+${u}`;
+  }
+  return out;
+}
+function buscarDireccion(html, headers) {
   var _a;
-  try {
-    return await sendMessage(
-      "request",
-      JSON.stringify([
-        url,
-        {
-          method: "post",
-          headers: {
-            "Content-Type": "application/json",
-            Referer: referer
-          },
-          data: JSON.stringify(cuerpo)
-        }
-      ])
-    );
-  } catch (e) {
-    console.log(`[postJson] FAIL ${url.slice(0, 45)} :: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
-    return null;
-  }
-}
-async function resolveFirestream(url, referer) {
-  var _a;
-  const host = _hostOf(url) || "firestream.to";
-  const codigo = _codigoDe(url);
-  if (!codigo) return null;
-  const html = await fetchEmbed(url, referer || `https://${host}/`);
-  if (typeof html !== "string") return null;
-  const yaFirmada = /"signedVideoUrl"\s*:\s*"([^"]+)"/.exec(html);
-  if (yaFirmada && yaFirmada[1] && yaFirmada[1] !== "null") {
-    return {
-      url: yaFirmada[1].replace(/\\\//g, "/"),
-      headers: { Referer: `https://${host}/` }
-    };
-  }
-  const vale = /<script[^>]+id="token-blob"[^>]*>([^<]+)<\/script>/.exec(html);
-  if (!vale) {
-    console.log("[firestream] la p\xE1gina no trae el vale para canjear");
-    return null;
-  }
-  const raw = await _postJson(
-    `https://${host}/api/videos/${encodeURIComponent(codigo)}/resolve`,
-    { blob: vale[1].trim() },
-    url
-  );
-  if (!raw) return null;
-  const m = (_a = /"signedVideoUrl"\s*:\s*"([^"]+)"/.exec(raw)) != null ? _a : /"signedVideoSdUrl"\s*:\s*"([^"]+)"/.exec(raw);
-  if (!m) {
-    console.log("[firestream] el canje no devolvi\xF3 ninguna url");
-    return null;
-  }
-  return {
-    url: m[1].replace(/\\\//g, "/"),
-    headers: { Referer: `https://${host}/` }
-  };
-}
-async function resolveSavefiles(url, referer) {
-  const host = _hostOf(url) || "savefiles.com";
-  const code = _codigoDe(url);
-  if (!code) return null;
-  const html = await _postForm(
-    `https://${host}/dl`,
-    { op: "embed", file_code: code, auto: "1", referer: referer || "" },
-    referer || `https://${host}/`
-  );
-  if (!html) return null;
-  const plano = html.replace(/\\\//g, "/");
+  const plano = `${html}
+${desempaquetarTodo(html)}`.replace(/\\\//g, "/");
   const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(plano);
-  if (m3u8) return { url: m3u8[1], headers: { Referer: `https://${host}/` } };
-  const mp4 = /(https?:[^"'\s\\]+\.mp4[^"'\s\\]*)/.exec(plano);
-  if (mp4) return { url: mp4[1], headers: { Referer: `https://${host}/` } };
-  console.log("[savefiles] el POST a /dl no trajo ninguna fuente");
+  if (m3u8) return { url: m3u8[1], headers };
+  for (const m of html.matchAll(/atob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/g)) {
+    try {
+      const claro = b64aTexto(m[1]).replace(/\\\//g, "/");
+      const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(claro);
+      if (src) return { url: src[1], headers };
+    } catch (e) {
+    }
+  }
+  const file = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/.exec(plano);
+  if (file) return { url: file[1], headers };
+  const mp4s = (_a = plano.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g)) != null ? _a : [];
+  const real = mp4s.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
+  if (real) return { url: real, headers };
   return null;
 }
-async function resolveByse(url, referer) {
+
+// extensions/latanime/servidores/byse/index.ts
+function b64urlAWord(s) {
+  const normal = s.replace(/-/g, "+").replace(/_/g, "/");
+  const relleno = normal.length % 4 === 0 ? "" : "=".repeat(4 - normal.length % 4);
+  return CryptoJS.enc.Base64.parse(normal + relleno);
+}
+async function resolver(url, referer) {
   var _a;
-  const host = _hostOf(url) || "bysekoze.com";
-  const code = _codigoDe(url);
-  if (!code) return null;
-  const raw = await fetchEmbed(`https://${host}/api/videos/${code}`, referer || `https://${host}/`);
-  if (!raw) return null;
+  const host = hostDe(url) || "bysekoze.com";
+  const codigo = codigoDe(url);
+  if (!codigo) return null;
+  const crudo = await pedir(`https://${host}/api/videos/${codigo}`, referer || `https://${host}/`);
+  if (!crudo) return null;
   let meta;
   try {
-    meta = JSON.parse(raw);
+    meta = JSON.parse(crudo);
   } catch (e) {
-    console.log("[byse] la API no devolvi\xF3 JSON");
+    console.log("[la] byse: la API no devolvi\xF3 JSON");
     return null;
   }
   const pb = meta.playback;
   if (!pb || !pb.iv || !pb.payload || !Array.isArray(pb.key_parts)) {
-    console.log("[byse] la API no trajo datos de reproducci\xF3n");
+    console.log("[la] byse: la API no trajo datos de reproducci\xF3n");
     return null;
   }
   const v = Number(pb.version);
@@ -697,13 +326,11 @@ async function resolveByse(url, referer) {
   const elegidas = indices ? indices.map((i) => partes[i - 1]).filter((p) => typeof p === "string" && p.length > 0) : partes;
   if (!elegidas.length) return null;
   try {
-    let clave = _b64urlAWord(elegidas[0]);
-    for (let i = 1; i < elegidas.length; i++) {
-      clave = clave.concat(_b64urlAWord(elegidas[i]));
-    }
-    const iv = _b64urlAWord(pb.iv);
+    let clave = b64urlAWord(elegidas[0]);
+    for (let i = 1; i < elegidas.length; i++) clave = clave.concat(b64urlAWord(elegidas[i]));
+    const iv = b64urlAWord(pb.iv);
     const contador = CryptoJS.lib.WordArray.create(iv.words.concat([2]), 16);
-    const cifrado = _b64urlAWord(pb.payload);
+    const cifrado = b64urlAWord(pb.payload);
     const sinEtiqueta = CryptoJS.lib.WordArray.create(
       cifrado.words.slice(),
       cifrado.sigBytes - 16
@@ -715,7 +342,7 @@ async function resolveByse(url, referer) {
     ).toString(CryptoJS.enc.Utf8);
     const m = /"url"\s*:\s*"([^"]+)"/.exec(claro);
     if (!m) {
-      console.log("[byse] se descifr\xF3 pero no hab\xEDa ninguna url adentro");
+      console.log("[la] byse: se descifr\xF3 pero no hab\xEDa ninguna url adentro");
       return null;
     }
     return {
@@ -723,77 +350,275 @@ async function resolveByse(url, referer) {
       headers: { Referer: `https://${host}/` }
     };
   } catch (e) {
-    console.log(`[byse] no se pudo descifrar: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
+    console.log(`[la] byse: no se pudo descifrar: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
     return null;
   }
 }
-function _b64urlAWord(s) {
-  const normal = s.replace(/-/g, "+").replace(/_/g, "/");
-  const relleno = normal.length % 4 === 0 ? "" : "=".repeat(4 - normal.length % 4);
-  return CryptoJS.enc.Base64.parse(normal + relleno);
-}
-function _unpackAll(html) {
-  let out = "";
-  const re = /eval\(function\(p,a,c,k,e,[dr]\)\{[\s\S]*?\.split\('\|'\)[^)]*\)\)/g;
-  for (const m of html.matchAll(re)) {
-    const u = _unpack(m[0]);
-    if (u) out += `
-${u}`;
-  }
-  return out;
-}
-function _unpack(src) {
-  const m = new RegExp("\\}\\s*\\(\\s*'(.*?)'\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*'(.*?)'\\.split\\('\\|'\\)", "s").exec(
-    src
-  );
-  if (!m) return "";
-  let payload = m[1];
-  const radix = parseInt(m[2], 10);
-  const count = parseInt(m[3], 10);
-  const words = m[4].split("|");
-  payload = payload.split("\\'").join("'");
-  const enc = (n) => (n < radix ? "" : enc(Math.floor(n / radix))) + ((n = n % radix) > 35 ? String.fromCharCode(n + 29) : n.toString(36));
-  const dict = {};
-  for (let i = count - 1; i >= 0; i--) dict[enc(i)] = words[i] || enc(i);
-  return payload.replace(/\b\w+\b/g, (w) => {
-    var _a;
-    return (_a = dict[w]) != null ? _a : w;
-  });
-}
-function _hostOf(url) {
-  const m = /^https?:\/\/([^/]+)/.exec(url);
-  return m ? m[1] : null;
-}
-async function fetchEmbed(url, referer, opts = {}) {
-  var _a, _b, _c;
-  const headers = __spreadValues({ Referer: referer }, (_a = opts.headers) != null ? _a : {});
-  const retries = (_b = opts.retries) != null ? _b : 0;
-  let lastErr;
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      return await sendMessage("request", JSON.stringify([url, { method: "get", headers }]));
-    } catch (e) {
-      lastErr = e;
-    }
-  }
-  console.log(`[fetchEmbed] FAIL ${url.slice(0, 45)} :: ${(_c = lastErr == null ? void 0 : lastErr.message) != null ? _c : lastErr}`);
+
+// extensions/latanime/servidores/dsvplay/index.ts
+async function resolver2(_url, _referer) {
   return null;
 }
-function b64decode(s) {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  const clean = s.replace(/[^A-Za-z0-9+/]/g, "");
-  let result = "";
-  let i = 0;
-  while (i < clean.length) {
-    const b1 = chars.indexOf(clean[i++]);
-    const b2 = chars.indexOf(clean[i++]);
-    const b3 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
-    const b4 = i < clean.length ? chars.indexOf(clean[i++]) : -1;
-    result += String.fromCharCode(b1 << 2 | b2 >> 4);
-    if (b3 !== -1) result += String.fromCharCode((b2 & 15) << 4 | b3 >> 2);
-    if (b4 !== -1) result += String.fromCharCode((b3 & 3) << 6 | b4);
+
+// extensions/latanime/servidores/hexload/index.ts
+async function resolver3(url, referer) {
+  const host = hostDe(url) || "hexload.com";
+  const codigo = codigoDe(url);
+  if (!codigo) return null;
+  const crudo = await postForm(
+    `https://${host}/download`,
+    { op: "download3", id: codigo, ajax: "1", method_free: "1" },
+    referer || `https://${host}/`
+  );
+  if (!crudo) return null;
+  const m = /"url"\s*:\s*"([^"]+)"/.exec(crudo);
+  if (!m) {
+    console.log("[la] hexload: el POST no devolvi\xF3 ninguna url");
+    return null;
   }
-  return result;
+  return { url: m[1].replace(/\\\//g, "/"), headers: { Referer: `https://${host}/` } };
+}
+
+// extensions/latanime/servidores/mega/index.ts
+async function resolver4(_url, _referer) {
+  return null;
+}
+
+// extensions/latanime/servidores/mixdrop/index.ts
+async function resolver5(url, referer) {
+  const html = await pedir(url, referer);
+  if (!html) return null;
+  const desempaquetado = desempaquetarTodo(html);
+  const wurl = /MDCore\.wurl\s*=\s*["']([^"']+)["']/.exec(desempaquetado);
+  let destino = wurl == null ? void 0 : wurl[1];
+  if (!destino) {
+    const mp4 = /(\/\/[^"'\s]+\.mp4[^"'\s]*)/.exec(desempaquetado);
+    destino = mp4 == null ? void 0 : mp4[1];
+  }
+  if (!destino) return null;
+  const completa = destino.indexOf("http") === 0 ? destino : `https:${destino}`;
+  return { url: completa, headers: { Referer: "https://mixdrop.top/" } };
+}
+
+// extensions/latanime/servidores/mojon/index.ts
+async function resolver6(_url, _referer) {
+  return null;
+}
+
+// extensions/latanime/servidores/mp4upload/index.ts
+async function resolver7(url, referer) {
+  var _a;
+  const html = await pedir(url, referer);
+  if (!html) return null;
+  const candidatos = (_a = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g)) != null ? _a : [];
+  const real = candidatos.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
+  if (!real) return null;
+  return { url: real, headers: { Referer: "https://www.mp4upload.com/" } };
+}
+
+// extensions/latanime/servidores/savefiles/index.ts
+async function resolver8(url, referer) {
+  const host = hostDe(url) || "savefiles.com";
+  const codigo = codigoDe(url);
+  if (!codigo) return null;
+  const html = await postForm(
+    `https://${host}/dl`,
+    { op: "embed", file_code: codigo, auto: "1", referer: referer || "" },
+    referer || `https://${host}/`
+  );
+  if (!html) return null;
+  const plano = html.replace(/\\\//g, "/");
+  const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(plano);
+  if (m3u8) return { url: m3u8[1], headers: { Referer: `https://${host}/` } };
+  const mp4 = /(https?:[^"'\s\\]+\.mp4[^"'\s\\]*)/.exec(plano);
+  if (mp4) return { url: mp4[1], headers: { Referer: `https://${host}/` } };
+  console.log("[la] savefiles: el POST a /dl no trajo ninguna fuente");
+  return null;
+}
+
+// extensions/latanime/servidores/uqload/index.ts
+async function resolver9(url, referer) {
+  const host = hostDe(url);
+  if (!host) return null;
+  const hdrs = { Referer: `https://${host}/` };
+  const codigo = codigoDe(url);
+  if (codigo) {
+    const json = await pedir(`https://${host}/api/file/${codigo}?json=1`, `https://${host}/`);
+    if (json) {
+      const m3u8 = /"file"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(json);
+      if (m3u8) return { url: m3u8[1].replace(/\\\//g, "/"), headers: hdrs };
+      const mp4 = /"file"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(json);
+      if (mp4) return { url: mp4[1].replace(/\\\//g, "/"), headers: hdrs };
+    }
+  }
+  const html = await pedir(url, referer);
+  if (!html) return null;
+  return buscarDireccion(html, hdrs);
+}
+
+// extensions/latanime/servidores/voe/index.ts
+function rot13(s) {
+  return s.replace(/[a-zA-Z]/g, (c) => {
+    const base = c <= "Z" ? 65 : 97;
+    return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
+  });
+}
+function desescapar(s) {
+  return s.replace(/\\\//g, "/");
+}
+function descifrar(crudo) {
+  try {
+    let r = rot13(crudo);
+    for (const p of ["@$", "^^", "#&", "~@", "%?", "*~", "!!", "`"]) r = r.split(p).join("");
+    const paso3 = b64aTexto(r);
+    let corrido = "";
+    for (let i = 0; i < paso3.length; i++) corrido += String.fromCharCode(paso3.charCodeAt(i) - 3);
+    return b64aTexto(corrido.split("").reverse().join(""));
+  } catch (e) {
+    return null;
+  }
+}
+async function resolver10(url, referer) {
+  let html = await pedir(url, referer);
+  if (!html) return null;
+  const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html);
+  if (redir) {
+    const espejo = await pedir(redir[1], "https://voe.sx/");
+    if (espejo) html = espejo;
+  }
+  const bloque = /<script[^>]*type=["']application\/json["'][^>]*>\s*\[\s*"([^"]+)"\s*\]\s*<\/script>/.exec(html);
+  if (bloque) {
+    const claro = descifrar(bloque[1]);
+    if (claro) {
+      const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(claro);
+      if (src) return { url: desescapar(src[1]) };
+      const cualquiera = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(desescapar(claro));
+      if (cualquiera) return { url: cualquiera[1] };
+      const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(claro);
+      if (mp4) return { url: desescapar(mp4[1]) };
+    }
+  }
+  let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
+  if (m) return { url: m[1] };
+  const enBase64 = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
+  if (enBase64) {
+    try {
+      const claro = b64aTexto(enBase64[1]);
+      const hls = /['"]hls['"]\s*:\s*['"]([^'"]+)['"]/.exec(claro);
+      if (hls) return { url: hls[1] };
+      const directo = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/.exec(claro);
+      if (directo) return { url: directo[1] };
+    } catch (e) {
+    }
+  }
+  m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
+  if (m) return { url: m[0] };
+  return null;
+}
+
+// extensions/latanime/servidores/index.ts
+var SERVIDORES = [
+  {
+    boton: "Puj",
+    hosts: ["mojon.latanime.org"],
+    botones: 1,
+    nativo: false,
+    resolver: resolver6
+  },
+  {
+    boton: "Savefiles",
+    hosts: ["savefiles"],
+    botones: 119,
+    nativo: true,
+    resolver: resolver8
+  },
+  {
+    boton: "Mixdrop",
+    hosts: ["mixdrop", "mxdrop", "xdrop"],
+    botones: 119,
+    nativo: true,
+    resolver: resolver5
+  },
+  {
+    boton: "Voe",
+    hosts: ["voe.sx", "voe."],
+    botones: 118,
+    nativo: true,
+    resolver: resolver10
+  },
+  {
+    boton: "Byse",
+    hosts: ["bysekoze"],
+    botones: 96,
+    nativo: true,
+    resolver
+  },
+  {
+    // Mismo servicio y mismo resolver que el de arriba, pero este host contesta
+    // sin datos de reproducción. Ficha aparte para que el icono no mienta.
+    boton: "Byse",
+    hosts: ["byse.sx", "byse."],
+    botones: 21,
+    nativo: false,
+    resolver
+  },
+  {
+    boton: "Hexload",
+    hosts: ["hexload"],
+    botones: 117,
+    nativo: true,
+    resolver: resolver3
+  },
+  {
+    boton: "Mega",
+    hosts: ["mega.nz", "mega.co.nz"],
+    botones: 115,
+    nativo: false,
+    resolver: resolver4
+  },
+  {
+    boton: "Dsvplay",
+    hosts: ["dsvplay", "playmogo", "dooodster", "dood"],
+    botones: 115,
+    nativo: false,
+    resolver: resolver2
+  },
+  {
+    boton: "Mp4upload",
+    hosts: ["mp4upload"],
+    botones: 101,
+    nativo: true,
+    resolver: resolver7
+  },
+  {
+    boton: "Uqload",
+    hosts: ["uqload"],
+    botones: 2,
+    nativo: true,
+    resolver: resolver9
+  },
+  {
+    // El mismo motor que savefiles, pero acá el POST vuelve sin fuentes.
+    boton: "Savefiles",
+    hosts: ["streamhls"],
+    botones: 2,
+    nativo: false,
+    resolver: resolver8
+  }
+];
+function fichaDe(url) {
+  var _a;
+  const u = url.toLowerCase();
+  return (_a = SERVIDORES.find((s) => s.hosts.some((h) => u.indexOf(h) !== -1))) != null ? _a : null;
+}
+async function resolverServidor(url, referer) {
+  const ficha = fichaDe(url);
+  if (ficha) return ficha.resolver(url, referer);
+  console.log(`[la] servidor sin ficha, se prueba a mano: ${url.slice(0, 60)}`);
+  const html = await pedir(url, referer);
+  if (!html) return null;
+  const host = hostDe(url);
+  return buscarDireccion(html, host ? { Referer: `https://${host}/` } : void 0);
 }
 
 // extensions/latanime/index.ts
@@ -1000,10 +825,11 @@ function _esMega(u) {
   return u.indexOf("mega.nz") !== -1 || u.indexOf("mega.co.nz") !== -1;
 }
 async function watch(url) {
+  var _a;
   if (url.indexOf("http") === 0 && url.indexOf("latanime.org") === -1) {
     if (!_esMega(url)) {
       try {
-        const res = await resolveEmbed(_nombreDe(url), url, `${BASE}/`);
+        const res = await resolverServidor(url, `${BASE}/`);
         if (res && res.url) {
           return {
             streams: [{ url: res.url, quality: _nombreDe(url), headers: res.headers }],
@@ -1027,7 +853,11 @@ async function watch(url) {
     }
     if (embed.indexOf("http") !== 0) continue;
     const etiqueta = decodeEntities(m[2].trim()) || _nombreDe(embed);
-    streams.push({ url: embed, quality: _nombreBonito(etiqueta) });
+    streams.push({
+      url: embed,
+      quality: _nombreBonito(etiqueta),
+      nativo: (_a = fichaDe(embed)) == null ? void 0 : _a.nativo
+    });
   }
   return { streams, pageUrl: episodeUrl };
 }
