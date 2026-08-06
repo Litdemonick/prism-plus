@@ -415,25 +415,66 @@ async function _listing(postType: PostType, page: number, f: LMFilter): Promise<
  * Se intercalan de a uno en vez de pegar los cuatro bloques uno detrás de otro
  * para que la primera pantalla ya muestre de todo, que es de lo que se trata.
  */
+/**
+ * Le pone plazo a una promesa. Si no llega, devuelve el respaldo.
+ *
+ * Copia propia y no importada: es la misma idea que usa jkanime para sus
+ * servidores lentos, pero acá el plazo y el motivo son otros, y tocar el de allá
+ * no puede cambiar esto. Ver la nota de por qué cada extensión lleva lo suyo.
+ */
+async function _conPlazo<T>(promesa: Promise<T>, ms: number, respaldo: () => T): Promise<T> {
+  let reloj: ReturnType<typeof setTimeout> | undefined;
+  const plazo = new Promise<T>((resolver) => {
+    reloj = setTimeout(() => resolver(respaldo()), ms);
+  });
+  try {
+    return await Promise.race([promesa, plazo]);
+  } finally {
+    if (reloj) clearTimeout(reloj);
+  }
+}
+
 export async function latest(page: number, filter?: Record<string, string[]>): Promise<PrismItem[]> {
   const f = _parseFilter(filter);
   if (f.postType) return _listing(f.postType, page, f);
 
-  // **Los cuatro a la vez, no uno detrás de otro.**
+  // **Los cuatro a la vez, y con plazo propio cada uno.**
   //
-  // De a uno son cuatro viajes encadenados y la portada tardaba lo que suman
-  // los cuatro; en paralelo tarda lo que el más lento. Medido: cada listado son
-  // ~230 ms, así que la diferencia es cerca de un segundo cada vez que se abre
-  // la extensión.
+  // A la vez porque de a uno son cuatro viajes encadenados y la portada
+  // tardaría lo que suman.
   //
-  // Cada uno atrapa su propio error: que un tipo falle no puede dejar la
-  // portada vacía ni tumbar a los otros tres.
+  // Y con plazo porque este sitio se puso MUY lento. Medido el 2026-08-06,
+  // pidiéndole directamente a su API, sin la app en el medio:
+  //
+  //     movies   26,9 s      animes   2,8 s
+  //     tvshows  10,4 s      novels   no contestó en 45 s
+  //
+  // Esperando a los cuatro, la portada tardaba lo que el peor: se quedaba en
+  // blanco veinte segundos —el límite del puente de red— y volvía vacía,
+  // aunque `animes` estuviera listo desde el segundo 2,8. Es lo peor de los dos
+  // mundos: se espera todo y no se muestra nada.
+  //
+  // Con el plazo se muestra lo que llegó. Si el sitio se recupera no cambia
+  // nada, porque todos entran cómodos; y si sigue lento, se ve contenido a los
+  // ocho segundos en vez de una rueda infinita.
+  //
+  // Ocho segundos: por debajo del límite del puente, y por encima de lo que
+  // tarda este sitio cuando está en un día normal.
+  const PLAZO_POR_TIPO = 8_000;
   const porTipo = await Promise.all(
     POST_TYPES.map((t) =>
-      _listing(t, page, f).catch((e) => {
-        console.log(`[lamovie] no se pudo listar ${t}: ${e}`);
-        return [] as PrismItem[];
-      }),
+      _conPlazo(
+        _listing(t, page, f).catch((e) => {
+          console.log(`[lamovie] no se pudo listar ${t}: ${e}`);
+          return [] as PrismItem[];
+        }),
+        PLAZO_POR_TIPO,
+        () => {
+          console.log(`[lamovie] ${t} no llegó en ${PLAZO_POR_TIPO / 1000} s: `
+            + 'se muestra lo que haya de los demás');
+          return [] as PrismItem[];
+        },
+      ),
     ),
   );
 

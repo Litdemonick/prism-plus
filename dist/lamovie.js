@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LaMovie
-// @version      1.1.2
+// @version      1.1.3
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -571,15 +571,34 @@ async function _listing(postType, page, f) {
   }
   return items;
 }
+async function _conPlazo(promesa, ms, respaldo) {
+  let reloj;
+  const plazo = new Promise((resolver6) => {
+    reloj = setTimeout(() => resolver6(respaldo()), ms);
+  });
+  try {
+    return await Promise.race([promesa, plazo]);
+  } finally {
+    if (reloj) clearTimeout(reloj);
+  }
+}
 async function latest(page, filter) {
   const f = _parseFilter(filter);
   if (f.postType) return _listing(f.postType, page, f);
+  const PLAZO_POR_TIPO = 8e3;
   const porTipo = await Promise.all(
     POST_TYPES.map(
-      (t) => _listing(t, page, f).catch((e) => {
-        console.log(`[lamovie] no se pudo listar ${t}: ${e}`);
-        return [];
-      })
+      (t) => _conPlazo(
+        _listing(t, page, f).catch((e) => {
+          console.log(`[lamovie] no se pudo listar ${t}: ${e}`);
+          return [];
+        }),
+        PLAZO_POR_TIPO,
+        () => {
+          console.log(`[lamovie] ${t} no lleg\xF3 en ${PLAZO_POR_TIPO / 1e3} s: se muestra lo que haya de los dem\xE1s`);
+          return [];
+        }
+      )
     )
   );
   const mezcla = [];
