@@ -760,9 +760,35 @@ export async function watch(url: string): Promise<PrismWatch> {
   // No se borró nada: `servidores/mixdrop/` sigue entero con sus mediciones,
   // así que volver a ponerlo es sacar su nombre de esta lista y nada más.
   //
+  // ── Doodstream: cuarta excepción — falla por las tres vías ────────────────
+  //
+  // Medido el 2026-08-06, y cada fallo por un motivo distinto:
+  //
+  //   nativo            403 de Cloudflare. `dsvplay.com` redirige a
+  //                     `playmogo.com` y devuelve el desafío "Just a moment…"
+  //                     (con su `cf-ray`), que hay que resolver ejecutando JS.
+  //                     Un cliente HTTP no puede.
+  //   WebView Windows   lo tapa **SmartScreen de Microsoft** dentro de WebView2,
+  //                     por sitio engañoso. Aparece ANTES de que la página
+  //                     exista, así que no es cosa del bloqueador: no hay
+  //                     pedidos que cortar.
+  //   WebView Android   pantalla negra, ni carga.
+  //
+  // Que Microsoft lo tenga fichado como engañoso pesa por sí solo: mandar ahí
+  // al usuario va en contra de lo que se busca. Y la extensión queda igual de
+  // completa sin él, con 7 botones.
+  //
+  // El resolver ya devolvía null a propósito y sigue en `servidores/doodstream/`
+  // con sus mediciones.
+  //
   // El resto sigue en la lista, incluidos los que van al navegador, porque un
   // botón que abre en el navegador es mucho mejor que ningún botón.
-  const FUERA_DE_LA_LISTA = ['mediafire', 'mp4upload', 'mixdrop', 'mxdrop', 'xdrop'];
+  const FUERA_DE_LA_LISTA = [
+    'mediafire',
+    'mp4upload',
+    'mixdrop', 'mxdrop', 'xdrop',
+    'dood', 'dsvplay', 'playmogo', 'dooodster', 'd-s.io',
+  ];
   const usable = resolved.filter((s) => {
     const u = (s.url ?? '').toLowerCase();
     return !FUERA_DE_LA_LISTA.some((nombre) => u.indexOf(nombre) !== -1);
