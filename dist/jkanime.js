@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.4
+// @version      1.12.5
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -418,15 +418,31 @@ async function resolver6(_url, _referer) {
 }
 
 // extensions/jkanime/servidores/mixdrop/index.ts
-async function resolver7(url, referer) {
+var DOMINIOS_DE_REPUESTO = ["miixdrop.com", "mxdrop.to", "mixdrop.top"];
+function conOtroDominio(url, dominio) {
+  const host = hostDe(url);
+  if (!host || host === dominio) return null;
+  return url.replace(host, dominio);
+}
+async function sacarDestino(url, referer) {
+  var _a;
   const html = await pedir(url, referer, CABECERAS_DEL_REPRODUCTOR);
   if (!html) return null;
   const desempaquetado = desempaquetarTodo(html);
   const wurl = /MDCore\.wurl\s*=\s*["']([^"']+)["']/.exec(desempaquetado);
-  let destino = wurl == null ? void 0 : wurl[1];
+  if (wurl == null ? void 0 : wurl[1]) return wurl[1];
+  const mp4 = /(\/\/[^"'\s]+\.mp4[^"'\s]*)/.exec(desempaquetado);
+  return (_a = mp4 == null ? void 0 : mp4[1]) != null ? _a : null;
+}
+async function resolver7(url, referer) {
+  let destino = await sacarDestino(url, referer);
   if (!destino) {
-    const mp4 = /(\/\/[^"'\s]+\.mp4[^"'\s]*)/.exec(desempaquetado);
-    destino = mp4 == null ? void 0 : mp4[1];
+    for (const dominio of DOMINIOS_DE_REPUESTO) {
+      const otra = conOtroDominio(url, dominio);
+      if (!otra) continue;
+      destino = await sacarDestino(otra, referer);
+      if (destino) break;
+    }
   }
   if (!destino) return null;
   const completa = destino.indexOf("http") === 0 ? destino : `https:${destino}`;

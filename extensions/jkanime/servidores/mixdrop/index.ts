@@ -40,21 +40,67 @@
 import {
   pedir,
   desempaquetarTodo,
+  hostDe,
   CABECERAS_DEL_REPRODUCTOR,
   type ServidorResuelto,
 } from '../comun';
 
-export async function resolver(url: string, referer: string): Promise<ServidorResuelto | null> {
+// ── El dominio muerto: por qué se abría el navegador igual ──────────────────
+//
+// Con el User-Agent ya arreglado, Mixdrop seguía cayéndose al WebView. La causa
+// era otra y estaba en el dominio: jkanime no entrega uno solo, entrega el que
+// tenga a mano cuando se publicó el episodio. Medido el 2026-08-06, pidiendo EL
+// MISMO id en todos:
+//
+//     mixdrop.is      HTTP 200 ·  1.092 bytes · no trae nada adentro
+//     miixdrop.com    HTTP 200 · 76.946 bytes · resuelve
+//     mxdrop.to       HTTP 200 · 76.946 bytes · resuelve (redirige a miixdrop)
+//     mixdrop.top     HTTP 200 · 76.946 bytes · resuelve (redirige a miixdrop)
+//     mixdrop.co      no conecta
+//
+// O sea que `mixdrop.is` contesta 200 —no un error, un 200— con una página
+// vacía. El resolver no encontraba nada que desempaquetar, devolvía null y la
+// app hacía lo que corresponde: abrir el navegador interno. Todo funcionando
+// como debe, con un dominio caído en el medio.
+//
+// Como responde 200, no hay forma de saberlo por el código: se sabe recién al
+// no encontrar la dirección. Por eso se reintenta el MISMO id en los dominios
+// que sí andan. El id y la ruta son idénticos en todos.
+const DOMINIOS_DE_REPUESTO = ['miixdrop.com', 'mxdrop.to', 'mixdrop.top'];
+
+/** La misma dirección apuntando a otro dominio, o null si no se pudo. */
+function conOtroDominio(url: string, dominio: string): string | null {
+  const host = hostDe(url);
+  if (!host || host === dominio) return null;
+  return url.replace(host, dominio);
+}
+
+/** Pide el embed y saca la dirección del vídeo. null si esa página no la trae. */
+async function sacarDestino(url: string, referer: string): Promise<string | null> {
   const html = await pedir(url, referer, CABECERAS_DEL_REPRODUCTOR);
   if (!html) return null;
 
   const desempaquetado = desempaquetarTodo(html);
   const wurl = /MDCore\.wurl\s*=\s*["']([^"']+)["']/.exec(desempaquetado);
-  let destino = wurl?.[1];
+  if (wurl?.[1]) return wurl[1];
+  const mp4 = /(\/\/[^"'\s]+\.mp4[^"'\s]*)/.exec(desempaquetado);
+  return mp4?.[1] ?? null;
+}
+
+export async function resolver(url: string, referer: string): Promise<ServidorResuelto | null> {
+  // Primero el dominio que vino en el episodio: si anda, se resuelve de una y
+  // no se hace ni un pedido de más.
+  let destino = await sacarDestino(url, referer);
+
   if (!destino) {
-    const mp4 = /(\/\/[^"'\s]+\.mp4[^"'\s]*)/.exec(desempaquetado);
-    destino = mp4?.[1];
+    for (const dominio of DOMINIOS_DE_REPUESTO) {
+      const otra = conOtroDominio(url, dominio);
+      if (!otra) continue;
+      destino = await sacarDestino(otra, referer);
+      if (destino) break;
+    }
   }
+
   if (!destino) return null;
 
   const completa = destino.indexOf('http') === 0 ? destino : `https:${destino}`;
