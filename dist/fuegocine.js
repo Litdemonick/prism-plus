@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.8.0
+// @version      1.8.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -678,7 +678,7 @@ async function resolverServidor(url, referer) {
 
 // extensions/fuegocine/index.ts
 var BASE = "https://www.fuegocine.com";
-var _UA_QUE_ANDAN = ["direct", "goodstream"];
+var _UA_QUE_ANDAN = ["goodstream", "direct"];
 var HOST = "fuegocine.com";
 async function _get(url) {
   const raw = await sendMessage(
@@ -954,30 +954,34 @@ async function watch(url) {
       streams.push({ url: url2, quality: `${marca} Directo`, nativo: true });
       continue;
     }
-    let algunoEntro = false;
-    const yaPuesto = {};
+    const idiomas = [];
     for (const sv of adentro) {
-      const clave = sv.nombre.replace(/\s*\d+$/, "").toLowerCase();
-      if (_UA_QUE_ANDAN.indexOf(clave) === -1) continue;
-      const llave = `${sv.idioma}|${clave}`;
-      if (yaPuesto[llave]) continue;
-      yaPuesto[llave] = true;
-      const etiqueta = sv.idioma ? ` ${etiquetaDeIdioma(sv.idioma)}` : "";
-      fichas.push((_c = ficha == null ? void 0 : ficha.boton) != null ? _c : "");
-      if (clave === "direct") {
-        streams.push({
-          url: sv.idioma ? `${url2}${MARCA_IDIOMA}${sv.idioma}` : url2,
-          quality: `${marca} Directo${etiqueta}`,
-          nativo: true
-        });
-      } else {
-        streams.push({
-          url: sv.url,
-          quality: `${marca} ${clave[0].toUpperCase()}${clave.slice(1)}${etiqueta}`,
-          nativo: true
-        });
+      if (idiomas.indexOf(sv.idioma) === -1) idiomas.push(sv.idioma);
+    }
+    let algunoEntro = false;
+    for (const idioma of idiomas) {
+      for (const clave of _UA_QUE_ANDAN) {
+        const sv = adentro.find(
+          (s) => s.idioma === idioma && s.nombre.replace(/\s*\d+$/, "").toLowerCase() === clave
+        );
+        if (!sv) continue;
+        const etiqueta = sv.idioma ? ` ${etiquetaDeIdioma(sv.idioma)}` : "";
+        fichas.push((_c = ficha == null ? void 0 : ficha.boton) != null ? _c : "");
+        if (clave === "direct") {
+          streams.push({
+            url: sv.idioma ? `${url2}${MARCA_IDIOMA}${sv.idioma}` : url2,
+            quality: `${marca} Directo${etiqueta}`,
+            nativo: true
+          });
+        } else {
+          streams.push({
+            url: sv.url,
+            quality: `${marca} ${clave[0].toUpperCase()}${clave.slice(1)}${etiqueta}`,
+            nativo: true
+          });
+        }
+        algunoEntro = true;
       }
-      algunoEntro = true;
     }
     if (!algunoEntro) {
       fichas.push((_d = ficha == null ? void 0 : ficha.boton) != null ? _d : "");

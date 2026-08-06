@@ -46,7 +46,15 @@ const BASE = 'https://www.fuegocine.com';
 /// de `acek-cdn.com`, el mismo que ese día se midió caído (502/504) también
 /// desde JKAnime. Se lo estaría juzgando en su peor día. Cuando ese CDN se
 /// recupere, se vuelve a medir y alcanza con sumarlo acá.
-const _UA_QUE_ANDAN = ['direct', 'goodstream'];
+///
+/// **El orden de esta lista es el orden de los botones**, y es a propósito:
+/// Goodstream va PRIMERO porque el cliente abre el primero de la lista y es el
+/// que más veces funciona. El Direct falla 10 de 26 con un 403 que no es
+/// nuestro —se probó el mismo m3u8 con Referer, con Origin, con los dos
+/// User-Agent y sin ninguna cabecera, y da 403 en las seis; el sitio además
+/// devuelve el mismo vale al segundo pedido, o sea que lo tiene cacheado y
+/// nace muerto—. Abrir primero el que anda ahorra ese salto al navegador.
+const _UA_QUE_ANDAN = ['goodstream', 'direct'];
 
 /// **Voe y Streamwish se probaron y NO entran.** Sus resolvers están copiados en
 /// `servidores/` —traídos de hentaila y de jkanime, donde sí andan— y desde acá
@@ -578,44 +586,54 @@ export async function watch(url: string): Promise<PrismWatch> {
     // El IDIOMA va en el nombre porque el mismo título trae el mismo servidor
     // varias veces, uno por idioma, y sin eso se veían botones repetidos sin
     // forma de saber cuál era cuál.
-    let algunoEntro = false;
-    const yaPuesto: Record<string, boolean> = {};
+    // Se recorre por IDIOMA, y dentro de cada idioma en el orden de
+    // `_UA_QUE_ANDAN` —no en el del sitio—: así el primer botón de cada idioma
+    // es el que más veces funciona. Ver el porqué arriba, en esa lista.
+    const idiomas: string[] = [];
     for (const sv of adentro) {
-      // "voe 2" y "voe" son el mismo servidor; el sufijo es del sitio.
-      const clave = sv.nombre.replace(/\s*\d+$/, '').toLowerCase();
-      if (_UA_QUE_ANDAN.indexOf(clave) === -1) continue;
-      // Uno por servidor e idioma: el repetido es otra copia de lo mismo, y
-      // las segundas suelen ser las que fallan (el "direct 2" tiene un vale
-      // que no vale, medido).
-      const llave = `${sv.idioma}|${clave}`;
-      if (yaPuesto[llave]) continue;
-      yaPuesto[llave] = true;
+      if (idiomas.indexOf(sv.idioma) === -1) idiomas.push(sv.idioma);
+    }
 
-      const etiqueta = sv.idioma ? ` ${etiquetaDeIdioma(sv.idioma)}` : '';
-      fichas.push(ficha?.boton ?? '');
-      if (clave === 'direct') {
-        // El Direct va por el EMBED y no por el m3u8 que el menú ya trae: así
-        // pasa por el resolver, que le pone el User-Agent con el que el CDN lo
-        // acepta. Con el m3u8 pelado, 403 (ver UA_NAVEGADOR en comun.ts).
-        //
-        // Y con la marca del idioma, porque todos comparten la misma dirección
-        // de embed: sin ella, el botón de subtitulado resolvía al Direct
-        // latino, que es el primero de la página.
-        streams.push({
-          url: sv.idioma ? `${url}${unlimplayMarcaIdioma}${sv.idioma}` : url,
-          quality: `${marca} Directo${etiqueta}`,
-          nativo: true,
-        });
-      } else {
-        // Los demás llevan su propia dirección, así que se resuelven solos por
-        // el camino normal (switchServer → su resolver de `servidores/`).
-        streams.push({
-          url: sv.url,
-          quality: `${marca} ${clave[0].toUpperCase()}${clave.slice(1)}${etiqueta}`,
-          nativo: true,
-        });
+    let algunoEntro = false;
+    for (const idioma of idiomas) {
+      for (const clave of _UA_QUE_ANDAN) {
+        // Uno por servidor e idioma: el repetido es otra copia de lo mismo, y
+        // las segundas suelen ser las que fallan (el "direct 2" tiene un vale
+        // que no vale, medido). "voe 2" y "voe" son el mismo servidor; el
+        // sufijo es del sitio.
+        const sv = adentro.find(
+          (s) =>
+            s.idioma === idioma &&
+            s.nombre.replace(/\s*\d+$/, '').toLowerCase() === clave,
+        );
+        if (!sv) continue;
+
+        const etiqueta = sv.idioma ? ` ${etiquetaDeIdioma(sv.idioma)}` : '';
+        fichas.push(ficha?.boton ?? '');
+        if (clave === 'direct') {
+          // El Direct va por el EMBED y no por el m3u8 que el menú ya trae:
+          // así pasa por el resolver, que le pone el User-Agent con el que el
+          // CDN lo acepta. Con el m3u8 pelado, 403 (ver UA_NAVEGADOR).
+          //
+          // Y con la marca del idioma, porque todos comparten la misma
+          // dirección de embed: sin ella, el botón de subtitulado resolvía al
+          // Direct latino, que es el primero de la página.
+          streams.push({
+            url: sv.idioma ? `${url}${unlimplayMarcaIdioma}${sv.idioma}` : url,
+            quality: `${marca} Directo${etiqueta}`,
+            nativo: true,
+          });
+        } else {
+          // Los demás llevan su propia dirección, así que se resuelven solos
+          // por el camino normal (switchServer → su resolver de `servidores/`).
+          streams.push({
+            url: sv.url,
+            quality: `${marca} ${clave[0].toUpperCase()}${clave.slice(1)}${etiqueta}`,
+            nativo: true,
+          });
+        }
+        algunoEntro = true;
       }
-      algunoEntro = true;
     }
 
     // Red de seguridad: si de todo el menú no entró NINGUNO, el título se
