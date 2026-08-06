@@ -40,6 +40,8 @@ export { type ServidorResuelto } from './comun';
 export {
   rutaAlDia as unlimplayAlDia,
   MARCA_MULTI as unlimplayMarcaMulti,
+  MARCA_IDIOMA as unlimplayMarcaIdioma,
+  etiquetaDeIdioma,
   servidoresDe as servidoresDeUnlimplay,
   type ServidorDeUnlimplay,
 } from './unlimplay';

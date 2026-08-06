@@ -68,9 +68,37 @@ export function rutaAlDia(url: string): string {
  */
 export const MARCA_MULTI = '#multi';
 
+/** Marca de idioma para el Direct: `#lang=subtitulado`. */
+export const MARCA_IDIOMA = '#lang=';
+
+/** El idioma pedido en una dirección, o null si no lleva marca. */
+export function idiomaDe(url: string): string | null {
+  const i = url.indexOf(MARCA_IDIOMA);
+  return i === -1 ? null : url.slice(i + MARCA_IDIOMA.length);
+}
+
+/**
+ * Etiqueta corta del idioma, para el nombre del botón.
+ *
+ * El sitio no usa un vocabulario fijo: se vieron `latino`, `subtitulado`,
+ * `español` y `espanol` (sin eñe) en el mismo catálogo, y a veces los cuatro en
+ * el mismo título. Se normaliza acá para que el botón no dependa de cómo lo
+ * escribieron ese día.
+ */
+export function etiquetaDeIdioma(idioma: string): string {
+  const i = idioma.toLowerCase();
+  if (i.indexOf('latino') !== -1) return 'LAT';
+  if (i.indexOf('subtitul') !== -1 || i.indexOf('ingl') !== -1) return 'Inglés-Sub';
+  if (i.indexOf('espa') !== -1) return 'ESP';
+  if (i.indexOf('cast') !== -1) return 'CAST';
+  return idioma;
+}
+
 /** Un servidor de los que unlimplay lleva adentro. */
 export interface ServidorDeUnlimplay {
   nombre: string;
+  /** Tal cual lo escribió el sitio: `latino`, `subtitulado`, `español`… */
+  idioma: string;
   url: string;
   /** true si ya viene resuelto y no hay nada que pedir (los "direct"). */
   yaResuelto: boolean;
@@ -109,23 +137,58 @@ export async function servidoresDe(
 ): Promise<ServidorDeUnlimplay[]> {
   const html = await pedir(rutaAlDia(url), referer);
   if (typeof html !== 'string') return [];
+  return servidoresDeBloque(html);
+}
 
+/**
+ * Lo mismo que [servidoresDe], pero sobre un HTML que ya se tiene.
+ *
+ * Separado para que el resolver del Direct pueda leer el menú sin hacer un
+ * SEGUNDO pedido a la misma página que acaba de traer.
+ */
+export function servidoresDeBloque(html: string): ServidorDeUnlimplay[] {
   const ini = html.indexOf('const EMBEDS');
   if (ini === -1) return [];
   // Se corta un trozo generoso y se leen los pares con regex: no se hace
   // JSON.parse porque el bloque sigue con más cosas después y encontrarle el
   // cierre exacto es más frágil que buscar los pares que interesan.
-  const bloque = html.slice(ini, ini + 6000);
+  const bloque = html.slice(ini, ini + 8000);
 
+  // ── El idioma importa, y antes se tiraba ──────────────────────────────────
+  //
+  // El bloque va agrupado POR IDIOMA, y acá se leía de corrido deduplicando por
+  // nombre. Con eso, de un título con latino y subtitulado quedaba SOLO el
+  // primero: el menú del propio sitio mostraba el doble de opciones que la app.
+  //
+  // Se recorren los grupos en orden, quedándose con el idioma del último
+  // encabezado visto. Los idiomas medidos en el catálogo son cuatro y no son
+  // consistentes —`latino`, `subtitulado`, `español` y `espanol`—, así que no
+  // se validan contra una lista: cualquier clave que abra un grupo vale.
+  //
+  // `searched_names` NO es un grupo de servidores: es un array de títulos que
+  // el sitio deja ahí. Se saltea porque no abre `{`.
   const salida: ServidorDeUnlimplay[] = [];
   const vistos: Record<string, boolean> = {};
-  for (const m of bloque.matchAll(/"([a-z0-9 _-]{3,20})"\s*:\s*"(https?:\/\/[^"]+)"/gi)) {
-    const nombre = m[1].trim();
-    const dir = m[2].replace(/\\\//g, '/');
-    if (vistos[nombre]) continue;
-    vistos[nombre] = true;
+  let idioma = '';
+  const re = /"([a-zA-ZÀ-ÿ0-9 _-]{3,24})"\s*:\s*(\{|"(https?:\/\/[^"]+)")/g;
+  for (const m of bloque.matchAll(re)) {
+    const clave = m[1].trim();
+    // Abre un grupo: es un idioma.
+    if (m[2] === '{') {
+      idioma = clave;
+      continue;
+    }
+    const dir = (m[3] ?? '').replace(/\\\//g, '/');
+    if (!dir) continue;
+    // Un mismo servidor puede venir repetido dentro del mismo idioma
+    // ("voe", "voe 2", "voe 3"): se distingue por nombre COMPLETO, así no se
+    // pierde ninguno, y quien arma los botones decide si los quiere todos.
+    const llave = `${idioma}|${clave}`;
+    if (vistos[llave]) continue;
+    vistos[llave] = true;
     salida.push({
-      nombre,
+      nombre: clave,
+      idioma,
       url: dir,
       // Los "direct" ya son el m3u8; el resto son páginas de embed.
       yaResuelto: /\.m3u8/.test(dir),
@@ -144,6 +207,32 @@ export async function resolver(
 
   const html = await pedir(rutaAlDia(url), referer);
   if (typeof html !== 'string') return null;
+
+  // ── El Direct del idioma que se pidió ─────────────────────────────────────
+  //
+  // Todos los idiomas comparten la MISMA dirección de embed, así que sin esto
+  // los botones de latino y de subtitulado resolvían al mismo `direct`: el
+  // primero de la página. El usuario elegía subtitulado y le salía el latino.
+  //
+  // La marca `#lang=…` va en el fragmento, igual que `#multi`: no se manda al
+  // servidor y alcanza para saber cuál buscar. Sin marca, se toma el primero,
+  // que es como venía siendo.
+  const idioma = idiomaDe(url);
+  if (idioma) {
+    const delIdioma = servidoresDeBloque(html).find(
+      (s) => s.idioma === idioma && /^direct/i.test(s.nombre) && s.yaResuelto,
+    );
+    if (delIdioma) {
+      return {
+        url: delIdioma.url,
+        headers: { 'User-Agent': UA_NAVEGADOR },
+      };
+    }
+    // Si ese idioma no trae Direct, se sigue con el de abajo: mejor el de otro
+    // idioma que ninguno — el botón ya existe y el usuario lo tocó.
+    console.log(`[fc/unlimplay] sin direct para "${idioma}", se usa el primero`);
+  }
+
   const m = /"direct[^"]*":"([^"]+\.m3u8[^"]*)"/.exec(html);
   if (!m) {
     console.log('[fc/unlimplay] la página no trae el campo direct');

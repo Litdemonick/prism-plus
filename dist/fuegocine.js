@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.7.2
+// @version      1.8.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -406,21 +406,47 @@ function rutaAlDia(url) {
   return url.replace(/\/(?:play\.php|play|f)\/embed\//, "/f/embed/");
 }
 var MARCA_MULTI = "#multi";
+var MARCA_IDIOMA = "#lang=";
+function idiomaDe(url) {
+  const i = url.indexOf(MARCA_IDIOMA);
+  return i === -1 ? null : url.slice(i + MARCA_IDIOMA.length);
+}
+function etiquetaDeIdioma(idioma) {
+  const i = idioma.toLowerCase();
+  if (i.indexOf("latino") !== -1) return "LAT";
+  if (i.indexOf("subtitul") !== -1 || i.indexOf("ingl") !== -1) return "Ingl\xE9s-Sub";
+  if (i.indexOf("espa") !== -1) return "ESP";
+  if (i.indexOf("cast") !== -1) return "CAST";
+  return idioma;
+}
 async function servidoresDe(url, referer) {
   const html = await pedir(rutaAlDia(url), referer);
   if (typeof html !== "string") return [];
+  return servidoresDeBloque(html);
+}
+function servidoresDeBloque(html) {
+  var _a;
   const ini = html.indexOf("const EMBEDS");
   if (ini === -1) return [];
-  const bloque = html.slice(ini, ini + 6e3);
+  const bloque = html.slice(ini, ini + 8e3);
   const salida = [];
   const vistos = {};
-  for (const m of bloque.matchAll(/"([a-z0-9 _-]{3,20})"\s*:\s*"(https?:\/\/[^"]+)"/gi)) {
-    const nombre = m[1].trim();
-    const dir = m[2].replace(/\\\//g, "/");
-    if (vistos[nombre]) continue;
-    vistos[nombre] = true;
+  let idioma = "";
+  const re = /"([a-zA-ZÀ-ÿ0-9 _-]{3,24})"\s*:\s*(\{|"(https?:\/\/[^"]+)")/g;
+  for (const m of bloque.matchAll(re)) {
+    const clave = m[1].trim();
+    if (m[2] === "{") {
+      idioma = clave;
+      continue;
+    }
+    const dir = ((_a = m[3]) != null ? _a : "").replace(/\\\//g, "/");
+    if (!dir) continue;
+    const llave = `${idioma}|${clave}`;
+    if (vistos[llave]) continue;
+    vistos[llave] = true;
     salida.push({
-      nombre,
+      nombre: clave,
+      idioma,
       url: dir,
       // Los "direct" ya son el m3u8; el resto son páginas de embed.
       yaResuelto: /\.m3u8/.test(dir)
@@ -432,6 +458,19 @@ async function resolver8(url, referer) {
   if (url.indexOf(MARCA_MULTI) !== -1) return null;
   const html = await pedir(rutaAlDia(url), referer);
   if (typeof html !== "string") return null;
+  const idioma = idiomaDe(url);
+  if (idioma) {
+    const delIdioma = servidoresDeBloque(html).find(
+      (s) => s.idioma === idioma && /^direct/i.test(s.nombre) && s.yaResuelto
+    );
+    if (delIdioma) {
+      return {
+        url: delIdioma.url,
+        headers: { "User-Agent": UA_NAVEGADOR }
+      };
+    }
+    console.log(`[fc/unlimplay] sin direct para "${idioma}", se usa el primero`);
+  }
   const m = /"direct[^"]*":"([^"]+\.m3u8[^"]*)"/.exec(html);
   if (!m) {
     console.log("[fc/unlimplay] la p\xE1gina no trae el campo direct");
@@ -639,7 +678,7 @@ async function resolverServidor(url, referer) {
 
 // extensions/fuegocine/index.ts
 var BASE = "https://www.fuegocine.com";
-var _UA_QUE_ANDAN = ["direct"];
+var _UA_QUE_ANDAN = ["direct", "goodstream"];
 var HOST = "fuegocine.com";
 async function _get(url) {
   const raw = await sendMessage(
@@ -909,40 +948,42 @@ async function watch(url) {
       continue;
     }
     const adentro = await servidoresDe(url2, `${BASE}/`);
+    const marca = link.name || "UA";
     if (!adentro.length) {
-      for (const [nombre, esNativo] of [
-        [`${link.name || "UA"} Directo`, true],
-        [`${link.name || "UA"} Multi`, false]
-      ]) {
-        fichas.push((_b = ficha == null ? void 0 : ficha.boton) != null ? _b : "");
-        streams.push({
-          url: esNativo ? url2 : `${url2}${MARCA_MULTI}`,
-          quality: nombre,
-          nativo: esNativo
-        });
-      }
+      fichas.push((_b = ficha == null ? void 0 : ficha.boton) != null ? _b : "");
+      streams.push({ url: url2, quality: `${marca} Directo`, nativo: true });
       continue;
     }
-    let hayMenu = false;
+    let algunoEntro = false;
+    const yaPuesto = {};
     for (const sv of adentro) {
-      const clave = sv.nombre.toLowerCase();
-      if (clave !== "direct") hayMenu = true;
+      const clave = sv.nombre.replace(/\s*\d+$/, "").toLowerCase();
       if (_UA_QUE_ANDAN.indexOf(clave) === -1) continue;
+      const llave = `${sv.idioma}|${clave}`;
+      if (yaPuesto[llave]) continue;
+      yaPuesto[llave] = true;
+      const etiqueta = sv.idioma ? ` ${etiquetaDeIdioma(sv.idioma)}` : "";
       fichas.push((_c = ficha == null ? void 0 : ficha.boton) != null ? _c : "");
-      streams.push({
-        // El Direct va por el embed y no por el m3u8 que el menú ya trae: así
-        // pasa por el resolver, que le pone el User-Agent con el que el CDN lo
-        // acepta. Con el m3u8 pelado, 403 (ver UA_NAVEGADOR en comun.ts).
-        url: url2,
-        quality: `${link.name || "UA"} Directo`,
-        nativo: true
-      });
+      if (clave === "direct") {
+        streams.push({
+          url: sv.idioma ? `${url2}${MARCA_IDIOMA}${sv.idioma}` : url2,
+          quality: `${marca} Directo${etiqueta}`,
+          nativo: true
+        });
+      } else {
+        streams.push({
+          url: sv.url,
+          quality: `${marca} ${clave[0].toUpperCase()}${clave.slice(1)}${etiqueta}`,
+          nativo: true
+        });
+      }
+      algunoEntro = true;
     }
-    if (hayMenu) {
+    if (!algunoEntro) {
       fichas.push((_d = ficha == null ? void 0 : ficha.boton) != null ? _d : "");
       streams.push({
         url: `${url2}${MARCA_MULTI}`,
-        quality: `${link.name || "UA"} Multi`,
+        quality: `${marca} Multi`,
         nativo: false
       });
     }
