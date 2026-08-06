@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.3.1
+// @version      1.4.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -504,6 +504,7 @@ async function resolverServidor(url, referer) {
 
 // extensions/fuegocine/index.ts
 var BASE = "https://www.fuegocine.com";
+var _UA_QUE_ANDAN = ["goodstream", "vidhide"];
 var HOST = "fuegocine.com";
 async function _get(url) {
   const raw = await sendMessage(
@@ -747,7 +748,7 @@ function _parseSvLinks(html) {
   return out;
 }
 async function watch(url) {
-  var _a, _b, _c;
+  var _a;
   if (url.indexOf("http") === 0 && url.indexOf(HOST) === -1) {
     try {
       const resolved = await _resolveServerUrl(url);
@@ -777,29 +778,28 @@ async function watch(url) {
     });
     if (esUnlimplay) {
       const adentro = await servidoresDe(url2, `${BASE}/`);
+      let huboAdentro = false;
       for (const sv of adentro) {
-        if (sv.nombre.toLowerCase() === "direct") continue;
-        const fichaAdentro = fichaDe(sv.url);
-        fichas.push((_b = fichaAdentro == null ? void 0 : fichaAdentro.boton) != null ? _b : "");
+        const clave = sv.nombre.toLowerCase();
+        if (clave === "direct") continue;
+        huboAdentro = true;
+        const sirve = sv.yaResuelto || _UA_QUE_ANDAN.indexOf(clave) !== -1;
+        if (!sirve) continue;
+        fichas.push("");
         streams.push({
           url: sv.url,
-          // Se deja ver de dónde salió, que si no "goodstream" a secas parece
-          // un servidor del sitio y no uno de adentro de UA.
+          // Se deja ver de dónde salió: "Goodstream" a secas parece un servidor
+          // del sitio y no uno de adentro de UA.
           quality: `UA ${_conMayuscula(sv.nombre)}`,
-          // Un "direct 2" ya viene resuelto: es un m3u8 y reproduce derecho.
-          //
-          // Y si no hay ficha, se dice **false** y no se deja sin definir. Es
-          // el blindaje que faltaba: sin definir, la app cae a adivinar por
-          // NOMBRE, y "Voe", "Streamwish", "Vidhide" y "Doodstream" están en su
-          // lista de confiables — les pondría el rayo prometiendo que
-          // reproducen acá dentro, y ESTA extensión todavía no los resuelve.
-          // El usuario los elegiría esperando el reproductor de la app y
-          // terminaría en el navegador igual, pero después de la espera.
-          //
-          // O sea: acá solo lleva rayo lo que se midió que resuelve EN
-          // FuegoCine. Cuando se traigan los resolvers que faltan, cada uno
-          // pasa a true con su medición al lado.
-          nativo: sv.yaResuelto ? true : (_c = fichaAdentro == null ? void 0 : fichaAdentro.nativo) != null ? _c : false
+          nativo: true
+        });
+      }
+      if (huboAdentro) {
+        fichas.push("");
+        streams.push({
+          url: `${url2}${MARCA_MULTI}`,
+          quality: `${link.name || "UA"} Multi`,
+          nativo: false
         });
       }
     }

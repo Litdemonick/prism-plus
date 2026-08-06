@@ -14,6 +14,15 @@ import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode, Pri
 declare function sendMessage(channel: string, data: string): Promise<string>;
 
 const BASE = 'https://www.fuegocine.com';
+
+/// Los servidores de adentro de unlimplay que se midió que REPRODUCEN en la
+/// app. Solo estos salen como botón propio; el resto se llega por "UA Multi".
+///
+/// Se lleva a mano y no se deduce de la tabla de fichas a propósito: un host
+/// puede coincidir con una ficha y aun así no resolver desde este sitio —pasó
+/// con "remux", que salía con el rayo y devolvía nulo—. Acá solo entra lo
+/// comprobado pidiendo el vídeo.
+const _UA_QUE_ANDAN = ['goodstream', 'vidhide'];
 const HOST = 'fuegocine.com';
 
 async function _get(url: string): Promise<string> {
@@ -431,44 +440,62 @@ export async function watch(url: string): Promise<PrismWatch> {
       nativo: ficha?.nativo,
     });
 
-    // unlimplay no es un servidor: es un reproductor con NUEVE adentro. Su
-    // página publica el menú en texto plano, así que en vez de mandar al
-    // usuario al navegador a elegir ahí —con los anuncios que eso trae— se
-    // sacan y se ofrecen como botones propios.
+    // unlimplay no es un servidor: es un reproductor con nueve adentro, y su
+    // página publica el menú en texto plano. De ahí se sacan DOS cosas:
     //
-    // La mayoría son servidores que este repo ya sabe resolver, así que pasan a
-    // reproducir en el reproductor de la app. Y los "direct" ni siquiera hay
-    // que resolverlos: la página los publica ya como m3u8 firmado.
+    //   · los que reproducen en la app, que salen como botón propio
+    //   · el resto, que se dejan donde estaban: adentro de "UA Multi"
     //
-    // Cuesta UN pedido, el de la página del embed — el mismo que igual haría
-    // falta para resolver el Direct. Si falla, no pasa nada: queda el botón de
-    // arriba, que es lo que había antes.
+    // **Solo se sacan afuera los que se midieron andando.** Se probó exponer
+    // los nueve y no sirvió: seis no resuelven, y peor, un par salían con el
+    // rayo puesto —porque su host coincidía con una ficha— y terminaban en el
+    // navegador igual. Diez botones donde seis mienten es peor que dos
+    // botones honestos.
+    //
+    // Medido el 2026-08-05 sobre From 3x5 y Supergirl, resolviendo y pidiendo
+    // el vídeo:
+    //
+    //   goodstream  ✔ 1430 ms · 200 hls ok
+    //   vidhide     ✔ 2032 ms · 200 hls ok
+    //   direct/2    ✔ ya vienen resueltos, son el m3u8 firmado
+    //   remux       ✗ resuelve nulo aunque su host tenga ficha
+    //   streamhg · filemoon · voe · streamwish · netu · doodstream  ✗
+    //
+    // Los que fallan NO están medidos como imposibles: es que esta extensión
+    // todavía no tiene su resolver. Cuando se traiga el de voe o el de
+    // streamwish —están en otras extensiones del repo— se suman acá con su
+    // medición al lado y salen del navegador.
     if (esUnlimplay) {
       const adentro = await servidoresDeUnlimplay(url, `${BASE}/`);
+      let huboAdentro = false;
       for (const sv of adentro) {
+        const clave = sv.nombre.toLowerCase();
         // El "direct" ya está arriba como "UA Directo": no se repite.
-        if (sv.nombre.toLowerCase() === 'direct') continue;
-        const fichaAdentro = fichaDe(sv.url);
-        fichas.push(fichaAdentro?.boton ?? '');
+        if (clave === 'direct') continue;
+        huboAdentro = true;
+        // Un "direct 2" ya viene resuelto y reproduce derecho.
+        const sirve = sv.yaResuelto || _UA_QUE_ANDAN.indexOf(clave) !== -1;
+        if (!sirve) continue;
+        fichas.push('');
         streams.push({
           url: sv.url,
-          // Se deja ver de dónde salió, que si no "goodstream" a secas parece
-          // un servidor del sitio y no uno de adentro de UA.
+          // Se deja ver de dónde salió: "Goodstream" a secas parece un servidor
+          // del sitio y no uno de adentro de UA.
           quality: `UA ${_conMayuscula(sv.nombre)}`,
-          // Un "direct 2" ya viene resuelto: es un m3u8 y reproduce derecho.
-          //
-          // Y si no hay ficha, se dice **false** y no se deja sin definir. Es
-          // el blindaje que faltaba: sin definir, la app cae a adivinar por
-          // NOMBRE, y "Voe", "Streamwish", "Vidhide" y "Doodstream" están en su
-          // lista de confiables — les pondría el rayo prometiendo que
-          // reproducen acá dentro, y ESTA extensión todavía no los resuelve.
-          // El usuario los elegiría esperando el reproductor de la app y
-          // terminaría en el navegador igual, pero después de la espera.
-          //
-          // O sea: acá solo lleva rayo lo que se midió que resuelve EN
-          // FuegoCine. Cuando se traigan los resolvers que faltan, cada uno
-          // pasa a true con su medición al lado.
-          nativo: sv.yaResuelto ? true : (fichaAdentro?.nativo ?? false),
+          nativo: true,
+        });
+      }
+
+      // Y el botón que abre la página, para los que quedaron adentro.
+      //
+      // Se ofrece solo si de verdad hay un menú: si unlimplay solo trae el
+      // "direct", abrir la página no le suma nada al usuario.
+      if (huboAdentro) {
+        fichas.push('');
+        streams.push({
+          url: `${url}${unlimplayMarcaMulti}`,
+          quality: `${link.name || 'UA'} Multi`,
+          nativo: false,
         });
       }
     }
