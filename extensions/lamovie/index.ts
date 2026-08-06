@@ -415,76 +415,36 @@ async function _listing(postType: PostType, page: number, f: LMFilter): Promise<
  * Se intercalan de a uno en vez de pegar los cuatro bloques uno detrás de otro
  * para que la primera pantalla ya muestre de todo, que es de lo que se trata.
  */
-/**
- * Le pone plazo a una promesa. Si no llega, devuelve el respaldo.
- *
- * Copia propia y no importada: es la misma idea que usa jkanime para sus
- * servidores lentos, pero acá el plazo y el motivo son otros, y tocar el de allá
- * no puede cambiar esto. Ver la nota de por qué cada extensión lleva lo suyo.
- */
-async function _conPlazo<T>(promesa: Promise<T>, ms: number, respaldo: () => T): Promise<T> {
-  let reloj: ReturnType<typeof setTimeout> | undefined;
-  const plazo = new Promise<T>((resolver) => {
-    reloj = setTimeout(() => resolver(respaldo()), ms);
-  });
-  try {
-    return await Promise.race([promesa, plazo]);
-  } finally {
-    if (reloj) clearTimeout(reloj);
-  }
-}
-
 export async function latest(page: number, filter?: Record<string, string[]>): Promise<PrismItem[]> {
   const f = _parseFilter(filter);
   if (f.postType) return _listing(f.postType, page, f);
 
-  // **Los cuatro a la vez, y con plazo propio cada uno.**
+  // **Los cuatro a la vez, no uno detrás de otro.**
   //
-  // A la vez porque de a uno son cuatro viajes encadenados y la portada
-  // tardaría lo que suman.
+  // De a uno son cuatro viajes encadenados y la portada tardaría lo que suman
+  // los cuatro; en paralelo tarda lo que el más lento.
   //
-  // Y con plazo porque este sitio se puso MUY lento. Medido el 2026-08-06,
-  // pidiéndole directamente a su API, sin la app en el medio:
+  // Cada uno atrapa su propio error: que un tipo falle no puede dejar la
+  // portada vacía ni tumbar a los otros tres.
   //
-  //     movies   26,9 s      animes   2,8 s
-  //     tvshows  10,4 s      novels   no contestó en 45 s
+  // ── Acá NO va un plazo propio. Se probó el 2026-08-06 y se sacó ────────────
   //
-  // Esperando a los cuatro, la portada tardaba lo que el peor: se quedaba en
-  // blanco veinte segundos —el límite del puente de red— y volvía vacía,
-  // aunque `animes` estuviera listo desde el segundo 2,8. Es lo peor de los dos
-  // mundos: se espera todo y no se muestra nada.
+  // Ese día el sitio se puso malísimo —21 a 27 segundos para contestar su
+  // propia portada, comprobado con curl y también abriéndolo en un navegador,
+  // donde directamente no cargaba— y se le puso un plazo por tipo para mostrar
+  // lo que llegara sin esperar al que no venía. Con ocho segundos cortaba antes
+  // de que llegara nada y la portada quedaba SIEMPRE vacía; subirlo a dieciocho
+  // tampoco aportó, porque el puente de red ya corta a los veinte.
   //
-  // Con el plazo se muestra lo que llegó, sin esperar al que no viene.
-  //
-  // **Ojo con bajarlo.** Se probó con ocho segundos y fue PEOR: cortaba antes
-  // de que llegara nada y la portada quedaba vacía siempre, cuando antes al
-  // menos a veces aparecía algo. Medido en vivo — los cuatro tipos cortados por
-  // el plazo, ninguno con contenido.
-  //
-  // Dieciocho es lo más alto que tiene sentido: el puente de red corta a los
-  // veinte, así que más allá de eso el plazo no decidiría nada. Así entra
-  // cualquier tipo que el sitio alcance a contestar, y solo se descarta el que
-  // de todos modos iba a morir en el puente.
-  //
-  // Y que quede claro para la próxima vez que esto se mire: si el sitio no
-  // contesta NADA en veinte segundos, no hay plazo que arregle eso. La portada
-  // va a estar vacía porque no hay contenido que mostrar, no porque se haya
-  // cortado antes de tiempo.
-  const PLAZO_POR_TIPO = 18_000;
+  // O sea que era un límite de más encima del que la app ya tiene, y lo único
+  // que podía hacer era descartar contenido que sí iba a llegar. El problema
+  // era del sitio, no de acá, y no hay plazo que arregle un servidor caído.
   const porTipo = await Promise.all(
     POST_TYPES.map((t) =>
-      _conPlazo(
-        _listing(t, page, f).catch((e) => {
-          console.log(`[lamovie] no se pudo listar ${t}: ${e}`);
-          return [] as PrismItem[];
-        }),
-        PLAZO_POR_TIPO,
-        () => {
-          console.log(`[lamovie] ${t} no llegó en ${PLAZO_POR_TIPO / 1000} s: `
-            + 'se muestra lo que haya de los demás');
-          return [] as PrismItem[];
-        },
-      ),
+      _listing(t, page, f).catch((e) => {
+        console.log(`[lamovie] no se pudo listar ${t}: ${e}`);
+        return [] as PrismItem[];
+      }),
     ),
   );
 
