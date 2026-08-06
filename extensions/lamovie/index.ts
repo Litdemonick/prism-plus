@@ -10,6 +10,8 @@ import type {
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
 
+import { resolver as resolverServidor, servidorDe } from './servidores';
+
 const BASE = 'https://lamovie.org';
 const API = 'https://lamovie.org/wp-api/v1';
 const IMG = 'https://lamovie.org/wp-content/uploads';
@@ -39,7 +41,7 @@ const PERMALINK: Record<PostType, string> = {
 };
 // novels = telenovelas (contenido de video, no libros) — MediaType 'series'
 // es lo correcto acá, 'novel' del SDK es para light novels/libros.
-function _mediaType(postType: string): MediaType {
+function _tipoDeMedio(postType: string): MediaType {
   if (postType === 'movies') return 'movie';
   if (postType === 'animes') return 'anime';
   return 'series'; // tvshows, novels
@@ -172,7 +174,7 @@ function _itemFromPost(p: LMPost): PrismItem {
     tags: _tagsFromGenres(p.genres),
     year: _yearFromDate(p.release_date),
     rating: p.rating ? parseFloat(p.rating) : undefined,
-    type: _mediaType(p.type),
+    type: _tipoDeMedio(p.type),
   };
 }
 
@@ -186,12 +188,87 @@ function _itemFromPost(p: LMPost): PrismItem {
 // aproximado del lado del cliente, sobre los resultados YA filtrados por
 // género/año/país en el servidor. orderBy real: latest/popular/rated/views
 // (no "date", que no es un valor válido) + order asc/desc.
+// Los años que el sitio tiene, con su id de término.
+//
+// **El filtro espera el id, no el año.** Medido el 2026-08-06:
+// `{"years":[2013]}` devuelve cero y `{"years":[775]}` devuelve los de 2013.
+// Antes se mandaba el año directo, así que el filtro de año no filtraba nada.
+const _YEARS: Record<string, number> = {
+  '2026': 74006, '2025': 4, '2024': 1354, '2023': 2236, '2022': 1461, '2021': 2169,
+  '2020': 2792, '2019': 1816, '2018': 1926, '2017': 1874, '2016': 1618, '2015': 8694,
+  '2014': 2052, '2013': 775, '2012': 762, '2011': 769, '2010': 3858, '2009': 2092,
+  '2008': 1395, '2007': 902, '2006': 873, '2005': 963, '2004': 728, '2003': 503,
+  '2002': 800, '2001': 793, '2000': 684, '1999': 735, '1998': 1279, '1997': 600,
+  '1996': 1142, '1995': 937, '1994': 533, '1993': 1707, '1992': 657, '1991': 2583,
+  '1990': 707, '1989': 1258, '1988': 1726, '1987': 852, '1986': 1313, '1985': 1440,
+  '1984': 1237, '1983': 6004, '1982': 1165, '1981': 1212, '1980': 4122, '1979': 2881,
+  '1976': 1378, '1973': 2114,
+};
+
+// Los proveedores (Netflix, Disney+, Max…). El sitio los ofrece como
+// "Proveedor" en su propia barra de filtros. Medido: funciona.
+const _PROVIDERS: Record<number, string> = {
+  459: 'Disney Plus',
+  460: 'Google Play Movies',
+  461: 'Apple TV',
+  462: 'Rakuten TV',
+  463: 'Microsoft Store',
+  464: 'Amazon Video',
+  465: 'MovistarTV',
+  466: 'maxdome Store',
+  467: 'Sky Store',
+  468: 'Fetch TV',
+  469: 'Cineplex',
+  470: 'YouTube',
+  472: 'blue TV',
+  474: 'MagentaTV',
+  475: 'Videoload',
+  476: 'Freenet meinVOD',
+  477: 'Viaplay',
+  478: 'Blockbuster',
+  479: 'SF Anytime',
+  480: 'Elisa Viihde',
+  481: 'Orange VOD',
+  482: 'VIVA by videofutur',
+  483: 'Premiere Max',
+  487: 'Timvision',
+  488: 'wavve',
+  489: 'KPN',
+  490: 'Pathé Thuis',
+  491: 'TV 2 Play',
+  492: 'Premiery Canal+',
+  493: 'Hulu',
+  494: 'Fandango At Home',
+  522: 'meJane',
+  523: 'Player',
+  524: 'Kinopoisk',
+  549: 'Claro video',
+  551: 'Movistar Plus+ Ficción Total',
+  563: 'Amazon Prime Video',
+  565: 'Telia Play',
+  566: 'Canal VOD',
+  567: 'FILMO',
+  568: 'Universcine',
+  569: 'Bbox VOD',
+  572: 'Netflix',
+  573: 'U-NEXT',
+  574: 'Netflix Standard with Ads',
+  575: 'Watcha',
+  580: 'Amazon Prime Video with Ads',
+  581: 'Spectrum On Demand',
+  675: 'Max',
+  677: 'Videobuster',
+};
+
+// Órdenes medidos el 2026-08-06: estos cuatro cambian los resultados.
+// `imdb`, `tmdb` y `rank` los acepta pero devuelve lo mismo que `latest`.
 type OrderBy = 'latest' | 'popular' | 'rated' | 'views';
 interface LMFilter {
   postType?: PostType;
   genre?: number;
   year?: number;
   country?: number;
+  provider?: number;
   quality?: number;
   lang?: number;
   orderBy: OrderBy;
@@ -201,26 +278,33 @@ interface LMFilter {
 function _parseFilter(filter?: Record<string, string[]>): LMFilter {
   const postType = filter?.['tipo']?.[0] as PostType | undefined;
   const genre = filter?.['genero']?.[0] ? parseInt(filter['genero'][0], 10) : undefined;
-  const year = filter?.['anio']?.[0] ? parseInt(filter['anio'][0], 10) : undefined;
+  // El año llega como el año en sí ("2013") y se traduce a su id de término,
+  // que es lo que el filtro de la API espera de verdad.
+  const year = filter?.['anio']?.[0] ? _YEARS[filter['anio'][0]] : undefined;
   const country = filter?.['pais']?.[0] ? parseInt(filter['pais'][0], 10) : undefined;
+  const provider = filter?.['proveedor']?.[0]
+    ? parseInt(filter['proveedor'][0], 10)
+    : undefined;
   const quality = filter?.['calidad']?.[0] ? parseInt(filter['calidad'][0], 10) : undefined;
   const lang = filter?.['idioma']?.[0] ? parseInt(filter['idioma'][0], 10) : undefined;
   const orderBy = (filter?.['orden']?.[0] as OrderBy) || 'latest';
   const order = (filter?.['direccion']?.[0] as 'asc' | 'desc') || 'desc';
   return {
     postType: postType && POST_TYPES.includes(postType) ? postType : undefined,
-    genre, year, country, quality, lang, orderBy, order,
+    genre, year, country, provider, quality, lang, orderBy, order,
   };
 }
 
-// Objeto real que la API acepta en `filter` — solo las taxonomías confirmadas
-// en vivo (genres/years/countries). quality/lang NO van acá — no tienen
-// ningún efecto server-side, se aplican aparte en el cliente.
+// El objeto que la API acepta en `filter`, con las taxonomías que se
+// comprobaron una por una el 2026-08-06: genres, years, countries y providers
+// cambian los resultados. quality y lang no, con ningún nombre — ver la nota
+// larga de createFilter.
 function _serverFilterParam(f: LMFilter): string {
   const obj: Record<string, number[]> = {};
   if (f.genre) obj.genres = [f.genre];
   if (f.year) obj.years = [f.year];
   if (f.country) obj.countries = [f.country];
+  if (f.provider) obj.providers = [f.provider];
   if (Object.keys(obj).length === 0) return '';
   return `&filter=${encodeURIComponent(JSON.stringify(obj))}`;
 }
@@ -231,21 +315,42 @@ function _matchesClientFilter(p: LMPost, f: LMFilter): boolean {
   return true;
 }
 
+/**
+ * Los filtros que el sitio SÍ aplica.
+ *
+ * **No están calidad ni idioma, y es a propósito.** Medido el 2026-08-06: el
+ * parámetro `filter` de la API los ignora con cualquier nombre que se le
+ * pase —`lang`, `langs`, `idioma`, `original_lang`, `quality`, `qualities`,
+ * `calidad`— mientras que `genres` con los mismos formatos cambia los
+ * resultados al instante. También se probó la otra vía, pidiendo el vale `tt`
+ * de `/listing/tax/lang/{slug}` y usándolo contra `/listing/tax/{tt}`: devuelve
+ * cero títulos siempre.
+ *
+ * Y aunque anduviera no serviría de mucho: TODOS los títulos del sitio traen
+ * `lang: [58651, 58652]` —latino e inglés—, así que filtrar por latino no saca
+ * ni uno. Filtrarlo del lado nuestro era mostrar un filtro que no filtra.
+ *
+ * Quedan los que sí andan, que son además los que se piden: recientes,
+ * populares, valorados, vistos, y por tipo, género, año y país.
+ */
 export async function createFilter(): Promise<Record<string, unknown>> {
   const genreOptions: Record<string, string> = { '': 'Todos' };
   for (const [id, name] of Object.entries(_GENRES)) genreOptions[id] = name;
-  const qualityOptions: Record<string, string> = { '': 'Todas' };
-  for (const [id, name] of Object.entries(_QUALITIES)) qualityOptions[id] = name;
-  const langOptions: Record<string, string> = { '': 'Todos' };
-  for (const [id, name] of Object.entries(_LANGS)) langOptions[id] = name;
   const countryOptions: Record<string, string> = { '': 'Todos' };
   for (const [id, name] of Object.entries(_COUNTRIES)) countryOptions[id] = name;
+  const providerOptions: Record<string, string> = { '': 'Todos' };
+  for (const [id, name] of Object.entries(_PROVIDERS)) providerOptions[id] = name;
   const tipoOptions: Record<string, string> = {
     '': 'Todos', movies: 'Películas', tvshows: 'Series', animes: 'Animes', novels: 'Novelas',
   };
-  const currentYear = new Date().getFullYear();
+  // Los años son LOS QUE EL SITIO TIENE, no un rango inventado.
+  //
+  // Antes se armaba de corrido desde el año que viene hasta 1970, y el sitio
+  // tiene 50 años sueltos que empiezan en 1973: elegir 1970, 1971 o 1972 daba
+  // cero resultados sin explicar por qué. Medido el 2026-08-06 contra su
+  // siteConfig.datas.years.
   const yearOptions: Record<string, string> = { '': 'Todos' };
-  for (let y = currentYear + 1; y >= 1970; y--) yearOptions[String(y)] = String(y);
+  for (const year of Object.keys(_YEARS)) yearOptions[year] = year;
   // Mismas 4 métricas + dirección que usa el sitio (Más recientes/populares/
   // valorados/vistos, con su reverso).
   const ordenOptions: Record<string, string> = {
@@ -260,8 +365,13 @@ export async function createFilter(): Promise<Record<string, unknown>> {
     genero: { title: 'Género', options: genreOptions, default: '', min: 1, max: 1 },
     anio: { title: 'Año', options: yearOptions, default: '', min: 1, max: 1 },
     pais: { title: 'País', options: countryOptions, default: '', min: 1, max: 1 },
-    calidad: { title: 'Calidad', options: qualityOptions, default: '', min: 1, max: 1 },
-    idioma: { title: 'Idioma', options: langOptions, default: '', min: 1, max: 1 },
+    proveedor: {
+      title: 'Proveedor',
+      options: providerOptions,
+      default: '',
+      min: 1,
+      max: 1,
+    },
   };
 }
 
@@ -294,10 +404,44 @@ async function _listing(postType: PostType, page: number, f: LMFilter): Promise<
   return items;
 }
 
+/**
+ * La portada: **todo mezclado**, como en el sitio.
+ *
+ * Sin elegir tipo se piden los cuatro —películas, series, animes y novelas— y
+ * se intercalan. Antes, sin tipo, se devolvían solo películas: la extensión se
+ * llama LaMovie y trae series y animes, pero para verlos había que saber que
+ * existía el filtro e ir a buscarlo.
+ *
+ * Se intercalan de a uno en vez de pegar los cuatro bloques uno detrás de otro
+ * para que la primera pantalla ya muestre de todo, que es de lo que se trata.
+ */
 export async function latest(page: number, filter?: Record<string, string[]>): Promise<PrismItem[]> {
   const f = _parseFilter(filter);
-  const postType = f.postType ?? 'movies';
-  return _listing(postType, page, f);
+  if (f.postType) return _listing(f.postType, page, f);
+
+  const porTipo: PrismItem[][] = [];
+  for (const t of POST_TYPES) {
+    try {
+      porTipo.push(await _listing(t, page, f));
+    } catch (e) {
+      // Que un tipo falle no puede dejar la portada vacía: se sigue con el resto.
+      console.log(`[lamovie] no se pudo listar ${t}: ${e}`);
+      porTipo.push([]);
+    }
+  }
+
+  const mezcla: PrismItem[] = [];
+  const vistos: Record<string, boolean> = {};
+  const masLargo = Math.max(0, ...porTipo.map((l) => l.length));
+  for (let i = 0; i < masLargo; i++) {
+    for (const lista of porTipo) {
+      const it = lista[i];
+      if (!it || vistos[it.url]) continue;
+      vistos[it.url] = true;
+      mezcla.push(it);
+    }
+  }
+  return mezcla;
 }
 
 // ─── Búsqueda ───────────────────────────────────────────────────────────────
@@ -424,74 +568,95 @@ export async function detail(url: string): Promise<PrismDetail> {
 }
 
 // ─── Reproducción ───────────────────────────────────────────────────────────
-// Los tres jugadores que este sitio usa por defecto (siteConfig.player.prior:
-// vimeos/goodstream/voe) son hosts propios/poco comunes — igual se
-// intenta resolverlos con el resolver genérico compartido (desempaqueta
-// eval(p,a,c,k) y busca m3u8/mp4), y si eso falla, la app cae sola al
-// WebView (mismo mecanismo que el resto de las extensiones de video).
+//
+// Los servidores viven en `servidores/`, uno por carpeta, cada uno con lo que
+// se midió de él. Ver `servidores/index.ts` para el resumen.
+//
+// **Lo que cambió, y por qué la extensión estaba marcada como inestable.**
+//
+// Antes los embeds se devolvían CRUDOS, sin resolver, con este razonamiento:
+// «el m3u8 que sale de resolverlos responde 403 a CUALQUIER cliente que no sea
+// un navegador de verdad — probado con y sin User-Agent de browser». Es falso.
+// Medido el 2026-08-06 sobre 12 títulos: con User-Agent de navegador y el
+// Referer del propio host, vimeos da 9 de 9 y goodstream 8 de 8, bajando el
+// primer segmento de vídeo de verdad, entre 250 KB y 4,6 MB.
+//
+// Como no se resolvía nada, TODO se abría en el navegador interno aunque la
+// mitad de los servidores reprodujeran en la app sin problema.
 function _postIdFromUrl(url: string): number | null {
   const m = /[?&]showId=(\d+)/.exec(url) || /[?&]epId=(\d+)/.exec(url);
   return m ? parseInt(m[1], 10) : null;
 }
 
+/**
+ * El nombre del botón, tal como lo va a ver el usuario.
+ *
+ * Se arma con lo que publica la API —servidor, idioma— y NO con la calidad que
+ * declara, que miente: el sitio etiqueta "Full HD" títulos cuyo vimeos solo
+ * trae 480p y 720p. La calidad de verdad la mide el reproductor.
+ */
+function _nombreDeBoton(e: { server?: string; lang?: string }, host: string): string {
+  const partes: string[] = [];
+  if (e.server) partes.push(e.server);
+  else partes.push(host);
+  if (e.lang) partes.push(e.lang);
+  return partes.join(' ');
+}
+
 export async function watch(url: string): Promise<PrismWatch> {
-  // Servidor externo ya elegido (switchServer). NO se resuelve a stream
-  // directo: ver el comentario largo más abajo — el m3u8 resuelto de estos
-  // hosts da 403 para cualquier cliente que no sea un navegador real, así
-  // que devolver la URL resuelta solo garantiza que el reproductor nativo
-  // falle. Devolviendo la página del embed como pageUrl, la app va derecho
-  // al camino de sniffer/WebView, que es el único que funciona acá.
+  // Servidor ya elegido por el usuario (switchServer): llega la dirección del
+  // embed suelta. Se intenta resolver con el resolver de ESE servidor; si no
+  // devuelve nada, se entrega la página para que la app abra el navegador.
   if (url.indexOf('http') === 0 && url.indexOf(BASE) === -1) {
+    const resuelto = await resolverServidor(url, `${BASE}/`);
+    if (resuelto) {
+      return {
+        streams: [{ url: resuelto.url, headers: resuelto.headers }],
+        pageUrl: url,
+      };
+    }
     return { streams: [], pageUrl: url };
   }
 
   const postId = _postIdFromUrl(url);
   if (postId == null) throw new Error('No se pudo identificar el contenido en LaMovie');
 
-  // Página real del sitio SIN los parámetros propios (?showId=&epId=... son
-  // solo para que _postIdFromUrl recupere el id acá adentro) — confirmado
-  // en vivo con curl que la página del episodio/película carga bien así,
-  // tal cual, sin esa query string. Se manda SIEMPRE como pageUrl (no solo
-  // cuando no hay embeds): si los servidores resuelven "bien" pero después
-  // el nativo no logra reproducir ninguno de verdad (confirmado en vivo con
-  // los tres — goodstream/voe/vimeos — fallando en la práctica pese a
-  // resolver una URL con pinta válida), antes no quedaba NINGUNA página a
-  // la que caer y el WebView nunca se ofrecía. Con esto, esa página (donde
-  // el sitio reproduce con su propio player, que sí anda) siempre está
-  // disponible como último recurso.
+  // La página real del sitio, sin los parámetros propios (?showId=&epId= son
+  // solo para recuperar el id acá adentro). Se manda SIEMPRE como pageUrl: si
+  // ningún servidor resuelve, esa página es la última salida y ahí el sitio
+  // reproduce con su propio reproductor.
   const cleanPageUrl = url.split('?')[0];
 
   const res = await _get<LMPlayer>(`${API}/player?postId=${postId}&demo=0`);
   if (res.error || !res.data) return { streams: [], pageUrl: cleanPageUrl };
 
   const embeds = res.data.embeds || [];
-  // Los embeds se devuelven CRUDOS, sin resolver a stream directo, a
-  // propósito. Investigado a fondo contra los CDN reales (goodstream.one,
-  // vimeos.zip): el m3u8 que sale de resolverlos responde 403 a CUALQUIER
-  // cliente que no sea un navegador de verdad — probado con y sin
-  // User-Agent de browser, y con Referer del propio host y de lamovie: los
-  // cuatro casos dan 403. El token va firmado contra la IP y el CDN filtra
-  // por fingerprint del cliente, exactamente el mismo caso que el SDK ya
-  // documenta para premilkyway.com (mpv/libavformat rechazado aunque el
-  // navegador reproduzca sin problema). De ahí que en la web "vimeos ande
-  // en todo" y en la app fallaran los tres servidores: resolverlos era
-  // justamente lo que rompía la reproducción.
-  //
-  // Dejándolos crudos, PrismHub los trata como embeds sin resolver y va
-  // derecho a su camino de sniffer/WebView (ver play()/_trySniff en
-  // video_controller.dart), que usa un motor de navegador real — el único
-  // que estos hosts aceptan.
-  const streams: PrismStream[] = embeds.map((e) => ({
-    url: e.url,
-    quality:
-      [e.server, e.lang, e.quality, _guessServerName(e.url)].filter(Boolean).join(' ') ||
-      undefined,
-    headers: { Referer: `${BASE}/` },
-  }));
+  if (embeds.length === 0) return { streams: [], pageUrl: cleanPageUrl };
 
-  if (streams.length === 0) {
-    return { streams: [], pageUrl: cleanPageUrl };
+  // **Salen TODOS los servidores, incluso los que no reproducen en la app.**
+  //
+  // Esto es a propósito y vale la pena decirlo: el sitio hace lo contrario.
+  // Su propio reproductor tiene `prior: ["vimeos","goodstream","voe"]` con
+  // `showPlayerName: false`, así que elige uno solo y esconde el resto — por
+  // eso en la web parece que hay un servidor nada más. Acá se muestran los que
+  // haya: si uno va lento o se cae, el usuario tiene a dónde ir.
+  //
+  // Los que no resuelven van igual, sin dirección resuelta y marcados 🌐: la
+  // app los abre en el navegador interno, que ejecuta el JS de la página.
+  const streams: PrismStream[] = [];
+  for (const e of embeds) {
+    const host = _guessServerName(e.url);
+    const s = servidorDe(e.url);
+    streams.push({
+      url: e.url,
+      quality: _nombreDeBoton(e, host),
+      // El rayo y el mundo los dice la extensión, que es la que lo midió, y no
+      // la app adivinando por el nombre del host.
+      nativo: s ? s.nativo : false,
+      headers: { Referer: `${BASE}/` },
+    });
   }
+
   return { streams, pageUrl: cleanPageUrl };
 }
 

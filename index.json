@@ -114,6 +114,21 @@
       "signature": "g1eDdWsaMQxorO/Jwhi1r4mDZAZEHYI1KD5fdy+Z6tTB3wWb8uhgR7lQUFm/Fuh7sOr0JAJVV95AxFVGabQICA=="
     },
     {
+      "name": "LaMovie",
+      "package": "io.prismhub.lamovie",
+      "version": "1.1.0",
+      "author": "PrismHub",
+      "type": "bangumi",
+      "icon": "",
+      "description": "Películas, series, animes y novelas en español desde LaMovie — catálogo, búsqueda y filtros por género/año/calidad/idioma",
+      "lang": "es",
+      "webSite": "https://lamovie.org",
+      "license": "MIT",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/lamovie.js",
+      "sha256": "01aacbf7a54e937a9d1de9f5f09a9caba8dec2a977210c9711135039e85273c8",
+      "signature": "QNoIuI4oOD/qK3mPWPsXeev198E26UMV8lDbmy6OfevwV1JNrc7o2bL3xtr3wytyC4iF8a6zaKhOQjMGAY6fAA=="
+    },
+    {
       "name": "LatAnime",
       "package": "io.prismhub.latanime",
       "version": "1.1.0",
@@ -252,19 +267,6 @@
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/xvideos.js",
       "sha256": "45439bea35a688d6f85e1d2a661a06dd52bed45add03fdb46a5b102607bf15d6",
       "signature": "Ri0ikuUPTWX/dp3pn+C5e3di7+xMYaqAgjJAoDsBygO63f0M/+eFYpUsRUM5/03xMwS4DZXWry9D4Tgubv03Cg=="
-    },
-    {
-      "name": "LaMovie",
-      "package": "io.prismhub.lamovie",
-      "version": "1.0.6",
-      "author": "PrismHub",
-      "type": "bangumi",
-      "icon": "",
-      "description": "Películas, series, animes y novelas en español desde LaMovie — catálogo, búsqueda y filtros por género/año/calidad/idioma",
-      "lang": "es",
-      "webSite": "https://lamovie.org",
-      "license": "MIT",
-      "unstable": true
     }
   ]
 }
