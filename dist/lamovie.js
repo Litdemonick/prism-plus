@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LaMovie
-// @version      1.1.1
+// @version      1.1.2
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -204,7 +204,7 @@ async function resolver4(url, referer) {
 // extensions/lamovie/servidores/index.ts
 var SERVIDORES = [
   {
-    boton: "LaMovie",
+    boton: "Vimeos",
     hosts: ["vimeos"],
     medido: "9/9",
     nativo: true,
@@ -574,15 +574,14 @@ async function _listing(postType, page, f) {
 async function latest(page, filter) {
   const f = _parseFilter(filter);
   if (f.postType) return _listing(f.postType, page, f);
-  const porTipo = [];
-  for (const t of POST_TYPES) {
-    try {
-      porTipo.push(await _listing(t, page, f));
-    } catch (e) {
-      console.log(`[lamovie] no se pudo listar ${t}: ${e}`);
-      porTipo.push([]);
-    }
-  }
+  const porTipo = await Promise.all(
+    POST_TYPES.map(
+      (t) => _listing(t, page, f).catch((e) => {
+        console.log(`[lamovie] no se pudo listar ${t}: ${e}`);
+        return [];
+      })
+    )
+  );
   const mezcla = [];
   const vistos = {};
   const masLargo = Math.max(0, ...porTipo.map((l) => l.length));
@@ -689,10 +688,9 @@ function _postIdFromUrl(url) {
   const m = /[?&]epId=(\d+)/.exec(url) || /[?&]showId=(\d+)/.exec(url);
   return m ? parseInt(m[1], 10) : null;
 }
-function _nombreDeBoton(e, host) {
+function _nombreDeBoton(e, host, conocido) {
   const partes = [];
-  if (e.server) partes.push(e.server);
-  else partes.push(host);
+  partes.push(conocido || e.server || host);
   if (e.lang) partes.push(e.lang);
   return partes.join(" ");
 }
@@ -721,7 +719,7 @@ async function watch(url) {
     const s = servidorDe(e.url);
     streams.push({
       url: e.url,
-      quality: _nombreDeBoton(e, host),
+      quality: _nombreDeBoton(e, host, s ? s.boton : null),
       // El rayo y el mundo los dice la extensión, que es la que lo midió, y no
       // la app adivinando por el nombre del host.
       nativo: s ? s.nativo : false,

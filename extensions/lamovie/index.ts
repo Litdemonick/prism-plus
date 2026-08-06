@@ -419,16 +419,23 @@ export async function latest(page: number, filter?: Record<string, string[]>): P
   const f = _parseFilter(filter);
   if (f.postType) return _listing(f.postType, page, f);
 
-  const porTipo: PrismItem[][] = [];
-  for (const t of POST_TYPES) {
-    try {
-      porTipo.push(await _listing(t, page, f));
-    } catch (e) {
-      // Que un tipo falle no puede dejar la portada vacía: se sigue con el resto.
-      console.log(`[lamovie] no se pudo listar ${t}: ${e}`);
-      porTipo.push([]);
-    }
-  }
+  // **Los cuatro a la vez, no uno detrás de otro.**
+  //
+  // De a uno son cuatro viajes encadenados y la portada tardaba lo que suman
+  // los cuatro; en paralelo tarda lo que el más lento. Medido: cada listado son
+  // ~230 ms, así que la diferencia es cerca de un segundo cada vez que se abre
+  // la extensión.
+  //
+  // Cada uno atrapa su propio error: que un tipo falle no puede dejar la
+  // portada vacía ni tumbar a los otros tres.
+  const porTipo = await Promise.all(
+    POST_TYPES.map((t) =>
+      _listing(t, page, f).catch((e) => {
+        console.log(`[lamovie] no se pudo listar ${t}: ${e}`);
+        return [] as PrismItem[];
+      }),
+    ),
+  );
 
   const mezcla: PrismItem[] = [];
   const vistos: Record<string, boolean> = {};
