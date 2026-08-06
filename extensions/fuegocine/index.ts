@@ -22,7 +22,7 @@ const BASE = 'https://www.fuegocine.com';
 /// puede coincidir con una ficha y aun así no resolver desde este sitio —pasó
 /// con "remux", que salía con el rayo y devolvía nulo—. Acá solo entra lo
 /// comprobado pidiendo el vídeo.
-const _UA_QUE_ANDAN = ['goodstream', 'vidhide'];
+const _UA_QUE_ANDAN = ['direct'];
 
 /// **Voe y Streamwish se probaron y NO entran.** Sus resolvers están copiados en
 /// `servidores/` —traídos de hentaila y de jkanime, donde sí andan— y desde acá
@@ -450,81 +450,101 @@ export async function watch(url: string): Promise<PrismWatch> {
     const esUnlimplay = url.indexOf('unlimplay.com') !== -1;
     // Se guarda con qué ficha se reconoció, para ordenar abajo sin tener que
     // volver a desenvolver el envoltorio de blogspot.
-    fichas.push(ficha?.boton ?? '');
-    streams.push({
-      url,
-      // unlimplay se ofrece partido en dos porque de verdad son dos cosas
-      // (ver abajo). Este es el que reproduce en la app.
-      quality: esUnlimplay ? `${link.name || 'UA'} Directo` : link.name || 'Servidor',
-      nativo: ficha?.nativo,
-    });
+    // Los que NO son unlimplay salen tal cual, uno por botón.
+    if (!esUnlimplay) {
+      fichas.push(ficha?.boton ?? '');
+      streams.push({
+        url,
+        quality: link.name || 'Servidor',
+        nativo: ficha?.nativo,
+      });
+      continue;
+    }
 
-    // unlimplay no es un servidor: es un reproductor con nueve adentro, y su
-    // página publica el menú en texto plano. De ahí se sacan DOS cosas:
+    // ── unlimplay: todo sale de lo que tiene ADENTRO ────────────────────────
     //
-    //   · los que reproducen en la app, que salen como botón propio
-    //   · el resto, que se dejan donde estaban: adentro de "UA Multi"
+    // No es un servidor, es un reproductor con su propio menú, y la página
+    // publica ese menú en texto plano. **Todo lo que se ofrece sale de ahí**:
+    // si un servidor no está en ese menú, no aparece — nada se inventa.
     //
-    // **Solo se sacan afuera los que se midieron andando.** Se probó exponer
-    // los nueve y no sirvió: seis no resuelven, y peor, un par salían con el
-    // rayo puesto —porque su host coincidía con una ficha— y terminaban en el
-    // navegador igual. Diez botones donde seis mienten es peor que dos
-    // botones honestos.
+    //   · el Direct, que es el único que se midió reproduciendo de forma
+    //     confiable → botón propio, con rayo
+    //   · "UA Multi" → abre la página, para elegir entre TODOS los demás
     //
-    // Medido el 2026-08-05 sobre From 3x5 y Supergirl, resolviendo y pidiendo
-    // el vídeo:
+    // Eso incluye al Direct: **"UA Directo" solo aparece si el menú lo trae**.
+    // Antes se agregaba siempre por el solo hecho de que el título tuviera
+    // unlimplay, y eso es suponer.
     //
-    //   goodstream  ✔ 1430 ms · 200 hls ok
-    //   vidhide     ✔ 2032 ms · 200 hls ok
-    //   direct/2    ✔ ya vienen resueltos, son el m3u8 firmado
+    // Ojo con una cosa: el Direct se ofrece con la dirección del EMBED, no con
+    // el m3u8 que el menú ya trae resuelto. Es a propósito — pasando por el
+    // resolver, la dirección viene con el User-Agent correcto, y sin eso el CDN
+    // contesta 403 (ver UA_NAVEGADOR en `servidores/comun.ts`).
+    //
+    // Medido el 2026-08-05/06 sobre From 3x5, Supergirl y La Casa del Dragón:
+    //
+    //   direct      ✔ reproduce, vía el resolver
+    //   goodstream  ✔ resuelve, pero su CDN falla seguido en la app
+    //   vidhide     ✔ resuelve, pero su nodo se cuelga sin devolver nada
+    //   direct 2    ✗ "servidor no disponible": su token no vale como el otro
     //   remux       ✗ resuelve nulo aunque su host tenga ficha
     //   streamhg · filemoon · voe · streamwish · netu · doodstream  ✗
     //
+    // Goodstream y Vidhide llegaron a salir como botón propio y se volvieron
+    // atrás **a pedido del usuario**: resuelven, pero sus CDN fallan lo
+    // suficiente como para que el botón prometa más de lo que cumple. Dos
+    // botones que andan valen más que cinco que a veces sí y a veces no. Se
+    // llegan por UA Multi, que es el menú del propio sitio.
+    //
     // Los que fallan NO están medidos como imposibles: es que esta extensión
-    // todavía no tiene su resolver. Cuando se traiga el de voe o el de
-    // streamwish —están en otras extensiones del repo— se suman acá con su
-    // medición al lado y salen del navegador.
-    if (esUnlimplay) {
-      const adentro = await servidoresDeUnlimplay(url, `${BASE}/`);
-      let huboAdentro = false;
-      for (const sv of adentro) {
-        const clave = sv.nombre.toLowerCase();
-        // El "direct" ya está arriba como "UA Directo": no se repite.
-        if (clave === 'direct') continue;
-        huboAdentro = true;
-        // Un "direct 2" ya viene resuelto y reproduce derecho.
-        // **No alcanza con que ya venga resuelto.** "direct 2" es un m3u8
-        // firmado que unlimplay publica junto al principal, así que pasaba el
-        // filtro solo por tener forma de stream — y en la app daba "servidor no
-        // disponible" (visto en La Casa del Dragón 1x1): su token no vale igual
-        // que el del primero.
-        //
-        // Así que se le exige lo mismo que a todos: estar en la lista de los
-        // medidos. El que no está se llega por UA Multi, como el resto.
-        const sirve = _UA_QUE_ANDAN.indexOf(clave) !== -1;
-        if (!sirve) continue;
-        fichas.push('');
-        streams.push({
-          url: sv.url,
-          // Se deja ver de dónde salió: "Goodstream" a secas parece un servidor
-          // del sitio y no uno de adentro de UA.
-          quality: `UA ${_conMayuscula(sv.nombre)}`,
-          nativo: true,
-        });
-      }
+    // todavía no tiene su resolver, o el sitio no los sirve bien. Cuando alguno
+    // pase a andar, se suma a `_UA_QUE_ANDAN` con su medición al lado.
+    const adentro = await servidoresDeUnlimplay(url, `${BASE}/`);
 
-      // Y el botón que abre la página, para los que quedaron adentro.
-      //
-      // Se ofrece solo si de verdad hay un menú: si unlimplay solo trae el
-      // "direct", abrir la página no le suma nada al usuario.
-      if (huboAdentro) {
-        fichas.push('');
+    // **Si no se pudo leer el menú, igual se ofrece UA.** Sin esta red, un
+    // pedido fallido a unlimplay dejaba el episodio SIN NINGÚN botón de UA —
+    // pasó en From 3x5, que quedó solo con US. Y no es raro: unlimplay corta de
+    // vez en cuando. Se sabe que el título tiene UA porque está en la lista del
+    // sitio, así que se ofrece igual y que el resolver se arregle al elegirlo.
+    if (!adentro.length) {
+      for (const [nombre, esNativo] of [
+        [`${link.name || 'UA'} Directo`, true],
+        [`${link.name || 'UA'} Multi`, false],
+      ] as [string, boolean][]) {
+        fichas.push(ficha?.boton ?? '');
         streams.push({
-          url: `${url}${unlimplayMarcaMulti}`,
-          quality: `${link.name || 'UA'} Multi`,
-          nativo: false,
+          url: esNativo ? url : `${url}${unlimplayMarcaMulti}`,
+          quality: nombre,
+          nativo: esNativo,
         });
       }
+      continue;
+    }
+
+    let hayMenu = false;
+    for (const sv of adentro) {
+      const clave = sv.nombre.toLowerCase();
+      if (clave !== 'direct') hayMenu = true;
+      if (_UA_QUE_ANDAN.indexOf(clave) === -1) continue;
+      fichas.push(ficha?.boton ?? '');
+      streams.push({
+        // El Direct va por el embed y no por el m3u8 que el menú ya trae: así
+        // pasa por el resolver, que le pone el User-Agent con el que el CDN lo
+        // acepta. Con el m3u8 pelado, 403 (ver UA_NAVEGADOR en comun.ts).
+        url,
+        quality: `${link.name || 'UA'} Directo`,
+        nativo: true,
+      });
+    }
+
+    // El botón que abre la página, para todo lo demás. Solo si de verdad hay un
+    // menú: si unlimplay trae únicamente el Direct, abrirla no suma nada.
+    if (hayMenu) {
+      fichas.push(ficha?.boton ?? '');
+      streams.push({
+        url: `${url}${unlimplayMarcaMulti}`,
+        quality: `${link.name || 'UA'} Multi`,
+        nativo: false,
+      });
     }
   }
 

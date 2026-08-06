@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.6.0
+// @version      1.7.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -639,7 +639,7 @@ async function resolverServidor(url, referer) {
 
 // extensions/fuegocine/index.ts
 var BASE = "https://www.fuegocine.com";
-var _UA_QUE_ANDAN = ["goodstream", "vidhide"];
+var _UA_QUE_ANDAN = ["direct"];
 var HOST = "fuegocine.com";
 async function _get(url) {
   const raw = await sendMessage(
@@ -834,10 +834,6 @@ async function detail(url) {
     extra: Object.keys(extra).length > 0 ? extra : void 0
   };
 }
-function _conMayuscula(s) {
-  const n = s.toLowerCase() === "direct 2" ? "directo 2" : s;
-  return n.charAt(0).toUpperCase() + n.slice(1);
-}
 function _conEsquema(url) {
   const u = url.trim();
   if (u.indexOf("//") === 0) return `https:${u}`;
@@ -883,7 +879,7 @@ function _parseSvLinks(html) {
   return out;
 }
 async function watch(url) {
-  var _a;
+  var _a, _b, _c, _d;
   if (url.indexOf("http") === 0 && url.indexOf(HOST) === -1) {
     try {
       const resolved = await _resolveServerUrl(url);
@@ -903,40 +899,52 @@ async function watch(url) {
     const destino = _destinoDe(url2);
     const ficha = destino ? fichaDe(destino) : null;
     const esUnlimplay = url2.indexOf("unlimplay.com") !== -1;
-    fichas.push((_a = ficha == null ? void 0 : ficha.boton) != null ? _a : "");
-    streams.push({
-      url: url2,
-      // unlimplay se ofrece partido en dos porque de verdad son dos cosas
-      // (ver abajo). Este es el que reproduce en la app.
-      quality: esUnlimplay ? `${link.name || "UA"} Directo` : link.name || "Servidor",
-      nativo: ficha == null ? void 0 : ficha.nativo
-    });
-    if (esUnlimplay) {
-      const adentro = await servidoresDe(url2, `${BASE}/`);
-      let huboAdentro = false;
-      for (const sv of adentro) {
-        const clave = sv.nombre.toLowerCase();
-        if (clave === "direct") continue;
-        huboAdentro = true;
-        const sirve = _UA_QUE_ANDAN.indexOf(clave) !== -1;
-        if (!sirve) continue;
-        fichas.push("");
+    if (!esUnlimplay) {
+      fichas.push((_a = ficha == null ? void 0 : ficha.boton) != null ? _a : "");
+      streams.push({
+        url: url2,
+        quality: link.name || "Servidor",
+        nativo: ficha == null ? void 0 : ficha.nativo
+      });
+      continue;
+    }
+    const adentro = await servidoresDe(url2, `${BASE}/`);
+    if (!adentro.length) {
+      for (const [nombre, esNativo] of [
+        [`${link.name || "UA"} Directo`, true],
+        [`${link.name || "UA"} Multi`, false]
+      ]) {
+        fichas.push((_b = ficha == null ? void 0 : ficha.boton) != null ? _b : "");
         streams.push({
-          url: sv.url,
-          // Se deja ver de dónde salió: "Goodstream" a secas parece un servidor
-          // del sitio y no uno de adentro de UA.
-          quality: `UA ${_conMayuscula(sv.nombre)}`,
-          nativo: true
+          url: esNativo ? url2 : `${url2}${MARCA_MULTI}`,
+          quality: nombre,
+          nativo: esNativo
         });
       }
-      if (huboAdentro) {
-        fichas.push("");
-        streams.push({
-          url: `${url2}${MARCA_MULTI}`,
-          quality: `${link.name || "UA"} Multi`,
-          nativo: false
-        });
-      }
+      continue;
+    }
+    let hayMenu = false;
+    for (const sv of adentro) {
+      const clave = sv.nombre.toLowerCase();
+      if (clave !== "direct") hayMenu = true;
+      if (_UA_QUE_ANDAN.indexOf(clave) === -1) continue;
+      fichas.push((_c = ficha == null ? void 0 : ficha.boton) != null ? _c : "");
+      streams.push({
+        // El Direct va por el embed y no por el m3u8 que el menú ya trae: así
+        // pasa por el resolver, que le pone el User-Agent con el que el CDN lo
+        // acepta. Con el m3u8 pelado, 403 (ver UA_NAVEGADOR en comun.ts).
+        url: url2,
+        quality: `${link.name || "UA"} Directo`,
+        nativo: true
+      });
+    }
+    if (hayMenu) {
+      fichas.push((_d = ficha == null ? void 0 : ficha.boton) != null ? _d : "");
+      streams.push({
+        url: `${url2}${MARCA_MULTI}`,
+        quality: `${link.name || "UA"} Multi`,
+        nativo: false
+      });
     }
   }
   const orden = streams.map((s, i) => ({ s, boton: fichas[i], i }));
