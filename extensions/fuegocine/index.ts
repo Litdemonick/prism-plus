@@ -420,9 +420,27 @@ export async function watch(url: string): Promise<PrismWatch> {
       const resolved = await _resolveServerUrl(url);
       if (resolved) return { streams: [resolved], pageUrl: '' };
     } catch {
-      /* sigue abajo con la URL cruda */
+      /* sigue abajo, al navegador */
     }
-    return { streams: [{ url, quality: 'Servidor' }], pageUrl: '' };
+    // ── No se pudo resolver: va al navegador interno ──────────────────────
+    //
+    // Antes se devolvía la dirección CRUDA como si fuera un vídeo, y eso está
+    // mal para todo lo que no sea un enlace directo. El caso que lo destapó es
+    // **UA Multi**, que a propósito no resuelve —es el menú de la propia
+    // página, no un vídeo— y aun así salía así:
+    //
+    //     watch("…/embed/tv/125988/1/1#multi")
+    //       → { type: "hls", url: "…/embed/tv/125988/1/1#multi" }
+    //
+    // O sea: se le entregaba un HTML a mpv haciéndolo pasar por HLS. mpv no
+    // puede con eso, falla, y la app cae al navegador igual — pero después de
+    // dar la vuelta larga y de mostrar el fallo. Y en el navegador, sin que
+    // nadie lo esperara ahí, corren los anuncios de la página.
+    //
+    // Devolverlo como página es lo que ya hacen las demás extensiones: el
+    // navegador interno ejecuta JS de verdad y su sniffer encuentra el vídeo si
+    // lo hay. Para UA Multi además es lo que se busca — el usuario elige ahí.
+    return { streams: [], pageUrl: url };
   }
 
   const fullUrl = _fullUrl(url);

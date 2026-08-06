@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.7.0
+// @version      1.7.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -886,7 +886,7 @@ async function watch(url) {
       if (resolved) return { streams: [resolved], pageUrl: "" };
     } catch (e) {
     }
-    return { streams: [{ url, quality: "Servidor" }], pageUrl: "" };
+    return { streams: [], pageUrl: url };
   }
   const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
