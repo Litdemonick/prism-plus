@@ -23,21 +23,30 @@ export interface ServidorResuelto {
  *
  * ── Por qué hace falta, y por qué solo se notaba en el teléfono ─────────────
  *
- * La app no usa el mismo User-Agent para resolver que para reproducir. Para
- * resolver usa el del ajuste, que en Android es uno de móvil; para reproducir
- * usa siempre este, de escritorio. Y hay hosts que **atan la dirección al
- * User-Agent que la pidió**.
+ * La app no usa el mismo User-Agent para resolver que para reproducir, y hay
+ * hosts que **atan la dirección al User-Agent que la pidió**. Cómo quedaba en
+ * cada plataforma, antes de esto:
  *
- * Medido en VOE el 2026-08-06, mismo episodio, misma red:
+ *   ── WINDOWS y LINUX ──────────────────────────────────────────────────────
+ *     resuelve con   Chrome/120 … Edg/120   (escritorio, del ajuste)
+ *     reproduce con  Chrome/125 …           (escritorio, fijo en la app)
+ *     resultado      ANDA — los dos son de escritorio y el host los da por
+ *                    equivalentes. Por eso acá nunca se vio el problema.
  *
- *     resuelto con escritorio → pedido con este UA →  206 video/mp4
- *     resuelto con móvil      → pedido con este UA →  403
- *     resuelto con móvil      → pedido con el de móvil → 206 video/mp4
+ *   ── ANDROID ──────────────────────────────────────────────────────────────
+ *     resuelve con   Android 13 … Mobile Safari   (móvil, del ajuste)
+ *     reproduce con  Chrome/125 …                 (escritorio, fijo)
+ *     resultado      FALLA — la dirección se firma para un móvil y después se
+ *                    pide como escritorio.
  *
- * En la computadora nunca se vio porque los dos son de escritorio y el host los
- * da por equivalentes. En Android la dirección se firmaba para un móvil y
- * después se pedía como escritorio: 403 en VOE, 404 en Filemoon, y el servidor
- * caía al navegador pareciendo roto.
+ * Medido el 2026-08-06, mismo episodio y misma red:
+ *
+ *     VOE       resuelto con móvil, pedido como escritorio   403
+ *     Filemoon  lo mismo                                     404
+ *     los dos   resuelto y pedido con ESTE UA                206 / 200
+ *
+ * Con esto las dos filas de arriba pasan a ser la misma, así que Android queda
+ * igual que Windows y no hay dos caminos que mantener.
  *
  * Un resolver que use esto tiene que hacer las DOS cosas: pedir con este UA y
  * devolverlo en `headers`. Así las dos puntas coinciden y Android queda igual

@@ -52,14 +52,16 @@
 // OJO: el token del CDN dura unas 3 horas (`expires_at` en la respuesta). Hay
 // que pedir y descifrar en el momento de reproducir, no guardar la dirección.
 
-// ── El 404 en Android: la dirección queda atada al User-Agent ───────────────
+// ── El token del CDN queda atado al User-Agent que pidió la API ─────────────
 //
-// Mismo caso que VOE. El token del CDN se emite para el User-Agent que pidió la
-// API, y la app resolvía con el del ajuste (en Android, uno de móvil) para
-// después reproducir con el de escritorio. Medido el 2026-08-06: la MISMA
-// dirección que en la computadora entrega la lista, en el teléfono contestaba
-// 404 y el servidor caía al navegador pareciendo roto. Ver UA_DEL_REPRODUCTOR
-// en comun.ts.
+// Mismo caso que VOE.
+//
+//   WINDOWS y LINUX  andaba — los dos User-Agent son de escritorio.
+//   ANDROID          404 — la MISMA dirección que en la computadora entrega la
+//                    lista, en el teléfono no, porque el token se emitió para
+//                    un móvil y después se pedía como escritorio.
+//
+// Medido el 2026-08-06. Ver UA_DEL_REPRODUCTOR en comun.ts.
 
 import {
   pedir,

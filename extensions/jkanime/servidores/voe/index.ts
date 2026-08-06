@@ -27,17 +27,18 @@
 // deshacer seis capas: ROT13, sacar el relleno (@$ ^^ #& ~@ %? *~ !! `),
 // base64, correr cada carácter −3, dar vuelta la cadena, y base64 otra vez.
 
-// ── El 403 en Android: la dirección queda atada al User-Agent ───────────────
+// ── La dirección queda atada al User-Agent que la pidió ─────────────────────
 //
-// VOE firma la dirección para el User-Agent que la pidió. La app resuelve con
-// el del ajuste (en Android, uno de móvil) y después reproduce con el de
-// escritorio, así que en el teléfono el CDN contestaba 403 y el servidor caía
-// al navegador pareciendo roto. En la computadora nunca se vio porque los dos
-// son de escritorio. Medido el 2026-08-06 — el detalle y los números están en
-// UA_DEL_REPRODUCTOR, en comun.ts.
+//   WINDOWS y LINUX  andaba — resolvía y reproducía con dos User-Agent de
+//                    escritorio distintos, y VOE los da por equivalentes.
+//   ANDROID          403 — resolvía con el de móvil y reproducía con el de
+//                    escritorio, así que el CDN rechazaba la dirección y el
+//                    servidor caía al navegador pareciendo roto.
 //
-// Por eso acá se pide con el MISMO User-Agent con el que después se reproduce,
-// y se devuelve en las cabeceras para que mpv use ese y no otro.
+// Medido el 2026-08-06. Los números están en UA_DEL_REPRODUCTOR, en comun.ts.
+//
+// Se pide con el MISMO User-Agent con el que después se reproduce y se devuelve
+// en las cabeceras, así las dos plataformas hacen exactamente lo mismo.
 
 import {
   pedir,
