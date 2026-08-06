@@ -584,7 +584,22 @@ export async function detail(url: string): Promise<PrismDetail> {
 // Como no se resolvía nada, TODO se abría en el navegador interno aunque la
 // mitad de los servidores reprodujeran en la app sin problema.
 function _postIdFromUrl(url: string): number | null {
-  const m = /[?&]showId=(\d+)/.exec(url) || /[?&]epId=(\d+)/.exec(url);
+  // **El episodio primero, la serie después. El orden importa.**
+  //
+  // La dirección de un episodio lleva LOS DOS —`?showId=79891&…&epId=79893`—
+  // y antes se miraba `showId` primero, así que todos los episodios de todas
+  // las series terminaban pidiendo el reproductor de la SERIE.
+  //
+  // Y el de la serie no trae los servidores del episodio: devuelve un solo
+  // embed de relleno, `https://lamovie.org/embed.html?v=1`, que es la página
+  // de "este contenido todavía no está disponible". Medido el 2026-08-06 con
+  // One Hundred Years of Solitude: con el id de la serie sale ese relleno y
+  // nada más; con el id del episodio salen los cuatro de verdad.
+  //
+  // Por eso al abrir un episodio arrancaba en el navegador interno mostrando
+  // "no disponible", y recién cambiando de servidor a mano aparecían los que
+  // sí andan.
+  const m = /[?&]epId=(\d+)/.exec(url) || /[?&]showId=(\d+)/.exec(url);
   return m ? parseInt(m[1], 10) : null;
 }
 
@@ -595,10 +610,18 @@ function _postIdFromUrl(url: string): number | null {
  * declara, que miente: el sitio etiqueta "Full HD" títulos cuyo vimeos solo
  * trae 480p y 720p. La calidad de verdad la mide el reproductor.
  */
-function _nombreDeBoton(e: { server?: string; lang?: string }, host: string): string {
+function _nombreDeBoton(
+  e: { server?: string; lang?: string },
+  host: string,
+  conocido: string | null,
+): string {
   const partes: string[] = [];
-  if (e.server) partes.push(e.server);
-  else partes.push(host);
+  // El nombre del catálogo primero, si se lo reconoce.
+  //
+  // La API es incoherente con el suyo: al MISMO servidor lo llama "Online" en
+  // unos títulos y "LaMovie" en otros, así que en el selector salían dos
+  // nombres distintos para lo mismo y ninguno decía de qué servicio se trata.
+  partes.push(conocido || e.server || host);
   if (e.lang) partes.push(e.lang);
   return partes.join(' ');
 }
@@ -645,11 +668,22 @@ export async function watch(url: string): Promise<PrismWatch> {
   // app los abre en el navegador interno, que ejecuta el JS de la página.
   const streams: PrismStream[] = [];
   for (const e of embeds) {
+    // El relleno de "todavía no está disponible" NO es un servidor.
+    //
+    // Cuando al sitio le falta un título devuelve un embed que apunta a su
+    // propia página de aviso. No reproduce ni puede reproducir: es un cartel.
+    // Se descarta como se descartó en su momento el "mediafire" de otra
+    // extensión — la regla de no ocultar servidores vale para los servidores,
+    // y esto no lo es.
+    //
+    // Si era el único, quedan cero streams y la app abre la página del sitio,
+    // que es donde el aviso tiene sentido y trae el botón de pedirlo.
+    if (e.url.indexOf('/embed.html') !== -1) continue;
     const host = _guessServerName(e.url);
     const s = servidorDe(e.url);
     streams.push({
       url: e.url,
-      quality: _nombreDeBoton(e, host),
+      quality: _nombreDeBoton(e, host, s ? s.boton : null),
       // El rayo y el mundo los dice la extensión, que es la que lo midió, y no
       // la app adivinando por el nombre del host.
       nativo: s ? s.nativo : false,

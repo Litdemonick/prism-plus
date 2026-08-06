@@ -25,8 +25,20 @@
 //
 //   LaMovie / Online   9/9   ⚡   vimeos, el reproductor propio del sitio
 //   GoodstreamOne      8/8   ⚡
-//   Voe                0/9   🌐   la página no trae la dirección
+//   Voe                     ⚡   ver abajo: el banco se equivocaba
 //   Doodstream         0/7   🌐   ver la nota de su carpeta
+//
+// ── Voe: el banco decía 0/9 y anda ───────────────────────────────────────────
+//
+// El banco de Node daba "sin dirección en la página" en los 9. En la app,
+// probado en vivo el 2026-08-06, el mismo resolver saca el m3u8 y reproduce:
+//
+//   switchServer: Voe → https://voe.sx/e/jze0ie1ocqf4
+//   lista MAESTRA con 1 calidad · 692 pedacitos · va directo a mpv
+//
+// O sea que la página que Voe le devuelve a Node NO es la que le devuelve a la
+// app. Es la segunda vez que pasa lo mismo en esta extensión: el banco es una
+// aproximación, y cuando dice que no y la app dice que sí, **manda la app**.
 //
 // ── La corrección importante ─────────────────────────────────────────────────
 //
@@ -54,7 +66,12 @@ import * as voe from './voe';
 export { type ServidorResuelto } from './comun';
 
 export interface Servidor {
-  /** El nombre con el que lo publica la API del sitio (campo `server`). */
+  /** El nombre que ve el usuario en el selector de servidores.
+   *
+   *  **No es el que publica la API**, y es a propósito: el sitio llama al mismo
+   *  servidor "Online" en unos títulos y "LaMovie" en otros, así que en la lista
+   *  aparecían dos nombres para lo mismo y ninguno decía qué era. Acá va el
+   *  nombre real del servicio. */
   boton: string;
   /** Trozos de host con los que se reconoce esta dirección. */
   hosts: string[];
@@ -68,7 +85,7 @@ export interface Servidor {
 /** Ordenados por lo que rinden: primero los que reproducen en la app. */
 export const SERVIDORES: Servidor[] = [
   {
-    boton: 'LaMovie',
+    boton: 'Vimeos',
     hosts: ['vimeos'],
     medido: '9/9',
     nativo: true,
@@ -84,8 +101,8 @@ export const SERVIDORES: Servidor[] = [
   {
     boton: 'Voe',
     hosts: ['voe.sx', 'voe.', 'voedelivery', 'jonathansociallike', 'brookethoughi'],
-    medido: '0/9',
-    nativo: false,
+    medido: 'anda en la app',
+    nativo: true,
     resolver: voe.resolver,
   },
   {

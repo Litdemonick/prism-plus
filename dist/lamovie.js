@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LaMovie
-// @version      1.1.0
+// @version      1.1.1
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -220,8 +220,8 @@ var SERVIDORES = [
   {
     boton: "Voe",
     hosts: ["voe.sx", "voe.", "voedelivery", "jonathansociallike", "brookethoughi"],
-    medido: "0/9",
-    nativo: false,
+    medido: "anda en la app",
+    nativo: true,
     resolver: resolver4
   },
   {
@@ -686,7 +686,7 @@ async function detail(url) {
   };
 }
 function _postIdFromUrl(url) {
-  const m = /[?&]showId=(\d+)/.exec(url) || /[?&]epId=(\d+)/.exec(url);
+  const m = /[?&]epId=(\d+)/.exec(url) || /[?&]showId=(\d+)/.exec(url);
   return m ? parseInt(m[1], 10) : null;
 }
 function _nombreDeBoton(e, host) {
@@ -716,6 +716,7 @@ async function watch(url) {
   if (embeds.length === 0) return { streams: [], pageUrl: cleanPageUrl };
   const streams = [];
   for (const e of embeds) {
+    if (e.url.indexOf("/embed.html") !== -1) continue;
     const host = _guessServerName(e.url);
     const s = servidorDe(e.url);
     streams.push({
