@@ -18,6 +18,43 @@ export interface ServidorResuelto {
   headers?: Record<string, string>;
 }
 
+/**
+ * El User-Agent con el que la app REPRODUCE.
+ *
+ * ── Por qué hace falta, y por qué solo se notaba en el teléfono ─────────────
+ *
+ * La app no usa el mismo User-Agent para resolver que para reproducir. Para
+ * resolver usa el del ajuste, que en Android es uno de móvil; para reproducir
+ * usa siempre este, de escritorio. Y hay hosts que **atan la dirección al
+ * User-Agent que la pidió**.
+ *
+ * Medido en VOE el 2026-08-06, mismo episodio, misma red:
+ *
+ *     resuelto con escritorio → pedido con este UA →  206 video/mp4
+ *     resuelto con móvil      → pedido con este UA →  403
+ *     resuelto con móvil      → pedido con el de móvil → 206 video/mp4
+ *
+ * En la computadora nunca se vio porque los dos son de escritorio y el host los
+ * da por equivalentes. En Android la dirección se firmaba para un móvil y
+ * después se pedía como escritorio: 403 en VOE, 404 en Filemoon, y el servidor
+ * caía al navegador pareciendo roto.
+ *
+ * Un resolver que use esto tiene que hacer las DOS cosas: pedir con este UA y
+ * devolverlo en `headers`. Así las dos puntas coinciden y Android queda igual
+ * que la computadora. **No hace falta preguntar en qué plataforma se está**:
+ * justamente lo que se busca es que no dependa de eso.
+ *
+ * Tiene que seguir siendo el mismo que `_browserUA` en video_controller.dart.
+ */
+export const UA_DEL_REPRODUCTOR =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+
+/** Para mandarlo en un pedido y devolverlo en la respuesta, sin repetirlo. */
+export const CABECERAS_DEL_REPRODUCTOR: Record<string, string> = {
+  'User-Agent': UA_DEL_REPRODUCTOR,
+};
+
 /** GET a una página de embed. Devuelve null si no se pudo. */
 export async function pedir(
   url: string,

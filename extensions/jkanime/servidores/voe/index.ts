@@ -27,7 +27,24 @@
 // deshacer seis capas: ROT13, sacar el relleno (@$ ^^ #& ~@ %? *~ !! `),
 // base64, correr cada carácter −3, dar vuelta la cadena, y base64 otra vez.
 
-import { pedir, b64aTexto, type ServidorResuelto } from '../comun';
+// ── El 403 en Android: la dirección queda atada al User-Agent ───────────────
+//
+// VOE firma la dirección para el User-Agent que la pidió. La app resuelve con
+// el del ajuste (en Android, uno de móvil) y después reproduce con el de
+// escritorio, así que en el teléfono el CDN contestaba 403 y el servidor caía
+// al navegador pareciendo roto. En la computadora nunca se vio porque los dos
+// son de escritorio. Medido el 2026-08-06 — el detalle y los números están en
+// UA_DEL_REPRODUCTOR, en comun.ts.
+//
+// Por eso acá se pide con el MISMO User-Agent con el que después se reproduce,
+// y se devuelve en las cabeceras para que mpv use ese y no otro.
+
+import {
+  pedir,
+  b64aTexto,
+  CABECERAS_DEL_REPRODUCTOR,
+  type ServidorResuelto,
+} from '../comun';
 
 /** ROT13 sobre letras ASCII. */
 function rot13(s: string): string {
@@ -52,15 +69,23 @@ function descifrar(crudo: string): string | null {
 }
 
 export async function resolver(url: string, referer: string): Promise<ServidorResuelto | null> {
-  let html = await pedir(url, referer);
+  let html = await pedir(url, referer, CABECERAS_DEL_REPRODUCTOR);
   if (!html) return null;
 
   // Seguir la redirección al espejo, si la hay.
   const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html);
   if (redir) {
-    const espejo = await pedir(redir[1], 'https://voe.sx/');
+    const espejo = await pedir(redir[1], 'https://voe.sx/', CABECERAS_DEL_REPRODUCTOR);
     if (espejo) html = espejo;
   }
+
+  // Toda salida lleva el User-Agent con el que se pidió. Por acá hay seis
+  // caminos distintos y el que se olvidara volvería a dar 403 en el teléfono,
+  // así que se arma en un solo lugar.
+  const salida = (u: string): ServidorResuelto => ({
+    url: u.replace(/\\\//g, '/'),
+    headers: CABECERAS_DEL_REPRODUCTOR,
+  });
 
   const bloque =
     /<script[^>]*type=["']application\/json["'][^>]*>\s*\[\s*"([^"]+)"\s*\]\s*<\/script>/.exec(html);
@@ -69,31 +94,31 @@ export async function resolver(url: string, referer: string): Promise<ServidorRe
     if (claro) {
       // El mp4 PRIMERO — ver arriba por qué.
       const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(claro);
-      if (mp4) return { url: mp4[1].replace(/\\\//g, '/') };
+      if (mp4) return salida(mp4[1]);
       const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(claro);
-      if (src) return { url: src[1].replace(/\\\//g, '/') };
+      if (src) return salida(src[1]);
       const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(claro.replace(/\\\//g, '/'));
-      if (m3u8) return { url: m3u8[1] };
+      if (m3u8) return salida(m3u8[1]);
     }
   }
 
   // Respaldos para páginas de Voe viejas.
   let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
-  if (m) return { url: m[1] };
+  if (m) return salida(m[1]);
 
   const enBase64 = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
   if (enBase64) {
     try {
       const dec = b64aTexto(enBase64[1]);
       const hls = /['"]hls['"]\s*:\s*['"]([^'"]+)['"]/.exec(dec);
-      if (hls) return { url: hls[1] };
+      if (hls) return salida(hls[1]);
     } catch {
       /* si no se puede decodificar, se sigue con lo de abajo */
     }
   }
 
   m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
-  if (m) return { url: m[0] };
+  if (m) return salida(m[0]);
 
   return null;
 }

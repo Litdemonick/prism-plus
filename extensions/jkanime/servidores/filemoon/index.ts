@@ -52,7 +52,23 @@
 // OJO: el token del CDN dura unas 3 horas (`expires_at` en la respuesta). Hay
 // que pedir y descifrar en el momento de reproducir, no guardar la dirección.
 
-import { pedir, hostDe, codigoDe, type ServidorResuelto } from '../comun';
+// ── El 404 en Android: la dirección queda atada al User-Agent ───────────────
+//
+// Mismo caso que VOE. El token del CDN se emite para el User-Agent que pidió la
+// API, y la app resolvía con el del ajuste (en Android, uno de móvil) para
+// después reproducir con el de escritorio. Medido el 2026-08-06: la MISMA
+// dirección que en la computadora entrega la lista, en el teléfono contestaba
+// 404 y el servidor caía al navegador pareciendo roto. Ver UA_DEL_REPRODUCTOR
+// en comun.ts.
+
+import {
+  pedir,
+  hostDe,
+  codigoDe,
+  UA_DEL_REPRODUCTOR,
+  CABECERAS_DEL_REPRODUCTOR,
+  type ServidorResuelto,
+} from '../comun';
 
 /** base64url (con `-` y `_`, y sin relleno) → WordArray de CryptoJS. */
 function b64urlAWord(s: string): CryptoJSWordArray {
@@ -72,7 +88,11 @@ export async function resolver(url: string, referer: string): Promise<ServidorRe
   const codigo = codigoDe(url);
   if (!codigo) return null;
 
-  const crudo = await pedir(`https://${host}/api/videos/${codigo}`, referer || `https://${host}/`);
+  const crudo = await pedir(
+    `https://${host}/api/videos/${codigo}`,
+    referer || `https://${host}/`,
+    CABECERAS_DEL_REPRODUCTOR,
+  );
   if (!crudo) return null;
 
   let meta: {
@@ -130,7 +150,12 @@ export async function resolver(url: string, referer: string): Promise<ServidorRe
     }
     return {
       url: m[1].replace(/\\u0026/g, '&').replace(/\\\//g, '/'),
-      headers: { Referer: `https://${host}/` },
+      // El mismo User-Agent con el que se pidió la API: el token del CDN se
+      // emitió para ése.
+      headers: {
+        Referer: `https://${host}/`,
+        'User-Agent': UA_DEL_REPRODUCTOR,
+      },
     };
   } catch (e) {
     console.log(`[jk] filemoon: no se pudo descifrar: ${(e as Error)?.message ?? e}`);

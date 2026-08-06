@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.1
+// @version      1.12.2
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -181,6 +181,10 @@ var _NAMED_ENTITIES = {
 };
 
 // extensions/jkanime/servidores/comun.ts
+var UA_DEL_REPRODUCTOR = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+var CABECERAS_DEL_REPRODUCTOR = {
+  "User-Agent": UA_DEL_REPRODUCTOR
+};
 async function pedir(url, referer, headers) {
   var _a;
   try {
@@ -306,7 +310,11 @@ async function resolver3(url, referer) {
   const host = hostDe(url) || "bysekoze.com";
   const codigo = codigoDe(url);
   if (!codigo) return null;
-  const crudo = await pedir(`https://${host}/api/videos/${codigo}`, referer || `https://${host}/`);
+  const crudo = await pedir(
+    `https://${host}/api/videos/${codigo}`,
+    referer || `https://${host}/`,
+    CABECERAS_DEL_REPRODUCTOR
+  );
   if (!crudo) return null;
   let meta;
   try {
@@ -347,7 +355,12 @@ async function resolver3(url, referer) {
     }
     return {
       url: m[1].replace(/\\u0026/g, "&").replace(/\\\//g, "/"),
-      headers: { Referer: `https://${host}/` }
+      // El mismo User-Agent con el que se pidió la API: el token del CDN se
+      // emitió para ése.
+      headers: {
+        Referer: `https://${host}/`,
+        "User-Agent": UA_DEL_REPRODUCTOR
+      }
     };
   } catch (e) {
     console.log(`[jk] filemoon: no se pudo descifrar: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
@@ -566,38 +579,42 @@ function descifrar(crudo) {
   }
 }
 async function resolver11(url, referer) {
-  let html = await pedir(url, referer);
+  let html = await pedir(url, referer, CABECERAS_DEL_REPRODUCTOR);
   if (!html) return null;
   const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html);
   if (redir) {
-    const espejo = await pedir(redir[1], "https://voe.sx/");
+    const espejo = await pedir(redir[1], "https://voe.sx/", CABECERAS_DEL_REPRODUCTOR);
     if (espejo) html = espejo;
   }
+  const salida = (u) => ({
+    url: u.replace(/\\\//g, "/"),
+    headers: CABECERAS_DEL_REPRODUCTOR
+  });
   const bloque = /<script[^>]*type=["']application\/json["'][^>]*>\s*\[\s*"([^"]+)"\s*\]\s*<\/script>/.exec(html);
   if (bloque) {
     const claro = descifrar(bloque[1]);
     if (claro) {
       const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(claro);
-      if (mp4) return { url: mp4[1].replace(/\\\//g, "/") };
+      if (mp4) return salida(mp4[1]);
       const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(claro);
-      if (src) return { url: src[1].replace(/\\\//g, "/") };
+      if (src) return salida(src[1]);
       const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(claro.replace(/\\\//g, "/"));
-      if (m3u8) return { url: m3u8[1] };
+      if (m3u8) return salida(m3u8[1]);
     }
   }
   let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
-  if (m) return { url: m[1] };
+  if (m) return salida(m[1]);
   const enBase64 = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
   if (enBase64) {
     try {
       const dec = b64aTexto(enBase64[1]);
       const hls = /['"]hls['"]\s*:\s*['"]([^'"]+)['"]/.exec(dec);
-      if (hls) return { url: hls[1] };
+      if (hls) return salida(hls[1]);
     } catch (e) {
     }
   }
   m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
-  if (m) return { url: m[0] };
+  if (m) return salida(m[0]);
   return null;
 }
 
