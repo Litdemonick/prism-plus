@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LaMovie
-// @version      1.1.3
+// @version      1.1.4
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -585,7 +585,7 @@ async function _conPlazo(promesa, ms, respaldo) {
 async function latest(page, filter) {
   const f = _parseFilter(filter);
   if (f.postType) return _listing(f.postType, page, f);
-  const PLAZO_POR_TIPO = 8e3;
+  const PLAZO_POR_TIPO = 18e3;
   const porTipo = await Promise.all(
     POST_TYPES.map(
       (t) => _conPlazo(

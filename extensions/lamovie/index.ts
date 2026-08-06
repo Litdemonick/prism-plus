@@ -454,13 +454,23 @@ export async function latest(page: number, filter?: Record<string, string[]>): P
   // aunque `animes` estuviera listo desde el segundo 2,8. Es lo peor de los dos
   // mundos: se espera todo y no se muestra nada.
   //
-  // Con el plazo se muestra lo que llegó. Si el sitio se recupera no cambia
-  // nada, porque todos entran cómodos; y si sigue lento, se ve contenido a los
-  // ocho segundos en vez de una rueda infinita.
+  // Con el plazo se muestra lo que llegó, sin esperar al que no viene.
   //
-  // Ocho segundos: por debajo del límite del puente, y por encima de lo que
-  // tarda este sitio cuando está en un día normal.
-  const PLAZO_POR_TIPO = 8_000;
+  // **Ojo con bajarlo.** Se probó con ocho segundos y fue PEOR: cortaba antes
+  // de que llegara nada y la portada quedaba vacía siempre, cuando antes al
+  // menos a veces aparecía algo. Medido en vivo — los cuatro tipos cortados por
+  // el plazo, ninguno con contenido.
+  //
+  // Dieciocho es lo más alto que tiene sentido: el puente de red corta a los
+  // veinte, así que más allá de eso el plazo no decidiría nada. Así entra
+  // cualquier tipo que el sitio alcance a contestar, y solo se descarta el que
+  // de todos modos iba a morir en el puente.
+  //
+  // Y que quede claro para la próxima vez que esto se mire: si el sitio no
+  // contesta NADA en veinte segundos, no hay plazo que arregle eso. La portada
+  // va a estar vacía porque no hay contenido que mostrar, no porque se haya
+  // cortado antes de tiempo.
+  const PLAZO_POR_TIPO = 18_000;
   const porTipo = await Promise.all(
     POST_TYPES.map((t) =>
       _conPlazo(
