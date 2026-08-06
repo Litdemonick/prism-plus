@@ -731,10 +731,30 @@ export async function watch(url: string): Promise<PrismWatch> {
   // mal (carga la imagen en vez de reproducir). Que la medición diera 206
   // video/mp4 solo dice que el archivo baja, no que se reproduzca bien.
   //
-  // Es la única cosa que se saca: todo lo demás sigue en la lista, incluidos los
-  // que van al navegador, porque un botón que abre en el navegador es mucho
-  // mejor que ningún botón.
-  const usable = resolved.filter((s) => (s.url ?? '').toLowerCase().indexOf('mediafire') === -1);
+  // **Mp4upload también sale, a pedido del usuario el 2026-08-06.** Es la
+  // segunda excepción a la regla de no sacar botones, y se plantea acá para que
+  // quede claro qué se perdió: eran 48 botones y el servidor RESUELVE bien —
+  // 206, el archivo es un MP4 sano de 282 MB.
+  //
+  // Lo que no se pudo arreglar es el caudal. Ese host tarda ~1,5 s en empezar a
+  // contestar cada pedido, así que lo que importa no es el ancho de banda sino
+  // cuántos pedidos se hacen: leyendo de corrido entrega 1812 KB/s y de a trozos
+  // cerrados de 256 KB baja a 171, cuando el archivo necesita 206. Se intentó
+  // resolverlo del lado de la app manteniéndole la lectura abierta (ver
+  // `bomba_de_datos.dart` en PrismHub), y aun así seguía trabándose en las dos
+  // plataformas. El usuario prefirió sacarlo antes que dejar un botón que carga
+  // y se atora.
+  //
+  // Si algún día se quiere volver a intentar, está todo medido: el resolver
+  // sigue en `servidores/mp4upload/` con sus números, y el mecanismo de lectura
+  // continua sigue en la app esperando que alguien lo declare.
+  //
+  // El resto sigue en la lista, incluidos los que van al navegador, porque un
+  // botón que abre en el navegador es mucho mejor que ningún botón.
+  const usable = resolved.filter((s) => {
+    const u = (s.url ?? '').toLowerCase();
+    return u.indexOf('mediafire') === -1 && u.indexOf('mp4upload') === -1;
+  });
 
   // Direct streams (mp4/m3u8) antes que embeds crudos
   const direct = usable.filter(s => _isDirect(s.url));

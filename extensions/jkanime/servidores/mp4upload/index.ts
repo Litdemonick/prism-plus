@@ -38,14 +38,25 @@
 // imagen quedaba congelada con el colchón clavado en 2,7 s — nunca llegaba a los
 // 3 s que hacen falta para arrancar.
 //
-// Por eso se declara `X-Lectura-Continua`: le pide a la app que le lea el
-// archivo de una sola vez en vez de ir pidiendo tramos sueltos. La app tiene el
-// mecanismo armado y no sabe de servidores; el que sabe que ESTE los cobra caro
-// es este archivo, que es donde está la medición.
+// ── Se intentó arreglarlo y no alcanzó: el botón salió de la lista ──────────
 //
-// **Está solo en la copia de jkanime.** El mismo servidor está copiado en
-// animefenix, latanime, shademanga y hentaila: si allá también se congela, se
-// mide y se agrega la línea en cada una. No se toca ninguna sin medirla.
+// Se le declaró `X-Lectura-Continua`, que le pide a la app que le mantenga la
+// lectura abierta y le sirva al reproductor desde ahí en vez de ir pidiendo
+// tramos sueltos (ver `bomba_de_datos.dart` en PrismHub). Eso arregló varias
+// cosas por el camino —las lecturas encimadas, las reaperturas en el mismo
+// punto— pero el vídeo se seguía trabando, en Windows y en Android.
+//
+// El 2026-08-06 el usuario decidió sacar el botón antes que dejar uno que carga
+// y se atora. El filtro está en `index.ts` de la extensión, con el detalle.
+//
+// **El resolver se deja tal cual, y anda.** Si algún día se quiere volver a
+// intentar, esto resuelve y el archivo es sano: lo que falla es el caudal del
+// host. La declaración se sacó a propósito, para que un intento nuevo arranque
+// de cero en vez de heredar un remedio que ya se probó y no alcanzó.
+//
+// **Ojo con las otras extensiones.** El mismo servidor está copiado en
+// animefenix, latanime, shademanga y hentaila, y ahí sigue en la lista. Si allá
+// también se traba, la medición ya está hecha: es el host, no el resolver.
 
 import { pedir, type ServidorResuelto } from '../comun';
 
@@ -55,13 +66,5 @@ export async function resolver(url: string, referer: string): Promise<ServidorRe
   const candidatos = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g) ?? [];
   const real = candidatos.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
   if (!real) return null;
-  return {
-    url: real,
-    headers: {
-      Referer: 'https://www.mp4upload.com/',
-      // No es una cabecera HTTP: es una declaración para la app, que la saca
-      // antes de pedirle nada a la fuente. Ver el bloque de arriba.
-      'X-Lectura-Continua': '1',
-    },
-  };
+  return { url: real, headers: { Referer: 'https://www.mp4upload.com/' } };
 }

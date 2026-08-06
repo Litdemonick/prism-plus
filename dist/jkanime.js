@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.2
+// @version      1.12.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -441,15 +441,7 @@ async function resolver8(url, referer) {
   const candidatos = (_a = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g)) != null ? _a : [];
   const real = candidatos.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
   if (!real) return null;
-  return {
-    url: real,
-    headers: {
-      Referer: "https://www.mp4upload.com/",
-      // No es una cabecera HTTP: es una declaración para la app, que la saca
-      // antes de pedirle nada a la fuente. Ver el bloque de arriba.
-      "X-Lectura-Continua": "1"
-    }
-  };
+  return { url: real, headers: { Referer: "https://www.mp4upload.com/" } };
 }
 
 // extensions/jkanime/servidores/streamtape/index.ts
@@ -1202,7 +1194,8 @@ async function watch(url) {
   const resolved = servers.map((s) => _rawServerStream(s)).filter((s) => s !== null);
   const usable = resolved.filter((s) => {
     var _a;
-    return ((_a = s.url) != null ? _a : "").toLowerCase().indexOf("mediafire") === -1;
+    const u = ((_a = s.url) != null ? _a : "").toLowerCase();
+    return u.indexOf("mediafire") === -1 && u.indexOf("mp4upload") === -1;
   });
   const direct = usable.filter((s) => _isDirect(s.url));
   const embeds = usable.filter((s) => !_isDirect(s.url));
