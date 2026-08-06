@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.4.2
+// @version      1.5.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -347,6 +347,48 @@ async function resolver6(url) {
   return { url: salida };
 }
 
+// extensions/fuegocine/servidores/streamwish/index.ts
+async function resolver7(url, referer) {
+  var _a;
+  const host = hostDe(url);
+  if (!host) return null;
+  const hdrs = { Referer: `https://${host}/` };
+  const idM = /\/(?:e|f|d|v)\/([A-Za-z0-9]+)/.exec(url);
+  if (idM) {
+    const json = await pedir(`https://${host}/api/file/${idM[1]}?json=1`, `https://${host}/`, {
+      "X-Requested-With": "XMLHttpRequest",
+      Accept: "application/json"
+    });
+    if (json) {
+      const m3u82 = /"file"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(json);
+      if (m3u82) return { url: m3u82[1].replace(/\\\//g, "/"), headers: hdrs };
+      const mp4 = /"file"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(json);
+      if (mp4) return { url: mp4[1].replace(/\\\//g, "/"), headers: hdrs };
+    }
+  }
+  const html = await pedir(url, `https://${host}/`);
+  if (!html) return null;
+  const plano = `${html}
+${desempaquetarTodo(html)}`.replace(/\\\//g, "/");
+  const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(plano);
+  if (m3u8) return { url: m3u8[1], headers: hdrs };
+  const file = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/i.exec(plano);
+  if (file) return { url: file[1], headers: hdrs };
+  const enBase64 = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
+  if (enBase64) {
+    try {
+      const dec = b64aTexto(enBase64[1]);
+      const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(dec.replace(/\\\//g, "/"));
+      if (src) return { url: src[1], headers: hdrs };
+    } catch (e) {
+    }
+  }
+  const mp4s = (_a = plano.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g)) != null ? _a : [];
+  const real = mp4s.find((u) => !/\.(?:css|js|jpg|png|woff)/.test(u));
+  if (real) return { url: real, headers: hdrs };
+  return null;
+}
+
 // extensions/fuegocine/servidores/unlimplay/index.ts
 function rutaAlDia(url) {
   return url.replace(/\/(?:play\.php|play|f)\/embed\//, "/f/embed/");
@@ -374,7 +416,7 @@ async function servidoresDe(url, referer) {
   }
   return salida;
 }
-async function resolver7(url, referer) {
+async function resolver8(url, referer) {
   if (url.indexOf(MARCA_MULTI) !== -1) return null;
   const html = await pedir(rutaAlDia(url), referer);
   if (typeof html !== "string") return null;
@@ -386,13 +428,73 @@ async function resolver7(url, referer) {
   return { url: m[1].replace(/\\\//g, "/") };
 }
 
+// extensions/fuegocine/servidores/voe/index.ts
+function rot13(s) {
+  return s.replace(/[a-zA-Z]/g, (c) => {
+    const base = c <= "Z" ? 65 : 97;
+    return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
+  });
+}
+function desescapar(s) {
+  return s.replace(/\\\//g, "/");
+}
+function descifrar(crudo) {
+  try {
+    let r = rot13(crudo);
+    for (const p of ["@$", "^^", "#&", "~@", "%?", "*~", "!!", "`"]) r = r.split(p).join("");
+    const paso3 = b64aTexto(r);
+    let corrido = "";
+    for (let i = 0; i < paso3.length; i++) corrido += String.fromCharCode(paso3.charCodeAt(i) - 3);
+    return b64aTexto(corrido.split("").reverse().join(""));
+  } catch (e) {
+    return null;
+  }
+}
+async function resolver9(url, referer) {
+  let html = await pedir(url, referer);
+  if (!html) return null;
+  const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html);
+  if (redir) {
+    const espejo = await pedir(redir[1], "https://voe.sx/");
+    if (espejo) html = espejo;
+  }
+  const bloque = /<script[^>]*type=["']application\/json["'][^>]*>\s*\[\s*"([^"]+)"\s*\]\s*<\/script>/.exec(html);
+  if (bloque) {
+    const claro = descifrar(bloque[1]);
+    if (claro) {
+      const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(claro);
+      if (src) return { url: desescapar(src[1]) };
+      const cualquiera = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(desescapar(claro));
+      if (cualquiera) return { url: cualquiera[1] };
+      const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(claro);
+      if (mp4) return { url: desescapar(mp4[1]) };
+    }
+  }
+  let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
+  if (m) return { url: m[1] };
+  const enBase64 = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
+  if (enBase64) {
+    try {
+      const claro = b64aTexto(enBase64[1]);
+      const hls = /['"]hls['"]\s*:\s*['"]([^'"]+)['"]/.exec(claro);
+      if (hls) return { url: hls[1] };
+      const directo = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/.exec(claro);
+      if (directo) return { url: directo[1] };
+    } catch (e) {
+    }
+  }
+  m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
+  if (m) return { url: m[0] };
+  return null;
+}
+
 // extensions/fuegocine/servidores/upns/index.ts
-async function resolver8(_url) {
+async function resolver10(_url) {
   return null;
 }
 
 // extensions/fuegocine/servidores/vimeos/index.ts
-async function resolver9(url, referer) {
+async function resolver11(url, referer) {
   const html = await pedir(url, referer);
   if (!html) return null;
   const host = hostDe(url);
@@ -406,14 +508,14 @@ var SERVIDORES = [
     hosts: ["unlimplay"],
     botones: 395,
     nativo: true,
-    resolver: resolver7
+    resolver: resolver8
   },
   {
     boton: "US",
     hosts: ["upns"],
     botones: 241,
     nativo: false,
-    resolver: resolver8
+    resolver: resolver10
   },
   {
     boton: "FC",
@@ -455,7 +557,7 @@ var SERVIDORES = [
     hosts: ["vimeos"],
     botones: 49,
     nativo: true,
-    resolver: resolver9
+    resolver: resolver11
   },
   // ── Los que vienen ADENTRO de UA ────────────────────────────────────────
   //
@@ -475,12 +577,30 @@ var SERVIDORES = [
   // extensión todavía no tiene su resolver. Varios existen en otras del repo
   // —voe está en cinco, streamwish en jkanime— y traerlos acá es copiar y
   // medir, no investigar. Queda como lo próximo.
+  // Voe y Streamwish salen de ADENTRO de unlimplay. Los resolvers vienen de
+  // otras extensiones del repo —voe de hentaila, streamwish de jkanime— donde
+  // estaban medidos andando. Se traen para que dejen de mandar al navegador.
+  {
+    boton: "UA Voe",
+    hosts: ["voe.sx", "voe."],
+    botones: 0,
+    nativo: true,
+    resolver: resolver9
+  },
+  {
+    // El mismo motor sirve para Streamwish y para Vidhide.
+    boton: "UA Streamwish",
+    hosts: ["streamwish", "sfastwish", "wishfast", "swdyu"],
+    botones: 0,
+    nativo: true,
+    resolver: resolver7
+  },
   {
     boton: "UA Vidhide",
     hosts: ["vidhidepro", "vidhide", "vhide"],
     botones: 0,
     nativo: true,
-    resolver: resolver5
+    resolver: resolver7
   },
   {
     boton: "DL",

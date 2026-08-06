@@ -30,7 +30,9 @@ import * as dropload from './dropload';
 import * as firestream from './firestream';
 import * as goodstream from './goodstream';
 import * as okru from './ok.ru';
+import * as streamwish from './streamwish';
 import * as unlimplay from './unlimplay';
+import * as voe from './voe';
 import * as upns from './upns';
 import * as vimeos from './vimeos';
 
@@ -130,12 +132,30 @@ export const SERVIDORES: Servidor[] = [
   // extensión todavía no tiene su resolver. Varios existen en otras del repo
   // —voe está en cinco, streamwish en jkanime— y traerlos acá es copiar y
   // medir, no investigar. Queda como lo próximo.
+  // Voe y Streamwish salen de ADENTRO de unlimplay. Los resolvers vienen de
+  // otras extensiones del repo —voe de hentaila, streamwish de jkanime— donde
+  // estaban medidos andando. Se traen para que dejen de mandar al navegador.
+  {
+    boton: 'UA Voe',
+    hosts: ['voe.sx', 'voe.'],
+    botones: 0,
+    nativo: true,
+    resolver: voe.resolver,
+  },
+  {
+    // El mismo motor sirve para Streamwish y para Vidhide.
+    boton: 'UA Streamwish',
+    hosts: ['streamwish', 'sfastwish', 'wishfast', 'swdyu'],
+    botones: 0,
+    nativo: true,
+    resolver: streamwish.resolver,
+  },
   {
     boton: 'UA Vidhide',
     hosts: ['vidhidepro', 'vidhide', 'vhide'],
     botones: 0,
     nativo: true,
-    resolver: goodstream.resolver,
+    resolver: streamwish.resolver,
   },
   {
     boton: 'DL',

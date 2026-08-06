@@ -23,6 +23,25 @@ const BASE = 'https://www.fuegocine.com';
 /// con "remux", que salía con el rayo y devolvía nulo—. Acá solo entra lo
 /// comprobado pidiendo el vídeo.
 const _UA_QUE_ANDAN = ['goodstream', 'vidhide'];
+
+/// **Voe y Streamwish se probaron y NO entran.** Sus resolvers están copiados en
+/// `servidores/` —traídos de hentaila y de jkanime, donde sí andan— y desde acá
+/// resuelven: devuelven una dirección. Pero al pedir el vídeo no llega nada.
+///
+/// Medido el 2026-08-06 sobre From 3x5 y Supergirl, bajando el primer pedacito:
+///
+///   voe         404 · 0 KB
+///   streamwish  206 con 0 KB, las dos veces
+///
+/// Contra: goodstream da 267 y 978 KB, y vidhide 1269 y 1169 KB.
+///
+/// O sea que resolver no alcanza: hay que pedir el vídeo. Si se hubieran
+/// marcado con el rayo por "resuelve", el usuario los elegiría esperando el
+/// reproductor de la app y terminaría en el navegador igual — que es
+/// exactamente lo que este archivo viene evitando.
+///
+/// Los resolvers se dejan puestos igual: si el sitio cambia, ya están, y
+/// alcanza con sumar el nombre a la lista de arriba después de medirlo.
 const HOST = 'fuegocine.com';
 
 async function _get(url: string): Promise<string> {
