@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.3
+// @version      1.12.4
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -419,7 +419,7 @@ async function resolver6(_url, _referer) {
 
 // extensions/jkanime/servidores/mixdrop/index.ts
 async function resolver7(url, referer) {
-  const html = await pedir(url, referer);
+  const html = await pedir(url, referer, CABECERAS_DEL_REPRODUCTOR);
   if (!html) return null;
   const desempaquetado = desempaquetarTodo(html);
   const wurl = /MDCore\.wurl\s*=\s*["']([^"']+)["']/.exec(desempaquetado);
@@ -430,7 +430,12 @@ async function resolver7(url, referer) {
   }
   if (!destino) return null;
   const completa = destino.indexOf("http") === 0 ? destino : `https:${destino}`;
-  return { url: completa, headers: { Referer: "https://mixdrop.top/" } };
+  return {
+    url: completa,
+    headers: __spreadValues({
+      Referer: "https://mixdrop.top/"
+    }, CABECERAS_DEL_REPRODUCTOR)
+  };
 }
 
 // extensions/jkanime/servidores/mp4upload/index.ts

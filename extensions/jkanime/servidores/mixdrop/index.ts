@@ -15,10 +15,37 @@
 // `mixdrop.top`, que es el que acepta el CDN. La firma `?s=` cambia en cada
 // pedido: la dirección es de un solo uso.
 
-import { pedir, desempaquetarTodo, type ServidorResuelto } from '../comun';
+// ── Por qué no reproducía, en Windows NI en Android ─────────────────────────
+//
+// El CDN ata la dirección al User-Agent EXACTO que la pidió, y la app resolvía
+// con uno y reproducía con otro. Medido el 2026-08-06, mismo episodio:
+//
+//     resuelto con escritorio → pedido con el de mpv →  403
+//     resuelto con móvil      → pedido con el de mpv →  403
+//     resuelto con el de mpv  → pedido con el de mpv →  206 video/mp4
+//
+// **Es más estricto que VOE y Filemoon**, que tienen el mismo problema de
+// fondo: aquéllos daban por buena cualquier cabecera de escritorio, así que
+// solo fallaban en el teléfono. Mixdrop no perdona ni de un escritorio a otro
+// —`Edg/120` a `Chrome/125` ya es 403—, y por eso se caía en las dos.
+//
+// El Referer, en cambio, le da igual: contesta 206 con él y sin él. Se sigue
+// mandando porque no molesta y es lo que el sitio espera.
+//
+// El dominio también se mudó: `mixdrop.top` redirige a `miixdrop.com` (con dos
+// íes). Eso NO hacía falta tocarlo — el puente de red sigue las redirecciones y
+// la ruta se conserva—, pero conviene saberlo antes de salir a buscar el
+// problema en otro lado.
+
+import {
+  pedir,
+  desempaquetarTodo,
+  CABECERAS_DEL_REPRODUCTOR,
+  type ServidorResuelto,
+} from '../comun';
 
 export async function resolver(url: string, referer: string): Promise<ServidorResuelto | null> {
-  const html = await pedir(url, referer);
+  const html = await pedir(url, referer, CABECERAS_DEL_REPRODUCTOR);
   if (!html) return null;
 
   const desempaquetado = desempaquetarTodo(html);
@@ -31,5 +58,13 @@ export async function resolver(url: string, referer: string): Promise<ServidorRe
   if (!destino) return null;
 
   const completa = destino.indexOf('http') === 0 ? destino : `https:${destino}`;
-  return { url: completa, headers: { Referer: 'https://mixdrop.top/' } };
+  // El MISMO User-Agent con el que se pidió: el CDN emitió la dirección para
+  // ése y rechaza cualquier otro. Ver el bloque de arriba.
+  return {
+    url: completa,
+    headers: {
+      Referer: 'https://mixdrop.top/',
+      ...CABECERAS_DEL_REPRODUCTOR,
+    },
+  };
 }
