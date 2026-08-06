@@ -749,11 +749,23 @@ export async function watch(url: string): Promise<PrismWatch> {
   // sigue en `servidores/mp4upload/` con sus números, y el mecanismo de lectura
   // continua sigue en la app esperando que alguien lo declare.
   //
+  // ── Mixdrop: tercera excepción, a pedido explícito ─────────────────────────
+  //
+  // El resolver funciona y quedó medido: reintenta en los dominios que andan
+  // cuando el del episodio está caído, y resuelve a 206 video/mp4. Pero
+  // Mixdrop cambia de dominio seguido, borra archivos y devuelve HTTP 200 con
+  // páginas vacías, así que el botón sale bien un día y al navegador el otro.
+  // Se saca antes que dejar algo que a veces anda y a veces no.
+  //
+  // No se borró nada: `servidores/mixdrop/` sigue entero con sus mediciones,
+  // así que volver a ponerlo es sacar su nombre de esta lista y nada más.
+  //
   // El resto sigue en la lista, incluidos los que van al navegador, porque un
   // botón que abre en el navegador es mucho mejor que ningún botón.
+  const FUERA_DE_LA_LISTA = ['mediafire', 'mp4upload', 'mixdrop', 'mxdrop', 'xdrop'];
   const usable = resolved.filter((s) => {
     const u = (s.url ?? '').toLowerCase();
-    return u.indexOf('mediafire') === -1 && u.indexOf('mp4upload') === -1;
+    return !FUERA_DE_LA_LISTA.some((nombre) => u.indexOf(nombre) !== -1);
   });
 
   // Direct streams (mp4/m3u8) antes que embeds crudos

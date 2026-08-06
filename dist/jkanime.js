@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.5
+// @version      1.12.6
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -1213,10 +1213,11 @@ async function watch(url) {
   }
   servers.sort((a, b) => (a.lang || 0) - (b.lang || 0));
   const resolved = servers.map((s) => _rawServerStream(s)).filter((s) => s !== null);
+  const FUERA_DE_LA_LISTA = ["mediafire", "mp4upload", "mixdrop", "mxdrop", "xdrop"];
   const usable = resolved.filter((s) => {
     var _a;
     const u = ((_a = s.url) != null ? _a : "").toLowerCase();
-    return u.indexOf("mediafire") === -1 && u.indexOf("mp4upload") === -1;
+    return !FUERA_DE_LA_LISTA.some((nombre) => u.indexOf(nombre) !== -1);
   });
   const direct = usable.filter((s) => _isDirect(s.url));
   const embeds = usable.filter((s) => !_isDirect(s.url));
