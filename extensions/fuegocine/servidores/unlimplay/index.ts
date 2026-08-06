@@ -39,7 +39,7 @@
 // falle: el archivo no está. Ahí no sirve ni el navegador interno, porque la
 // página tampoco tiene nada que encontrar.
 
-import { pedir, type ServidorResuelto } from '../comun';
+import { pedir, UA_NAVEGADOR, type ServidorResuelto } from '../comun';
 
 /** La ruta al día. Se exporta porque también hace falta ANTES de resolver: es
  *  la dirección que se le entrega a la app, y la que abre el navegador interno
@@ -149,5 +149,13 @@ export async function resolver(
     console.log('[fc/unlimplay] la página no trae el campo direct');
     return null;
   }
-  return { url: m[1].replace(/\\\//g, '/') };
+  // El User-Agent viaja junto con la dirección, y no es un adorno: vimeos ata
+  // el vale a quien lo pidió. Si el reproductor pide con el suyo —mpv manda
+  // "libmpv"— el CDN contesta 403 y en la app se ve como "no se puede
+  // reproducir" con un servidor que está impecable. Medido: ver UA_NAVEGADOR
+  // en `comun.ts`.
+  return {
+    url: m[1].replace(/\\\//g, '/'),
+    headers: { 'User-Agent': UA_NAVEGADOR },
+  };
 }

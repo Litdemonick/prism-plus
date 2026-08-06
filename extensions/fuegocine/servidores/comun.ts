@@ -14,6 +14,33 @@ export interface ServidorResuelto {
 
 // ─── Pedidos ─────────────────────────────────────────────────────────────────
 
+/**
+ * El User-Agent con el que se piden TODAS las páginas de embed de acá.
+ *
+ * Está fijo y se exporta porque hace falta devolverlo junto con la dirección
+ * resuelta, y eso no es un detalle: **estos CDN atan el vale al User-Agent de
+ * quien lo pidió.**
+ *
+ * Medido el 2026-08-06 con goodstream, resolviendo y pidiendo el m3u8 al
+ * instante:
+ *
+ *   el MISMO User-Agent   200 · la lista llega bien
+ *   otro navegador        403
+ *   como mpv (libmpv)     403
+ *   ninguno               403
+ *
+ * O sea que el resolver conseguía una dirección perfecta y el reproductor la
+ * pedía con SU propio User-Agent, así que el CDN se la rechazaba. En la app se
+ * veía como "no se puede reproducir en el reproductor nativo" con un servidor
+ * que estaba impecable.
+ *
+ * Por eso cada resolver de un CDN firmado devuelve este mismo valor en sus
+ * cabeceras: la app las pasa tal cual al reproductor y ahí los dos coinciden.
+ */
+export const UA_NAVEGADOR =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
 /** GET a una página de embed. Devuelve null si no se pudo. */
 export async function pedir(
   url: string,
@@ -23,7 +50,14 @@ export async function pedir(
   try {
     return await sendMessage(
       'request',
-      JSON.stringify([url, { method: 'get', headers: { Referer: referer, ...headers } }]),
+      JSON.stringify([
+        url,
+        {
+          method: 'get',
+          // El User-Agent va PRIMERO para que quien llame pueda pisarlo.
+          headers: { 'User-Agent': UA_NAVEGADOR, Referer: referer, ...headers },
+        },
+      ]),
     );
   } catch (e) {
     console.log(`[fc] no se pudo pedir ${url.slice(0, 45)} :: ${(e as Error)?.message ?? e}`);
@@ -121,10 +155,22 @@ function desempaquetarUno(src: string): string {
  * cada uno tiene su propia carpeta y su propio resolver, así que arreglar uno
  * no toca a los otros dos.
  */
+/**
+ * Las cabeceras con las que hay que PEDIR el vídeo.
+ *
+ * Siempre lleva el mismo User-Agent con el que se resolvió: estos CDN atan el
+ * vale a quien lo pidió, así que si el reproductor pide con otro, 403 (ver
+ * `UA_NAVEGADOR`).
+ */
+function cabecerasDeStream(extra?: Record<string, string>): Record<string, string> {
+  return { 'User-Agent': UA_NAVEGADOR, ...(extra ?? {}) };
+}
+
 export function buscarDireccion(
   html: string,
   headers?: Record<string, string>,
 ): ServidorResuelto | null {
+  headers = cabecerasDeStream(headers);
   const plano = `${html}\n${desempaquetarTodo(html)}`.replace(/\\\//g, '/');
 
   // m3u8 primero: es lo que da calidades y permite cambiar de minuto.

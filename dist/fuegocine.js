@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.5.1
+// @version      1.6.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -175,12 +175,20 @@ async function resolver2(_url) {
 }
 
 // extensions/fuegocine/servidores/comun.ts
+var UA_NAVEGADOR = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 async function pedir(url, referer, headers) {
   var _a;
   try {
     return await sendMessage(
       "request",
-      JSON.stringify([url, { method: "get", headers: __spreadValues({ Referer: referer }, headers) }])
+      JSON.stringify([
+        url,
+        {
+          method: "get",
+          // El User-Agent va PRIMERO para que quien llame pueda pisarlo.
+          headers: __spreadValues({ "User-Agent": UA_NAVEGADOR, Referer: referer }, headers)
+        }
+      ])
     );
   } catch (e) {
     console.log(`[fc] no se pudo pedir ${url.slice(0, 45)} :: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
@@ -247,8 +255,12 @@ function desempaquetarUno(src) {
     return (_a = dic[w]) != null ? _a : w;
   });
 }
+function cabecerasDeStream(extra) {
+  return __spreadValues({ "User-Agent": UA_NAVEGADOR }, extra != null ? extra : {});
+}
 function buscarDireccion(html, headers) {
   var _a;
+  headers = cabecerasDeStream(headers);
   const plano = `${html}
 ${desempaquetarTodo(html)}`.replace(/\\\//g, "/");
   const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(plano);
@@ -425,7 +437,10 @@ async function resolver8(url, referer) {
     console.log("[fc/unlimplay] la p\xE1gina no trae el campo direct");
     return null;
   }
-  return { url: m[1].replace(/\\\//g, "/") };
+  return {
+    url: m[1].replace(/\\\//g, "/"),
+    headers: { "User-Agent": UA_NAVEGADOR }
+  };
 }
 
 // extensions/fuegocine/servidores/voe/index.ts
