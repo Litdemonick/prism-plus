@@ -586,7 +586,28 @@ export async function watch(url: string): Promise<PrismWatch> {
   // Ojo con FC igual: hay títulos suyos que se cortan, y no es el servidor sino
   // cómo quedó armado el archivo (el audio entero al final, lejos del vídeo —
   // ver la carpeta `directo/`). Cuando pasa, la app cae sola al siguiente.
-  const orden = streams.map((s, i) => ({ s, boton: fichas[i], i }));
+  // ── Drive sale de la lista, a pedido explícito (2026-08-06) ───────────────
+  //
+  // Drive no reproduce y no es cosa de la app: el propio Google corta el
+  // archivo cuando se le acaba la cuota de gente sin cuenta. Medido en vivo,
+  // eso es lo que se ve en el navegador interno:
+  //
+  //   «Inicia sesión en tu cuenta de Google para seguir reproduciendo este
+  //    vídeo. Se ha alcanzado el límite de usuarios que no han iniciado sesión.»
+  //
+  // O sea que el botón no promete un vídeo: promete un cartel. Y encima no se
+  // le puede ni cambiar la calidad, porque no hay nada reproduciéndose.
+  //
+  // No se borró nada: `servidores/drive/` sigue con sus mediciones, y volver a
+  // ponerlo es sacar su nombre de acá.
+  const FUERA_DE_LA_LISTA = ['drive.google.com'];
+  const visibles = streams
+    .map((s, i) => ({ s, boton: fichas[i], i }))
+    .filter((x) =>
+      !FUERA_DE_LA_LISTA.some((d) => (x.s.url ?? '').toLowerCase().indexOf(d) !== -1),
+    );
+
+  const orden = visibles;
   const peso = (x: { s: PrismStream; boton: string }) =>
     x.boton === 'FC' ? 0 : x.s.nativo === false ? 2 : 1;
   // El `i` desempata para que dentro de cada grupo se respete el orden del sitio.
