@@ -493,7 +493,15 @@ export async function watch(url: string): Promise<PrismWatch> {
         if (clave === 'direct') continue;
         huboAdentro = true;
         // Un "direct 2" ya viene resuelto y reproduce derecho.
-        const sirve = sv.yaResuelto || _UA_QUE_ANDAN.indexOf(clave) !== -1;
+        // **No alcanza con que ya venga resuelto.** "direct 2" es un m3u8
+        // firmado que unlimplay publica junto al principal, así que pasaba el
+        // filtro solo por tener forma de stream — y en la app daba "servidor no
+        // disponible" (visto en La Casa del Dragón 1x1): su token no vale igual
+        // que el del primero.
+        //
+        // Así que se le exige lo mismo que a todos: estar en la lista de los
+        // medidos. El que no está se llega por UA Multi, como el resto.
+        const sirve = _UA_QUE_ANDAN.indexOf(clave) !== -1;
         if (!sirve) continue;
         fichas.push('');
         streams.push({

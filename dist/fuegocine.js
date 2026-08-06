@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.5.0
+// @version      1.5.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -903,7 +903,7 @@ async function watch(url) {
         const clave = sv.nombre.toLowerCase();
         if (clave === "direct") continue;
         huboAdentro = true;
-        const sirve = sv.yaResuelto || _UA_QUE_ANDAN.indexOf(clave) !== -1;
+        const sirve = _UA_QUE_ANDAN.indexOf(clave) !== -1;
         if (!sirve) continue;
         fichas.push("");
         streams.push({
