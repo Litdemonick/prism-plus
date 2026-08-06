@@ -16,7 +16,7 @@ declare function sendMessage(channel: string, data: string): Promise<string>;
 const BASE = 'https://www.fuegocine.com';
 
 /// Los servidores de adentro de unlimplay que se midió que REPRODUCEN en la
-/// app. Solo estos salen como botón propio; el resto se llega por "UA Multi".
+/// app. Salen todos igual; esta lista solo decide quién lleva el rayo.
 ///
 /// Se lleva a mano y no se deduce de la tabla de fichas a propósito: un host
 /// puede coincidir con una ficha y aun así no resolver desde este sitio —pasó
@@ -443,14 +443,15 @@ export async function watch(url: string): Promise<PrismWatch> {
     // unlimplay no es un servidor: es un reproductor con nueve adentro, y su
     // página publica el menú en texto plano. De ahí se sacan DOS cosas:
     //
-    //   · los que reproducen en la app, que salen como botón propio
-    //   · el resto, que se dejan donde estaban: adentro de "UA Multi"
+    //   · cada servidor de adentro, como botón propio
+    //   · "UA Multi", que abre la página por si el usuario prefiere el menú
+    //     del propio unlimplay
     //
-    // **Solo se sacan afuera los que se midieron andando.** Se probó exponer
-    // los nueve y no sirvió: seis no resuelven, y peor, un par salían con el
-    // rayo puesto —porque su host coincidía con una ficha— y terminaban en el
-    // navegador igual. Diez botones donde seis mienten es peor que dos
-    // botones honestos.
+    // **Salen todos, con la marca correcta.** No se esconde ninguno: si el
+    // sitio lo ofrece, el usuario tiene que poder elegirlo — uno que abre en el
+    // navegador igual sirve. Lo que se arregló fue la MARCA: antes un par
+    // salían con el rayo porque su host coincidía con una ficha, y terminaban
+    // en el navegador igual, que es prometer algo y no cumplirlo.
     //
     // Medido el 2026-08-05 sobre From 3x5 y Supergirl, resolviendo y pidiendo
     // el vídeo:
@@ -473,16 +474,25 @@ export async function watch(url: string): Promise<PrismWatch> {
         // El "direct" ya está arriba como "UA Directo": no se repite.
         if (clave === 'direct') continue;
         huboAdentro = true;
-        // Un "direct 2" ya viene resuelto y reproduce derecho.
-        const sirve = sv.yaResuelto || _UA_QUE_ANDAN.indexOf(clave) !== -1;
-        if (!sirve) continue;
+        // **Salen TODOS.** No se esconde ninguno: si el sitio lo ofrece, el
+        // usuario tiene que poder elegirlo. Lo que cambia es la MARCA.
+        //
+        // Se probó filtrarlos y dejar solo los que reproducen, y estaba mal: un
+        // servidor que abre en el navegador igual sirve, y esconderlo es
+        // quitarle una opción sin avisarle. El problema nunca fue que
+        // estuvieran, sino que algunos salían con el rayo y no reproducían.
+        //
+        // Así que el rayo va SOLO para los medidos y el resto lleva el mundo
+        // explícito — nunca sin definir, porque ahí la app adivina por nombre y
+        // vuelve a mentir.
+        const reproduce = sv.yaResuelto || _UA_QUE_ANDAN.indexOf(clave) !== -1;
         fichas.push('');
         streams.push({
           url: sv.url,
           // Se deja ver de dónde salió: "Goodstream" a secas parece un servidor
           // del sitio y no uno de adentro de UA.
           quality: `UA ${_conMayuscula(sv.nombre)}`,
-          nativo: true,
+          nativo: reproduce,
         });
       }
 
