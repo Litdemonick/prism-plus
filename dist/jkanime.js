@@ -428,7 +428,15 @@ async function resolver8(url, referer) {
   const candidatos = (_a = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g)) != null ? _a : [];
   const real = candidatos.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
   if (!real) return null;
-  return { url: real, headers: { Referer: "https://www.mp4upload.com/" } };
+  return {
+    url: real,
+    headers: {
+      Referer: "https://www.mp4upload.com/",
+      // No es una cabecera HTTP: es una declaración para la app, que la saca
+      // antes de pedirle nada a la fuente. Ver el bloque de arriba.
+      "X-Lectura-Continua": "1"
+    }
+  };
 }
 
 // extensions/jkanime/servidores/streamtape/index.ts

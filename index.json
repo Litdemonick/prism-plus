@@ -110,8 +110,8 @@
       "webSite": "https://jkanime.net",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "dbbd0023754d5c488f6cd4195d2a73e06483c62dec65f0d97b90c920cdea0f4e",
-      "signature": "g1eDdWsaMQxorO/Jwhi1r4mDZAZEHYI1KD5fdy+Z6tTB3wWb8uhgR7lQUFm/Fuh7sOr0JAJVV95AxFVGabQICA=="
+      "sha256": "659301f47b51339479f8c89c4231b7472b5432076c6576d8d946fac11d34e858",
+      "signature": "dkOcViR+L88RDPe5OLkI7vawNGNPd4y6FLpH9dFmPdQgurQig6QeHFgvkmh2Ll07DP3eNgXbiTbRLv4vAyPRCQ=="
     },
     {
       "name": "LaMovie",
