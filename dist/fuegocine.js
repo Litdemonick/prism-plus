@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.4.1
+// @version      1.4.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -783,14 +783,15 @@ async function watch(url) {
         const clave = sv.nombre.toLowerCase();
         if (clave === "direct") continue;
         huboAdentro = true;
-        const reproduce = sv.yaResuelto || _UA_QUE_ANDAN.indexOf(clave) !== -1;
+        const sirve = sv.yaResuelto || _UA_QUE_ANDAN.indexOf(clave) !== -1;
+        if (!sirve) continue;
         fichas.push("");
         streams.push({
           url: sv.url,
           // Se deja ver de dónde salió: "Goodstream" a secas parece un servidor
           // del sitio y no uno de adentro de UA.
           quality: `UA ${_conMayuscula(sv.nombre)}`,
-          nativo: reproduce
+          nativo: true
         });
       }
       if (huboAdentro) {
