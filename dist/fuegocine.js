@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.8.1
+// @version      1.8.2
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -918,7 +918,7 @@ function _parseSvLinks(html) {
   return out;
 }
 async function watch(url) {
-  var _a, _b, _c, _d;
+  var _a, _b, _c;
   if (url.indexOf("http") === 0 && url.indexOf(HOST) === -1) {
     try {
       const resolved = await _resolveServerUrl(url);
@@ -984,12 +984,7 @@ async function watch(url) {
       }
     }
     if (!algunoEntro) {
-      fichas.push((_d = ficha == null ? void 0 : ficha.boton) != null ? _d : "");
-      streams.push({
-        url: `${url2}${MARCA_MULTI}`,
-        quality: `${marca} Multi`,
-        nativo: false
-      });
+      console.log(`[fc] unlimplay sin servidores que reproduzcan: ${url2.slice(0, 60)}`);
     }
   }
   const FUERA_DE_LA_LISTA = ["drive.google.com"];

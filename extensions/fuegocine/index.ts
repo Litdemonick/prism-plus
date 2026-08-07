@@ -4,7 +4,6 @@ import {
   fichaDe,
   resolverServidor,
   unlimplayAlDia,
-  unlimplayMarcaMulti,
   unlimplayMarcaIdioma,
   etiquetaDeIdioma,
   servidoresDeUnlimplay,
@@ -636,17 +635,19 @@ export async function watch(url: string): Promise<PrismWatch> {
       }
     }
 
-    // Red de seguridad: si de todo el menú no entró NINGUNO, el título se
-    // quedaría sin botón de UA. Ahí sí se deja el que abre la página — un botón
-    // que abre en el navegador es mucho mejor que ningún botón. Con el menú
-    // normal esto no se ve nunca: el Directo está casi siempre.
+    // ── UA Multi NUNCA sale, ni como último recurso ─────────────────────────
+    //
+    // A pedido explícito. UA no es un servidor: es un menú, y lo que el usuario
+    // tiene que ver son los servidores de adentro que REPRODUCEN en la app, uno
+    // por botón. El botón que abría el navegador con ese menú ya no existe.
+    //
+    // Consecuencia asumida: si de todo el menú no reproduce ninguno, el título
+    // se queda sin botón de UA. Pasa en los títulos donde unlimplay solo trae
+    // servidores que no andan (vidhide, voe, streamwish, filemoon…), y ahí ese
+    // botón tampoco prometía un vídeo — prometía una página con publicidad
+    // donde el usuario tenía que buscarlo a mano.
     if (!algunoEntro) {
-      fichas.push(ficha?.boton ?? '');
-      streams.push({
-        url: `${url}${unlimplayMarcaMulti}`,
-        quality: `${marca} Multi`,
-        nativo: false,
-      });
+      console.log(`[fc] unlimplay sin servidores que reproduzcan: ${url.slice(0, 60)}`);
     }
   }
 
