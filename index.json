@@ -39,7 +39,7 @@
     {
       "name": "FuegoCine",
       "package": "io.prismhub.fuegocine",
-      "version": "1.8.2",
+      "version": "1.9.0",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -48,8 +48,8 @@
       "webSite": "https://www.fuegocine.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/fuegocine.js",
-      "sha256": "91d025299a576fde2fd0fe5428d2dd05f196c4c0ce66547c210b7a0445f3cc47",
-      "signature": "eVpv/VEKHvZi7yTq3KQsQwRyiIqlss1KbrAsBI8+pykEfLtZDQmwb3NVMz2pSpRHNuRCgHr5A9ZXChdGqqOUDA=="
+      "sha256": "dc3991880d0637f966974a22deebea6a70b3be8e80fbf58e32d45f61ce3e021f",
+      "signature": "xA0VKjF0DdFz6Tn6pC/tL3zMesIq2QnERuDbrAGR5AZYZfaUEPpbVua0axUM3jl6C5P903gz5FgFgGItebKUBA=="
     },
     {
       "name": "HentaiLA",

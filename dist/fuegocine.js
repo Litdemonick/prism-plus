@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.8.2
+// @version      1.9.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -411,19 +411,6 @@ function idiomaDe(url) {
   const i = url.indexOf(MARCA_IDIOMA);
   return i === -1 ? null : url.slice(i + MARCA_IDIOMA.length);
 }
-function etiquetaDeIdioma(idioma) {
-  const i = idioma.toLowerCase();
-  if (i.indexOf("latino") !== -1) return "LAT";
-  if (i.indexOf("subtitul") !== -1 || i.indexOf("ingl") !== -1) return "Ingl\xE9s-Sub";
-  if (i.indexOf("espa") !== -1) return "ESP";
-  if (i.indexOf("cast") !== -1) return "CAST";
-  return idioma;
-}
-async function servidoresDe(url, referer) {
-  const html = await pedir(rutaAlDia(url), referer);
-  if (typeof html !== "string") return [];
-  return servidoresDeBloque(html);
-}
 function servidoresDeBloque(html) {
   var _a;
   const ini = html.indexOf("const EMBEDS");
@@ -678,7 +665,6 @@ async function resolverServidor(url, referer) {
 
 // extensions/fuegocine/index.ts
 var BASE = "https://www.fuegocine.com";
-var _UA_QUE_ANDAN = ["goodstream", "direct"];
 var HOST = "fuegocine.com";
 async function _get(url) {
   const raw = await sendMessage(
@@ -918,7 +904,7 @@ function _parseSvLinks(html) {
   return out;
 }
 async function watch(url) {
-  var _a, _b, _c;
+  var _a, _b;
   if (url.indexOf("http") === 0 && url.indexOf(HOST) === -1) {
     try {
       const resolved = await _resolveServerUrl(url);
@@ -947,45 +933,12 @@ async function watch(url) {
       });
       continue;
     }
-    const adentro = await servidoresDe(url2, `${BASE}/`);
-    const marca = link.name || "UA";
-    if (!adentro.length) {
-      fichas.push((_b = ficha == null ? void 0 : ficha.boton) != null ? _b : "");
-      streams.push({ url: url2, quality: `${marca} Directo`, nativo: true });
-      continue;
-    }
-    const idiomas = [];
-    for (const sv of adentro) {
-      if (idiomas.indexOf(sv.idioma) === -1) idiomas.push(sv.idioma);
-    }
-    let algunoEntro = false;
-    for (const idioma of idiomas) {
-      for (const clave of _UA_QUE_ANDAN) {
-        const sv = adentro.find(
-          (s) => s.idioma === idioma && s.nombre.replace(/\s*\d+$/, "").toLowerCase() === clave
-        );
-        if (!sv) continue;
-        const etiqueta = sv.idioma ? ` ${etiquetaDeIdioma(sv.idioma)}` : "";
-        fichas.push((_c = ficha == null ? void 0 : ficha.boton) != null ? _c : "");
-        if (clave === "direct") {
-          streams.push({
-            url: sv.idioma ? `${url2}${MARCA_IDIOMA}${sv.idioma}` : url2,
-            quality: `${marca} Directo${etiqueta}`,
-            nativo: true
-          });
-        } else {
-          streams.push({
-            url: sv.url,
-            quality: `${marca} ${clave[0].toUpperCase()}${clave.slice(1)}${etiqueta}`,
-            nativo: true
-          });
-        }
-        algunoEntro = true;
-      }
-    }
-    if (!algunoEntro) {
-      console.log(`[fc] unlimplay sin servidores que reproduzcan: ${url2.slice(0, 60)}`);
-    }
+    fichas.push((_b = ficha == null ? void 0 : ficha.boton) != null ? _b : "");
+    streams.push({
+      url: `${url2}${MARCA_MULTI}`,
+      quality: `${link.name || "UA"} Multi`,
+      nativo: false
+    });
   }
   const FUERA_DE_LA_LISTA = ["drive.google.com"];
   const visibles = streams.map((s, i) => ({ s, boton: fichas[i], i })).filter(

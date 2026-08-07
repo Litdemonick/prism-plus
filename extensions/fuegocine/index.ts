@@ -4,9 +4,7 @@ import {
   fichaDe,
   resolverServidor,
   unlimplayAlDia,
-  unlimplayMarcaIdioma,
-  etiquetaDeIdioma,
-  servidoresDeUnlimplay,
+  unlimplayMarcaMulti,
   type ServidorResuelto,
 } from './servidores';
 import { b64aTexto } from './servidores/comun';
@@ -53,6 +51,12 @@ const BASE = 'https://www.fuegocine.com';
 /// User-Agent y sin ninguna cabecera, y da 403 en las seis; el sitio además
 /// devuelve el mismo vale al segundo pedido, o sea que lo tiene cacheado y
 /// nace muerto—. Abrir primero el que anda ahorra ese salto al navegador.
+///
+/// **Hoy no se usa**: UA sale con un solo botón, su propio menú. Se deja la
+/// medición escrita porque es el trabajo caro —25 títulos, pidiendo el vídeo
+/// uno por uno— y es lo que habría que rehacer para volver a intentarlo. Ver el
+/// bloque de unlimplay más abajo, en watch().
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _UA_QUE_ANDAN = ['goodstream', 'direct'];
 
 /// **Voe y Streamwish se probaron y NO entran.** Sus resolvers están copiados en
@@ -510,145 +514,52 @@ export async function watch(url: string): Promise<PrismWatch> {
       continue;
     }
 
-    // ── unlimplay: todo sale de lo que tiene ADENTRO ────────────────────────
+    // ── unlimplay: un solo boton, su propio menu ────────────────────────────
     //
-    // No es un servidor, es un reproductor con su propio menú, y la página
-    // publica ese menú en texto plano. **Todo lo que se ofrece sale de ahí**:
-    // si un servidor no está en ese menú, no aparece — nada se inventa.
+    // unlimplay no es un servidor: es un reproductor con su propio menu, con
+    // nueve servidores adentro y en varios idiomas. Se probaron las dos formas
+    // de ofrecerlo y esta es la que quedo, a pedido explicito.
     //
-    //   · el Direct, que es el único que se midió reproduciendo de forma
-    //     confiable → botón propio, con rayo
-    //   · "UA Multi" → abre la página, para elegir entre TODOS los demás
+    // ── Lo que se intento antes, y por que se volvio atras ──────────────────
     //
-    // Eso incluye al Direct: **"UA Directo" solo aparece si el menú lo trae**.
-    // Antes se agregaba siempre por el solo hecho de que el título tuviera
-    // unlimplay, y eso es suponer.
+    // Se llego a abrir el menu y sacar cada servidor como boton propio, para
+    // que fueran directo al reproductor nativo. Se midio sobre 25 titulos,
+    // pidiendo el video de verdad y contando bytes:
     //
-    // Ojo con una cosa: el Direct se ofrece con la dirección del EMBED, no con
-    // el m3u8 que el menú ya trae resuelto. Es a propósito — pasando por el
-    // resolver, la dirección viene con el User-Agent correcto, y sin eso el CDN
-    // contesta 403 (ver UA_NAVEGADOR en `servidores/comun.ts`).
+    //     goodstream   19 reproduce · 0 fallan
+    //     direct       16 reproduce · 10 fallan
+    //     vidhide      10 reproduce · 51 fallan   (su CDN, acek-cdn.com)
+    //     voe · streamhg · filelions              flojos
+    //     filemoon · streamwish · doodstream · streamtape · netu · remux   0
     //
-    // Medido el 2026-08-05/06 sobre From 3x5, Supergirl y La Casa del Dragón:
+    // O sea: de nueve servidores, dos servian. Y el Directo —que es el que el
+    // sitio pone primero— falla 10 de 26 con un 403 que NO es del pedido: se
+    // probo el mismo m3u8 con Referer, con Origin, con los dos User-Agent y
+    // sin ninguna cabecera, y da 403 en las seis. El sitio ademas devuelve el
+    // mismo vale al segundo pedido, o sea que lo tiene cacheado y nace muerto.
     //
-    //   direct      ✔ reproduce, vía el resolver
-    //   goodstream  ✔ resuelve, pero su CDN falla seguido en la app
-    //   vidhide     ✔ resuelve, pero su nodo se cuelga sin devolver nada
-    //   direct 2    ✗ "servidor no disponible": su token no vale como el otro
-    //   remux       ✗ resuelve nulo aunque su host tenga ficha
-    //   streamhg · filemoon · voe · streamwish · netu · doodstream  ✗
+    // Con lo cual el usuario tocaba un boton con rayo y terminaba igual en el
+    // navegador, pero despues de dar la vuelta larga y ver el fallo.
     //
-    // Goodstream y Vidhide llegaron a salir como botón propio y se volvieron
-    // atrás **a pedido del usuario**: resuelven, pero sus CDN fallan lo
-    // suficiente como para que el botón prometa más de lo que cumple. Dos
-    // botones que andan valen más que cinco que a veces sí y a veces no. Se
-    // llegan por UA Multi, que es el menú del propio sitio.
+    // ── Por que un solo boton alcanza ───────────────────────────────────────
     //
-    // Los que fallan NO están medidos como imposibles: es que esta extensión
-    // todavía no tiene su resolver, o el sitio no los sirve bien. Cuando alguno
-    // pase a andar, se suma a `_UA_QUE_ANDAN` con su medición al lado.
-    const adentro = await servidoresDeUnlimplay(url, `${BASE}/`);
-
-    // **Si no se pudo leer el menú, igual se ofrece UA.** Sin esta red, un
-    // pedido fallido a unlimplay dejaba el episodio SIN NINGÚN botón de UA —
-    // pasó en From 3x5, que quedó solo con US. Y no es raro: unlimplay corta de
-    // vez en cuando. Se sabe que el título tiene UA porque está en la lista del
-    // sitio, así que se ofrece igual y que el resolver se arregle al elegirlo.
-    const marca = link.name || 'UA';
-
-    if (!adentro.length) {
-      // No se pudo leer el menú. Igual se ofrece el Directo: se sabe que el
-      // título tiene UA porque está en la lista del sitio, y unlimplay corta de
-      // vez en cuando. Sin esta red, un pedido fallido dejaba el episodio sin
-      // NINGÚN botón de UA — pasó con From 3x5, que quedó solo con US.
-      fichas.push(ficha?.boton ?? '');
-      streams.push({ url, quality: `${marca} Directo`, nativo: true });
-      continue;
-    }
-
-    // ── Un botón por servidor Y por idioma ────────────────────────────────
+    // Lo que hacia molesto ir al navegador eran los anuncios de la pagina, y
+    // eso ya esta resuelto del lado de la app: el bloqueador corta los VAST en
+    // origen, asi que el anuncio no llega a existir. Con eso, el menu propio
+    // del sitio es mejor que dos botones nuestros que a veces andan: los tiene
+    // todos, en todos los idiomas, y elige el usuario.
     //
-    // Antes de acá salían dos botones: "UA Directo" y "UA Multi", y este
-    // segundo abría el navegador con el menú del propio unlimplay para que el
-    // usuario eligiera entre los otros ocho servidores.
+    // Y sale mas rapido: antes habia que pedir la pagina del embed SOLO para
+    // leer el menu y decidir que botones poner. Ahora no se pide nada.
     //
-    // A pedido explícito eso se da vuelta: los que REPRODUCEN salen como
-    // botones propios, en el selector de la app, y **UA Multi desaparece**. Es
-    // más rápido —no hay que abrir un navegador ni esperar a que cargue una
-    // página con publicidad— y encima evita la página donde estaban los
-    // anuncios de vídeo.
-    //
-    // Cuáles entran está medido y anotado en `_UA_QUE_ANDAN`, arriba. La regla
-    // es la de siempre: no alcanza con que el resolver devuelva una dirección,
-    // tiene que llegar el vídeo.
-    //
-    // El IDIOMA va en el nombre porque el mismo título trae el mismo servidor
-    // varias veces, uno por idioma, y sin eso se veían botones repetidos sin
-    // forma de saber cuál era cuál.
-    // Se recorre por IDIOMA, y dentro de cada idioma en el orden de
-    // `_UA_QUE_ANDAN` —no en el del sitio—: así el primer botón de cada idioma
-    // es el que más veces funciona. Ver el porqué arriba, en esa lista.
-    const idiomas: string[] = [];
-    for (const sv of adentro) {
-      if (idiomas.indexOf(sv.idioma) === -1) idiomas.push(sv.idioma);
-    }
-
-    let algunoEntro = false;
-    for (const idioma of idiomas) {
-      for (const clave of _UA_QUE_ANDAN) {
-        // Uno por servidor e idioma: el repetido es otra copia de lo mismo, y
-        // las segundas suelen ser las que fallan (el "direct 2" tiene un vale
-        // que no vale, medido). "voe 2" y "voe" son el mismo servidor; el
-        // sufijo es del sitio.
-        const sv = adentro.find(
-          (s) =>
-            s.idioma === idioma &&
-            s.nombre.replace(/\s*\d+$/, '').toLowerCase() === clave,
-        );
-        if (!sv) continue;
-
-        const etiqueta = sv.idioma ? ` ${etiquetaDeIdioma(sv.idioma)}` : '';
-        fichas.push(ficha?.boton ?? '');
-        if (clave === 'direct') {
-          // El Direct va por el EMBED y no por el m3u8 que el menú ya trae:
-          // así pasa por el resolver, que le pone el User-Agent con el que el
-          // CDN lo acepta. Con el m3u8 pelado, 403 (ver UA_NAVEGADOR).
-          //
-          // Y con la marca del idioma, porque todos comparten la misma
-          // dirección de embed: sin ella, el botón de subtitulado resolvía al
-          // Direct latino, que es el primero de la página.
-          streams.push({
-            url: sv.idioma ? `${url}${unlimplayMarcaIdioma}${sv.idioma}` : url,
-            quality: `${marca} Directo${etiqueta}`,
-            nativo: true,
-          });
-        } else {
-          // Los demás llevan su propia dirección, así que se resuelven solos
-          // por el camino normal (switchServer → su resolver de `servidores/`).
-          streams.push({
-            url: sv.url,
-            quality: `${marca} ${clave[0].toUpperCase()}${clave.slice(1)}${etiqueta}`,
-            nativo: true,
-          });
-        }
-        algunoEntro = true;
-      }
-    }
-
-    // ── UA Multi NUNCA sale, ni como último recurso ─────────────────────────
-    //
-    // A pedido explícito. UA no es un servidor: es un menú, y lo que el usuario
-    // tiene que ver son los servidores de adentro que REPRODUCEN en la app, uno
-    // por botón. El botón que abría el navegador con ese menú ya no existe.
-    //
-    // Consecuencia asumida: si de todo el menú no reproduce ninguno, el título
-    // se queda sin botón de UA. Pasa en los títulos donde unlimplay solo trae
-    // servidores que no andan (vidhide, voe, streamwish, filemoon…), y ahí ese
-    // botón tampoco prometía un vídeo — prometía una página con publicidad
-    // donde el usuario tenía que buscarlo a mano.
-    if (!algunoEntro) {
-      console.log(`[fc] unlimplay sin servidores que reproduzcan: ${url.slice(0, 60)}`);
-    }
+    // Si algun dia se quiere volver a intentar, esta todo: el lector del menu
+    // por idioma y la marca `#lang=` siguen en `servidores/unlimplay/`.
+    fichas.push(ficha?.boton ?? '');
+    streams.push({
+      url: `${url}${unlimplayMarcaMulti}`,
+      quality: `${link.name || 'UA'} Multi`,
+      nativo: false,
+    });
   }
 
   // FC primero; después el resto de los que reproducen en la app; los de
