@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Ikigai Mangas
-// @version      1.1.4
+// @version      1.1.5
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -67,7 +67,35 @@ function _consulta(page, filter, extra) {
   partes.push(`pagina=${page}`);
   return `${BASE}/series/?${partes.join("&")}`;
 }
+function _nuevosCapitulos(html) {
+  const cab = html.indexOf("new-chapters-heading");
+  if (cab < 0) return [];
+  const desde = html.indexOf('<ul class="grid', cab);
+  if (desde < 0) return [];
+  const hasta = html.indexOf("</ul>", desde);
+  const frag = hasta > desde ? html.slice(desde, hasta) : html.slice(desde);
+  const items = [];
+  const re = /href="(\/series\/[^"]+\/)"[\s\S]{0,400}?<img src="([^"]+)"\s+alt="([^"]*)"/g;
+  for (const m of frag.matchAll(re)) {
+    const resto = frag.slice(frag.indexOf(m[0]) + m[0].length);
+    const cap = /Cap\.\s*(?:<!--[^>]*-->)?\s*([\d.]+)/.exec(resto.slice(0, 900));
+    items.push({
+      title: _decode(m[3]),
+      url: `${BASE}${m[1]}`,
+      cover: m[2],
+      update: cap ? `Cap. ${cap[1]}` : void 0
+    });
+  }
+  return items;
+}
 async function latest(page) {
+  if (page <= 1) {
+    try {
+      const nuevos = _nuevosCapitulos(await _html(BASE));
+      if (nuevos.length) return nuevos;
+    } catch (e) {
+    }
+  }
   const html = await _html(
     _consulta(page, void 0, { ordenar: "last_chapter_date", direccion: "desc" })
   );

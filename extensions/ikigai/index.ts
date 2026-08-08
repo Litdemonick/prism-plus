@@ -110,7 +110,71 @@ function _consulta(
   return `${BASE}/series/?${partes.join('&')}`;
 }
 
+/**
+ * «Nuevos Capitulos» de la portada, pestana General.
+ *
+ * ── Por que no alcanzaba con ordenar el catalogo ─────────────────────────────
+ *
+ * `latest()` pedia /series/?ordenar=last_chapter_date, o sea el CATALOGO
+ * ordenado por fecha del ultimo capitulo. Se parece pero no es lo mismo: el
+ * sitio tiene su propia seccion «Nuevos Capitulos» en la portada, con su lista
+ * curada, sus obras fijadas arriba y el numero de capitulo de cada una. Lo que
+ * mostraba el Home no coincidia con lo que se ve al entrar a la pagina.
+ *
+ * ── Como se encuentra la seccion ────────────────────────────────────────────
+ *
+ * El rotulo lleva `id="new-chapters-heading"`, que es un ancla del propio sitio
+ * —la usan sus pestanas— asi que es un punto fijo y no una clase de estilo que
+ * cambie con un rediseño. Despues del rotulo vienen las pestanas y enseguida la
+ * primera `<ul class="grid`, que es el panel de General.
+ *
+ * OJO con el `<ul>`: hay otro identico mas arriba, en la seccion de tendencias,
+ * y los dos paneles comparten el MISMO id (`trends-tab-all-content`) porque el
+ * sitio lo repite. Por eso se busca desde el rotulo hacia adelante y no por id:
+ * buscando por id se enganchaba la seccion de tendencias, que trae lo mas visto.
+ *
+ * Medido en vivo: ocho items, los mismos ocho que muestra la pagina.
+ */
+function _nuevosCapitulos(html: string): PrismItem[] {
+  const cab = html.indexOf('new-chapters-heading');
+  if (cab < 0) return [];
+  const desde = html.indexOf('<ul class="grid', cab);
+  if (desde < 0) return [];
+  const hasta = html.indexOf('</ul>', desde);
+  const frag = hasta > desde ? html.slice(desde, hasta) : html.slice(desde);
+
+  const items: PrismItem[] = [];
+  // El titulo se toma del `alt` de la portada y no del `<h2>`: el `<h2>` trae
+  // comentarios del framework en medio del texto (`<!--t=9y-->`), y limpiarlos
+  // es mas fragil que leer un atributo.
+  const re =
+    /href="(\/series\/[^"]+\/)"[\s\S]{0,400}?<img src="([^"]+)"\s+alt="([^"]*)"/g;
+  for (const m of frag.matchAll(re)) {
+    // El numero de capitulo esta despues de la imagen, en un `Cap. <!--…-->45`.
+    const resto = frag.slice(frag.indexOf(m[0]) + m[0].length);
+    const cap = /Cap\.\s*(?:<!--[^>]*-->)?\s*([\d.]+)/.exec(resto.slice(0, 900));
+    items.push({
+      title: _decode(m[3]),
+      url: `${BASE}${m[1]}`,
+      cover: m[2],
+      update: cap ? `Cap. ${cap[1]}` : undefined,
+    });
+  }
+  return items;
+}
+
 export async function latest(page: number): Promise<PrismItem[]> {
+  // Pagina 1: la seccion de la portada, que es lo que la gente mira al entrar.
+  // De la 2 en adelante sigue por el catalogo ordenado por fecha: la portada no
+  // se pagina, y cortarse en seco seria peor que continuar con algo parecido.
+  if (page <= 1) {
+    try {
+      const nuevos = _nuevosCapitulos(await _html(BASE));
+      if (nuevos.length) return nuevos;
+    } catch {
+      // La portada no contesto: se sigue por el catalogo, como hacia antes.
+    }
+  }
   const html = await _html(
     _consulta(page, undefined, { ordenar: 'last_chapter_date', direccion: 'desc' }),
   );
