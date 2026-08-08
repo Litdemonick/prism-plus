@@ -1,12 +1,13 @@
 // ==PrismHubExtension==
 // @name         XVideos
-// @version      1.1.3
+// @version      1.1.4
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.xvideos
 // @type         bangumi
 // @nsfw         true
+// @latestLabel  Lo más reciente
 // @webSite      https://www.xvideos.com
 // @description  Vídeos para adultos con buscador, filtros de categoría, orden, duración y calidad, y reproducción directa (contenido +18).
 // ==/PrismHubExtension==

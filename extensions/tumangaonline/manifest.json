@@ -1,12 +1,13 @@
 {
   "name": "TuMangaOnline",
   "package": "io.prismhub.tumangaonline",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "author": "PrismPlus",
   "type": "manga",
   "icon": "",
   "description": "Todo el catálogo de ZonaTMO: manga, manhwa y manhua en español, con filtros bien completos.",
   "lang": "es",
   "webSite": "https://zonatmo.org",
-  "license": "MIT"
+  "license": "MIT",
+  "latestLabel": "Últimos añadidos"
 }

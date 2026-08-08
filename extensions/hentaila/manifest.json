@@ -1,7 +1,7 @@
 {
   "name": "HentaiLA",
   "package": "io.prismhub.hentaila",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "author": "PrismPlus",
   "type": "anime",
   "icon": "",
@@ -9,5 +9,6 @@
   "lang": "es",
   "webSite": "https://hentaila.com",
   "license": "MIT",
-  "nsfw": "true"
+  "nsfw": "true",
+  "latestLabel": "Últimos episodios"
 }

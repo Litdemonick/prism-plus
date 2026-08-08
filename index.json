@@ -8,7 +8,7 @@
     {
       "name": "AnimeFenix",
       "package": "io.prismhub.animefenix",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -16,14 +16,15 @@
       "lang": "es",
       "webSite": "https://animefenix2.tv",
       "license": "MIT",
+      "latestLabel": "Episodios recientes",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animefenix.js",
-      "sha256": "7c5ce44b4953dc7c1c9e09d9e89bd58a98f78e9fc5f38897d9a6175c9ddecb14",
-      "signature": "hEm9kyw6BnxP/B6m47b9ZPvABlU4H27nkovQFGZfjMeZm4S2QP5zp2eqO2LEeYBvuJwn1zpsshShdZfMoWnsCw=="
+      "sha256": "f46a5060e3af7ef374f44c8c7b9da0d4065791a872e5b8840fab35d48e14803e",
+      "signature": "IzXey2qNYhINpqLAxpNesuZGroVU7Ypwl4R2oDM7xDBs3cxXbqqlkB0hLYnKR0YV3/MS7b7TzKJRXN4hYS9wCw=="
     },
     {
       "name": "Eporner",
       "package": "io.prismhub.eporner",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -32,14 +33,15 @@
       "webSite": "https://www.eporner.com",
       "license": "MIT",
       "nsfw": "true",
+      "latestLabel": "Lo más reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/eporner.js",
-      "sha256": "3e1515261d5adabef6736ac565e87759b2a258198e3aa41355c44d0c93265684",
-      "signature": "THTnadnhzvTCPXfzk3hjhopc/UfUzpImbuySJEtR0bj+dBUDGUoBB+VP7uGBDutSTFAJTIYJoc/FROn1fmRxBw=="
+      "sha256": "bee81226c0d36705af14a703749e9ae09f42272371a8ad4c87d295a8129d1637",
+      "signature": "1NeWJMO4g2/pbxWVTc8z7NLQVqkA1Dsrgd3PJTl6nCDqNFJH3vlA/rXDNXD7OpZLbaUQUG8WxyhvXlb9ATqvCQ=="
     },
     {
       "name": "FuegoCine",
       "package": "io.prismhub.fuegocine",
-      "version": "1.9.0",
+      "version": "1.9.1",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -47,14 +49,15 @@
       "lang": "es",
       "webSite": "https://www.fuegocine.com",
       "license": "MIT",
+      "latestLabel": "Lo más reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/fuegocine.js",
-      "sha256": "dc3991880d0637f966974a22deebea6a70b3be8e80fbf58e32d45f61ce3e021f",
-      "signature": "xA0VKjF0DdFz6Tn6pC/tL3zMesIq2QnERuDbrAGR5AZYZfaUEPpbVua0axUM3jl6C5P903gz5FgFgGItebKUBA=="
+      "sha256": "60695deb7f06499a7db1f3243b069cb980b8e553c14600e43e303bb4902e6e91",
+      "signature": "7lv5m69oZ7+ySSEosVtvCB4N+vCqeBDKc1uZ72ZvFFVxt3ucTmsYyDZ8RCX83rEF3FqsNj9RzjtxOCYJIs8kBA=="
     },
     {
       "name": "HentaiLA",
       "package": "io.prismhub.hentaila",
-      "version": "1.0.6",
+      "version": "1.0.7",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -63,14 +66,15 @@
       "webSite": "https://hentaila.com",
       "license": "MIT",
       "nsfw": "true",
+      "latestLabel": "Últimos episodios",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/hentaila.js",
-      "sha256": "cc82a96eadf35fe13d4315b563c9ec46fb0ac2dd73c729d5984d80ea45bd1bbf",
-      "signature": "/5muHRP2aX9eLld2KFuE/rlQCAZ/Z6v+m9neufLd06G508MIrJtNqIAssvbPzK4MVwql6DMxHxMZjV6NsnMjAw=="
+      "sha256": "37aa77a11936044e3ca34745ebf4d1cfec6655013e3ba2aeb0a36a85c49eea05",
+      "signature": "hFpzcNYQeR5QcJuFBiHMmzDVNFZ0ubbFGglxsF0n2aIwLsfbDRW+PjnPd4gKxUmOiEqu2nZcxnesx67Qt4ZwCA=="
     },
     {
       "name": "HQPorner",
       "package": "io.prismhub.hqporner",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -79,14 +83,15 @@
       "webSite": "https://hqporner.com",
       "license": "MIT",
       "nsfw": "true",
+      "latestLabel": "Lo más reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/hqporner.js",
-      "sha256": "39cd83c8677671123f4e8a374f728f805ee9ee6a638ea02e9f1d70ae6b3dc1b6",
-      "signature": "CQTQ1VwNp+3q5UTPoz0+c326BBuMATmejwIxnDtgdckEZAZ5W0SAvW5OihaJNB6Hm29bDk5v0eJ5VoAi6lwYAQ=="
+      "sha256": "e21e9cf71bf22f171b65c7b7b4cead870a2777f07bc978a26bde478da81fff0c",
+      "signature": "rNvRCc66N8Y3cGBYRgvHHcGy5mqhJD2XpS0+cUt4zYNh5Sil25owahwVaPwC2hRqqeK0LOUV+uF5YOVm1ByNCw=="
     },
     {
       "name": "Ikigai Mangas",
       "package": "io.prismhub.ikigai",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "author": "PrismPlus",
       "type": "mixedReading",
       "icon": "",
@@ -94,14 +99,15 @@
       "lang": "es",
       "webSite": "https://visorikigai.gettocaboca.com",
       "license": "MIT",
+      "latestLabel": "Nuevos capítulos",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/ikigai.js",
-      "sha256": "9a9146f5891bccd680b25e38bd226882a3d62c188ccdbb16218ebd3a59011a8d",
-      "signature": "H9U0bkkFzjVE9AGr/0A/ICmVmkI7UzE3eRT6yQH4RrD4FEdLWmwAjg3LwSTTx8CmLSEOBp1Wx78FqaYa4pjSCw=="
+      "sha256": "fd8f2922e527f6d8bbf8351132b12cd65cf03edd379640c97f6daeda8b6f24eb",
+      "signature": "mAPkm/bwXh4Aesejs8Y9Ii8ldqdBnBSwupJROuZ1qaGHMR/KN2LnXM1ZB2wfZlBui5oydrtpMM0q68IIjy4jDQ=="
     },
     {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
-      "version": "1.12.8",
+      "version": "1.12.9",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -109,14 +115,15 @@
       "lang": "es",
       "webSite": "https://jkanime.net",
       "license": "MIT",
+      "latestLabel": "Programación",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "a6f9491183e2afda5f8f7312526ddf7d85f7c8f2f03ba4349bd298c2cb6e570e",
-      "signature": "9PYVBIuejtJSFvRAYgHWrndMtyVO/jlkamchd1oc+e2fmYB39x4wo/y3DOt6iys4c4h5OFlFUWuqJqqfEe1BDQ=="
+      "sha256": "8a83a45b580cfd0461a0fade9f52bfd3ad8ca9bd8582498ebaf01ed6ccce053e",
+      "signature": "x+4mets3v4QDLhJaOW+SNhO9IsPhFPpVG+gpseKd0feznO0Cj/8wD/P7nRtyx9evUTBKlIjkVHd+DcyCgGErDA=="
     },
     {
       "name": "LaMovie",
       "package": "io.prismhub.lamovie",
-      "version": "1.1.5",
+      "version": "1.1.6",
       "author": "PrismHub",
       "type": "bangumi",
       "icon": "",
@@ -124,14 +131,15 @@
       "lang": "es",
       "webSite": "https://lamovie.org",
       "license": "MIT",
+      "latestLabel": "Recién añadidas",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/lamovie.js",
-      "sha256": "e9da4a0cb1e5e35b78535461712798ae8e10afb47a0a31ea4d058ca3f55e2eec",
-      "signature": "j5IsAQSXWHqvOjnQmSpdE3iKD4S56xMsCgJWiG5vvcIH9D6SaF6UlT67rn1ZlXAYh7AcxFlMpkGF3Mqbv2s2DQ=="
+      "sha256": "6d31441ca6b4bcde328d350aa39adfc726c38b2108b82a241f21f2dfeab1de5c",
+      "signature": "jgilb75QZFQk13XZDfJ5UrXKTFdnWhiAfWJFrVv0gCf6oxSuVB8bhlI7MMbwdswlVDTB1J7YXerkO2CkGXMtDg=="
     },
     {
       "name": "LatAnime",
       "package": "io.prismhub.latanime",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -139,14 +147,15 @@
       "lang": "es",
       "webSite": "https://latanime.org",
       "license": "MIT",
+      "latestLabel": "Añadidos recientemente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/latanime.js",
-      "sha256": "95a25fa18b57371bbf4efd78ce1fac175ce385fb2c8ec52ccd4be7c83205c78f",
-      "signature": "QdZaTGlosYlaNDPhXgZJAuFNIF3QOtsHrP6TAlSjZSPTiz11CXFA5DnxefCKEk6atDcxSy++mIuJsjnlsO6oCQ=="
+      "sha256": "9d414a3e730b7284acd9a879d03ea79572f9af96c274ca39d545f1900a5a5417",
+      "signature": "AgtrMySx8vcw19qhHpPHYpHPLesP9tdq35iDiSFpQBchcp/z7EIZktsF0Y0cMOi+r6X70gpZ1rVI3Zaj7MfICA=="
     },
     {
       "name": "ManhwaWeb",
       "package": "io.prismhub.manhwaweb",
-      "version": "1.3.12",
+      "version": "1.3.13",
       "author": "PrismPlus",
       "type": "manga",
       "icon": "",
@@ -155,14 +164,15 @@
       "webSite": "https://manhwaweb.com",
       "license": "MIT",
       "nsfw": "true",
+      "latestLabel": "Nuevos manhwas",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/manhwaweb.js",
-      "sha256": "b93972bf00064312ffa1bb951c7ef1f0795a8bf39d4c3c9a5d587f06a116c5bd",
-      "signature": "cazvKgv06XSn0lUuSPlMlOz7n931LkuPaJQ6DWryOqpMnp7jNBVYN9rR3XiE3P8EaYQ2pzfVFQHOESJo5hnkAg=="
+      "sha256": "e0aa2ebb5bebefefe4b69d5852e07e52a65e116aecbfdc33dc6120297d9e36d3",
+      "signature": "1Lh6WGA5G0EGdOyG4lPSuxW11G0pERJP4XVak8HCyijIH6tjQ1CQ2Bm+UNOw3jIdBNkUip2DWSdnXErV4E2MDQ=="
     },
     {
       "name": "Olympus",
       "package": "io.prismhub.olympus",
-      "version": "1.2.10",
+      "version": "1.2.11",
       "author": "PrismPlus",
       "type": "manga",
       "icon": "",
@@ -170,14 +180,15 @@
       "lang": "es",
       "webSite": "https://olympusxyz.com",
       "license": "MIT",
+      "latestLabel": "Nuevos lanzamientos",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/olympus.js",
-      "sha256": "4f38166cdd512e681f71c22461511fd7d6ecb8fccb799fa7b1cab8324185b648",
-      "signature": "5/KtyFHWlw1J7Vfe0MvdggOMV4eR/QA2+iQ+11U59vAN2NBuDXRACKk0MquVU3GeEQpoPiSPyf+H91gaU+jEAw=="
+      "sha256": "22da6e7dc8b2eafa1e20249dd30e0f21796c0fd977380be62d7b6da88162b35d",
+      "signature": "nxeHT1eZVSuDuTUoORBrlH4eQrYMlGwBcZiYNvrieNdDmIE5BxTmcU6mVtQXb4zHnY3uduMiN3240mXCSql3Cw=="
     },
     {
       "name": "Pornhub",
       "package": "io.prismhub.pornhub",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -186,14 +197,15 @@
       "webSite": "https://es.pornhub.com",
       "license": "MIT",
       "nsfw": "true",
+      "latestLabel": "Lo más reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/pornhub.js",
-      "sha256": "30adcb3010bec78acd12145b760826a2b6ea1f24a156f05abec67ecfa7946d56",
-      "signature": "HHrj4dtbvKF/POkSRIJ1i59PWGtcWwedDfu/oYHBVbmYda3B/P4gCIew4jozCSQey2c6EDFcmhHeT5CUnyTACQ=="
+      "sha256": "76b3f1360fde5c1eb752ce710a24576c5f2bacb26486c695af38df366b593390",
+      "signature": "JQsTKqlln1kj1i8zoqxdYckkGKK8D1WBMAzWTwicf/cgrGV3WLZFH1KOVSvUjiQwr9PKBP4QXiOHDuzLOrpqDw=="
     },
     {
       "name": "ShadeManga",
       "package": "io.prismhub.shademanga",
-      "version": "1.4.2",
+      "version": "1.4.3",
       "author": "PrismPlus",
       "type": "mixed",
       "icon": "",
@@ -202,14 +214,15 @@
       "webSite": "https://www.shademanga.com",
       "license": "MIT",
       "nsfw": "false",
+      "latestLabel": "Novedades",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/shademanga.js",
-      "sha256": "5dd943a687992e3d3a9da3e0b536ebd8961f806360dc3b629eeeced2125b8429",
-      "signature": "+MA0MxHuIakKH4BU3vrH31S0c2sJyx+lazGjFM0iP/+zLqBH3jmu8Rora8rFieAW/7Bc8uPTV4a1cCgVjEEtBw=="
+      "sha256": "96bc14d0ced04007d8863c6b14ad4a1012a37f4933267eb8d1e548db2bc5b375",
+      "signature": "l3LZegI4yRyAwxv+Tf9CNZh955jDa+HTHD8aYXOxeTQzGyhfxrkZrhARYk5oQhqFQfbiUM1GHwKuhjtEk38jCw=="
     },
     {
       "name": "TioAnime",
       "package": "io.prismhub.tioanime",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -217,14 +230,15 @@
       "lang": "es",
       "webSite": "https://tioanime.com",
       "license": "MIT",
+      "latestLabel": "Últimos episodios",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js",
-      "sha256": "084caadebc5a965d1201cbb586d98a3fcdb2c1c388b7f8f975ec289ead929bab",
-      "signature": "a4KqBaBaOsy6uVqeY6Vvj88SFtyLdxPisMLLUTwGBB3R+Bpq9OVU9e9jyzKH2DgPBRFSIxAdlKurMTWyzksHBg=="
+      "sha256": "1038e8c701f1e92bb71433ece5a1bcf7f29cfe650d14bb55ac30a19c5b626981",
+      "signature": "K1ihJb+WLp2PLJFnbAdQFop1MDAcv7qpAtjeYLnj/w///aJgbu7XgNqLKdA9K1yD5G9uxNroXvTtX64iweLFDQ=="
     },
     {
       "name": "TuMangaOnline",
       "package": "io.prismhub.tumangaonline",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "author": "PrismPlus",
       "type": "manga",
       "icon": "",
@@ -232,14 +246,15 @@
       "lang": "es",
       "webSite": "https://zonatmo.org",
       "license": "MIT",
+      "latestLabel": "Últimos añadidos",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tumangaonline.js",
-      "sha256": "67d18252b6e29a619bb946c197460e84ab629671c83d75635421611a069e7c9b",
-      "signature": "pI6MqMSfdSZkEFlHrlOKby0LuLW3q/5QIKjOVDqlsoDZx7g0qfENEAHyOW+3e5/eclsPvH8QWPBJ+C9LCPvkCw=="
+      "sha256": "96618f94e3909cd471261ba0b37a708ee1cb5a03e01212b33c6702958aaccb12",
+      "signature": "0VGMvyer9IL7h4a+6yZb62YVnh8zQlT4MBnCAvF6XGxD5Whizy8TpLOesZpJjlJuUITuxRl0TtPZ6KDSgTyoDw=="
     },
     {
       "name": "VeoHentai",
       "package": "io.prismhub.veohentai",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -248,14 +263,15 @@
       "webSite": "https://veohentai.com",
       "license": "MIT",
       "nsfw": "true",
+      "latestLabel": "Lo más reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/veohentai.js",
-      "sha256": "81c741546612640bbe1987dfa9f701cc538bd7a172766452a63d8121e36e9d48",
-      "signature": "uyuTZKTgsFi7w25asuf0v/nL7DLgidIB7gwHWI0nXLLYFgSJgO02MNhl/OHKVODHyTQp17fgNaoaeuftxEosAg=="
+      "sha256": "7a8597c85b3f37a234462a65ddc11ac01765c318d51d1dc5437a80965ff04ea3",
+      "signature": "ARrtzoJYFOlRwlfikACioZ7LIuodQGbsKqyBVFLR0MLwQMc27FuF6qc5AcweuOOhMQQrY8Z80CzrnVXPLDXuAA=="
     },
     {
       "name": "XVideos",
       "package": "io.prismhub.xvideos",
-      "version": "1.1.3",
+      "version": "1.1.4",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -264,9 +280,10 @@
       "webSite": "https://www.xvideos.com",
       "license": "MIT",
       "nsfw": "true",
+      "latestLabel": "Lo más reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/xvideos.js",
-      "sha256": "45439bea35a688d6f85e1d2a661a06dd52bed45add03fdb46a5b102607bf15d6",
-      "signature": "Ri0ikuUPTWX/dp3pn+C5e3di7+xMYaqAgjJAoDsBygO63f0M/+eFYpUsRUM5/03xMwS4DZXWry9D4Tgubv03Cg=="
+      "sha256": "e49ff97fdbdac73f780766ac0a2cf969fa9a162fde42563e3c00b55c615caee6",
+      "signature": "ZiST20MshS+BtQyl7sJJVy4MIV33J5L3iHjGwqTUVicy1wZRSW2f5CgZHLbmAI5BgcyruvswryfaH2n5IacKDg=="
     }
   ]
 }

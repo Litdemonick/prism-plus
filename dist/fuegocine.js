@@ -1,12 +1,13 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.9.0
+// @version      1.9.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.fuegocine
 // @type         bangumi
 // @nsfw         false
+// @latestLabel  Lo más reciente
 // @webSite      https://www.fuegocine.com
 // @description  Pelis y series al toque, en español, con servidores directos listos para reproducir sin vueltas.
 // ==/PrismHubExtension==

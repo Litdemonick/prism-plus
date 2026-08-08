@@ -1,12 +1,13 @@
 // ==PrismHubExtension==
 // @name         Ikigai Mangas
-// @version      1.1.2
+// @version      1.1.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.ikigai
 // @type         mixedReading
 // @nsfw         false
+// @latestLabel  Nuevos capítulos
 // @webSite      https://visorikigai.gettocaboca.com
 // @description  Cómics, manhwas y novelas ligeras en español. Catálogo grande con filtros por tipo, género y orden.
 // ==/PrismHubExtension==

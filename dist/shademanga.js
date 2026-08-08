@@ -1,12 +1,13 @@
 // ==PrismHubExtension==
 // @name         ShadeManga
-// @version      1.4.2
+// @version      1.4.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.shademanga
 // @type         mixed
 // @nsfw         false
+// @latestLabel  Novedades
 // @webSite      https://www.shademanga.com
 // @description  Manga y anime en un solo lugar: leé y mirá sin cambiar de app (incluye contenido +18).
 // ==/PrismHubExtension==

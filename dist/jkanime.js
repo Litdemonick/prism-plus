@@ -1,12 +1,13 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.8
+// @version      1.12.9
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.jkanime
 // @type         bangumi
 // @nsfw         false
+// @latestLabel  Programación
 // @webSite      https://jkanime.net
 // @description  Anime sub y latino con varios servidores de respaldo — si uno falla, seguís viendo por otro.
 // ==/PrismHubExtension==

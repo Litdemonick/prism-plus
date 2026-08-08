@@ -1,12 +1,13 @@
 {
   "name": "JKAnime",
   "package": "io.prismhub.jkanime",
-  "version": "1.12.8",
+  "version": "1.12.9",
   "author": "PrismPlus",
   "type": "anime",
   "icon": "",
   "description": "Anime sub y latino con varios servidores de respaldo — si uno falla, seguís viendo por otro.",
   "lang": "es",
   "webSite": "https://jkanime.net",
-  "license": "MIT"
+  "license": "MIT",
+  "latestLabel": "Programación"
 }

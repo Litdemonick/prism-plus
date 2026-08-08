@@ -1,12 +1,13 @@
 // ==PrismHubExtension==
 // @name         HentaiLA
-// @version      1.0.6
+// @version      1.0.7
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.hentaila
 // @type         bangumi
 // @nsfw         true
+// @latestLabel  Últimos episodios
 // @webSite      https://hentaila.com
 // @description  Hentai en español con catálogo completo, filtros por género y varios servidores por episodio (contenido +18).
 // ==/PrismHubExtension==

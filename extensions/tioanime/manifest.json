@@ -1,12 +1,13 @@
 {
   "name": "TioAnime",
   "package": "io.prismhub.tioanime",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "author": "PrismPlus",
   "type": "anime",
   "icon": "",
   "description": "Anime sub y latino, filtros completos y servidores de respaldo, directo al capítulo que buscás.",
   "lang": "es",
   "webSite": "https://tioanime.com",
-  "license": "MIT"
+  "license": "MIT",
+  "latestLabel": "Últimos episodios"
 }

@@ -1,12 +1,13 @@
 // ==PrismHubExtension==
 // @name         LaMovie
-// @version      1.1.5
+// @version      1.1.6
 // @author       PrismHub
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.lamovie
 // @type         bangumi
 // @nsfw         false
+// @latestLabel  Recién añadidas
 // @webSite      https://lamovie.org
 // @description  Películas, series, animes y novelas en español desde LaMovie — catálogo, búsqueda y filtros por género/año/calidad/idioma
 // ==/PrismHubExtension==

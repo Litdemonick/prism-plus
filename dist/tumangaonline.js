@@ -1,12 +1,13 @@
 // ==PrismHubExtension==
 // @name         TuMangaOnline
-// @version      1.0.8
+// @version      1.0.9
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.tumangaonline
 // @type         manga
 // @nsfw         false
+// @latestLabel  Últimos añadidos
 // @webSite      https://zonatmo.org
 // @description  Todo el catálogo de ZonaTMO: manga, manhwa y manhua en español, con filtros bien completos.
 // ==/PrismHubExtension==

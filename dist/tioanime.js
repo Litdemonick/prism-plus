@@ -1,12 +1,13 @@
 // ==PrismHubExtension==
 // @name         TioAnime
-// @version      1.1.1
+// @version      1.1.2
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.tioanime
 // @type         bangumi
 // @nsfw         false
+// @latestLabel  Últimos episodios
 // @webSite      https://tioanime.com
 // @description  Anime sub y latino, filtros completos y servidores de respaldo, directo al capítulo que buscás.
 // ==/PrismHubExtension==

@@ -1,12 +1,13 @@
 // ==PrismHubExtension==
 // @name         Eporner
-// @version      1.0.1
+// @version      1.0.2
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.eporner
 // @type         bangumi
 // @nsfw         true
+// @latestLabel  Lo más reciente
 // @webSite      https://www.eporner.com
 // @description  Vídeos para adultos con buscador, 87 categorías, filtros de calidad (hasta 4K), duración y orden, y reproducción directa con selector de calidad (contenido +18).
 // ==/PrismHubExtension==

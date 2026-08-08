@@ -1,12 +1,13 @@
 {
   "name": "FuegoCine",
   "package": "io.prismhub.fuegocine",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "author": "PrismPlus",
   "type": "movie",
   "icon": "",
   "description": "Pelis y series al toque, en español, con servidores directos listos para reproducir sin vueltas.",
   "lang": "es",
   "webSite": "https://www.fuegocine.com",
-  "license": "MIT"
+  "license": "MIT",
+  "latestLabel": "Lo más reciente"
 }

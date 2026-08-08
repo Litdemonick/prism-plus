@@ -1,7 +1,7 @@
 {
   "name": "VeoHentai",
   "package": "io.prismhub.veohentai",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "PrismPlus",
   "type": "anime",
   "icon": "",
@@ -9,5 +9,6 @@
   "lang": "es",
   "webSite": "https://veohentai.com",
   "license": "MIT",
-  "nsfw": "true"
+  "nsfw": "true",
+  "latestLabel": "Lo más reciente"
 }
