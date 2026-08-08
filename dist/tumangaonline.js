@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         TuMangaOnline
-// @version      1.0.7
+// @version      1.0.8
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -198,7 +198,25 @@ function _parseCatalog(html) {
   }
   return items;
 }
+function _seccion(html, titulo) {
+  const i = html.indexOf(titulo);
+  if (i < 0) return null;
+  const resto = html.slice(i);
+  const fin = resto.slice(10).search(/<h[12][\s>]/);
+  return fin > 0 ? resto.slice(0, fin + 10) : resto;
+}
 async function latest(page) {
+  if (page <= 1) {
+    try {
+      const portada = await _get(BASE);
+      const frag = _seccion(portada, "ltimos a");
+      if (frag) {
+        const items = _parseCatalog(frag);
+        if (items.length) return items;
+      }
+    } catch (e) {
+    }
+  }
   const query = _buildQuery({ page: page > 1 ? String(page) : void 0 });
   const html = await _get(`${BASE}/biblioteca${query ? `?${query}` : ""}`);
   return _parseCatalog(html);

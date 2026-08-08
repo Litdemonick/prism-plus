@@ -226,7 +226,7 @@
     {
       "name": "TuMangaOnline",
       "package": "io.prismhub.tumangaonline",
-      "version": "1.0.7",
+      "version": "1.0.8",
       "author": "PrismPlus",
       "type": "manga",
       "icon": "",
@@ -235,8 +235,8 @@
       "webSite": "https://zonatmo.org",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tumangaonline.js",
-      "sha256": "f53519d07f1122c82ac0083ac27d1c55f6a951eb1d824b2b0505096324938c4a",
-      "signature": "SHhOciPBwvULaA2/gsqAafGqLj5Nz341imt5V2DAyjuUdcGYAUiyOtdGHAddU+Efh6GBHY4EzmJ4cm2dfVDjDw=="
+      "sha256": "67d18252b6e29a619bb946c197460e84ab629671c83d75635421611a069e7c9b",
+      "signature": "pI6MqMSfdSZkEFlHrlOKby0LuLW3q/5QIKjOVDqlsoDZx7g0qfENEAHyOW+3e5/eclsPvH8QWPBJ+C9LCPvkCw=="
     },
     {
       "name": "VeoHentai",

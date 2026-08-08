@@ -59,7 +59,43 @@ function _parseCatalog(html: string): PrismItem[] {
   return items;
 }
 
+/** Recorta la seccion de la portada que arranca en [titulo]. */
+function _seccion(html: string, titulo: string): string | null {
+  const i = html.indexOf(titulo);
+  if (i < 0) return null;
+  const resto = html.slice(i);
+  // Hasta el proximo encabezado: sin esto se leeria la portada entera y
+  // «Ultimos añadidos» traeria tambien lo popular y lo demas.
+  const fin = resto.slice(10).search(/<h[12][\s>]/);
+  return fin > 0 ? resto.slice(0, fin + 10) : resto;
+}
+
 export async function latest(page: number): Promise<PrismItem[]> {
+  // ── Pagina 1: «Ultimos añadidos» de la portada ──────────────────────────
+  //
+  // /biblioteca sin parametros devuelve el catalogo en el orden por defecto
+  // del sitio, que NO es por fecha de alta — asi que «lo ultimo» del Home
+  // mostraba obras viejas. La portada tiene una seccion propia con lo recien
+  // agregado (18 obras, medido), y es la que el sitio le muestra a su gente.
+  //
+  // Desde la pagina 2 no hay portada que paginar, asi que se sigue por la
+  // biblioteca. Es contenido distinto, pero es continuar en vez de cortar.
+  if (page <= 1) {
+    try {
+      const portada = await _get(BASE);
+      // Se busca por un trozo SIN tildes a proposito: segun como venga
+      // codificado el HTML, la Ú puede llegar como caracter, como entidad
+      // (&Uacute;) o mal decodificada. «ltimos a» esta en los tres casos.
+      const frag = _seccion(portada, 'ltimos a');
+      if (frag) {
+        const items = _parseCatalog(frag);
+        if (items.length) return items;
+      }
+    } catch {
+      // La portada no contesto: se sigue por la biblioteca, que es lo que
+      // hacia antes. Nunca se queda sin devolver nada por esto.
+    }
+  }
   const query = _buildQuery({ page: page > 1 ? String(page) : undefined });
   const html = await _get(`${BASE}/biblioteca${query ? `?${query}` : ''}`);
   return _parseCatalog(html);
