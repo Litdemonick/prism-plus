@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LatAnime
-// @version      1.1.3
+// @version      1.1.4
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -12,6 +12,8 @@
 // @description  Anime doblado al latino y castellano, con filtros por año, género, letra y categoría, y varios servidores por episodio.
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
 var __getOwnPropSymbols = Object.getOwnPropertySymbols;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __propIsEnum = Object.prototype.propertyIsEnumerable;
@@ -27,6 +29,7 @@ var __spreadValues = (a, b) => {
     }
   return a;
 };
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
 
 // sdk/http.ts
 var DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -674,12 +677,51 @@ function _parseRecientes(html) {
   }
   return items;
 }
+async function _conPortadaVertical(items) {
+  const slugDe = (url) => {
+    var _a, _b;
+    return (_b = (_a = /\/ver\/([a-z0-9-]+)-episodio-\d+/i.exec(url)) == null ? void 0 : _a[1]) != null ? _b : null;
+  };
+  const pendientes = [
+    ...new Set(items.map((x) => slugDe(x.url)).filter((x) => !!x))
+  ];
+  if (!pendientes.length) return items;
+  const portadas = /* @__PURE__ */ new Map();
+  let vencido = false;
+  const plazo = new Promise(
+    (r) => setTimeout(() => {
+      vencido = true;
+      r();
+    }, 6e3)
+  );
+  const obrero = async () => {
+    while (pendientes.length && !vencido) {
+      const slug = pendientes.pop();
+      if (!slug) return;
+      try {
+        const html = await _get(`${BASE}/anime/${slug}`);
+        const m = /(?:data-)?src="([^"]*thumbs\/imagen\/[^"]+)"/.exec(html);
+        if (m) portadas.set(slug, m[1]);
+      } catch (e) {
+      }
+    }
+  };
+  await Promise.race([
+    Promise.all([obrero(), obrero(), obrero(), obrero(), obrero(), obrero()]),
+    plazo
+  ]);
+  return items.map((x) => {
+    const slug = slugDe(x.url);
+    const mejor = slug ? portadas.get(slug) : void 0;
+    return mejor ? __spreadProps(__spreadValues({}, x), { cover: mejor }) : x;
+  });
+}
 async function latest(page) {
   if (page <= 1) {
     try {
       const portada = await _get(BASE);
       const recientes = _parseRecientes(portada);
-      if (recientes.length) return recientes;
+      if (recientes.length) return await _conPortadaVertical(recientes);
     } catch (e) {
     }
   }

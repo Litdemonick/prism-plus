@@ -92,6 +92,87 @@ function _parseRecientes(html: string): PrismItem[] {
   return items;
 }
 
+/**
+ * Cambia la miniatura apaisada por la portada vertical de cada serie.
+ *
+ * ── Por que no alcanza con lo que trae la portada ───────────────────────────
+ *
+ * Las tarjetas de «Anadidos recientemente» traen `/thumbs/portada/<slug>-<n>`,
+ * que es un banner APAISADO de 380x220. Nuestras tarjetas son verticales, asi
+ * que esa imagen se recorta y se estira: al lado de una extension que devuelve
+ * la portada de verdad, se ve borrosa.
+ *
+ * La vertical vive en otra carpeta, `/thumbs/imagen/<slug>-<otro-n>`, y mide
+ * 400x600. El numero NO es el mismo —medido: 1777044275 para el banner y
+ * 1777044194 para la vertical de la misma serie— asi que no se puede deducir
+ * cambiando la ruta, como si se puede en TioAnime. Tampoco sirve el slug pelado:
+ * sin numero el sitio contesta 500.
+ *
+ * ── Por que la ficha de la serie y no el catalogo ───────────────────────────
+ *
+ * Se probo leer `/animes` una sola vez y armar un mapa slug -> portada. Sale
+ * barato pero solo cubre 20 de 29: las series de temporada larga ya no estan en
+ * la primera pagina del catalogo. Media fila nitida y media borrosa se ve peor
+ * que toda pareja.
+ *
+ * La ficha de cada serie siempre la tiene. Son ~29 pedidos, y de a seis tardan
+ * 1,8 s medidos contra el sitio en vivo. El puente de la app indexa las
+ * respuestas por `callId`, asi que varios pedidos a la vez son seguros.
+ *
+ * ── El plazo ────────────────────────────────────────────────────────────────
+ *
+ * Con internet lento esos 1,8 s pueden ser diez, y una fila que no aparece es
+ * peor que una fila con la imagen fea. Por eso hay un plazo: cumplido, se
+ * devuelve lo que haya llegado y el resto se queda con el banner. Nunca se
+ * espera de mas, y nunca se pierde un item por no haber conseguido su portada.
+ */
+async function _conPortadaVertical(items: PrismItem[]): Promise<PrismItem[]> {
+  const slugDe = (url: string) =>
+    /\/ver\/([a-z0-9-]+)-episodio-\d+/i.exec(url)?.[1] ?? null;
+
+  // Una serie puede aparecer dos veces —castellano y latino son entradas
+  // distintas pero a veces comparten ficha— asi que se pide una sola vez.
+  const pendientes = [
+    ...new Set(items.map((x) => slugDe(x.url)).filter((x): x is string => !!x)),
+  ];
+  if (!pendientes.length) return items;
+
+  const portadas = new Map<string, string>();
+  let vencido = false;
+  const plazo = new Promise<void>((r) =>
+    setTimeout(() => {
+      vencido = true;
+      r();
+    }, 6000),
+  );
+
+  const obrero = async () => {
+    while (pendientes.length && !vencido) {
+      const slug = pendientes.pop();
+      if (!slug) return;
+      try {
+        const html = await _get(`${BASE}/anime/${slug}`);
+        const m = /(?:data-)?src="([^"]*thumbs\/imagen\/[^"]+)"/.exec(html);
+        if (m) portadas.set(slug, m[1]);
+      } catch {
+        // Esta serie se queda con su banner. Una ficha caida no puede dejar sin
+        // portada a las otras veintiocho.
+      }
+    }
+  };
+
+  await Promise.race([
+    Promise.all([obrero(), obrero(), obrero(), obrero(), obrero(), obrero()]),
+    plazo,
+  ]);
+
+  return items.map((x) => {
+    const slug = slugDe(x.url);
+    const mejor = slug ? portadas.get(slug) : undefined;
+    return mejor ? { ...x, cover: mejor } : x;
+  });
+}
+
 export async function latest(page: number): Promise<PrismItem[]> {
   // ── Pagina 1: lo que el sitio muestra como recien salido ────────────────
   //
@@ -104,7 +185,7 @@ export async function latest(page: number): Promise<PrismItem[]> {
     try {
       const portada = await _get(BASE);
       const recientes = _parseRecientes(portada);
-      if (recientes.length) return recientes;
+      if (recientes.length) return await _conPortadaVertical(recientes);
     } catch {
       // Sin portada se sigue por el catalogo, que es lo que hacia antes.
     }

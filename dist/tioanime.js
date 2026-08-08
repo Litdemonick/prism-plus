@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         TioAnime
-// @version      1.1.3
+// @version      1.1.4
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -416,6 +416,9 @@ function _parseCatalog(html) {
   }
   return items;
 }
+function _portadaDeLaMiniatura(url) {
+  return url.replace("/uploads/thumbs/", "/uploads/portadas/");
+}
 function _parseUltimosEpisodios(html) {
   const i = html.indexOf("ltimos Episodios");
   if (i < 0) return [];
@@ -430,7 +433,7 @@ function _parseUltimosEpisodios(html) {
     items.push({
       title: conNumero ? conNumero[1] : crudo,
       url: `${BASE}${m[1]}`,
-      cover: _fullUrl(m[2]),
+      cover: _fullUrl(_portadaDeLaMiniatura(m[2])),
       update: conNumero ? `Ep. ${conNumero[2]}` : void 0
     });
   }

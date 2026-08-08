@@ -139,7 +139,7 @@
     {
       "name": "LatAnime",
       "package": "io.prismhub.latanime",
-      "version": "1.1.3",
+      "version": "1.1.4",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -149,8 +149,8 @@
       "license": "MIT",
       "latestLabel": "anadidos-recientemente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/latanime.js",
-      "sha256": "588f06de29652355c7b40386264700dcfcd29e7585f7172679b4677426dc7dcc",
-      "signature": "QMlUG8HZUyEpzxOdT8wMztMhW4mxJv/SET02/QB1+Bpg2DJctIcWgHg+0zpkBzfrYdnoRRLMkxLNdbwKiKwdDw=="
+      "sha256": "6e0e019ae081bb8f7a8a4e40806cc2ed7fc706f6fc1f9590142fccd4613224c8",
+      "signature": "b1ySzGQM5mvPlEeKe/acu4aprXHD+lNkAQI+/DJ+fg0l7ST5BF4Jk2SNnwOWJBnKZrdvdpwu6wGrBopAbh8hBQ=="
     },
     {
       "name": "ManhwaWeb",
@@ -222,7 +222,7 @@
     {
       "name": "TioAnime",
       "package": "io.prismhub.tioanime",
-      "version": "1.1.3",
+      "version": "1.1.4",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -232,8 +232,8 @@
       "license": "MIT",
       "latestLabel": "ultimos-episodios",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js",
-      "sha256": "3210f7d5a2d97771f1b4cf56beff2a4a676a485cbf1f715f5d58cae5964afeb0",
-      "signature": "kDZIh01Uo28VbXNL1DEoinoX0KYkKK0uahTxnoLU0K2i3HS9ABy9RelaBkyZsa8KWKDAWXmyXlN6NQt8y1wyAA=="
+      "sha256": "e6957d17feeec6f9349a71051625aed22012995956120e4dd08bdc117739460d",
+      "signature": "qkgFx121U4dRpWkbYZn6MJyPu6oX2FPvI5VgAUijxFRsksQOLxaLf8X+HM3bVU/mMuKWChTyK9AGwa4HdcucCw=="
     },
     {
       "name": "TuMangaOnline",

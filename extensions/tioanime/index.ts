@@ -61,6 +61,28 @@ function _parseCatalog(html: string): PrismItem[] {
 }
 
 /**
+ * La portada vertical de la serie, a partir de la miniatura del episodio.
+ *
+ * ── Por que hace falta ──────────────────────────────────────────────────────
+ *
+ * La seccion de ultimos episodios trae `/uploads/thumbs/<id>.jpg`: una captura
+ * APAISADA de 300x199. Nuestras tarjetas son verticales, asi que esa imagen se
+ * recorta y se estira, y se ve borrosa al lado de las extensiones que si
+ * devuelven la portada. Medido: 300x199 contra los 429x600 de otras.
+ *
+ * El sitio guarda la portada vertical con EL MISMO numero en otra carpeta:
+ * `/uploads/portadas/<id>.jpg`, de 260x370. Comprobado con cinco ids
+ * distintos, incluidos viejos: las dos rutas contestan 200 siempre.
+ *
+ * Es un cambio de texto, sin pedidos de mas: la fila no tarda ni un milisegundo
+ * mas que antes. Si algun dia una portada faltara, la imagen queda vacia y la
+ * tarjeta muestra el titulo igual — no se rompe nada.
+ */
+function _portadaDeLaMiniatura(url: string): string {
+  return url.replace('/uploads/thumbs/', '/uploads/portadas/');
+}
+
+/**
  * «Ultimos Episodios» de la portada.
  *
  * Devuelve EPISODIOS: la direccion es /ver/<slug>-<n>. El titulo del sitio trae
@@ -86,7 +108,7 @@ function _parseUltimosEpisodios(html: string): PrismItem[] {
     items.push({
       title: conNumero ? conNumero[1] : crudo,
       url: `${BASE}${m[1]}`,
-      cover: _fullUrl(m[2]),
+      cover: _fullUrl(_portadaDeLaMiniatura(m[2])),
       update: conNumero ? `Ep. ${conNumero[2]}` : undefined,
     });
   }
