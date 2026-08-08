@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ShadeManga
-// @version      1.4.1
+// @version      1.4.2
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -572,7 +572,10 @@ function _interleave(a, b) {
   return merged;
 }
 async function latest(page) {
-  const [manga, anime] = await Promise.all([_latestManga(page), _latestAnime(page)]);
+  const [manga, anime] = await Promise.all([
+    _mangaNovedades(page, false),
+    _latestAnime(page)
+  ]);
   return _interleave(manga, anime);
 }
 var _TYPE_OPTIONS = {

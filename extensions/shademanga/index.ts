@@ -533,7 +533,20 @@ function _interleave(a: PrismItem[], b: PrismItem[]): PrismItem[] {
 }
 
 export async function latest(page: number): Promise<PrismItem[]> {
-  const [manga, anime] = await Promise.all([_latestManga(page), _latestAnime(page)]);
+  // ── Novedades, no populares ─────────────────────────────────────────────
+  //
+  // Acá se pedia /populares, que ordena por vistas: el Home mostraba siempre
+  // las mismas series y nunca lo que se acababa de subir. «Novedades» es la
+  // seccion que el propio sitio usa para eso, y ya estaba implementada —
+  // `_mangaNovedades` dedupea por serie, se queda con el capitulo mas nuevo de
+  // cada una y lo pone en `update` como «Cap. X».
+  //
+  // Sin adultos: esta es la puerta normal. Lo +18 entra por su filtro
+  // (ver `adultos` en createFilter) y la app lo pide a proposito.
+  const [manga, anime] = await Promise.all([
+    _mangaNovedades(page, false),
+    _latestAnime(page),
+  ]);
   return _interleave(manga, anime);
 }
 
