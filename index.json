@@ -131,7 +131,7 @@
     {
       "name": "LatAnime",
       "package": "io.prismhub.latanime",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -140,8 +140,8 @@
       "webSite": "https://latanime.org",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/latanime.js",
-      "sha256": "f8ec512fa966d1d2f6ba19194ab02ef30b96b2a7a5e10266f9544eaa52d5118a",
-      "signature": "vkGGpS6Q89YiPawpStxjXJx2g47zjd5FaYxceUwbxvh56jggkOKrEutMFa/Oy6SBH46WNmKoPZAWG1eVc+PLBQ=="
+      "sha256": "95a25fa18b57371bbf4efd78ce1fac175ce385fb2c8ec52ccd4be7c83205c78f",
+      "signature": "QdZaTGlosYlaNDPhXgZJAuFNIF3QOtsHrP6TAlSjZSPTiz11CXFA5DnxefCKEk6atDcxSy++mIuJsjnlsO6oCQ=="
     },
     {
       "name": "ManhwaWeb",

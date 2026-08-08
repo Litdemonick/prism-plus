@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LatAnime
-// @version      1.1.0
+// @version      1.1.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -656,7 +656,32 @@ function _parseCatalog(html) {
   }
   return items;
 }
+function _parseRecientes(html) {
+  const i = html.search(/A.adidos recientemente/);
+  if (i < 0) return [];
+  const items = [];
+  const re = /<a href="([^"]*\/ver\/[^"]+)">[\s\S]{0,600}?data-src="([^"]+)"[\s\S]{0,800}?<h2[^>]*>([^<]+)<\/h2>/g;
+  for (const m of html.slice(i).matchAll(re)) {
+    const crudo = decodeEntities(m[3].trim());
+    const partes = /^Episodio\s+(\d+)\s*-\s*(.+)$/i.exec(crudo);
+    items.push({
+      title: partes ? partes[2] : crudo,
+      url: m[1],
+      cover: m[2],
+      update: partes ? `Ep. ${partes[1]}` : void 0
+    });
+  }
+  return items;
+}
 async function latest(page) {
+  if (page <= 1) {
+    try {
+      const portada = await _get(BASE);
+      const recientes = _parseRecientes(portada);
+      if (recientes.length) return recientes;
+    } catch (e) {
+    }
+  }
   const html = await _get(`${BASE}/animes${page > 1 ? `?p=${page}` : ""}`);
   return _parseCatalog(html);
 }
@@ -779,8 +804,21 @@ async function createFilter() {
     letra: { title: "Letra", options: _LETRA_OPTIONS, default: _SIN_FILTRO, min: 1, max: 1 }
   };
 }
+async function _serieDelEpisodio(url) {
+  try {
+    const html = await _get(url);
+    const m = /href="([^"]*\/anime\/[^"]+)"/.exec(html);
+    return m ? m[1] : null;
+  } catch (e) {
+    return null;
+  }
+}
 async function detail(url) {
   var _a, _b, _c, _d, _e, _f, _g, _h;
+  if (url.indexOf("/ver/") >= 0) {
+    const serie = await _serieDelEpisodio(url);
+    if (serie) url = serie;
+  }
   const html = await _get(_fullUrl(url));
   const title = decodeEntities(
     (_c = (_b = (_a = /<h2[^>]*>([^<]+)<\/h2>/i.exec(html)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim()) != null ? _c : ""

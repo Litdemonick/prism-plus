@@ -61,7 +61,54 @@ function _parseCatalog(html: string): PrismItem[] {
   return items;
 }
 
+/**
+ * «Añadidos recientemente» de la portada.
+ *
+ * Devuelve EPISODIOS: la direccion termina en /ver/<slug>-episodio-<n>. El
+ * titulo del sitio viene como «Episodio 15 - Nombre de la serie», asi que se
+ * parte: el nombre al titulo y el numero a `update`.
+ *
+ * La portada carga las imagenes en diferido, asi que la portada real esta en
+ * `data-src` y no en `src` —ahi hay un marcador de posicion en blanco—.
+ */
+function _parseRecientes(html: string): PrismItem[] {
+  const i = html.search(/A.adidos recientemente/);
+  if (i < 0) return [];
+  const items: PrismItem[] = [];
+  const re =
+    /<a href="([^"]*\/ver\/[^"]+)">[\s\S]{0,600}?data-src="([^"]+)"[\s\S]{0,800}?<h2[^>]*>([^<]+)<\/h2>/g;
+  for (const m of html.slice(i).matchAll(re)) {
+    const crudo = decodeEntities(m[3].trim());
+    // «Episodio 15 - Nombre». Si no viniera con ese formato se deja tal cual:
+    // mejor sin etiqueta que inventando una.
+    const partes = /^Episodio\s+(\d+)\s*-\s*(.+)$/i.exec(crudo);
+    items.push({
+      title: partes ? partes[2] : crudo,
+      url: m[1],
+      cover: m[2],
+      update: partes ? `Ep. ${partes[1]}` : undefined,
+    });
+  }
+  return items;
+}
+
 export async function latest(page: number): Promise<PrismItem[]> {
+  // ── Pagina 1: lo que el sitio muestra como recien salido ────────────────
+  //
+  // /animes devuelve el catalogo en su orden, que no es por fecha: el Home
+  // mostraba animes viejos como novedades. La portada tiene «Añadidos
+  // recientemente», que es lo que la gente mira al entrar.
+  //
+  // Desde la pagina 2 sigue por el catalogo: la portada no se pagina.
+  if (page <= 1) {
+    try {
+      const portada = await _get(BASE);
+      const recientes = _parseRecientes(portada);
+      if (recientes.length) return recientes;
+    } catch {
+      // Sin portada se sigue por el catalogo, que es lo que hacia antes.
+    }
+  }
   const html = await _get(`${BASE}/animes${page > 1 ? `?p=${page}` : ''}`);
   return _parseCatalog(html);
 }
@@ -209,7 +256,31 @@ export async function createFilter(): Promise<Record<string, unknown>> {
 
 // ─── Detalle ────────────────────────────────────────────────────────────────
 
+/**
+ * De la direccion de un episodio a la de su serie.
+ *
+ * La pagina del episodio tiene UN solo enlace /anime/<slug>. Se lee de ahi en
+ * vez de recortarle el «-episodio-N» al slug: el recorte parece seguro pero
+ * depende de que el sitio no cambie nunca ese sufijo, y leer el enlace real es
+ * un dato, no una suposicion.
+ */
+async function _serieDelEpisodio(url: string): Promise<string | null> {
+  try {
+    const html = await _get(url);
+    const m = /href="([^"]*\/anime\/[^"]+)"/.exec(html);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function detail(url: string): Promise<PrismDetail> {
+  // Viene de una tarjeta de «Añadidos recientemente». Si no se pudo averiguar
+  // la serie, se sigue con lo que vino.
+  if (url.indexOf('/ver/') >= 0) {
+    const serie = await _serieDelEpisodio(url);
+    if (serie) url = serie;
+  }
   const html = await _get(_fullUrl(url));
 
   const title = decodeEntities(
