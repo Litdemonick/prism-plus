@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Pornhub
-// @version      1.0.4
+// @version      1.0.5
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -219,11 +219,18 @@ function _urlDeVideo(viewkey) {
   return `${BASE}/view_video.php?viewkey=${viewkey}`;
 }
 var _cachePagina = createCache();
-async function _pagina(url) {
+var _bajadaEl = {};
+var FRESCA_PARA_REPRODUCIR = 5 * 6e4;
+async function _pagina(url, paraReproducir = false) {
+  var _a;
   const guardada = _cachePagina.get(url);
-  if (guardada) return guardada;
+  if (guardada) {
+    const edad = Date.now() - ((_a = _bajadaEl[url]) != null ? _a : 0);
+    if (!paraReproducir || edad < FRESCA_PARA_REPRODUCIR) return guardada;
+  }
   const html = await _get(url);
   _cachePagina.set(url, html, TTL.DETAIL);
+  _bajadaEl[url] = Date.now();
   return html;
 }
 function _parseListado(html) {
@@ -410,7 +417,7 @@ async function detail(url) {
   };
 }
 async function watch(url) {
-  const html = await _pagina(url);
+  const html = await _pagina(url, true);
   const streams = [];
   const vistas = {};
   for (const m of html.matchAll(/"videoUrl":"([^"]+?)"[^}]*?"quality":"?(\d+)"?/g)) {

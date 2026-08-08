@@ -44,17 +44,50 @@ function _urlDeVideo(viewkey: string): string {
  * ya se habia pagado al abrir la ficha.
  *
  * Se guarda con el TTL de los detalles y no el de las fuentes: lo que se guarda
- * es la PAGINA. Las direcciones de video que trae adentro si caducan (llevan
- * firma y vencimiento), pero eso no importa porque se vuelven a leer de la
- * pagina en cada watch(), y media hora esta muy por debajo de lo que duran.
+ * es la PAGINA. Para la ficha eso alcanza: el titulo y la portada no caducan.
+ *
+ * ── Pero para reproducir NO alcanza, y el numero lo dice ────────────────────
+ *
+ * Aca decia que media hora «esta muy por debajo» de lo que duran las firmas.
+ * Medido el 2026-08-08 contra el sitio: el parametro `e` de las direcciones
+ * vencia a los 52 MINUTOS de bajar la pagina. O sea que treinta no esta muy por
+ * debajo de nada — esta a veintidos minutos del limite.
+ *
+ * La cuenta que sale mal: si la ficha se abrio hace 29 minutos y recien ahi se
+ * toca Reproducir, la pagina guardada todavia se sirve, pero a sus direcciones
+ * les quedan 23 minutos de vida. Un video mas largo que eso se queda cargando
+ * para siempre en la mitad, sin ningun error visible: los segmentos empiezan a
+ * contestar 412 y el reproductor sigue esperando. Lo mismo al cambiar de
+ * calidad, que usa las direcciones de la misma tanda.
+ *
+ * Por eso hay dos usos distintos de la misma pagina. `detail()` la toma
+ * guardada, sin problema. `watch()` exige que sea RECIENTE, y si no lo es la
+ * baja de nuevo: se pagan 571 ms una vez, contra un video que no se puede
+ * terminar de ver.
  */
 const _cachePagina = createCache();
 
-async function _pagina(url: string): Promise<string> {
+/** Cuando se bajo cada pagina, para saber si sus firmas siguen sirviendo. */
+const _bajadaEl: Record<string, number> = {};
+
+/**
+ * Cuanta vida le tiene que quedar a las firmas para reproducir con ellas.
+ *
+ * Cinco minutos de antiguedad deja unos 47 de margen, que cubre de sobra
+ * cualquier video del sitio. Mas corto seria bajar la pagina de 1,3 MB casi
+ * siempre, y esa espera es justo la que este cache vino a evitar.
+ */
+const FRESCA_PARA_REPRODUCIR = 5 * 60_000;
+
+async function _pagina(url: string, paraReproducir = false): Promise<string> {
   const guardada = _cachePagina.get<string>(url);
-  if (guardada) return guardada;
+  if (guardada) {
+    const edad = Date.now() - (_bajadaEl[url] ?? 0);
+    if (!paraReproducir || edad < FRESCA_PARA_REPRODUCIR) return guardada;
+  }
   const html = await _get(url);
   _cachePagina.set(url, html, TTL.DETAIL);
+  _bajadaEl[url] = Date.now();
   return html;
 }
 
@@ -326,9 +359,10 @@ export async function detail(url: string): Promise<PrismDetail> {
  * reproducir y no guardar la URL para despues.
  */
 export async function watch(url: string): Promise<PrismWatch> {
-  // Reutiliza la que ya bajo la ficha: es la misma pagina de 1,3 MB y sin esto
-  // se paga la espera entera otra vez al tocar Reproducir.
-  const html = await _pagina(url);
+  // Reutiliza la que ya bajo la ficha, pero solo si es reciente: sus firmas
+  // vencen a los 52 minutos y con una pagina vieja el video se corta en la
+  // mitad. Ver el comentario largo en `_pagina`.
+  const html = await _pagina(url, true);
 
   const streams: PrismStream[] = [];
   const vistas: Record<string, boolean> = {};

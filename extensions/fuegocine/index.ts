@@ -158,27 +158,64 @@ function _entryToItem(e: _FeedEntry): PrismItem {
 }
 
 async function _fetchLabel(label: 'Movie' | 'Serie', page: number): Promise<PrismItem[]> {
+  return (await _fetchLabelConFecha(label, page)).map((x) => x.item);
+}
+
+/**
+ * Lo mismo, pero conservando cuando se publico cada uno.
+ *
+ * La fecha no va en `PrismItem` —no la muestra nadie— pero hace falta para
+ * poder mezclar dos etiquetas por fecha real. Ver `latest`.
+ */
+async function _fetchLabelConFecha(
+  label: 'Movie' | 'Serie',
+  page: number,
+): Promise<{ item: PrismItem; fecha: string }[]> {
   const perPage = 20;
   const startIndex = (page - 1) * perPage + 1;
   const url = `${BASE}/feeds/posts/default/-/${label}?alt=json&max-results=${perPage}&start-index=${startIndex}`;
   const json = await _get(url);
   if (typeof json === 'string') return [];
   const entries: _FeedEntry[] = (json as any)?.feed?.entry ?? [];
-  return entries.map(_entryToItem);
+  return entries.map((e) => ({
+    item: _entryToItem(e),
+    fecha: (e as any)?.published?.$t ?? '',
+  }));
 }
 
 // Sin filtro de tipo, se intercala película/serie página a página — igual
 // convención que las demás extensiones de este repo (no hay un feed único
 // que combine ambas etiquetas con OR, Blogger solo permite AND entre labels).
+/**
+ * Lo ultimo que publico el sitio, peliculas y series juntas y POR FECHA.
+ *
+ * ── Por que no se alternan una y una ────────────────────────────────────────
+ *
+ * Blogger no deja pedir dos etiquetas con OR, asi que hay que traer las dos por
+ * separado. Antes se intercalaban de a una —pelicula, serie, pelicula, serie— y
+ * eso parece justo pero no lo es: el sitio publica muchas mas peliculas que
+ * series, asi que las series se acaban enseguida y las viejas suben.
+ *
+ * Medido el 2026-08-08: las cinco peliculas mas nuevas eran todas del 6 de
+ * agosto, y las series iban del 4 de agosto al 1 de JULIO. Intercalando, «X Men
+ * '97» del 1 de julio salia decimo, por delante de peliculas de anteayer. La
+ * fila decia «Lo mas reciente» y mostraba cosas de hace cinco semanas.
+ *
+ * Ordenando por la fecha de publicacion sale lo que de verdad acaba de salir, en
+ * el orden en que salio, sin importar de que tipo sea. Si un dia publican tres
+ * series seguidas, van las tres arriba, que es lo correcto.
+ */
 export async function latest(page: number): Promise<PrismItem[]> {
-  const [movies, series] = await Promise.all([_fetchLabel('Movie', page), _fetchLabel('Serie', page)]);
-  const merged: PrismItem[] = [];
-  const max = Math.max(movies.length, series.length);
-  for (let i = 0; i < max; i++) {
-    if (movies[i]) merged.push(movies[i]);
-    if (series[i]) merged.push(series[i]);
-  }
-  return merged;
+  const [movies, series] = await Promise.all([
+    _fetchLabelConFecha('Movie', page),
+    _fetchLabelConFecha('Serie', page),
+  ]);
+  const todo = [...movies, ...series];
+  // Comparacion de texto y no de Date: el feed las da en ISO 8601, que ordenado
+  // como texto ya queda cronologico, y evita depender de como parsea fechas el
+  // motor de JavaScript de cada plataforma.
+  todo.sort((a, b) => b.fecha.localeCompare(a.fecha));
+  return todo.map((x) => x.item);
 }
 
 // ─── Búsqueda ───────────────────────────────────────────────────────────────

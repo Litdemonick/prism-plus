@@ -41,7 +41,7 @@
     {
       "name": "FuegoCine",
       "package": "io.prismhub.fuegocine",
-      "version": "1.9.2",
+      "version": "1.9.3",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -51,8 +51,8 @@
       "license": "MIT",
       "latestLabel": "lo-mas-reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/fuegocine.js",
-      "sha256": "bb3f88e21147deb347cea1d65277bd8a379e1d835379d25b1776ab23fc7e226b",
-      "signature": "YX1cW6r0I0/IVevxNWSR76MKEcPvIT4c8REDj5mhIlq+nP+vr02N2r7o97OkqFMgPLRZb6F2hj9gFFy1W4c5Ag=="
+      "sha256": "608581d7657ba18f4646f6ea984a17ef96f4b32333b9bf9c6d65ff7883cc4fca",
+      "signature": "ELsAXB/VNBh9LgPhKBuwDmSHk0QlGBBq9CLo7UtgDa16VMcpqvc3cdQK4xqGipAXiNBYKU4M2ZTH1Kh/kAWWBA=="
     },
     {
       "name": "HentaiLA",
@@ -188,7 +188,7 @@
     {
       "name": "Pornhub",
       "package": "io.prismhub.pornhub",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -199,8 +199,8 @@
       "nsfw": "true",
       "latestLabel": "lo-mas-reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/pornhub.js",
-      "sha256": "71c3a70a584763658aa2aac0474dd9130abd2574c89d928a55f2f40538b9c40a",
-      "signature": "zsmPO8Z8PsNT3tkSmsTujrLYTj4wCMNkMfcuhP3mvG9rjnQAdEu9QRXqDw6ZIKwWk8BjD4DZ/AuPzEHgQc01CA=="
+      "sha256": "cfb6e817e1b6331182073fd56be109dec692fc694770c8f2ac7c25c90b59144d",
+      "signature": "PJIbchc9nrXtK16Y3s1G4rfdCc2+RFhyQ9/f5ldYWrvKFZjo2Qs0H+8IxzaxyN4VltH4ygYtm7ysPp1Mv0NrAg=="
     },
     {
       "name": "ShadeManga",

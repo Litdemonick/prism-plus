@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.9.2
+// @version      1.9.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -723,6 +723,9 @@ function _entryToItem(e) {
   };
 }
 async function _fetchLabel(label, page) {
+  return (await _fetchLabelConFecha(label, page)).map((x) => x.item);
+}
+async function _fetchLabelConFecha(label, page) {
   var _a, _b;
   const perPage = 20;
   const startIndex = (page - 1) * perPage + 1;
@@ -730,17 +733,22 @@ async function _fetchLabel(label, page) {
   const json = await _get(url);
   if (typeof json === "string") return [];
   const entries = (_b = (_a = json == null ? void 0 : json.feed) == null ? void 0 : _a.entry) != null ? _b : [];
-  return entries.map(_entryToItem);
+  return entries.map((e) => {
+    var _a2, _b2;
+    return {
+      item: _entryToItem(e),
+      fecha: (_b2 = (_a2 = e == null ? void 0 : e.published) == null ? void 0 : _a2.$t) != null ? _b2 : ""
+    };
+  });
 }
 async function latest(page) {
-  const [movies, series] = await Promise.all([_fetchLabel("Movie", page), _fetchLabel("Serie", page)]);
-  const merged = [];
-  const max = Math.max(movies.length, series.length);
-  for (let i = 0; i < max; i++) {
-    if (movies[i]) merged.push(movies[i]);
-    if (series[i]) merged.push(series[i]);
-  }
-  return merged;
+  const [movies, series] = await Promise.all([
+    _fetchLabelConFecha("Movie", page),
+    _fetchLabelConFecha("Serie", page)
+  ]);
+  const todo = [...movies, ...series];
+  todo.sort((a, b) => b.fecha.localeCompare(a.fecha));
+  return todo.map((x) => x.item);
 }
 var _TYPE_OPTIONS = {
   "": "Todos",
