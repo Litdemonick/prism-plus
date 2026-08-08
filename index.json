@@ -107,7 +107,7 @@
     {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
-      "version": "1.12.10",
+      "version": "1.12.11",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -117,8 +117,8 @@
       "license": "MIT",
       "latestLabel": "programacion",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "b6cb93be669362fc14f2c1c4afdf1641fb8b5ab8c22109d94700abefae1c137a",
-      "signature": "MoNIpwp7JNEADdGiq9g2X/zNFNcGTh1fwCt/RLSL9jrwFNJuqn/4fu8MAxQNcDvgavKMuMQyY4bwI+SaGEY3CQ=="
+      "sha256": "89a2dd9ed3b93c43d6d2b0674ef9987718b582904e6d0c6694c399be937d1122",
+      "signature": "ywDFTFiTEp1xEmTm0yMTHy90Ggcl+M8D2DJh4cIHEqyx4W1m2Bb5R02hb85/bn7ZQcMsQH41kiLRTWoQbXoeCA=="
     },
     {
       "name": "LaMovie",

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.10
+// @version      1.12.11
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -786,9 +786,13 @@ function _directorioQuery(page, filter) {
 function _parseProgramacion(html) {
   const i = html.search(/Programaci/i);
   if (i < 0) return [];
+  const seccion = html.slice(i);
+  const desde = seccion.indexOf('id="animes"');
+  const hasta = seccion.indexOf('id="donghuas"');
+  const frag = desde < 0 ? seccion : seccion.slice(desde, hasta > desde ? hasta : void 0);
   const items = [];
   const re = /<a href="(https:\/\/jkanime\.net\/[^"\/]+\/\d+\/)">[\s\S]{0,400}?data-animepic="([^"]+)"[\s\S]{0,600}?<span class="badge badge-primary">Ep\s*(\d+)<\/span>[\s\S]{0,400}?<h5[^>]*>([^<]+)<\/h5>/g;
-  for (const m of html.slice(i).matchAll(re)) {
+  for (const m of frag.matchAll(re)) {
     items.push({
       title: decodeEntities(m[4].trim()),
       url: m[1],

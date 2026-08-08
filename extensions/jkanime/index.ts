@@ -114,10 +114,24 @@ function _directorioQuery(page: number, filter?: Record<string, string[]>): stri
 function _parseProgramacion(html: string): PrismItem[] {
   const i = html.search(/Programaci/i);
   if (i < 0) return [];
+  // ── Solo la pestaña «Animes» ──────────────────────────────────────────
+  //
+  // La seccion trae TRES pestañas en el mismo HTML —Animes, Donghuas y Ovas—
+  // aunque el sitio muestre una sola. Leyendolas todas salian 64 tarjetas en
+  // vez de 32, mezcladas: el usuario veia titulos que no estaban en la
+  // programacion que el sitio le enseña.
+  //
+  // Se recorta al panel de animes, que es el que esta activo por defecto.
+  const seccion = html.slice(i);
+  const desde = seccion.indexOf('id="animes"');
+  const hasta = seccion.indexOf('id="donghuas"');
+  const frag = desde < 0
+    ? seccion
+    : seccion.slice(desde, hasta > desde ? hasta : undefined);
   const items: PrismItem[] = [];
   const re =
     /<a href="(https:\/\/jkanime\.net\/[^"\/]+\/\d+\/)">[\s\S]{0,400}?data-animepic="([^"]+)"[\s\S]{0,600}?<span class="badge badge-primary">Ep\s*(\d+)<\/span>[\s\S]{0,400}?<h5[^>]*>([^<]+)<\/h5>/g;
-  for (const m of html.slice(i).matchAll(re)) {
+  for (const m of frag.matchAll(re)) {
     items.push({
       title: decodeEntities(m[4].trim()),
       url: m[1],
