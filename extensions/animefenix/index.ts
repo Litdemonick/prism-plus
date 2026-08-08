@@ -69,7 +69,54 @@ function _parseCatalog(html: string): PrismItem[] {
   return items;
 }
 
+/**
+ * «Episodios recientes» de la portada.
+ *
+ * Devuelve EPISODIOS, no series: la direccion es /ver/<slug>-<n> y el titulo
+ * lleva su numero en `update`. Al tocar la tarjeta, `detail()` se encarga de
+ * remontar a la serie — ver el comentario ahi.
+ */
+function _parseRecientes(html: string): PrismItem[] {
+  const i = html.indexOf('Episodios recientes');
+  if (i < 0) return [];
+  // Hasta la proxima seccion: sin esto se leeria la portada entera.
+  const resto = html.slice(i);
+  const fin = resto.slice(30).indexOf('<section');
+  const frag = fin > 0 ? resto.slice(0, fin + 30) : resto;
+
+  const items: PrismItem[] = [];
+  const re =
+    /<a href="(\/ver\/[^"]+)" title="([^"]*?)\s*Episodio\s*(\d+)"[\s\S]*?<img src="([^"]+)"/g;
+  for (const m of frag.matchAll(re)) {
+    items.push({
+      title: decodeEntities(m[2].trim()),
+      url: m[1],
+      cover: m[4],
+      update: `Ep. ${m[3]}`,
+    });
+  }
+  return items;
+}
+
 export async function latest(page: number): Promise<PrismItem[]> {
+  // ── Pagina 1: lo que el sitio muestra como recien salido ────────────────
+  //
+  // /directorio/anime devuelve el catalogo completo en su orden, que no es por
+  // fecha: el Home mostraba animes viejos como si fueran novedades. La portada
+  // tiene su seccion de episodios recientes y es la que la gente mira.
+  //
+  // Desde la pagina 2 sigue por el directorio: la portada no se pagina, y es
+  // mejor continuar con otra cosa que cortarse en seco.
+  if (page <= 1) {
+    try {
+      const portada = await _get(BASE);
+      const recientes = _parseRecientes(portada);
+      if (recientes.length) return recientes;
+    } catch {
+      // La portada no contesto: se sigue por el directorio, que es lo que
+      // hacia antes.
+    }
+  }
   const query = _buildQuery({ p: page > 1 ? String(page) : undefined });
   const html = await _get(`${BASE}/directorio/anime${query ? `?${query}` : ''}`);
   return _parseCatalog(html);
@@ -216,7 +263,37 @@ export async function createFilter(): Promise<Record<string, unknown>> {
 
 // ─── Detalle ────────────────────────────────────────────────────────────────
 
+/**
+ * De la direccion de un episodio a la de su serie.
+ *
+ * ── Por que se lee la pagina y no se corta el slug ─────────────────────────
+ *
+ * Lo facil seria sacarle el `-6` final a `/ver/hell-mode-s2-6`. Funciona en la
+ * mayoria, pero se rompe con cualquier serie cuyo slug termine en numero —y
+ * las hay: temporadas, años, secuelas—. Ahi la ficha abriria en otra serie o
+ * en nada, sin ninguna pista de por que.
+ *
+ * La pagina del episodio tiene un boton «Episodios» que apunta a su serie, con
+ * el icono `fa-list-alt`. Eso es un dato del sitio, no una suposicion nuestra.
+ */
+async function _serieDelEpisodio(url: string): Promise<string | null> {
+  try {
+    const html = await _get(_fullUrl(url));
+    const m = /<a href="(\/[^"]+)"[^>]*>\s*<i class="fa fa-list-alt"/.exec(html);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function detail(url: string): Promise<PrismDetail> {
+  // Viene de una tarjeta de «Episodios recientes»: primero se averigua de que
+  // serie es. Si no se pudo, se sigue con lo que vino — devolver un error seria
+  // peor que intentar.
+  if (url.indexOf('/ver/') >= 0) {
+    const serie = await _serieDelEpisodio(url);
+    if (serie) url = serie;
+  }
   const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
   const slug = fullUrl.replace(`${BASE}/`, '').replace(/\/$/, '');

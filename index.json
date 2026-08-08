@@ -8,7 +8,7 @@
     {
       "name": "AnimeFenix",
       "package": "io.prismhub.animefenix",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -17,8 +17,8 @@
       "webSite": "https://animefenix2.tv",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animefenix.js",
-      "sha256": "fb7a0e1c858184f2437fe633d2caa4c37dcf1f72f49d6ab12d7725e31bee0db1",
-      "signature": "zn9BFReMR/VIOj/dc28w1KaWD13oUPHGfc3vCboWwdTJSngpfe0OBqpAyYQoc4Ob2MvvnObteGRHuKr2u3IJCw=="
+      "sha256": "7c5ce44b4953dc7c1c9e09d9e89bd58a98f78e9fc5f38897d9a6175c9ddecb14",
+      "signature": "hEm9kyw6BnxP/B6m47b9ZPvABlU4H27nkovQFGZfjMeZm4S2QP5zp2eqO2LEeYBvuJwn1zpsshShdZfMoWnsCw=="
     },
     {
       "name": "Eporner",

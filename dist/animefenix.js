@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeFenix
-// @version      1.3.0
+// @version      1.3.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -607,7 +607,33 @@ function _parseCatalog(html) {
   }
   return items;
 }
+function _parseRecientes(html) {
+  const i = html.indexOf("Episodios recientes");
+  if (i < 0) return [];
+  const resto = html.slice(i);
+  const fin = resto.slice(30).indexOf("<section");
+  const frag = fin > 0 ? resto.slice(0, fin + 30) : resto;
+  const items = [];
+  const re = /<a href="(\/ver\/[^"]+)" title="([^"]*?)\s*Episodio\s*(\d+)"[\s\S]*?<img src="([^"]+)"/g;
+  for (const m of frag.matchAll(re)) {
+    items.push({
+      title: decodeEntities(m[2].trim()),
+      url: m[1],
+      cover: m[4],
+      update: `Ep. ${m[3]}`
+    });
+  }
+  return items;
+}
 async function latest(page) {
+  if (page <= 1) {
+    try {
+      const portada = await _get(BASE2);
+      const recientes = _parseRecientes(portada);
+      if (recientes.length) return recientes;
+    } catch (e) {
+    }
+  }
   const query = _buildQuery({ p: page > 1 ? String(page) : void 0 });
   const html = await _get(`${BASE2}/directorio/anime${query ? `?${query}` : ""}`);
   return _parseCatalog(html);
@@ -707,8 +733,21 @@ async function createFilter() {
     estado: { title: "Estado", options: _STATUS_OPTIONS, default: "", min: 1, max: 1 }
   };
 }
+async function _serieDelEpisodio(url) {
+  try {
+    const html = await _get(_fullUrl(url));
+    const m = /<a href="(\/[^"]+)"[^>]*>\s*<i class="fa fa-list-alt"/.exec(html);
+    return m ? m[1] : null;
+  } catch (e) {
+    return null;
+  }
+}
 async function detail(url) {
   var _a, _b, _c, _d, _e, _f, _g, _h;
+  if (url.indexOf("/ver/") >= 0) {
+    const serie = await _serieDelEpisodio(url);
+    if (serie) url = serie;
+  }
   const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
   const slug = fullUrl.replace(`${BASE2}/`, "").replace(/\/$/, "");
