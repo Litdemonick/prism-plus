@@ -101,10 +101,55 @@ function _directorioQuery(page: number, filter?: Record<string, string[]>): stri
   return parts.join('&');
 }
 
+/**
+ * «Programacion» de la portada: los episodios que acaban de salir.
+ *
+ * Devuelve EPISODIOS —la direccion es /<slug>/<n>/— con el numero en `update`.
+ * Al tocar la tarjeta, `_toSlug` se queda con la serie (ver el comentario ahi).
+ *
+ * La portada del sitio pone en `src` una captura del episodio y en
+ * `data-animepic` la portada de la serie. Se usa la segunda: es la que se
+ * reconoce de un vistazo y la que ya se ve en el resto del Home.
+ */
+function _parseProgramacion(html: string): PrismItem[] {
+  const i = html.search(/Programaci/i);
+  if (i < 0) return [];
+  const items: PrismItem[] = [];
+  const re =
+    /<a href="(https:\/\/jkanime\.net\/[^"\/]+\/\d+\/)">[\s\S]{0,400}?data-animepic="([^"]+)"[\s\S]{0,600}?<span class="badge badge-primary">Ep\s*(\d+)<\/span>[\s\S]{0,400}?<h5[^>]*>([^<]+)<\/h5>/g;
+  for (const m of html.slice(i).matchAll(re)) {
+    items.push({
+      title: decodeEntities(m[4].trim()),
+      url: m[1],
+      cover: m[2],
+      update: `Ep. ${m[3]}`,
+    });
+  }
+  return items;
+}
+
 export async function latest(
   page: number,
   filter?: Record<string, string[]>,
 ): Promise<PrismItem[]> {
+  // ── Pagina 1 y sin filtros: la programacion de la portada ───────────────
+  //
+  // El directorio devuelve el catalogo en su orden, que no es por fecha: el
+  // Home mostraba animes viejos como novedades. La programacion es lo que el
+  // sitio pone primero, con lo que salio hoy y ayer.
+  //
+  // Con filtros NO: ahi el usuario pidio algo concreto y la portada no sabe
+  // filtrar. Y desde la pagina 2 tampoco, porque la portada no se pagina —
+  // mejor seguir por el directorio que cortarse en seco.
+  if (page <= 1 && (!filter || Object.keys(filter).length === 0)) {
+    try {
+      const portada = await _get(BASE);
+      const programacion = _parseProgramacion(portada);
+      if (programacion.length) return programacion;
+    } catch {
+      // Sin portada se sigue por el directorio, que es lo que hacia antes.
+    }
+  }
   const html = await _get(`${BASE}/directorio?${_directorioQuery(page, filter)}`);
   const dir = _parseDirectoryPage(html);
   if (!dir || page > dir.last_page) return [];
@@ -964,10 +1009,18 @@ function _guessServerName(url: string): string {
 }
 
 function _toSlug(url: string): string {
-  if (url.indexOf('http') !== 0) return url.replace(/\/+$/, '');
-  return url
-    .replace(/^https?:\/\/jkanime\.net\//, '')
-    .replace(/\/+$/, '');
+  const limpio =
+    url.indexOf('http') !== 0
+      ? url.replace(/\/+$/, '')
+      : url.replace(/^https?:\/\/jkanime\.net\//, '').replace(/\/+$/, '');
+  // ── Si viene un EPISODIO, se queda la serie ─────────────────────────────
+  //
+  // La programacion de la portada enlaza a `/<slug>/<n>/` — el numero de
+  // episodio es un segmento de ruta propio, no parte del nombre. Asi que
+  // quitarlo es estructural y no una suposicion sobre el titulo: una serie
+  // cuyo nombre termine en numero no se rompe, porque ese numero va dentro del
+  // mismo segmento y no en uno aparte.
+  return limpio.replace(/\/\d+$/, '');
 }
 
 const _NAV_SLUGS = new Set([

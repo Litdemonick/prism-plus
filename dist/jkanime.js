@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.7
+// @version      1.12.8
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -782,7 +782,30 @@ function _directorioQuery(page, filter) {
   add("temporada");
   return parts.join("&");
 }
+function _parseProgramacion(html) {
+  const i = html.search(/Programaci/i);
+  if (i < 0) return [];
+  const items = [];
+  const re = /<a href="(https:\/\/jkanime\.net\/[^"\/]+\/\d+\/)">[\s\S]{0,400}?data-animepic="([^"]+)"[\s\S]{0,600}?<span class="badge badge-primary">Ep\s*(\d+)<\/span>[\s\S]{0,400}?<h5[^>]*>([^<]+)<\/h5>/g;
+  for (const m of html.slice(i).matchAll(re)) {
+    items.push({
+      title: decodeEntities(m[4].trim()),
+      url: m[1],
+      cover: m[2],
+      update: `Ep. ${m[3]}`
+    });
+  }
+  return items;
+}
 async function latest(page, filter) {
+  if (page <= 1 && (!filter || Object.keys(filter).length === 0)) {
+    try {
+      const portada = await _get(BASE);
+      const programacion = _parseProgramacion(portada);
+      if (programacion.length) return programacion;
+    } catch (e) {
+    }
+  }
   const html = await _get(`${BASE}/directorio?${_directorioQuery(page, filter)}`);
   const dir = _parseDirectoryPage(html);
   if (!dir || page > dir.last_page) return [];
@@ -1319,8 +1342,8 @@ function _guessServerName(url) {
   return "Embed";
 }
 function _toSlug(url) {
-  if (url.indexOf("http") !== 0) return url.replace(/\/+$/, "");
-  return url.replace(/^https?:\/\/jkanime\.net\//, "").replace(/\/+$/, "");
+  const limpio = url.indexOf("http") !== 0 ? url.replace(/\/+$/, "") : url.replace(/^https?:\/\/jkanime\.net\//, "").replace(/\/+$/, "");
+  return limpio.replace(/\/\d+$/, "");
 }
 var _NAV_SLUGS = /* @__PURE__ */ new Set([
   "genero",
