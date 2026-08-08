@@ -1,13 +1,13 @@
 // ==PrismHubExtension==
 // @name         AnimeFenix
-// @version      1.3.2
+// @version      1.3.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.animefenix
 // @type         bangumi
 // @nsfw         false
-// @latestLabel  Episodios recientes
+// @latestLabel  episodios-recientes
 // @webSite      https://animefenix2.tv
 // @description  Anime sub y latino con catálogo completo, filtros y varios servidores de respaldo para ver sin cortes.
 // ==/PrismHubExtension==

@@ -1,7 +1,7 @@
 {
   "name": "TuMangaOnline",
   "package": "io.prismhub.tumangaonline",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "author": "PrismPlus",
   "type": "manga",
   "icon": "",
@@ -9,5 +9,5 @@
   "lang": "es",
   "webSite": "https://zonatmo.org",
   "license": "MIT",
-  "latestLabel": "Últimos añadidos"
+  "latestLabel": "ultimos-anadidos"
 }

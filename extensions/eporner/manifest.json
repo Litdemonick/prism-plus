@@ -1,7 +1,7 @@
 {
   "name": "Eporner",
   "package": "io.prismhub.eporner",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "PrismPlus",
   "type": "video",
   "icon": "",
@@ -10,5 +10,5 @@
   "webSite": "https://www.eporner.com",
   "license": "MIT",
   "nsfw": "true",
-  "latestLabel": "Lo más reciente"
+  "latestLabel": "lo-mas-reciente"
 }

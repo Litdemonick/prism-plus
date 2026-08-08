@@ -152,10 +152,19 @@ function makeHeader(m) {
     // correctamente — rompía por completo la Zona +18 (nunca preguntaba
     // nada, nunca separaba nada) para toda extensión ya instalada.
     `// @nsfw         ${m.nsfw === 'true' ? 'true' : 'false'}`,
-    // Como llama el sitio a su seccion de «lo ultimo» — «Programacion»,
-    // «Ultimos añadidos», «Novedades». PrismHub lo muestra debajo del nombre de
-    // la extension en el Home, para que se sepa QUE esta viendo uno y no solo
-    // de donde viene. Opcional: sin esto, el Home dice «Lo mas reciente».
+    // Como llama el sitio a su seccion de «lo ultimo».
+    //
+    // Es una CLAVE, no un texto: 'programacion', 'ultimos-anadidos',
+    // 'novedades'. PrismHub la traduce (home.seccion.<clave>) y la muestra
+    // debajo del nombre de la extension en el Home, para que se sepa QUE esta
+    // viendo uno y no solo de donde viene.
+    //
+    // Clave y no texto libre porque la app esta en español y en ingles, y una
+    // etiqueta escrita a mano acá quedaria en español para todos. Si llega una
+    // clave que PrismHub no conoce —una extension de la comunidad— la muestra
+    // tal cual, asi que texto libre tampoco rompe nada.
+    //
+    // Opcional: sin esto, el Home dice «Lo mas reciente».
     ...(m.latestLabel ? [`// @latestLabel  ${m.latestLabel}`] : []),
     `// @webSite      ${m.webSite ?? ''}`,
     `// @description  ${m.description ?? ''}`,

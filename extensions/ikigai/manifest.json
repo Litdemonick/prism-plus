@@ -1,7 +1,7 @@
 {
   "name": "Ikigai Mangas",
   "package": "io.prismhub.ikigai",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "author": "PrismPlus",
   "type": "mixedReading",
   "icon": "",
@@ -9,5 +9,5 @@
   "lang": "es",
   "webSite": "https://visorikigai.gettocaboca.com",
   "license": "MIT",
-  "latestLabel": "Nuevos capítulos"
+  "latestLabel": "nuevos-capitulos"
 }

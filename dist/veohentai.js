@@ -1,13 +1,13 @@
 // ==PrismHubExtension==
 // @name         VeoHentai
-// @version      1.0.2
+// @version      1.0.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.veohentai
 // @type         bangumi
 // @nsfw         true
-// @latestLabel  Lo más reciente
+// @latestLabel  lo-mas-reciente
 // @webSite      https://veohentai.com
 // @description  Hentai en español agrupado por serie, con catálogo completo y filtros por género y estudio (contenido +18).
 // ==/PrismHubExtension==

@@ -1,13 +1,13 @@
 // ==PrismHubExtension==
 // @name         LatAnime
-// @version      1.1.2
+// @version      1.1.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.latanime
 // @type         bangumi
 // @nsfw         false
-// @latestLabel  Añadidos recientemente
+// @latestLabel  anadidos-recientemente
 // @webSite      https://latanime.org
 // @description  Anime doblado al latino y castellano, con filtros por año, género, letra y categoría, y varios servidores por episodio.
 // ==/PrismHubExtension==

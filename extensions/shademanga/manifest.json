@@ -1,7 +1,7 @@
 {
   "name": "ShadeManga",
   "package": "io.prismhub.shademanga",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "author": "PrismPlus",
   "type": "mixed",
   "icon": "",
@@ -10,5 +10,5 @@
   "webSite": "https://www.shademanga.com",
   "license": "MIT",
   "nsfw": "false",
-  "latestLabel": "Novedades"
+  "latestLabel": "novedades"
 }

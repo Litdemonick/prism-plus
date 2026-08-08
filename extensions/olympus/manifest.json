@@ -1,7 +1,7 @@
 {
   "name": "Olympus",
   "package": "io.prismhub.olympus",
-  "version": "1.2.11",
+  "version": "1.2.12",
   "author": "PrismPlus",
   "type": "manga",
   "icon": "",
@@ -9,5 +9,5 @@
   "lang": "es",
   "webSite": "https://olympusxyz.com",
   "license": "MIT",
-  "latestLabel": "Nuevos lanzamientos"
+  "latestLabel": "nuevos-lanzamientos"
 }

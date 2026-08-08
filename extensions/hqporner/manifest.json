@@ -1,7 +1,7 @@
 {
   "name": "HQPorner",
   "package": "io.prismhub.hqporner",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "author": "PrismPlus",
   "type": "video",
   "icon": "",
@@ -10,5 +10,5 @@
   "webSite": "https://hqporner.com",
   "license": "MIT",
   "nsfw": "true",
-  "latestLabel": "Lo más reciente"
+  "latestLabel": "lo-mas-reciente"
 }

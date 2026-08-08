@@ -1,7 +1,7 @@
 {
   "name": "Pornhub",
   "package": "io.prismhub.pornhub",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "author": "PrismPlus",
   "type": "video",
   "icon": "",
@@ -10,5 +10,5 @@
   "webSite": "https://es.pornhub.com",
   "license": "MIT",
   "nsfw": "true",
-  "latestLabel": "Lo más reciente"
+  "latestLabel": "lo-mas-reciente"
 }

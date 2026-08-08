@@ -1,7 +1,7 @@
 {
   "name": "ManhwaWeb",
   "package": "io.prismhub.manhwaweb",
-  "version": "1.3.13",
+  "version": "1.3.14",
   "author": "PrismPlus",
   "type": "manga",
   "icon": "",
@@ -10,5 +10,5 @@
   "webSite": "https://manhwaweb.com",
   "license": "MIT",
   "nsfw": "true",
-  "latestLabel": "Nuevos manhwas"
+  "latestLabel": "nuevos-manhwas"
 }

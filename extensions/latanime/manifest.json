@@ -1,7 +1,7 @@
 {
   "name": "LatAnime",
   "package": "io.prismhub.latanime",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "author": "PrismPlus",
   "type": "anime",
   "icon": "",
@@ -9,5 +9,5 @@
   "lang": "es",
   "webSite": "https://latanime.org",
   "license": "MIT",
-  "latestLabel": "Añadidos recientemente"
+  "latestLabel": "anadidos-recientemente"
 }

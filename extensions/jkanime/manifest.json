@@ -1,7 +1,7 @@
 {
   "name": "JKAnime",
   "package": "io.prismhub.jkanime",
-  "version": "1.12.9",
+  "version": "1.12.10",
   "author": "PrismPlus",
   "type": "anime",
   "icon": "",
@@ -9,5 +9,5 @@
   "lang": "es",
   "webSite": "https://jkanime.net",
   "license": "MIT",
-  "latestLabel": "Programación"
+  "latestLabel": "programacion"
 }

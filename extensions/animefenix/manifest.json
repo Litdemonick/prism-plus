@@ -1,7 +1,7 @@
 {
   "name": "AnimeFenix",
   "package": "io.prismhub.animefenix",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "author": "PrismPlus",
   "type": "anime",
   "icon": "",
@@ -9,5 +9,5 @@
   "lang": "es",
   "webSite": "https://animefenix2.tv",
   "license": "MIT",
-  "latestLabel": "Episodios recientes"
+  "latestLabel": "episodios-recientes"
 }

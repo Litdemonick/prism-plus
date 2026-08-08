@@ -1,13 +1,13 @@
 // ==PrismHubExtension==
 // @name         Olympus
-// @version      1.2.11
+// @version      1.2.12
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.olympus
 // @type         manga
 // @nsfw         false
-// @latestLabel  Nuevos lanzamientos
+// @latestLabel  nuevos-lanzamientos
 // @webSite      https://olympusxyz.com
 // @description  Manhwa, manga y manhua traducidos por fans — scanlation en español, actualizado seguido.
 // ==/PrismHubExtension==

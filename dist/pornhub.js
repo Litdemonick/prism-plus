@@ -1,13 +1,13 @@
 // ==PrismHubExtension==
 // @name         Pornhub
-// @version      1.0.3
+// @version      1.0.4
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.pornhub
 // @type         bangumi
 // @nsfw         true
-// @latestLabel  Lo más reciente
+// @latestLabel  lo-mas-reciente
 // @webSite      https://es.pornhub.com
 // @description  Catálogo para adultos en español, con buscador, 96 categorías, cinco órdenes y reproducción directa con selector de calidad hasta 1080p (contenido +18).
 // ==/PrismHubExtension==
