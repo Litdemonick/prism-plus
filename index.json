@@ -91,7 +91,7 @@
     {
       "name": "Ikigai Mangas",
       "package": "io.prismhub.ikigai",
-      "version": "1.1.5",
+      "version": "1.1.6",
       "author": "PrismPlus",
       "type": "mixedReading",
       "icon": "",
@@ -101,8 +101,8 @@
       "license": "MIT",
       "latestLabel": "nuevos-capitulos",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/ikigai.js",
-      "sha256": "6d2c29eed95eed3694f3950557ba47ee092191ee5075aa70d4293cdd43bd0601",
-      "signature": "H/7ymRGNvyVHAJ1S3Mbd4FgAL2etVPc16/u8OITMSn9uuV/4yD7iNaWwFETKNSKIgpiCm0XEoPmGdM13DKqWCw=="
+      "sha256": "177ee64bc7cbb904010d0994b69c59d6814b163710e61099d6853574e669cc1b",
+      "signature": "/+KpIJRLERGteEC29SBEFS/XXUTjzPrXfiHJIZRvlr4BkwZ/gei0QpDq6fr5DndtPsJB1bwLYmTv7eoFMqU6Bg=="
     },
     {
       "name": "JKAnime",

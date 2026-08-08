@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Ikigai Mangas
-// @version      1.1.5
+// @version      1.1.6
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -81,7 +81,10 @@ function _nuevosCapitulos(html) {
     const cap = /Cap\.\s*(?:<!--[^>]*-->)?\s*([\d.]+)/.exec(resto.slice(0, 900));
     items.push({
       title: _decode(m[3]),
-      url: `${BASE}${m[1]}`,
+      // El slug pelado, igual que `_itemsDe`: `detail()` arma la direccion
+      // sola, y pasarle una completa le da 500 —el enlace de la tarjeta abria
+      // en error—.
+      url: m[1].replace("/series/", "").replace(/\/$/, ""),
       cover: m[2],
       update: cap ? `Cap. ${cap[1]}` : void 0
     });
