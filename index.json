@@ -209,7 +209,7 @@
     {
       "name": "TioAnime",
       "package": "io.prismhub.tioanime",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -218,8 +218,8 @@
       "webSite": "https://tioanime.com",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js",
-      "sha256": "4650ba8d494a2e78e809e0c1201bb5965e3e467415f183a636788ed0c93b8245",
-      "signature": "WrG7w/QZxieqgTpnYmpYMq5mIOyDMLwNg+uXoPrk6tUfvN1M5TrYaxyNSGBvl3C0t58E6Cl7VERbIHC5nmZWDQ=="
+      "sha256": "084caadebc5a965d1201cbb586d98a3fcdb2c1c388b7f8f975ec289ead929bab",
+      "signature": "a4KqBaBaOsy6uVqeY6Vvj88SFtyLdxPisMLLUTwGBB3R+Bpq9OVU9e9jyzKH2DgPBRFSIxAdlKurMTWyzksHBg=="
     },
     {
       "name": "TuMangaOnline",

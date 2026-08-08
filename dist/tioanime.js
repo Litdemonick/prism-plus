@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         TioAnime
-// @version      1.1.0
+// @version      1.1.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -415,7 +415,35 @@ function _parseCatalog(html) {
   }
   return items;
 }
+function _parseUltimosEpisodios(html) {
+  const i = html.indexOf("ltimos Episodios");
+  if (i < 0) return [];
+  const resto = html.slice(i);
+  const fin = resto.slice(40).indexOf('<ul class="animes');
+  const frag = fin > 0 ? resto.slice(0, fin + 40) : resto;
+  const items = [];
+  const re = /<a href="(\/ver\/[^"]+)">\s*<div class="thumb">[\s\S]*?<img src="([^"]+)"[^>]*>[\s\S]*?<h3 class="title">([^<]+)<\/h3>/g;
+  for (const m of frag.matchAll(re)) {
+    const crudo = decodeEntities(m[3].trim());
+    const conNumero = /^(.*?)\s+(\d+)$/.exec(crudo);
+    items.push({
+      title: conNumero ? conNumero[1] : crudo,
+      url: `${BASE}${m[1]}`,
+      cover: _fullUrl(m[2]),
+      update: conNumero ? `Ep. ${conNumero[2]}` : void 0
+    });
+  }
+  return items;
+}
 async function latest(page) {
+  if (page <= 1) {
+    try {
+      const portada = await _get(BASE);
+      const recientes = _parseUltimosEpisodios(portada);
+      if (recientes.length) return recientes;
+    } catch (e) {
+    }
+  }
   const query = _buildQuery({ p: page > 1 ? String(page) : void 0 });
   const html = await _get(`${BASE}/directorio${query ? `?${query}` : ""}`);
   return _parseCatalog(html);
@@ -495,8 +523,21 @@ async function createFilter() {
     estado: { title: "Estado", options: _STATUS_OPTIONS, default: "", min: 1, max: 1 }
   };
 }
+async function _serieDelEpisodio(url) {
+  try {
+    const html = await _get(_fullUrl(url));
+    const m = /href="(\/anime\/[^"]+)"/.exec(html);
+    return m ? `${BASE}${m[1]}` : null;
+  } catch (e) {
+    return null;
+  }
+}
 async function detail(url) {
   var _a, _b, _c, _d, _e, _f, _g, _h;
+  if (url.indexOf("/ver/") >= 0) {
+    const serie = await _serieDelEpisodio(url);
+    if (serie) url = serie;
+  }
   const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
   const slug = fullUrl.replace(`${BASE}/anime/`, "").replace(/\/$/, "");

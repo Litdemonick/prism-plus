@@ -60,7 +60,56 @@ function _parseCatalog(html: string): PrismItem[] {
   return items;
 }
 
+/**
+ * «Ultimos Episodios» de la portada.
+ *
+ * Devuelve EPISODIOS: la direccion es /ver/<slug>-<n>. El titulo del sitio trae
+ * el numero pegado al final —«... 2nd Season 6»— asi que se separa: el nombre
+ * de la serie va al titulo y el numero a `update`, igual que el resto del repo.
+ */
+function _parseUltimosEpisodios(html: string): PrismItem[] {
+  const i = html.indexOf('ltimos Episodios');
+  if (i < 0) return [];
+  // Hasta la proxima lista: la portada tiene mas secciones abajo.
+  const resto = html.slice(i);
+  const fin = resto.slice(40).indexOf('<ul class="animes');
+  const frag = fin > 0 ? resto.slice(0, fin + 40) : resto;
+
+  const items: PrismItem[] = [];
+  const re =
+    /<a href="(\/ver\/[^"]+)">\s*<div class="thumb">[\s\S]*?<img src="([^"]+)"[^>]*>[\s\S]*?<h3 class="title">([^<]+)<\/h3>/g;
+  for (const m of frag.matchAll(re)) {
+    const crudo = decodeEntities(m[3].trim());
+    // El numero final es el episodio. Si no lo hubiera, se deja el titulo tal
+    // cual: mejor sin etiqueta que inventando una.
+    const conNumero = /^(.*?)\s+(\d+)$/.exec(crudo);
+    items.push({
+      title: conNumero ? conNumero[1] : crudo,
+      url: `${BASE}${m[1]}`,
+      cover: _fullUrl(m[2]),
+      update: conNumero ? `Ep. ${conNumero[2]}` : undefined,
+    });
+  }
+  return items;
+}
+
 export async function latest(page: number): Promise<PrismItem[]> {
+  // ── Pagina 1: lo que el sitio muestra como recien salido ────────────────
+  //
+  // /directorio devuelve el catalogo en su orden, que no es por fecha: el Home
+  // mostraba animes viejos como novedades. La portada tiene «Ultimos
+  // Episodios» y es lo que la gente mira al entrar.
+  //
+  // Desde la pagina 2 sigue por el directorio: la portada no se pagina.
+  if (page <= 1) {
+    try {
+      const portada = await _get(BASE);
+      const recientes = _parseUltimosEpisodios(portada);
+      if (recientes.length) return recientes;
+    } catch {
+      // Sin portada se sigue por el directorio, que es lo que hacia antes.
+    }
+  }
   const query = _buildQuery({ p: page > 1 ? String(page) : undefined });
   const html = await _get(`${BASE}/directorio${query ? `?${query}` : ''}`);
   return _parseCatalog(html);
@@ -153,7 +202,31 @@ export async function createFilter(): Promise<Record<string, unknown>> {
 
 // ─── Detalle ────────────────────────────────────────────────────────────────
 
+/**
+ * De la direccion de un episodio a la de su serie.
+ *
+ * La pagina del episodio tiene UN solo enlace /anime/<slug> —el boton que
+ * vuelve a la serie— asi que alcanza con tomar el primero. Se lee la pagina en
+ * vez de cortarle el numero al slug: hay series cuyo nombre termina en numero y
+ * ahi el recorte abriria otra cosa.
+ */
+async function _serieDelEpisodio(url: string): Promise<string | null> {
+  try {
+    const html = await _get(_fullUrl(url));
+    const m = /href="(\/anime\/[^"]+)"/.exec(html);
+    return m ? `${BASE}${m[1]}` : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function detail(url: string): Promise<PrismDetail> {
+  // Viene de una tarjeta de «Ultimos Episodios». Si no se pudo averiguar la
+  // serie, se sigue con lo que vino: intentar es mejor que fallar de entrada.
+  if (url.indexOf('/ver/') >= 0) {
+    const serie = await _serieDelEpisodio(url);
+    if (serie) url = serie;
+  }
   const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
   const slug = fullUrl.replace(`${BASE}/anime/`, '').replace(/\/$/, '');
