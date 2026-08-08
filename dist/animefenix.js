@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeFenix
-// @version      1.3.3
+// @version      1.3.4
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -612,8 +612,8 @@ function _parseRecientes(html) {
   const i = html.indexOf("Episodios recientes");
   if (i < 0) return [];
   const resto = html.slice(i);
-  const fin = resto.slice(30).indexOf("<section");
-  const frag = fin > 0 ? resto.slice(0, fin + 30) : resto;
+  const cierre = resto.indexOf("</section>");
+  const frag = cierre > 0 ? resto.slice(0, cierre) : resto;
   const items = [];
   const re = /<a href="(\/ver\/[^"]+)" title="([^"]*?)\s*Episodio\s*(\d+)"[\s\S]*?<img src="([^"]+)"/g;
   for (const m of frag.matchAll(re)) {

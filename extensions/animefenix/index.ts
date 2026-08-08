@@ -79,10 +79,21 @@ function _parseCatalog(html: string): PrismItem[] {
 function _parseRecientes(html: string): PrismItem[] {
   const i = html.indexOf('Episodios recientes');
   if (i < 0) return [];
-  // Hasta la proxima seccion: sin esto se leeria la portada entera.
+  // ── Hasta el CIERRE de la seccion ─────────────────────────────────────
+  //
+  // Se probo cortar en el proximo `<section`, y no sirve: el titulo
+  // «Episodios recientes» esta en un comentario ANTES de la etiqueta de
+  // apertura, asi que lo primero que encontraba era la apertura de la propia
+  // seccion —a seis caracteres— y el fragmento quedaba vacio.
+  //
+  // Con cero resultados, `latest()` caia al directorio sin decir nada: el Home
+  // mostraba el catalogo general en vez de los episodios recientes, y desde
+  // afuera parecia que la extension estaba bien.
+  //
+  // El cierre no tiene esa ambiguedad.
   const resto = html.slice(i);
-  const fin = resto.slice(30).indexOf('<section');
-  const frag = fin > 0 ? resto.slice(0, fin + 30) : resto;
+  const cierre = resto.indexOf('</section>');
+  const frag = cierre > 0 ? resto.slice(0, cierre) : resto;
 
   const items: PrismItem[] = [];
   const re =
