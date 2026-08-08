@@ -34,9 +34,7 @@
       "nsfw": "true",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/eporner.js",
       "sha256": "3e1515261d5adabef6736ac565e87759b2a258198e3aa41355c44d0c93265684",
-      "signature": "THTnadnhzvTCPXfzk3hjhopc/UfUzpImbuySJEtR0bj+dBUDGUoBB+VP7uGBDutSTFAJTIYJoc/FROn1fmRxBw==",
-      "unstable": true,
-      "unstableReason": "broken"
+      "signature": "THTnadnhzvTCPXfzk3hjhopc/UfUzpImbuySJEtR0bj+dBUDGUoBB+VP7uGBDutSTFAJTIYJoc/FROn1fmRxBw=="
     },
     {
       "name": "FuegoCine",
