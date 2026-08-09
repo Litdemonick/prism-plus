@@ -36,7 +36,9 @@
       "latestLabel": "lo-mas-reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/eporner.js",
       "sha256": "67822d511c2c8219a12bef7c040a78bd357c57236756d64ab6b56ce4d968ac6e",
-      "signature": "v8JQIu0Zi9RqlngwAzwCY5S6DooTGIGJV3k+gS6WPP/8BL8fF5o6YSlPiLHoMORTXK3R5/4xq/w1zfwVtS+NDw=="
+      "signature": "v8JQIu0Zi9RqlngwAzwCY5S6DooTGIGJV3k+gS6WPP/8BL8fF5o6YSlPiLHoMORTXK3R5/4xq/w1zfwVtS+NDw==",
+      "unstable": true,
+      "unstableReason": "broken"
     },
     {
       "name": "FuegoCine",
