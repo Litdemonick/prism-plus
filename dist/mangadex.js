@@ -1,13 +1,13 @@
 // ==PrismHubExtension==
 // @name         MangaDex
-// @version      1.0.1
+// @version      1.0.2
 // @author       PrismPlus
 // @lang         multi
 // @license      MIT
 // @package      io.prismhub.mangadex
 // @type         manga
 // @nsfw         false
-// @latestLabel  ultimos-capitulos
+// @latestLabel  ultimas-actualizaciones
 // @webSite      https://mangadex.org
 // @description  El catálogo de MangaDex, con capítulos en español, inglés, japonés y una veintena de idiomas más.
 // ==/PrismHubExtension==

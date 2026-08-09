@@ -1,7 +1,7 @@
 {
   "name": "MangaDex",
   "package": "io.prismhub.mangadex",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "author": "PrismPlus",
   "type": "manga",
   "icon": "",
@@ -9,5 +9,5 @@
   "lang": "multi",
   "webSite": "https://mangadex.org",
   "license": "MIT",
-  "latestLabel": "ultimos-capitulos"
+  "latestLabel": "ultimas-actualizaciones"
 }
