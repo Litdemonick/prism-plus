@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         TuMangaOnline
-// @version      1.0.10
+// @version      1.1.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -199,37 +199,28 @@ function _parseCatalog(html) {
   }
   return items;
 }
-function _seccion(html, titulo) {
-  const i = html.indexOf(titulo);
-  if (i < 0) return null;
-  const resto = html.slice(i);
-  const fin = resto.slice(10).search(/<h[12][\s>]/);
-  return fin > 0 ? resto.slice(0, fin + 10) : resto;
-}
 async function latest(page) {
-  if (page <= 1) {
-    try {
-      const portada = await _get(BASE);
-      const frag = _seccion(portada, "ltimos a");
-      if (frag) {
-        const items = _parseCatalog(frag);
-        if (items.length) return items;
-      }
-    } catch (e) {
-    }
-  }
-  const query = _buildQuery({ page: page > 1 ? String(page) : void 0 });
-  const html = await _get(`${BASE}/biblioteca${query ? `?${query}` : ""}`);
+  const query = _buildQuery({
+    order_item: "creation",
+    order_dir: "desc",
+    "exclude_genders[]": _GENEROS_ADULTOS,
+    page: page > 1 ? String(page) : void 0
+  });
+  const html = await _get(`${BASE}/biblioteca?${query}`);
   return _parseCatalog(html);
 }
 async function search(keyword, page, filter) {
-  var _a, _b, _c, _d;
+  var _a, _b, _c, _d, _e;
   const query = _buildQuery({
     title: keyword.trim() || void 0,
     type: (_a = filter == null ? void 0 : filter["tipo"]) == null ? void 0 : _a[0],
     demography: (_b = filter == null ? void 0 : filter["demografia"]) == null ? void 0 : _b[0],
     status: (_c = filter == null ? void 0 : filter["estado"]) == null ? void 0 : _c[0],
     "genders[]": (_d = filter == null ? void 0 : filter["genero"]) == null ? void 0 : _d[0],
+    // Sin lo explícito, salvo que se pida a propósito. El defecto es 'no', y
+    // se toma también cuando no viene filtro ninguno: ese es el caso del Home
+    // y del buscador normal.
+    "exclude_genders[]": ((_e = filter == null ? void 0 : filter["adulto"]) == null ? void 0 : _e[0]) === "si" ? void 0 : _GENEROS_ADULTOS,
     page: page > 1 ? String(page) : void 0
   });
   const html = await _get(`${BASE}/biblioteca${query ? `?${query}` : ""}`);
@@ -349,8 +340,21 @@ var _GENRE_OPTIONS = {
   "124": "Viaje en el tiempo",
   "127": "Time Travel"
 };
+var _GENEROS_ADULTOS = ["27", "32", "123", "29", "33"];
 async function createFilter() {
   return {
+    // Primero, y con `adultOption`: es la marca con la que PrismHub reconoce
+    // una puerta a contenido para adultos. Con ella, el app manda SIEMPRE el
+    // valor seguro desde el Inicio y desde el buscador normal, y solo la abre
+    // dentro de la Zona +18.
+    adulto: {
+      title: "Contenido adulto",
+      options: { no: "No", si: "S\xED" },
+      default: "no",
+      adultOption: "si",
+      min: 1,
+      max: 1
+    },
     tipo: { title: "Tipo", options: _TYPE_OPTIONS, default: "", min: 1, max: 1 },
     demografia: { title: "Demograf\xEDa", options: _DEMOGRAPHY_OPTIONS, default: "", min: 1, max: 1 },
     estado: { title: "Estado", options: _STATUS_OPTIONS, default: "", min: 1, max: 1 },

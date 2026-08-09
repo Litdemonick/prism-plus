@@ -59,45 +59,30 @@ function _parseCatalog(html: string): PrismItem[] {
   return items;
 }
 
-/** Recorta la seccion de la portada que arranca en [titulo]. */
-function _seccion(html: string, titulo: string): string | null {
-  const i = html.indexOf(titulo);
-  if (i < 0) return null;
-  const resto = html.slice(i);
-  // Hasta el proximo encabezado: sin esto se leeria la portada entera y
-  // «Ultimos añadidos» traeria tambien lo popular y lo demas.
-  const fin = resto.slice(10).search(/<h[12][\s>]/);
-  return fin > 0 ? resto.slice(0, fin + 10) : resto;
-}
-
 export async function latest(page: number): Promise<PrismItem[]> {
-  // ── Pagina 1: «Ultimos añadidos» de la portada ──────────────────────────
+  // ── «Lo último» sale de la biblioteca, no de la portada ─────────────────
   //
-  // /biblioteca sin parametros devuelve el catalogo en el orden por defecto
-  // del sitio, que NO es por fecha de alta — asi que «lo ultimo» del Home
-  // mostraba obras viejas. La portada tiene una seccion propia con lo recien
-  // agregado (18 obras, medido), y es la que el sitio le muestra a su gente.
+  // La portada tiene su sección de recién agregados, y era la que se usaba:
+  // viene curada por el sitio y es la que le muestra a su gente. El problema
+  // es que NO se puede filtrar — trae lo que sea que se haya subido, explícito
+  // incluido. Se vio en vivo, con cuatro portadas que no tenían nada que hacer
+  // en el Inicio de la app.
   //
-  // Desde la pagina 2 no hay portada que paginar, asi que se sigue por la
-  // biblioteca. Es contenido distinto, pero es continuar en vez de cortar.
-  if (page <= 1) {
-    try {
-      const portada = await _get(BASE);
-      // Se busca por un trozo SIN tildes a proposito: segun como venga
-      // codificado el HTML, la Ú puede llegar como caracter, como entidad
-      // (&Uacute;) o mal decodificada. «ltimos a» esta en los tres casos.
-      const frag = _seccion(portada, 'ltimos a');
-      if (frag) {
-        const items = _parseCatalog(frag);
-        if (items.length) return items;
-      }
-    } catch {
-      // La portada no contesto: se sigue por la biblioteca, que es lo que
-      // hacia antes. Nunca se queda sin devolver nada por esto.
-    }
-  }
-  const query = _buildQuery({ page: page > 1 ? String(page) : undefined });
-  const html = await _get(`${BASE}/biblioteca${query ? `?${query}` : ''}`);
+  // La biblioteca ordenada por fecha de alta da lo mismo —«lo último
+  // añadido»— y sí acepta que se le excluyan géneros. Se paga un orden un
+  // poco menos curado a cambio de poder decir qué no se quiere ver, que en el
+  // Inicio no es negociable.
+  //
+  // `/biblioteca` a secas devolvía el orden por defecto del sitio, que NO es
+  // por fecha: de ahí que antes «lo último» mostrara obras viejas. Por eso van
+  // los dos parámetros del orden puestos a mano.
+  const query = _buildQuery({
+    order_item: 'creation',
+    order_dir: 'desc',
+    'exclude_genders[]': _GENEROS_ADULTOS,
+    page: page > 1 ? String(page) : undefined,
+  });
+  const html = await _get(`${BASE}/biblioteca?${query}`);
   return _parseCatalog(html);
 }
 
@@ -112,6 +97,11 @@ export async function search(
     demography: filter?.['demografia']?.[0],
     status: filter?.['estado']?.[0],
     'genders[]': filter?.['genero']?.[0],
+    // Sin lo explícito, salvo que se pida a propósito. El defecto es 'no', y
+    // se toma también cuando no viene filtro ninguno: ese es el caso del Home
+    // y del buscador normal.
+    'exclude_genders[]':
+      filter?.['adulto']?.[0] === 'si' ? undefined : _GENEROS_ADULTOS,
     page: page > 1 ? String(page) : undefined,
   });
   const html = await _get(`${BASE}/biblioteca${query ? `?${query}` : ''}`);
@@ -179,8 +169,35 @@ const _GENRE_OPTIONS: Record<string, string> = {
   '127': 'Time Travel',
 };
 
+// ─── La puerta a contenido para adultos ─────────────────────────────────────
+//
+// ZonaTMO no tiene un interruptor de «solo apto»: lo marca con GÉNEROS, y su
+// biblioteca acepta `exclude_genders[]`. Estos cinco son los que marcan
+// contenido explícito, sacados del propio formulario de filtros del sitio
+// (131 géneros, leídos de su HTML).
+//
+// Ecchi (19) queda FUERA de la lista a propósito: es sugerente, no explícito,
+// y sacarlo se llevaría media biblioteca de manga normal. Yaoi, Yuri, BL y GL
+// tampoco entran: son de a quién le gusta quién, no de cuánto se muestra.
+//
+// Medido contra la red: de las 24 obras más recientes, excluir estos cinco
+// deja fuera exactamente las cuatro explícitas y ninguna más.
+const _GENEROS_ADULTOS = ['27', '32', '123', '29', '33'];
+
 export async function createFilter(): Promise<Record<string, unknown>> {
   return {
+    // Primero, y con `adultOption`: es la marca con la que PrismHub reconoce
+    // una puerta a contenido para adultos. Con ella, el app manda SIEMPRE el
+    // valor seguro desde el Inicio y desde el buscador normal, y solo la abre
+    // dentro de la Zona +18.
+    adulto: {
+      title: 'Contenido adulto',
+      options: { no: 'No', si: 'Sí' },
+      default: 'no',
+      adultOption: 'si',
+      min: 1,
+      max: 1,
+    },
     tipo: { title: 'Tipo', options: _TYPE_OPTIONS, default: '', min: 1, max: 1 },
     demografia: { title: 'Demografía', options: _DEMOGRAPHY_OPTIONS, default: '', min: 1, max: 1 },
     estado: { title: 'Estado', options: _STATUS_OPTIONS, default: '', min: 1, max: 1 },
