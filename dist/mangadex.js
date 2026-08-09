@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         MangaDex
-// @version      1.0.3
+// @version      1.0.4
 // @author       PrismPlus
 // @lang         multi
 // @license      MIT
@@ -305,6 +305,11 @@ async function detail(url) {
 }
 var _TANDAS = 5;
 async function _capitulos(id) {
+  const enEspanol = await _tandaDeCapitulos(id, _idiomas());
+  if (enEspanol.length) return enEspanol;
+  return _tandaDeCapitulos(id, void 0);
+}
+async function _tandaDeCapitulos(id, idiomas) {
   var _a, _b, _c, _d;
   const salida = [];
   const vistos = /* @__PURE__ */ new Set();
@@ -312,7 +317,7 @@ async function _capitulos(id) {
     const r = await _get(`/manga/${id}/feed`, {
       limit: "100",
       offset: String(i * 100),
-      "translatedLanguage[]": _idiomas(),
+      "translatedLanguage[]": idiomas,
       "order[chapter]": "asc",
       "order[volume]": "asc",
       // Mismo motivo que en latest: los externos no se pueden leer acá.
@@ -327,7 +332,10 @@ async function _capitulos(id) {
       if (vistos.has(clave)) continue;
       vistos.add(clave);
       const numero = at.chapter ? `Cap\xEDtulo ${at.chapter}` : "Oneshot";
-      const nombre = at.title ? `${numero}: ${at.title}` : numero;
+      let nombre = at.title ? `${numero}: ${at.title}` : numero;
+      if (!idiomas && at.translatedLanguage) {
+        nombre = `${nombre} [${String(at.translatedLanguage).toUpperCase()}]`;
+      }
       salida.push({
         title: nombre,
         url: c.id,

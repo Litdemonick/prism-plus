@@ -447,13 +447,31 @@ export async function detail(url: string): Promise<PrismDetail> {
 const _TANDAS = 5;
 
 async function _capitulos(id: string): Promise<PrismEpisode[]> {
+  // ── Primero en español; si no hay, en el idioma que haya ────────────────
+  //
+  // «Últimas actualizaciones» trae todos los idiomas, como el sitio. Pero la
+  // ficha pedía capítulos SOLO en español, así que al tocar una tarjeta
+  // vietnamita o indonesia la ficha salía vacía: medido, seis de cada diez.
+  //
+  // Se intenta primero en español, que es lo que quiere la mayoría acá. Si esa
+  // obra no está traducida, se piden todos en vez de dejar la ficha muerta:
+  // más vale poder leerla en otro idioma que no poder abrirla.
+  const enEspanol = await _tandaDeCapitulos(id, _idiomas());
+  if (enEspanol.length) return enEspanol;
+  return _tandaDeCapitulos(id, undefined);
+}
+
+async function _tandaDeCapitulos(
+  id: string,
+  idiomas: string[] | undefined,
+): Promise<PrismEpisode[]> {
   const salida: PrismEpisode[] = [];
   const vistos = new Set<string>();
   for (let i = 0; i < _TANDAS; i++) {
     const r = await _get<{ data?: Obra[]; total?: number }>(`/manga/${id}/feed`, {
       limit: '100',
       offset: String(i * 100),
-      'translatedLanguage[]': _idiomas(),
+      'translatedLanguage[]': idiomas,
       'order[chapter]': 'asc',
       'order[volume]': 'asc',
       // Mismo motivo que en latest: los externos no se pueden leer acá.
@@ -472,7 +490,13 @@ async function _capitulos(id: string): Promise<PrismEpisode[]> {
       if (vistos.has(clave)) continue;
       vistos.add(clave);
       const numero = at.chapter ? `Capítulo ${at.chapter}` : 'Oneshot';
-      const nombre = at.title ? `${numero}: ${at.title}` : numero;
+      let nombre = at.title ? `${numero}: ${at.title}` : numero;
+      // Cuando la lista NO es la de español, se dice en qué idioma está. Abrir
+      // un capítulo y encontrarse otro idioma sin aviso es peor que saberlo
+      // antes de tocar.
+      if (!idiomas && at.translatedLanguage) {
+        nombre = `${nombre} [${String(at.translatedLanguage).toUpperCase()}]`;
+      }
       salida.push({
         title: nombre,
         url: c.id,
