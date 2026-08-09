@@ -66,12 +66,26 @@ export async function latest(page: number): Promise<PrismItem[]> {
   if (page === 1) {
     const d = await _get<Record<string, unknown>>('/manhwa/nuevos');
     const manhwas = d['manhwas'] as Record<string, unknown>;
+    // ── Solo `manhwas_esp`, que es la pestaña "Principal" ──────────────────
+    //
+    // Ese endpoint devuelve TRES listas y el sitio las muestra separadas: en
+    // su portada, "Nuevos Capítulos" tiene dos solapas, "Principal" y la de
+    // adultos. Medido comparando los títulos contra la web:
+    //
+    //   · `manhwas_esp`  → los mismos doce de "Principal", en el mismo orden
+    //   · `_manhwas`     → los de la otra solapa
+    //   · `manhwas_raw`  → sin traducir, también con contenido de la otra
+    //
+    // Acá se mezclaban `manhwas_esp` con `_manhwas`, así que lo último de la
+    // extensión venía con las dos cosas juntas y no había forma de pedirle
+    // una sola: este endpoint no toma el parámetro `erotico`.
+    //
+    // Con la primera sola, `latest()` es la solapa Principal y nada más — que
+    // es justo lo que el Inicio necesita mostrar.
     const esp = (manhwas['manhwas_esp'] as Record<string, unknown>[]) || [];
-    const all = (manhwas['_manhwas'] as Record<string, unknown>[]) || [];
-    // Merge recent: esp first (Spanish translations), then raw
     const seen = new Set<string>();
     const items: PrismItem[] = [];
-    for (const m of [...esp, ...all]) {
+    for (const m of esp) {
       const id = (m['id_rel'] || m['id_manhwa']) as string;
       if (!id || seen.has(id)) continue;
       seen.add(id);

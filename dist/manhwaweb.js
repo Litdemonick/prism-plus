@@ -1,13 +1,13 @@
 // ==PrismHubExtension==
 // @name         ManhwaWeb
-// @version      1.3.14
+// @version      1.4.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
 // @package      io.prismhub.manhwaweb
 // @type         manga
-// @nsfw         true
-// @latestLabel  nuevos-manhwas
+// @nsfw         false
+// @latestLabel  nuevos-capitulos
 // @webSite      https://manhwaweb.com
 // @description  ¿Te gusta el manhwa? Acá hay manga, manhwa y manhua en español para leer sin parar (incluye contenido +18).
 // ==/PrismHubExtension==
@@ -76,10 +76,9 @@ async function latest(page) {
     const d2 = await _get("/manhwa/nuevos");
     const manhwas = d2["manhwas"];
     const esp = manhwas["manhwas_esp"] || [];
-    const all = manhwas["_manhwas"] || [];
     const seen = /* @__PURE__ */ new Set();
     const items = [];
-    for (const m of [...esp, ...all]) {
+    for (const m of esp) {
       const id = m["id_rel"] || m["id_manhwa"];
       if (!id || seen.has(id)) continue;
       seen.add(id);
