@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         MangaDex
-// @version      1.0.0
+// @version      1.0.1
 // @author       PrismPlus
 // @lang         multi
 // @license      MIT
@@ -95,23 +95,28 @@ async function _obrasPorId(ids) {
 async function latest(page) {
   var _a, _b, _c;
   const PIDE = 100;
-  const r = await _get("/chapter", {
-    limit: String(PIDE),
-    offset: String(Math.max(0, page - 1) * PIDE),
-    "order[readableAt]": "desc",
-    "translatedLanguage[]": _idiomas(),
-    "contentRating[]": _APTO,
-    includeExternalUrl: "0",
-    "includes[]": ["manga"]
-  });
   const orden = [];
   const capDe = /* @__PURE__ */ new Map();
-  for (const c of (_a = r.data) != null ? _a : []) {
-    const obra = ((_b = c.relationships) != null ? _b : []).find((x) => x.type === "manga");
-    if (!obra || capDe.has(obra.id)) continue;
-    const n = (_c = c.attributes) == null ? void 0 : _c.chapter;
-    capDe.set(obra.id, n ? `Cap. ${n}` : "Nuevo");
-    orden.push(obra.id);
+  const OBJETIVO = 24;
+  for (let tanda = 0; tanda < 2; tanda++) {
+    const r = await _get("/chapter", {
+      limit: String(PIDE),
+      offset: String((Math.max(0, page - 1) * 2 + tanda) * PIDE),
+      "order[readableAt]": "desc",
+      "translatedLanguage[]": _idiomas(),
+      "contentRating[]": _APTO,
+      includeExternalUrl: "0",
+      "includes[]": ["manga"]
+    });
+    const capitulos = (_a = r.data) != null ? _a : [];
+    for (const c of capitulos) {
+      const obra = ((_b = c.relationships) != null ? _b : []).find((x) => x.type === "manga");
+      if (!obra || capDe.has(obra.id)) continue;
+      const n = (_c = c.attributes) == null ? void 0 : _c.chapter;
+      capDe.set(obra.id, n ? `Cap. ${n}` : "Nuevo");
+      orden.push(obra.id);
+    }
+    if (orden.length >= OBJETIVO || capitulos.length < PIDE) break;
   }
   const obras = await _obrasPorId(orden.slice(0, 100));
   return orden.map((id) => {

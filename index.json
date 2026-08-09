@@ -155,7 +155,7 @@
     {
       "name": "MangaDex",
       "package": "io.prismhub.mangadex",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "PrismPlus",
       "type": "manga",
       "icon": "",
@@ -165,8 +165,8 @@
       "license": "MIT",
       "latestLabel": "ultimos-capitulos",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/mangadex.js",
-      "sha256": "547fef4c56d4f0662a4813fa60b414da440fe17651b076ac78643fa94b5dd74c",
-      "signature": "nKvh3iC2wbErSOCl1I2MQ46prheDQUqoXI/MpvmbVQj1FCRJGAwMqAw6EdLvHWv6jRmVKDCBaxy9lvpp2zJ8CQ=="
+      "sha256": "735e580b599a0c85ffe92672e806c7e3d86fd55a4520b9ec65154ed80bfc0a67",
+      "signature": "lKuOA6orxuhFv3G1flWcqdLAjS3f5mQZA4cfsuxXDaP5xfyViApgncY39WkKyTl6pjDhrO+ieQm0tZ0lYvmjBA=="
     },
     {
       "name": "ManhwaWeb",

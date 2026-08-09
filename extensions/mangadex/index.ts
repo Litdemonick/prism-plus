@@ -170,27 +170,41 @@ export async function latest(page: number): Promise<PrismItem[]> {
   // quedaba casi vacía. Pidiendo el tope hay margen de sobra para que
   // aparezcan obras distintas.
   const PIDE = 100;
-  const r = await _get<{ data?: Obra[] }>('/chapter', {
-    limit: String(PIDE),
-    offset: String(Math.max(0, page - 1) * PIDE),
-    'order[readableAt]': 'desc',
-    'translatedLanguage[]': _idiomas(),
-    'contentRating[]': _APTO,
-    includeExternalUrl: '0',
-    'includes[]': ['manga'],
-  });
 
   // Una obra puede tener varios capítulos nuevos seguidos. Se queda el primero
   // —el más reciente— y los demás se descartan: si no, la fila mostraría la
   // misma portada cuatro veces.
   const orden: string[] = [];
   const capDe = new Map<string, string>();
-  for (const c of r.data ?? []) {
-    const obra = (c.relationships ?? []).find((x) => x.type === 'manga');
-    if (!obra || capDe.has(obra.id)) continue;
-    const n = c.attributes?.chapter;
-    capDe.set(obra.id, n ? `Cap. ${n}` : 'Nuevo');
-    orden.push(obra.id);
+
+  // ── Se insiste hasta juntar una fila decente ───────────────────────────
+  //
+  // Cien capítulos NO son cien obras. Con un grupo subiendo una serie entera
+  // de golpe, y encima filtrando por idioma, una tanda puede dejar diez obras
+  // distintas mientras la portada del sitio muestra el doble. Dos tandas
+  // alcanzan de sobra, y se corta apenas hay suficientes: lo normal es que la
+  // primera baste y la segunda no llegue a pedirse.
+  const OBJETIVO = 24;
+  for (let tanda = 0; tanda < 2; tanda++) {
+    const r = await _get<{ data?: Obra[] }>('/chapter', {
+      limit: String(PIDE),
+      offset: String((Math.max(0, page - 1) * 2 + tanda) * PIDE),
+      'order[readableAt]': 'desc',
+      'translatedLanguage[]': _idiomas(),
+      'contentRating[]': _APTO,
+      includeExternalUrl: '0',
+      'includes[]': ['manga'],
+    });
+    const capitulos = r.data ?? [];
+    for (const c of capitulos) {
+      const obra = (c.relationships ?? []).find((x) => x.type === 'manga');
+      if (!obra || capDe.has(obra.id)) continue;
+      const n = c.attributes?.chapter;
+      capDe.set(obra.id, n ? `Cap. ${n}` : 'Nuevo');
+      orden.push(obra.id);
+    }
+    // Ya alcanza, o el sitio se quedó sin capítulos que dar.
+    if (orden.length >= OBJETIVO || capitulos.length < PIDE) break;
   }
 
   // El tope de `/manga?ids[]=` es 100, y de acá salen como mucho ~30, pero se
