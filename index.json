@@ -153,6 +153,22 @@
       "signature": "b1ySzGQM5mvPlEeKe/acu4aprXHD+lNkAQI+/DJ+fg0l7ST5BF4Jk2SNnwOWJBnKZrdvdpwu6wGrBopAbh8hBQ=="
     },
     {
+      "name": "MangaDex",
+      "package": "io.prismhub.mangadex",
+      "version": "1.0.0",
+      "author": "PrismPlus",
+      "type": "manga",
+      "icon": "",
+      "description": "El catálogo de MangaDex, con capítulos en español, inglés, japonés y una veintena de idiomas más.",
+      "lang": "multi",
+      "webSite": "https://mangadex.org",
+      "license": "MIT",
+      "latestLabel": "ultimos-capitulos",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/mangadex.js",
+      "sha256": "547fef4c56d4f0662a4813fa60b414da440fe17651b076ac78643fa94b5dd74c",
+      "signature": "nKvh3iC2wbErSOCl1I2MQ46prheDQUqoXI/MpvmbVQj1FCRJGAwMqAw6EdLvHWv6jRmVKDCBaxy9lvpp2zJ8CQ=="
+    },
+    {
       "name": "ManhwaWeb",
       "package": "io.prismhub.manhwaweb",
       "version": "1.4.1",

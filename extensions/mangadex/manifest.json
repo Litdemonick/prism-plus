@@ -1,0 +1,13 @@
+{
+  "name": "MangaDex",
+  "package": "io.prismhub.mangadex",
+  "version": "1.0.0",
+  "author": "PrismPlus",
+  "type": "manga",
+  "icon": "",
+  "description": "El catálogo de MangaDex, con capítulos en español, inglés, japonés y una veintena de idiomas más.",
+  "lang": "multi",
+  "webSite": "https://mangadex.org",
+  "license": "MIT",
+  "latestLabel": "ultimos-capitulos"
+}
