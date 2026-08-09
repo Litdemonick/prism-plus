@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         MangaDex
-// @version      1.0.2
+// @version      1.0.3
 // @author       PrismPlus
 // @lang         multi
 // @license      MIT
@@ -103,7 +103,19 @@ async function latest(page) {
       limit: String(PIDE),
       offset: String((Math.max(0, page - 1) * 2 + tanda) * PIDE),
       "order[readableAt]": "desc",
-      "translatedLanguage[]": _idiomas(),
+      // ── Sin filtrar por idioma, y es a propósito ────────────────────────
+      //
+      // Esta sección es «Últimas actualizaciones» tal como la publica el
+      // sitio, y el sitio la muestra con TODOS los idiomas mezclados: en su
+      // portada conviven banderas de México, Vietnam, Reino Unido, Indonesia y
+      // Finlandia. Filtrando a español se veía otra lista — comprobado
+      // comparando contra la portada: sin filtro, el primer resultado es
+      // exactamente el primero que muestra la web.
+      //
+      // MangaDex es una extensión multiidioma; recortarla a uno solo acá sería
+      // decidir por el usuario justo en la sección que promete ser «lo que
+      // acaba de salir». Para elegir idioma está el filtro, que sí manda en el
+      // catálogo y en la búsqueda.
       "contentRating[]": _APTO,
       includeExternalUrl: "0",
       "includes[]": ["manga"]
