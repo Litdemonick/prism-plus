@@ -478,24 +478,53 @@ export async function search(
   if (!kw) return latest(page, filter);
   if (kw.length < 3) return [];
 
-  const perPage = 20;
-  const rawStart = (page - 1) * perPage + 1;
-  const requests = Array.from({ length: perPage }, (_, i) =>
-    _get<LMPage<LMPost>>(`${API}/search?q=${encodeURIComponent(kw)}&page=${rawStart + i}`).catch(
-      () => null,
+  // ── Se busca en CADA tipo, no en uno solo ───────────────────────────────
+  //
+  // El buscador del sitio filtra por `postType`, y sin ese parametro solo mira
+  // PELICULAS. De ahi el fallo reportado: buscar "from" traia una sola obra
+  // —"Algo de Tiffany's"— y dejaba fuera la serie "FROM", "Notes from the Last
+  // Row", "Arifureta" y "Uncle from Another World", que el propio sitio si
+  // encuentra y muestra con su etiqueta de SERIE o ANIME.
+  //
+  // Medido contra la red: sin postType, total=1; preguntando por los cuatro
+  // tipos y juntando, 5 — exactamente las cinco que muestra la web.
+  //
+  // Con un filtro de tipo puesto se le pregunta solo a ese, que ademas es mas
+  // rapido.
+  //
+  // ── Y `postsPerPage` de verdad funciona ─────────────────────────────────
+  //
+  // Antes se hacian VEINTE pedidos, uno por pagina, quedandose con el primer
+  // resultado de cada uno: el endpoint devuelve `per_page: 1` por defecto y esa
+  // era la forma de sacarle mas de una obra. Acepta `postsPerPage`, asi que
+  // ahora son cuatro pedidos en vez de veinte y traen la tanda entera.
+  const perPage = 40;
+  const tipos = f.postType ? [f.postType as PostType] : POST_TYPES;
+  const results = await Promise.all(
+    tipos.map((t) =>
+      _get<LMPage<LMPost>>(
+        `${API}/search?q=${encodeURIComponent(kw)}&page=${page}` +
+          `&postType=${t}&postsPerPage=${perPage}`,
+      ).catch(() => null),
     ),
   );
-  const results = await Promise.all(requests);
   const items: PrismItem[] = [];
+  // Sin repetidos: una obra puede volver en dos tipos, y dos tarjetas con la
+  // misma direccion rompen la grilla.
+  const vistas = new Set<string>();
   for (const res of results) {
-    const post = res?.data?.posts?.[0];
-    if (!post) continue;
-    if (f.postType && post.type !== f.postType) continue;
-    if (f.genre && !(post.genres || []).includes(f.genre)) continue;
-    if (f.country && !(post.countries || []).includes(f.country)) continue;
-    if (f.year && _yearFromDate(post.release_date) !== f.year) continue;
-    if (!_matchesClientFilter(post, f)) continue;
-    items.push(_itemFromPost(post));
+    for (const post of res?.data?.posts ?? []) {
+      if (!post) continue;
+      if (f.postType && post.type !== f.postType) continue;
+      if (f.genre && !(post.genres || []).includes(f.genre)) continue;
+      if (f.country && !(post.countries || []).includes(f.country)) continue;
+      if (f.year && _yearFromDate(post.release_date) !== f.year) continue;
+      if (!_matchesClientFilter(post, f)) continue;
+      const item = _itemFromPost(post);
+      if (vistas.has(item.url)) continue;
+      vistas.add(item.url);
+      items.push(item);
+    }
   }
   return items;
 }

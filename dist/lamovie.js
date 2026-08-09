@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LaMovie
-// @version      1.1.7
+// @version      1.2.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -602,25 +602,30 @@ async function search(keyword, page, filter) {
   const f = _parseFilter(filter);
   if (!kw) return latest(page, filter);
   if (kw.length < 3) return [];
-  const perPage = 20;
-  const rawStart = (page - 1) * perPage + 1;
-  const requests = Array.from(
-    { length: perPage },
-    (_, i) => _get(`${API}/search?q=${encodeURIComponent(kw)}&page=${rawStart + i}`).catch(
-      () => null
+  const perPage = 40;
+  const tipos = f.postType ? [f.postType] : POST_TYPES;
+  const results = await Promise.all(
+    tipos.map(
+      (t) => _get(
+        `${API}/search?q=${encodeURIComponent(kw)}&page=${page}&postType=${t}&postsPerPage=${perPage}`
+      ).catch(() => null)
     )
   );
-  const results = await Promise.all(requests);
   const items = [];
+  const vistas = /* @__PURE__ */ new Set();
   for (const res of results) {
-    const post = (_b = (_a = res == null ? void 0 : res.data) == null ? void 0 : _a.posts) == null ? void 0 : _b[0];
-    if (!post) continue;
-    if (f.postType && post.type !== f.postType) continue;
-    if (f.genre && !(post.genres || []).includes(f.genre)) continue;
-    if (f.country && !(post.countries || []).includes(f.country)) continue;
-    if (f.year && _yearFromDate(post.release_date) !== f.year) continue;
-    if (!_matchesClientFilter(post, f)) continue;
-    items.push(_itemFromPost(post));
+    for (const post of (_b = (_a = res == null ? void 0 : res.data) == null ? void 0 : _a.posts) != null ? _b : []) {
+      if (!post) continue;
+      if (f.postType && post.type !== f.postType) continue;
+      if (f.genre && !(post.genres || []).includes(f.genre)) continue;
+      if (f.country && !(post.countries || []).includes(f.country)) continue;
+      if (f.year && _yearFromDate(post.release_date) !== f.year) continue;
+      if (!_matchesClientFilter(post, f)) continue;
+      const item = _itemFromPost(post);
+      if (vistas.has(item.url)) continue;
+      vistas.add(item.url);
+      items.push(item);
+    }
   }
   return items;
 }
