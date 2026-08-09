@@ -220,6 +220,21 @@ async function checkExtension(inst, pkg) {
   // "protegido", y terminaba clasificado como "roto" — el peor de los tres —
   // por algo que del lado del usuario funciona.
   const avisar = (name, ok, detail) => checks.push({ name, ok, detail, leve: true });
+  // Igual que add, pero para lo que NO depende de la red.
+  //
+  // Hoy es una sola: los filtros salen de createFilter(), que corre en el
+  // motor de la extension y no pide nada al sitio. Por eso pasa SIEMPRE,
+  // incluso cuando el sitio le contesta vacio al robot.
+  //
+  // Y ahi estaba el problema: el guardarrail de "nada trajo contenido" pedia
+  // que fallaran TODAS, asi que esta sola en verde lo desarmaba y la extension
+  // caia en "rota". Le paso a Eporner — doce comprobaciones en verde desde una
+  // conexion normal, marcada rota por el robot, y el app bloqueandole el
+  // contenido a todo el mundo.
+  //
+  // Marcandola como local, el guardarrail puede ignorarla y mirar solo lo que
+  // de verdad depende del sitio.
+  const local = (name, ok, detail) => checks.push({ name, ok, detail, local: true });
 
   // 1. latest(1) — tiene que traer ítems bien formados.
   let firstPage = [];
@@ -270,12 +285,12 @@ async function checkExtension(inst, pkg) {
     });
     if (keys.length === 0) {
       // Sin filtros es válido (el botón simplemente no aparece en la app).
-      add('filtros', true, 'no declara filtros');
+      local('filtros', true, 'no declara filtros');
     } else {
-      add('filtros', empty.length === 0, empty.length ? `sin opciones: ${empty.join(', ')}` : `${keys.length} filtros`);
+      local('filtros', empty.length === 0, empty.length ? `sin opciones: ${empty.join(', ')}` : `${keys.length} filtros`);
     }
   } catch (e) {
-    add('filtros', false, short(e));
+    local('filtros', false, short(e));
   }
 
   // 4. search() — tiene que encontrar algo real y sin duplicados.
@@ -533,8 +548,11 @@ for (const file of bundles) {
   //
   // Se trata como "protegida": no es que ande mal, es que desde aca no se
   // puede comprobar.
+  // Se miran SOLO las que dependen del sitio: las locales (los filtros) pasan
+  // igual aunque el sitio no entregue nada, y contarlas desarmaba esto.
+  const deRed = checks.filter((c) => !c.local);
   const nadaTrajoContenido =
-    !ok && checks.length > 1 && checks.every((c) => !c.ok || c.leve);
+    !ok && deRed.length > 1 && deRed.every((c) => !c.ok || c.leve);
 
   const reason = ok
     ? null
