@@ -80,16 +80,19 @@ const CABECERAS = {
   // No es una cabecera: es la declaración de que esto es una lista de
   // pedacitos. La app la lee y la saca antes de pedirle nada a la fuente.
   'X-Lista-De-Pedacitos': '1',
-  // Que los pedacitos los baje la app y no mpv.
+  // ── Se probó pasarlo por el relay de la app y NO era eso ────────────────
   //
-  // Con la declaración de arriba sola no alcanzó: medido en vivo el
-  // 2026-08-10, el vídeo arranca, avanza 708 ms y se queda cargando para
-  // siempre, con el colchón en cero y «entrando: 172309 B/s» — o sea que baja
-  // y no avanza. Y el MISMO origen, pedido desde afuera, entrega **7,65 MB/s
-  // sin un solo fallo** sobre doce pedacitos seguidos, y deja saltar al 71 o
-  // al 142 sin haber pedido los anteriores. El servidor está perfecto; lo que
-  // no funciona es cómo le llegan los pedidos cuando los hace mpv.
-  'X-Por-El-Relay': '1',
+  // Se llegó a mandar los pedacitos por el relay local pensando que a mpv no
+  // le llegaba la cabecera. **El registro probó que sí le llega**: en el
+  // pedido que mpv le hace al relay se lee `sec-fetch-site: same-origin`. O
+  // sea que la propaga, el relay no aportaba nada y solo metía un
+  // intermediario en el medio de todo el vídeo. Se sacó.
+  //
+  // Lo que de verdad lo rompía era `reconnect_streamed`, que la app le pone a
+  // TODA lista y le dice a ffmpeg que la fuente no se puede recorrer. Estos
+  // pedacitos son fMP4/CMAF (llevan `#EXT-X-MAP` y cada uno es un fragmento
+  // del MISMO mp4), así que sin poder recorrer no hay salto posible. Lo
+  // enciende la declaración de acá arriba.
 };
 
 export async function resolver(url: string, _referer: string): Promise<ServidorResuelto | null> {

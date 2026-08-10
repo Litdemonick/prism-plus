@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeAV1
-// @version      1.0.2
+// @version      1.0.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -171,17 +171,20 @@ var CABECERAS = {
   "Sec-Fetch-Site": "same-origin",
   // No es una cabecera: es la declaración de que esto es una lista de
   // pedacitos. La app la lee y la saca antes de pedirle nada a la fuente.
-  "X-Lista-De-Pedacitos": "1",
-  // Que los pedacitos los baje la app y no mpv.
+  "X-Lista-De-Pedacitos": "1"
+  // ── Se probó pasarlo por el relay de la app y NO era eso ────────────────
   //
-  // Con la declaración de arriba sola no alcanzó: medido en vivo el
-  // 2026-08-10, el vídeo arranca, avanza 708 ms y se queda cargando para
-  // siempre, con el colchón en cero y «entrando: 172309 B/s» — o sea que baja
-  // y no avanza. Y el MISMO origen, pedido desde afuera, entrega **7,65 MB/s
-  // sin un solo fallo** sobre doce pedacitos seguidos, y deja saltar al 71 o
-  // al 142 sin haber pedido los anteriores. El servidor está perfecto; lo que
-  // no funciona es cómo le llegan los pedidos cuando los hace mpv.
-  "X-Por-El-Relay": "1"
+  // Se llegó a mandar los pedacitos por el relay local pensando que a mpv no
+  // le llegaba la cabecera. **El registro probó que sí le llega**: en el
+  // pedido que mpv le hace al relay se lee `sec-fetch-site: same-origin`. O
+  // sea que la propaga, el relay no aportaba nada y solo metía un
+  // intermediario en el medio de todo el vídeo. Se sacó.
+  //
+  // Lo que de verdad lo rompía era `reconnect_streamed`, que la app le pone a
+  // TODA lista y le dice a ffmpeg que la fuente no se puede recorrer. Estos
+  // pedacitos son fMP4/CMAF (llevan `#EXT-X-MAP` y cada uno es un fragmento
+  // del MISMO mp4), así que sin poder recorrer no hay salto posible. Lo
+  // enciende la declaración de acá arriba.
 };
 async function resolver(url, _referer) {
   var _a;
@@ -255,14 +258,17 @@ function descifrar(hex) {
 var CABECERAS2 = {
   Referer: `${BASE}/`,
   "User-Agent": UA_ESCRITORIO,
-  // Que los pedacitos los baje la app y no mpv. No es una cabecera.
+  // No es una cabecera: es la declaración de que esto es una lista de
+  // pedacitos, y con ella la app deja que la lista se pueda RECORRER.
   //
-  // Le pasaba lo mismo que al HLS y **este ni siquiera manda una cabecera
-  // rara**, así que no alcanzaba con culpar a la cabecera: medido en vivo el
-  // 2026-08-10, «el cuadro apareció y el vídeo no avanzó en 6 s». El mp4
-  // directo del mismo episodio anda perfecto, así que lo que falla es el
-  // camino de listas contra mpv, no el servidor.
-  "X-Por-El-Relay": "1"
+  // Su dirección ya termina en `.m3u8`, así que para reconocerla como lista no
+  // hacía falta; se declara por lo otro. Le pasaba lo mismo que al HLS —«el
+  // cuadro apareció y el vídeo no avanzó en 6 s», medido en vivo el
+  // 2026-08-10—, y este **ni siquiera manda una cabecera rara**, que fue lo
+  // que descartó que el problema fueran las cabeceras. El mp4 directo del
+  // mismo episodio anda perfecto: lo que rompía era `reconnect_streamed`,
+  // que le dice a ffmpeg que la fuente no se puede recorrer.
+  "X-Lista-De-Pedacitos": "1"
 };
 async function resolver4(url, _referer) {
   var _a, _b, _c, _d, _e;

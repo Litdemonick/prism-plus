@@ -8,7 +8,7 @@
     {
       "name": "AnimeAV1",
       "package": "io.prismhub.animeav1",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -18,8 +18,8 @@
       "license": "MIT",
       "latestLabel": "recientemente-agregados",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animeav1.js",
-      "sha256": "ce6acd3aab6a37a2852aa0ef461614941920276b726c0ce767400de1a4fbd38b",
-      "signature": "6+AG5rUlMs2FA2Nd8zxJ6tKsPsFjbUO6IotB5r/Rk2XS1fglFciXUaYlLMUDN3LAqqlaosHx6MEpZmpDuqcqBA=="
+      "sha256": "f36b3d1dea245e5c3dbea9a6d93f26050618808cc9b02a3c08af4a8c3e1aa5a3",
+      "signature": "Yz8I6nCzlhSmJ4wbtHHvRbo8aMtwLGz646zwV8Zs55+Bj2Ugd9m/k20COEOzZgutN2grlAD7x+1wdEpehIMbDw=="
     },
     {
       "name": "AnimeFenix",

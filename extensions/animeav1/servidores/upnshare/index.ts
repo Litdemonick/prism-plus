@@ -131,14 +131,17 @@ function descifrar(hex: string): string {
 const CABECERAS = {
   Referer: `${BASE}/`,
   'User-Agent': UA_ESCRITORIO,
-  // Que los pedacitos los baje la app y no mpv. No es una cabecera.
+  // No es una cabecera: es la declaración de que esto es una lista de
+  // pedacitos, y con ella la app deja que la lista se pueda RECORRER.
   //
-  // Le pasaba lo mismo que al HLS y **este ni siquiera manda una cabecera
-  // rara**, así que no alcanzaba con culpar a la cabecera: medido en vivo el
-  // 2026-08-10, «el cuadro apareció y el vídeo no avanzó en 6 s». El mp4
-  // directo del mismo episodio anda perfecto, así que lo que falla es el
-  // camino de listas contra mpv, no el servidor.
-  'X-Por-El-Relay': '1',
+  // Su dirección ya termina en `.m3u8`, así que para reconocerla como lista no
+  // hacía falta; se declara por lo otro. Le pasaba lo mismo que al HLS —«el
+  // cuadro apareció y el vídeo no avanzó en 6 s», medido en vivo el
+  // 2026-08-10—, y este **ni siquiera manda una cabecera rara**, que fue lo
+  // que descartó que el problema fueran las cabeceras. El mp4 directo del
+  // mismo episodio anda perfecto: lo que rompía era `reconnect_streamed`,
+  // que le dice a ffmpeg que la fuente no se puede recorrer.
+  'X-Lista-De-Pedacitos': '1',
 };
 
 export async function resolver(url: string, _referer: string): Promise<ServidorResuelto | null> {
