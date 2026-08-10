@@ -131,6 +131,25 @@ function descifrar(hex: string): string {
 const CABECERAS = {
   Referer: `${BASE}/`,
   'User-Agent': UA_ESCRITORIO,
+  // Que los pedacitos los baje la app y no mpv.
+  //
+  // ── Las cuatro combinaciones que se probaron EN VIVO ─────────────────────
+  //
+  //   1. sin declarar nada .......................... se cuelga al saltar
+  //   2. declarada lista ............................ se cuelga al saltar
+  //   3. declarada lista + relay .................... se cuelga al saltar
+  //   4. declarada lista + se puede recorrer ........ SALTA AL FINAL y termina
+  //
+  // La 4 es la que dio el dato bueno: al dejar de reconectar, en vez de
+  // colgarse llega a fin de archivo. O sea que **el pedido que sigue al salto
+  // falla** — antes reconectaba en bucle (colgado) y ahora se rinde. Las dos
+  // caras del mismo problema.
+  //
+  // Y falla solo cuando lo pide mpv: el mismo origen, pedido desde afuera,
+  // entrega el ÚLTIMO pedacito sin haber pedido los anteriores en **32 de 32**
+  // sobre 25 títulos. Por eso ahora los pide la app, y encima con el recorrido
+  // ya habilitado — que es la combinación que faltaba.
+  'X-Por-El-Relay': '1',
   // No es una cabecera: es la declaración de que esto es una lista de
   // pedacitos, y con ella la app deja que la lista se pueda RECORRER.
   //
