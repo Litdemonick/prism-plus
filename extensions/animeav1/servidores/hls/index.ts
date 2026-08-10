@@ -79,7 +79,6 @@ const CABECERAS = {
   'Sec-Fetch-Site': 'same-origin',
   // No es una cabecera: es la declaración de que esto es una lista de
   // pedacitos. La app la lee y la saca antes de pedirle nada a la fuente.
-  'X-Lista-De-Pedacitos': '1',
   // Que los pedacitos los baje la app y no mpv.
   //
   // ── Las cuatro combinaciones que se probaron EN VIVO ─────────────────────
@@ -98,7 +97,6 @@ const CABECERAS = {
   // entrega el ÚLTIMO pedacito sin haber pedido los anteriores en **32 de 32**
   // sobre 25 títulos. Por eso ahora los pide la app, y encima con el recorrido
   // ya habilitado — que es la combinación que faltaba.
-  'X-Por-El-Relay': '1',
   // ── Se probó pasarlo por el relay de la app y NO era eso ────────────────
   //
   // Se llegó a mandar los pedacitos por el relay local pensando que a mpv no

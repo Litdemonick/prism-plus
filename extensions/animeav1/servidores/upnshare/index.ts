@@ -149,7 +149,6 @@ const CABECERAS = {
   // entrega el ÚLTIMO pedacito sin haber pedido los anteriores en **32 de 32**
   // sobre 25 títulos. Por eso ahora los pide la app, y encima con el recorrido
   // ya habilitado — que es la combinación que faltaba.
-  'X-Por-El-Relay': '1',
   // No es una cabecera: es la declaración de que esto es una lista de
   // pedacitos, y con ella la app deja que la lista se pueda RECORRER.
   //
@@ -160,7 +159,6 @@ const CABECERAS = {
   // que descartó que el problema fueran las cabeceras. El mp4 directo del
   // mismo episodio anda perfecto: lo que rompía era `reconnect_streamed`,
   // que le dice a ffmpeg que la fuente no se puede recorrer.
-  'X-Lista-De-Pedacitos': '1',
 };
 
 export async function resolver(url: string, _referer: string): Promise<ServidorResuelto | null> {

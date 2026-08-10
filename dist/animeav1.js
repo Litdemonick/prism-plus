@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeAV1
-// @version      1.0.4
+// @version      1.0.5
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -168,10 +168,9 @@ var _NAMED_ENTITIES = {
 // extensions/animeav1/servidores/hls/index.ts
 var CABECERAS = {
   // Sin esta, todos los trozos dan 403. Ver arriba.
-  "Sec-Fetch-Site": "same-origin",
+  "Sec-Fetch-Site": "same-origin"
   // No es una cabecera: es la declaración de que esto es una lista de
   // pedacitos. La app la lee y la saca antes de pedirle nada a la fuente.
-  "X-Lista-De-Pedacitos": "1",
   // Que los pedacitos los baje la app y no mpv.
   //
   // ── Las cuatro combinaciones que se probaron EN VIVO ─────────────────────
@@ -190,7 +189,6 @@ var CABECERAS = {
   // entrega el ÚLTIMO pedacito sin haber pedido los anteriores en **32 de 32**
   // sobre 25 títulos. Por eso ahora los pide la app, y encima con el recorrido
   // ya habilitado — que es la combinación que faltaba.
-  "X-Por-El-Relay": "1"
   // ── Se probó pasarlo por el relay de la app y NO era eso ────────────────
   //
   // Se llegó a mandar los pedacitos por el relay local pensando que a mpv no
@@ -276,7 +274,7 @@ function descifrar(hex) {
 }
 var CABECERAS2 = {
   Referer: `${BASE}/`,
-  "User-Agent": UA_ESCRITORIO,
+  "User-Agent": UA_ESCRITORIO
   // Que los pedacitos los baje la app y no mpv.
   //
   // ── Las cuatro combinaciones que se probaron EN VIVO ─────────────────────
@@ -295,7 +293,6 @@ var CABECERAS2 = {
   // entrega el ÚLTIMO pedacito sin haber pedido los anteriores en **32 de 32**
   // sobre 25 títulos. Por eso ahora los pide la app, y encima con el recorrido
   // ya habilitado — que es la combinación que faltaba.
-  "X-Por-El-Relay": "1",
   // No es una cabecera: es la declaración de que esto es una lista de
   // pedacitos, y con ella la app deja que la lista se pueda RECORRER.
   //
@@ -306,7 +303,6 @@ var CABECERAS2 = {
   // que descartó que el problema fueran las cabeceras. El mp4 directo del
   // mismo episodio anda perfecto: lo que rompía era `reconnect_streamed`,
   // que le dice a ffmpeg que la fuente no se puede recorrer.
-  "X-Lista-De-Pedacitos": "1"
 };
 async function resolver4(url, _referer) {
   var _a, _b, _c, _d, _e;
