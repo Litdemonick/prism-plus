@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeAV1
-// @version      1.0.1
+// @version      1.0.2
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -171,7 +171,17 @@ var CABECERAS = {
   "Sec-Fetch-Site": "same-origin",
   // No es una cabecera: es la declaración de que esto es una lista de
   // pedacitos. La app la lee y la saca antes de pedirle nada a la fuente.
-  "X-Lista-De-Pedacitos": "1"
+  "X-Lista-De-Pedacitos": "1",
+  // Que los pedacitos los baje la app y no mpv.
+  //
+  // Con la declaración de arriba sola no alcanzó: medido en vivo el
+  // 2026-08-10, el vídeo arranca, avanza 708 ms y se queda cargando para
+  // siempre, con el colchón en cero y «entrando: 172309 B/s» — o sea que baja
+  // y no avanza. Y el MISMO origen, pedido desde afuera, entrega **7,65 MB/s
+  // sin un solo fallo** sobre doce pedacitos seguidos, y deja saltar al 71 o
+  // al 142 sin haber pedido los anteriores. El servidor está perfecto; lo que
+  // no funciona es cómo le llegan los pedidos cuando los hace mpv.
+  "X-Por-El-Relay": "1"
 };
 async function resolver(url, _referer) {
   var _a;
@@ -242,7 +252,18 @@ function descifrar(hex) {
     return "";
   }
 }
-var CABECERAS2 = { Referer: `${BASE}/`, "User-Agent": UA_ESCRITORIO };
+var CABECERAS2 = {
+  Referer: `${BASE}/`,
+  "User-Agent": UA_ESCRITORIO,
+  // Que los pedacitos los baje la app y no mpv. No es una cabecera.
+  //
+  // Le pasaba lo mismo que al HLS y **este ni siquiera manda una cabecera
+  // rara**, así que no alcanzaba con culpar a la cabecera: medido en vivo el
+  // 2026-08-10, «el cuadro apareció y el vídeo no avanzó en 6 s». El mp4
+  // directo del mismo episodio anda perfecto, así que lo que falla es el
+  // camino de listas contra mpv, no el servidor.
+  "X-Por-El-Relay": "1"
+};
 async function resolver4(url, _referer) {
   var _a, _b, _c, _d, _e;
   const id = (_a = /#([A-Za-z0-9_-]{3,20})/.exec(url)) == null ? void 0 : _a[1];
@@ -585,6 +606,9 @@ async function detail(url) {
   };
 }
 var _IDIOMAS = { SUB: "SUB", DUB: "DUB" };
+function _estaRota(url) {
+  return /\/embed-undef(?:ined)?\.html/i.test(url) || /[?#/]undefined(?:[?#/&]|$)/i.test(url);
+}
 async function watch(url) {
   var _a, _b, _c;
   if (url.indexOf("http") === 0 && url.indexOf("animeav1.com") === -1) {
@@ -614,10 +638,15 @@ async function watch(url) {
     const idioma = _IDIOMAS[m[1]];
     if (!idioma) continue;
     for (const s of m[2].matchAll(/server:"((?:[^"\\]|\\.)*)",url:"((?:[^"\\]|\\.)*)"/g)) {
+      const direccion = _unescapeJs(s[2]);
+      if (_estaRota(direccion)) {
+        console.log(`[av1] el sitio publica un enlace roto, se descarta: ${direccion}`);
+        continue;
+      }
       porIdioma.push({
         idioma,
         server: _unescapeJs(s[1]),
-        url: _unescapeJs(s[2])
+        url: direccion
       });
     }
   }

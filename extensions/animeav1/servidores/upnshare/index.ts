@@ -128,7 +128,18 @@ function descifrar(hex: string): string {
 }
 
 // Las dos hacen falta: con una sola el CDN devuelve 403.
-const CABECERAS = { Referer: `${BASE}/`, 'User-Agent': UA_ESCRITORIO };
+const CABECERAS = {
+  Referer: `${BASE}/`,
+  'User-Agent': UA_ESCRITORIO,
+  // Que los pedacitos los baje la app y no mpv. No es una cabecera.
+  //
+  // Le pasaba lo mismo que al HLS y **este ni siquiera manda una cabecera
+  // rara**, así que no alcanzaba con culpar a la cabecera: medido en vivo el
+  // 2026-08-10, «el cuadro apareció y el vídeo no avanzó en 6 s». El mp4
+  // directo del mismo episodio anda perfecto, así que lo que falla es el
+  // camino de listas contra mpv, no el servidor.
+  'X-Por-El-Relay': '1',
+};
 
 export async function resolver(url: string, _referer: string): Promise<ServidorResuelto | null> {
   // El id viaja en el fragmento: https://animeav1.uns.bio/#eowi65

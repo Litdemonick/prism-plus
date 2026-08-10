@@ -80,6 +80,16 @@ const CABECERAS = {
   // No es una cabecera: es la declaración de que esto es una lista de
   // pedacitos. La app la lee y la saca antes de pedirle nada a la fuente.
   'X-Lista-De-Pedacitos': '1',
+  // Que los pedacitos los baje la app y no mpv.
+  //
+  // Con la declaración de arriba sola no alcanzó: medido en vivo el
+  // 2026-08-10, el vídeo arranca, avanza 708 ms y se queda cargando para
+  // siempre, con el colchón en cero y «entrando: 172309 B/s» — o sea que baja
+  // y no avanza. Y el MISMO origen, pedido desde afuera, entrega **7,65 MB/s
+  // sin un solo fallo** sobre doce pedacitos seguidos, y deja saltar al 71 o
+  // al 142 sin haber pedido los anteriores. El servidor está perfecto; lo que
+  // no funciona es cómo le llegan los pedidos cuando los hace mpv.
+  'X-Por-El-Relay': '1',
 };
 
 export async function resolver(url: string, _referer: string): Promise<ServidorResuelto | null> {

@@ -448,6 +448,29 @@ export async function detail(url: string): Promise<PrismDetail> {
  */
 const _IDIOMAS: Record<string, string> = { SUB: 'SUB', DUB: 'DUB' };
 
+/**
+ * Enlaces que el propio sitio publica rotos.
+ *
+ * No es una precaución teórica: la película «Kimetsu no Yaiba Movie 1» trae,
+ * **en SUB y en DUB**, `https://www.mp4upload.com/embed-undef.html` — con
+ * `undef` donde va el identificador. El sitio guardó un `undefined` de su
+ * propio JavaScript.
+ *
+ * Y el resultado era de lo peor que puede pasar: esa dirección no existe,
+ * mp4upload redirige a su página de políticas, el reproductor dice «no
+ * reconozco el formato» y la app termina abriendo el navegador interno sobre
+ * **la pantalla de iniciar sesión de mp4upload**. Reportado en vivo el
+ * 2026-08-10 y confundido con «mp4upload está caído», cuando el servidor
+ * funciona perfecto: medido, el embed de cualquier otro episodio contesta 200
+ * con su mp4 adentro.
+ *
+ * Descartarlo acá hace que el botón ni aparezca en esos episodios, que es lo
+ * honesto: ese archivo no está subido, no hay nada que abrir.
+ */
+function _estaRota(url: string): boolean {
+  return /\/embed-undef(?:ined)?\.html/i.test(url) || /[?#/]undefined(?:[?#/&]|$)/i.test(url);
+}
+
 export async function watch(url: string): Promise<PrismWatch> {
   // Fast-path: el cliente pide resolver UN servidor puntual (switchServer) y
   // manda la URL del embed directamente — mismo patrón que el resto del repo.
@@ -490,10 +513,15 @@ export async function watch(url: string): Promise<PrismWatch> {
     const idioma = _IDIOMAS[m[1]];
     if (!idioma) continue;
     for (const s of m[2].matchAll(/server:"((?:[^"\\]|\\.)*)",url:"((?:[^"\\]|\\.)*)"/g)) {
+      const direccion = _unescapeJs(s[2]);
+      if (_estaRota(direccion)) {
+        console.log(`[av1] el sitio publica un enlace roto, se descarta: ${direccion}`);
+        continue;
+      }
       porIdioma.push({
         idioma,
         server: _unescapeJs(s[1]),
-        url: _unescapeJs(s[2]),
+        url: direccion,
       });
     }
   }
