@@ -57,6 +57,37 @@
 //   nada · solo UA · solo Sec-Fetch-Site      →  403
 //   UA + Referer https://animeav1.uns.bio/    →  206 video/mp4   ✔
 //
+// ── Por qué va por la lista maestra y no por el mp4 (2026-08-10) ─────────────
+//
+// La primera versión devolvía el mp4 de `/api/v1/download`: una sola calidad,
+// 1080p. Andaba, pero el usuario reportó en vivo que **al adelantar tocando la
+// barra se quedaba cargando sin parar** en el doblaje. Medido, la causa no es
+// el salto sino el **caudal del nodo**: el CDN reparte cada vale entre nodos
+// distintos y no todos dan lo mismo.
+//
+//   4 MB reales, diez vales seguidos del mismo episodio:
+//     185.237.106.177  1,71 · 1,09 · 0,76 · 1,14 · 2,93 · 2,15 MB/s   ok
+//     203.188.166.13   0,14 MB/s   ← el archivo pide ~0,19: se corta
+//     185.237.106.72   0,15 MB/s   ← ídem
+//
+// **4 de cada 10 no alcanzan.** Y no se puede esquivar eligiendo nodo: se midió
+// si un pedido barato lo delata y **no** —el peor nodo bueno tarda 3724 ms en
+// 64 KB y el mejor malo 1004 ms, así que se pisan—, y encima el MISMO nodo da
+// 0,22 en un pedido y 0,17 en el siguiente. Tampoco se puede bajar de calidad
+// por ahí: el vale está firmado para el 1080p y pedir `720p.mp4` da 403.
+//
+// La lista maestra de `/api/v1/video` arregla las dos cosas de una:
+//
+//   - trae **720p y 1080p**, así que el reproductor baja solo cuando la red no
+//     da, en vez de atragantarse con el 1080p;
+//   - es VOD con `#EXT-X-ENDLIST` y 358 pedacitos, y saltar al último devuelve
+//     200 en 446 ms;
+//   - **termina en `.m3u8`**, así que entra sola por el camino de HLS de la app
+//     —el que esquiva nodos caídos y sigue maestros— sin declarar nada.
+//
+// El mp4 queda de respaldo por si algún día el maestro no viene. Si esto sale
+// peor que antes, volver al mp4 es cambiar el orden de los dos bloques.
+//
 // ── El nodo cambia en cada pedido ────────────────────────────────────────────
 //
 // El vale trae la IP del CDN adentro y **no es siempre la misma**: en 12
@@ -96,6 +127,9 @@ function descifrar(hex: string): string {
   }
 }
 
+// Las dos hacen falta: con una sola el CDN devuelve 403.
+const CABECERAS = { Referer: `${BASE}/`, 'User-Agent': UA_ESCRITORIO };
+
 export async function resolver(url: string, _referer: string): Promise<ServidorResuelto | null> {
   // El id viaja en el fragmento: https://animeav1.uns.bio/#eowi65
   const id = /#([A-Za-z0-9_-]{3,20})/.exec(url)?.[1];
@@ -104,6 +138,16 @@ export async function resolver(url: string, _referer: string): Promise<ServidorR
     return null;
   }
 
+  // Primero la lista maestra, que es lo que usa el propio reproductor del sitio.
+  const hexVideo = await pedir(`${BASE}/api/v1/video?id=${id}`, `${BASE}/`);
+  const claroVideo = hexVideo ? descifrar(hexVideo) : '';
+  const master = /"source"\s*:\s*"([^"]+)"/.exec(claroVideo)?.[1]?.replace(/\\\//g, '/');
+  if (master && master.indexOf('.m3u8') !== -1) {
+    return { url: master, headers: CABECERAS };
+  }
+
+  // Respaldo: el mp4 de una sola calidad. Anda, pero es peor — ver arriba.
+  console.log('[av1] upnshare: sin lista maestra, se cae al mp4 de una calidad');
   const hex = await pedir(`${BASE}/api/v1/download?id=${id}`, `${BASE}/`);
   if (!hex) return null;
 
@@ -117,9 +161,5 @@ export async function resolver(url: string, _referer: string): Promise<ServidorR
     return null;
   }
 
-  return {
-    url: mp4,
-    // Las dos hacen falta: con una sola el CDN devuelve 403.
-    headers: { Referer: `${BASE}/`, 'User-Agent': UA_ESCRITORIO },
-  };
+  return { url: mp4, headers: CABECERAS };
 }

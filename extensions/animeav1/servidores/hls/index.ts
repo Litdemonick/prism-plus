@@ -55,8 +55,32 @@
 
 import { type ServidorResuelto } from '../comun';
 
-/** La cabecera —y su valor exacto— sin la cual todos los trozos dan 403. */
-const CABECERAS = { 'Sec-Fetch-Site': 'same-origin' };
+// ── Por qué se declara que es una LISTA ──────────────────────────────────────
+//
+// La dirección de la lista es `/m3u8/{hash}`: **no termina en `.m3u8`**. La app
+// decide si algo es lista o archivo entero mirando cómo termina la ruta, así
+// que esta se abría como si fuera un MP4 entero — con `multiple_requests=1`,
+// sin `reconnect_streamed` y salteándose el camino de HLS.
+//
+// De corrido reproducía igual (mpv reconoce el formato por el contenido), pero
+// **al tocar la barra para adelantar se quedaba cargando sin parar**, y a veces
+// volvía sola al principio. Reportado en vivo el 2026-08-10, en SUB y en DUB.
+//
+// El origen no tiene nada que ver: la lista es VOD con `#EXT-X-ENDLIST` y 143
+// pedacitos, y saltar directo al pedacito 71 o al 142 sin haber pedido los
+// anteriores devuelve 200 en 71-559 ms.
+//
+// Se intentó primero la salida que no tocaba la app —pedir la misma lista con
+// un nombre terminado en `.m3u8`— y el servidor no la sirve: `{hash}.m3u8`,
+// `/index.m3u8` y `/master.m3u8` dan 404, y la query no cuenta porque la app
+// mira la dirección sin ella. Por eso se declara.
+const CABECERAS = {
+  // Sin esta, todos los trozos dan 403. Ver arriba.
+  'Sec-Fetch-Site': 'same-origin',
+  // No es una cabecera: es la declaración de que esto es una lista de
+  // pedacitos. La app la lee y la saca antes de pedirle nada a la fuente.
+  'X-Lista-De-Pedacitos': '1',
+};
 
 export async function resolver(url: string, _referer: string): Promise<ServidorResuelto | null> {
   const hash = /\/play\/([a-f0-9]{32})/i.exec(url)?.[1];

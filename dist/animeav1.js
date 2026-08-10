@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeAV1
-// @version      1.0.0
+// @version      1.0.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -166,7 +166,13 @@ var _NAMED_ENTITIES = {
 };
 
 // extensions/animeav1/servidores/hls/index.ts
-var CABECERAS = { "Sec-Fetch-Site": "same-origin" };
+var CABECERAS = {
+  // Sin esta, todos los trozos dan 403. Ver arriba.
+  "Sec-Fetch-Site": "same-origin",
+  // No es una cabecera: es la declaración de que esto es una lista de
+  // pedacitos. La app la lee y la saca antes de pedirle nada a la fuente.
+  "X-Lista-De-Pedacitos": "1"
+};
 async function resolver(url, _referer) {
   var _a;
   const hash = (_a = /\/play\/([a-f0-9]{32})/i.exec(url)) == null ? void 0 : _a[1];
@@ -236,27 +242,31 @@ function descifrar(hex) {
     return "";
   }
 }
+var CABECERAS2 = { Referer: `${BASE}/`, "User-Agent": UA_ESCRITORIO };
 async function resolver4(url, _referer) {
-  var _a, _b, _c;
+  var _a, _b, _c, _d, _e;
   const id = (_a = /#([A-Za-z0-9_-]{3,20})/.exec(url)) == null ? void 0 : _a[1];
   if (!id) {
     console.log(`[av1] upnshare: la direcci\xF3n no trae id en el # :: ${url.slice(0, 60)}`);
     return null;
   }
+  const hexVideo = await pedir(`${BASE}/api/v1/video?id=${id}`, `${BASE}/`);
+  const claroVideo = hexVideo ? descifrar(hexVideo) : "";
+  const master = (_c = (_b = /"source"\s*:\s*"([^"]+)"/.exec(claroVideo)) == null ? void 0 : _b[1]) == null ? void 0 : _c.replace(/\\\//g, "/");
+  if (master && master.indexOf(".m3u8") !== -1) {
+    return { url: master, headers: CABECERAS2 };
+  }
+  console.log("[av1] upnshare: sin lista maestra, se cae al mp4 de una calidad");
   const hex = await pedir(`${BASE}/api/v1/download?id=${id}`, `${BASE}/`);
   if (!hex) return null;
   const claro = descifrar(hex);
   if (!claro) return null;
-  const mp4 = (_c = (_b = /"mp4"\s*:\s*"([^"]+)"/.exec(claro)) == null ? void 0 : _b[1]) == null ? void 0 : _c.replace(/\\\//g, "/");
+  const mp4 = (_e = (_d = /"mp4"\s*:\s*"([^"]+)"/.exec(claro)) == null ? void 0 : _d[1]) == null ? void 0 : _e.replace(/\\\//g, "/");
   if (!mp4) {
     console.log("[av1] upnshare: se descifr\xF3 pero no hab\xEDa mp4 adentro");
     return null;
   }
-  return {
-    url: mp4,
-    // Las dos hacen falta: con una sola el CDN devuelve 403.
-    headers: { Referer: `${BASE}/`, "User-Agent": UA_ESCRITORIO }
-  };
+  return { url: mp4, headers: CABECERAS2 };
 }
 
 // extensions/animeav1/servidores/index.ts
