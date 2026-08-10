@@ -1,0 +1,13 @@
+{
+  "name": "AnimeAV1",
+  "package": "io.prismhub.animeav1",
+  "version": "1.0.0",
+  "author": "PrismPlus",
+  "type": "anime",
+  "icon": "",
+  "description": "Anime subtitulado y doblado con catálogo completo, filtros por género, estado, año y letra, y tres de sus cuatro servidores reproduciendo en la app.",
+  "lang": "es",
+  "webSite": "https://animeav1.com",
+  "license": "MIT",
+  "latestLabel": "recientemente-agregados"
+}
