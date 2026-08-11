@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeAV1
-// @version      1.0.5
+// @version      1.0.6
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -167,41 +167,18 @@ var _NAMED_ENTITIES = {
 
 // extensions/animeav1/servidores/hls/index.ts
 var CABECERAS = {
-  // Sin esta, todos los trozos dan 403. Ver arriba.
-  "Sec-Fetch-Site": "same-origin"
-  // No es una cabecera: es la declaración de que esto es una lista de
-  // pedacitos. La app la lee y la saca antes de pedirle nada a la fuente.
-  // Que los pedacitos los baje la app y no mpv.
-  //
-  // ── Las cuatro combinaciones que se probaron EN VIVO ─────────────────────
-  //
-  //   1. sin declarar nada .......................... se cuelga al saltar
-  //   2. declarada lista ............................ se cuelga al saltar
-  //   3. declarada lista + relay .................... se cuelga al saltar
-  //   4. declarada lista + se puede recorrer ........ SALTA AL FINAL y termina
-  //
-  // La 4 es la que dio el dato bueno: al dejar de reconectar, en vez de
-  // colgarse llega a fin de archivo. O sea que **el pedido que sigue al salto
-  // falla** — antes reconectaba en bucle (colgado) y ahora se rinde. Las dos
-  // caras del mismo problema.
-  //
-  // Y falla solo cuando lo pide mpv: el mismo origen, pedido desde afuera,
-  // entrega el ÚLTIMO pedacito sin haber pedido los anteriores en **32 de 32**
-  // sobre 25 títulos. Por eso ahora los pide la app, y encima con el recorrido
-  // ya habilitado — que es la combinación que faltaba.
-  // ── Se probó pasarlo por el relay de la app y NO era eso ────────────────
-  //
-  // Se llegó a mandar los pedacitos por el relay local pensando que a mpv no
-  // le llegaba la cabecera. **El registro probó que sí le llega**: en el
-  // pedido que mpv le hace al relay se lee `sec-fetch-site: same-origin`. O
-  // sea que la propaga, el relay no aportaba nada y solo metía un
-  // intermediario en el medio de todo el vídeo. Se sacó.
-  //
-  // Lo que de verdad lo rompía era `reconnect_streamed`, que la app le pone a
-  // TODA lista y le dice a ffmpeg que la fuente no se puede recorrer. Estos
-  // pedacitos son fMP4/CMAF (llevan `#EXT-X-MAP` y cada uno es un fragmento
-  // del MISMO mp4), así que sin poder recorrer no hay salto posible. Lo
-  // enciende la declaración de acá arriba.
+  // La imprescindible. Sin ella, 403 en todos los pedacitos.
+  "Sec-Fetch-Site": "same-origin",
+  // El resto, leído del pedido real que hace el reproductor de la web.
+  "Sec-Fetch-Dest": "empty",
+  "Sec-Fetch-Mode": "cors",
+  Accept: "*/*",
+  "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+  Origin: "https://player.zilla-networks.com",
+  Referer: "https://player.zilla-networks.com/",
+  "sec-ch-ua": '"Chromium";v="131", "Not_A Brand";v="24"',
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": '"Windows"'
 };
 async function resolver(url, _referer) {
   var _a;
