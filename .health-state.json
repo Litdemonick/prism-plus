@@ -1,4 +1,8 @@
 {
+  "io.prismhub.animeav1": {
+    "consecutiveFailures": 0,
+    "lastReason": null
+  },
   "io.prismhub.animefenix": {
     "consecutiveFailures": 0,
     "lastReason": null
