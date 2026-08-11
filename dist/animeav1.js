@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeAV1
-// @version      1.0.8
+// @version      1.0.9
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -627,7 +627,7 @@ function _estaRota(url) {
   return /\/embed-undef(?:ined)?\.html/i.test(url) || /[?#/]undefined(?:[?#/&]|$)/i.test(url);
 }
 async function watch(url) {
-  var _a, _b, _c;
+  var _a, _b, _c, _d;
   if (url.indexOf("http") === 0 && url.indexOf("animeav1.com") === -1) {
     try {
       const res = await resolverServidor(url, `${BASE2}/`);
@@ -686,6 +686,7 @@ async function watch(url) {
     });
     for (const e of conFicha) {
       if (!e.url || seen[e.url]) continue;
+      if (((_a = e.ficha) == null ? void 0 : _a.boton) === "Mega") continue;
       seen[e.url] = true;
       streams.push({
         url: e.url,
@@ -696,14 +697,14 @@ async function watch(url) {
         // está lo que se midió de cada uno. Sin esto la app lo adivina por el
         // nombre, y acá le erraría a dos: "HLS" no es el nombre de ningún
         // servidor conocido, y Mega reproduce solo en el navegador.
-        nativo: (_a = e.ficha) == null ? void 0 : _a.nativo
+        nativo: (_b = e.ficha) == null ? void 0 : _b.nativo
       });
     }
   }
   if (streams.length === 0) {
-    const iframe = (_b = /<iframe[^>]+src="([^"]+)"/i.exec(html)) == null ? void 0 : _b[1];
+    const iframe = (_c = /<iframe[^>]+src="([^"]+)"/i.exec(html)) == null ? void 0 : _c[1];
     if (iframe) {
-      streams.push({ url: iframe, quality: "Servidor", nativo: (_c = fichaDe(iframe)) == null ? void 0 : _c.nativo });
+      streams.push({ url: iframe, quality: "Servidor", nativo: (_d = fichaDe(iframe)) == null ? void 0 : _d.nativo });
     }
   }
   return { streams, pageUrl: episodeUrl };

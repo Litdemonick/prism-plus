@@ -554,6 +554,14 @@ export async function watch(url: string): Promise<PrismWatch> {
       .sort((a, b) => (a.ficha?.nativo === b.ficha?.nativo ? 0 : a.ficha?.nativo ? -1 : 1));
     for (const e of conFicha) {
       if (!e.url || seen[e.url]) continue;
+      // Mega fuera de la lista, a pedido del usuario (2026-08-10). No reproduce
+      // en el nativo —descifra del lado del navegador y no hay dirección que
+      // sacar— así que su botón solo lleva al navegador interno.
+      //
+      // Acá sí se puede sacar y en tioanime NO: allá eran tres servidores y
+      // quitarlo dejaba episodios sin ninguno que abriera. Estos episodios
+      // quedan con tres, y los tres reproducen nativo.
+      if (e.ficha?.boton === 'Mega') continue;
       seen[e.url] = true;
       streams.push({
         url: e.url,
