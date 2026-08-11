@@ -63,27 +63,7 @@ export interface Servidor {
 }
 
 /**
- * En el orden en el que se ofrecen: **UPNShare primero, Mega al final**.
- *
- * ── Por qué UPNShare y no HLS, que es el que elige el sitio ─────────────────
- *
- * Porque **con HLS no se puede adelantar**, y eso se nota más que cualquier
- * otra cosa. Sus pedacitos vienen en formato MP4 (`#EXT-X-MAP`) y el
- * reproductor se congela al saltar a una zona todavía no cargada: es un fallo
- * de ffmpeg reportado contra el ejemplo oficial de Apple y **cerrado sin
- * arreglo** (mpv-player/mpv#15184).
- *
- * Se probaron once caminos del lado de la app —incluido servirle el episodio ya
- * armado como UN archivo desde el propio aparato, que funcionó y aun así se
- * colgó igual— y hasta la última opción que quedaba del lector de MP4
- * (`seek_streams_individually=0`). Ninguno sirvió, y era esperable: el fallo no
- * está en cómo se le entregan los bytes.
- *
- * UPNShare es nativo, trae 720p y 1080p, y **adelanta bien**. HLS se queda en
- * la lista y a un toque: carga rapidísimo y reproduce el episodio entero sin un
- * corte, así que para ver de corrido sigue siendo el mejor.
- *
- * Si algún día ffmpeg lo arregla, alcanza con volver a poner HLS primero.
+ * En el orden en el que se ofrecen: **los nativos primero y Mega al final**.
  *
  * La app toma el primero de la lista como el servidor inicial del episodio, así
  * que este orden decide con cuál arranca. HLS va primero porque es el que el
@@ -92,18 +72,18 @@ export interface Servidor {
  */
 export const SERVIDORES: Servidor[] = [
   {
-    boton: 'UPNShare',
-    hosts: ['uns.bio', 'upns.'],
-    botones: 123,
-    nativo: true,
-    resolver: upnshare.resolver,
-  },
-  {
     boton: 'HLS',
     hosts: ['zilla-networks'],
     botones: 122,
     nativo: true,
     resolver: hls.resolver,
+  },
+  {
+    boton: 'UPNShare',
+    hosts: ['uns.bio', 'upns.'],
+    botones: 123,
+    nativo: true,
+    resolver: upnshare.resolver,
   },
   {
     boton: 'MP4Upload',

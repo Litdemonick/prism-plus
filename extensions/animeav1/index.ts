@@ -1,5 +1,5 @@
 import { decodeEntities } from '../../sdk/html';
-import { SERVIDORES, UA_ESCRITORIO, fichaDe, resolverServidor } from './servidores';
+import { UA_ESCRITORIO, fichaDe, resolverServidor } from './servidores';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode } from '../../sdk/types';
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
@@ -549,21 +549,9 @@ export async function watch(url: string): Promise<PrismWatch> {
     // Dentro de cada idioma, el orden es el de la tabla de `servidores/`:
     // los nativos primero y Mega al final.
     const delIdioma = porIdioma.filter((e) => e.idioma === idioma);
-    // Por el orden de la tabla de `servidores/`, no por el que trae el sitio.
-    //
-    // Importa porque la app abre el episodio con el PRIMERO de la lista, y el
-    // sitio deja elegido HLS — que es el único con el que **no se puede
-    // adelantar**. Ordenando por la tabla, arranca con UPNShare, que sí.
-    //
-    // Antes esto solo separaba nativos de los de navegador, y como el orden
-    // dentro de cada grupo quedaba el del sitio, HLS seguía saliendo primero.
-    const posicion = (u: string): number => {
-      const i = SERVIDORES.findIndex((s) => s.hosts.some((h) => u.toLowerCase().indexOf(h) !== -1));
-      return i === -1 ? SERVIDORES.length : i;
-    };
     const conFicha = delIdioma
       .map((e) => ({ ...e, ficha: fichaDe(e.url) }))
-      .sort((a, b) => posicion(a.url) - posicion(b.url));
+      .sort((a, b) => (a.ficha?.nativo === b.ficha?.nativo ? 0 : a.ficha?.nativo ? -1 : 1));
     for (const e of conFicha) {
       if (!e.url || seen[e.url]) continue;
       seen[e.url] = true;

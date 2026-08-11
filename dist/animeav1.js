@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeAV1
-// @version      1.1.0
+// @version      1.0.8
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -310,18 +310,18 @@ async function resolver4(url, _referer) {
 // extensions/animeav1/servidores/index.ts
 var SERVIDORES = [
   {
-    boton: "UPNShare",
-    hosts: ["uns.bio", "upns."],
-    botones: 123,
-    nativo: true,
-    resolver: resolver4
-  },
-  {
     boton: "HLS",
     hosts: ["zilla-networks"],
     botones: 122,
     nativo: true,
     resolver
+  },
+  {
+    boton: "UPNShare",
+    hosts: ["uns.bio", "upns."],
+    botones: 123,
+    nativo: true,
+    resolver: resolver4
   },
   {
     boton: "MP4Upload",
@@ -680,11 +680,10 @@ async function watch(url) {
   const variosIdiomas = cuantosIdiomas > 1;
   for (const idioma of idiomas) {
     const delIdioma = porIdioma.filter((e) => e.idioma === idioma);
-    const posicion = (u) => {
-      const i = SERVIDORES.findIndex((s) => s.hosts.some((h) => u.toLowerCase().indexOf(h) !== -1));
-      return i === -1 ? SERVIDORES.length : i;
-    };
-    const conFicha = delIdioma.map((e) => __spreadProps(__spreadValues({}, e), { ficha: fichaDe(e.url) })).sort((a, b) => posicion(a.url) - posicion(b.url));
+    const conFicha = delIdioma.map((e) => __spreadProps(__spreadValues({}, e), { ficha: fichaDe(e.url) })).sort((a, b) => {
+      var _a2, _b2, _c2;
+      return ((_a2 = a.ficha) == null ? void 0 : _a2.nativo) === ((_b2 = b.ficha) == null ? void 0 : _b2.nativo) ? 0 : ((_c2 = a.ficha) == null ? void 0 : _c2.nativo) ? -1 : 1;
+    });
     for (const e of conFicha) {
       if (!e.url || seen[e.url]) continue;
       seen[e.url] = true;
