@@ -93,6 +93,20 @@ import { type ServidorResuelto } from '../comun';
 const CABECERAS = {
   // La imprescindible. Sin ella, 403 en todos los pedacitos.
   'Sec-Fetch-Site': 'same-origin',
+  // No es una cabecera: es la declaración de que esto es una LISTA de
+  // pedacitos, aunque su dirección no termine en `.m3u8`. La app la lee y la
+  // saca antes de pedirle nada a la fuente.
+  //
+  // Sin ella, la app la toma por un archivo entero y le da un tratamiento
+  // distinto al que reciben todas las demás extensiones con listas — que son
+  // justamente en las que adelantar SÍ funciona. Lo hizo notar el usuario: «en
+  // otra extensión va bien, acá daña todo».
+  //
+  // Se intentó antes y no alcanzó, pero en ese momento esta extensión mandaba
+  // una sola cabecera y el caudal era seis veces menor (536 KB/s contra los
+  // 3,1 MB/s que entran ahora con el juego completo). Con la descarga ya sana,
+  // es el mismo camino que usan las que funcionan.
+  'X-Lista-De-Pedacitos': '1',
   // El resto, leído del pedido real que hace el reproductor de la web.
   'Sec-Fetch-Dest': 'empty',
   'Sec-Fetch-Mode': 'cors',
