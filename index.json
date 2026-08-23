@@ -121,6 +121,23 @@
       "signature": "/+KpIJRLERGteEC29SBEFS/XXUTjzPrXfiHJIZRvlr4BkwZ/gei0QpDq6fr5DndtPsJB1bwLYmTv7eoFMqU6Bg=="
     },
     {
+      "name": "IXXX",
+      "package": "io.prismhub.ixxx",
+      "version": "1.0.0",
+      "author": "PrismPlus",
+      "type": "bangumi",
+      "icon": "",
+      "description": "Directorio de vídeos para adultos con buscador; cuando el sitio de origen no expone un stream directo, se apoya en el sniffer universal (contenido +18).",
+      "lang": "es",
+      "webSite": "https://www.ixxx.com",
+      "license": "MIT",
+      "nsfw": "true",
+      "latestLabel": "lo-mas-reciente",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/ixxx.js",
+      "sha256": "cc1c5c7d6e19fa6338ff69b06b1c54ca8dbe275c90d7f58d4fd76add043011ca",
+      "signature": "lzgZf0qC3Jd0DofME2QCNk8qKvbhSOeht3aKaAdVBiyE2txVgbJvkr/rZ2ftyzBrtmGa1WCCdj8u9jJiWM3rBg=="
+    },
+    {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
       "version": "1.12.11",
