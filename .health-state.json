@@ -27,6 +27,10 @@
     "consecutiveFailures": 0,
     "lastReason": null
   },
+  "io.prismhub.ixxx": {
+    "consecutiveFailures": 0,
+    "lastReason": null
+  },
   "io.prismhub.jkanime": {
     "consecutiveFailures": 0,
     "lastReason": null
