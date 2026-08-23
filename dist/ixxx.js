@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         IXXX
-// @version      1.0.1
+// @version      1.0.2
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -13,6 +13,18 @@
 // ==/PrismHubExtension==
 // sdk/http.ts
 var DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+async function getViaWebview(url, headers) {
+  const raw = await sendMessage(
+    "requestViaWebview",
+    JSON.stringify([url, { headers: headers != null ? headers : {} }])
+  );
+  try {
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "string" ? parsed : raw;
+  } catch (e) {
+    return raw;
+  }
+}
 
 // sdk/html.ts
 function decodeEntities(html) {
@@ -209,17 +221,26 @@ function createCache() {
 
 // extensions/ixxx/index.ts
 var BASE = "https://www.ixxx.com";
-async function _get(url, referer = `${BASE}/`) {
-  const raw = await sendMessage(
-    "request",
-    JSON.stringify([url, { method: "get", headers: { Referer: referer, "User-Agent": DESKTOP_UA } }])
-  );
+function _desempaquetar(raw) {
   try {
     const parsed = JSON.parse(raw);
     return typeof parsed === "string" ? parsed : raw;
   } catch (e) {
     return raw;
   }
+}
+function _paginaDeVerificacion(html) {
+  return html.indexOf("Just a moment") !== -1 || html.indexOf("cf-chl") !== -1 || html.indexOf("challenge-platform") !== -1 || html.indexOf("Attention Required") !== -1;
+}
+async function _get(url, referer = `${BASE}/`) {
+  const raw = await sendMessage(
+    "request",
+    JSON.stringify([url, { method: "get", headers: { Referer: referer, "User-Agent": DESKTOP_UA } }])
+  );
+  const directo = _desempaquetar(raw);
+  if (!_paginaDeVerificacion(directo)) return directo;
+  const porWebview = await getViaWebview(url, { Referer: referer });
+  return porWebview || directo;
 }
 function _origen(url) {
   var _a, _b;
@@ -236,9 +257,6 @@ function _destinoReal(hrefOut) {
   }
   const bin = b64decode(b64);
   return (_a = /https?:\/\/[A-Za-z0-9\-._~:/?#[\]@!$&'()*+,;=%]+/.exec(bin)) == null ? void 0 : _a[0];
-}
-function _paginaDeVerificacion(html) {
-  return html.indexOf("Just a moment") !== -1 || html.indexOf("cf-chl") !== -1 || html.indexOf("challenge-platform") !== -1 || html.indexOf("Attention Required") !== -1;
 }
 function _parseListado(html) {
   var _a, _b, _c, _d, _e, _f, _g;

@@ -1,4 +1,4 @@
-import { DESKTOP_UA } from '../../sdk/http';
+import { DESKTOP_UA, getViaWebview } from '../../sdk/http';
 import { decodeEntities } from '../../sdk/html';
 import { b64decode } from '../../sdk/embeds';
 import { createCache, TTL } from '../../sdk/cache';
@@ -8,17 +8,46 @@ declare function sendMessage(channel: string, data: string): Promise<string>;
 
 const BASE = 'https://www.ixxx.com';
 
-async function _get(url: string, referer = `${BASE}/`): Promise<string> {
-  const raw = await sendMessage(
-    'request',
-    JSON.stringify([url, { method: 'get', headers: { Referer: referer, 'User-Agent': DESKTOP_UA } }]),
-  );
+function _desempaquetar(raw: string): string {
   try {
     const parsed = JSON.parse(raw);
     return typeof parsed === 'string' ? parsed : raw;
   } catch {
     return raw;
   }
+}
+
+// El pedido directo (sendMessage('request',...) → Dio) no corre JavaScript,
+// así que un desafío tipo Cloudflare "Just a moment..." llega tal cual en
+// vez de la página real — y como el puente entrega solo el CUERPO (el
+// status code se pierde del lado de Dart, con validateStatus:(_)=>true ni
+// un 403 tira excepción), no hay forma de notarlo salvo mirar el HTML.
+// Confirmado en vivo: pasa igual con el script de pruebas y con la app
+// real, así que no es cosa de esta extensión — es el sitio bloqueando al
+// cliente HTTP.
+function _paginaDeVerificacion(html: string): boolean {
+  return (
+    html.indexOf('Just a moment') !== -1 ||
+    html.indexOf('cf-chl') !== -1 ||
+    html.indexOf('challenge-platform') !== -1 ||
+    html.indexOf('Attention Required') !== -1
+  );
+}
+
+async function _get(url: string, referer = `${BASE}/`): Promise<string> {
+  const raw = await sendMessage(
+    'request',
+    JSON.stringify([url, { method: 'get', headers: { Referer: referer, 'User-Agent': DESKTOP_UA } }]),
+  );
+  const directo = _desempaquetar(raw);
+  if (!_paginaDeVerificacion(directo)) return directo;
+
+  // Bloqueado: se reintenta UNA vez con un WebView real (sí ejecuta el
+  // JavaScript del desafío y termina en la página de verdad, igual que un
+  // navegador). Mucho más lento que el pedido directo — por eso no es la vía
+  // por defecto, solo el respaldo cuando ya se notó el bloqueo.
+  const porWebview = await getViaWebview(url, { Referer: referer });
+  return porWebview || directo;
 }
 
 // Sin new URL(...) a propósito: ese constructor no existe en el QuickJS de
@@ -60,22 +89,6 @@ function _destinoReal(hrefOut: string): string | undefined {
 // clase "card sub group relative block space-y-1". Split literal, no regex,
 // por lo mismo que en xvideos/index.ts: no retrocede y se comporta igual en
 // cualquier motor.
-// El puente sendMessage('request', ...) solo entrega el CUERPO de la
-// respuesta — el status code queda del lado de Dart (ver
-// extension_service.dart, jsRequest), y validateStatus:(_)=>true hace que ni
-// un 403 tire excepción. Si Cloudflare interpone su verificación, esto recibe
-// esa página con status 200 desde su punto de vista y no hay forma de
-// distinguirla salvo mirar el propio HTML. Sin este chequeo, un bloqueo se
-// leía igual que un sitio sin resultados: silencioso.
-function _paginaDeVerificacion(html: string): boolean {
-  return (
-    html.indexOf('Just a moment') !== -1 ||
-    html.indexOf('cf-chl') !== -1 ||
-    html.indexOf('challenge-platform') !== -1 ||
-    html.indexOf('Attention Required') !== -1
-  );
-}
-
 function _parseListado(html: string): PrismItem[] {
   const marker = 'card sub group relative block space-y-1';
   if (html.indexOf(marker) === -1) {

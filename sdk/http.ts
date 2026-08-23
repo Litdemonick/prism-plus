@@ -21,6 +21,41 @@ export const DESKTOP_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
+declare function sendMessage(channel: string, data: string): Promise<string>;
+
+/**
+ * GET a través de un WebView real de PrismHub (ejecuta JavaScript de
+ * verdad), en vez del pedido HTTP directo que usan get()/request().
+ *
+ * Para qué sirve: el pedido directo (sendMessage('request',...) → Dio, o
+ * fetch() acá abajo) no corre JavaScript, así que un sitio detrás de un
+ * desafío tipo Cloudflare "Just a moment..." entrega la página del desafío
+ * en vez del contenido real — y como eso llega con status 200 (o un 4xx que
+ * igual trae cuerpo), no hay forma de notar la diferencia sin mirar el
+ * propio HTML. Un WebView real corre ese JavaScript igual que un navegador
+ * y termina en la página de verdad.
+ *
+ * Mucho más lento a propósito (segundos, no milisegundos: levanta un motor
+ * de renderizado entero) — es RESPALDO, no reemplazo. Pedilo solo después
+ * de notar que el pedido directo volvió bloqueado, nunca como primera
+ * opción.
+ */
+export async function getViaWebview(
+  url: string,
+  headers?: Record<string, string>,
+): Promise<string> {
+  const raw = await sendMessage(
+    'requestViaWebview',
+    JSON.stringify([url, { headers: headers ?? {} }]),
+  );
+  try {
+    const parsed = JSON.parse(raw);
+    return typeof parsed === 'string' ? parsed : raw;
+  } catch {
+    return raw;
+  }
+}
+
 // ─── Errores tipados ──────────────────────────────────────────────────────────
 
 /** Error de red o de fetch — el servidor no llegó a responder */
