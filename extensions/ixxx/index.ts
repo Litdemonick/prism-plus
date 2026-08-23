@@ -60,9 +60,39 @@ function _destinoReal(hrefOut: string): string | undefined {
 // clase "card sub group relative block space-y-1". Split literal, no regex,
 // por lo mismo que en xvideos/index.ts: no retrocede y se comporta igual en
 // cualquier motor.
+// El puente sendMessage('request', ...) solo entrega el CUERPO de la
+// respuesta — el status code queda del lado de Dart (ver
+// extension_service.dart, jsRequest), y validateStatus:(_)=>true hace que ni
+// un 403 tire excepción. Si Cloudflare interpone su verificación, esto recibe
+// esa página con status 200 desde su punto de vista y no hay forma de
+// distinguirla salvo mirar el propio HTML. Sin este chequeo, un bloqueo se
+// leía igual que un sitio sin resultados: silencioso.
+function _paginaDeVerificacion(html: string): boolean {
+  return (
+    html.indexOf('Just a moment') !== -1 ||
+    html.indexOf('cf-chl') !== -1 ||
+    html.indexOf('challenge-platform') !== -1 ||
+    html.indexOf('Attention Required') !== -1
+  );
+}
+
 function _parseListado(html: string): PrismItem[] {
   const marker = 'card sub group relative block space-y-1';
-  if (html.indexOf(marker) === -1) return [];
+  if (html.indexOf(marker) === -1) {
+    if (_paginaDeVerificacion(html)) {
+      throw new Error(
+        'ixxx.com respondió con una verificación de Cloudflare en vez del listado',
+      );
+    }
+    // Sin el marcador de tarjeta y sin ser una verificación: es una forma de
+    // página que no se reconoce. Se informa con un fragmento en vez de
+    // devolver vacío en silencio, para no confundir "el sitio no tiene esto"
+    // con "esto cambió y el parser quedó desactualizado".
+    const titulo = /<title>([\s\S]*?)<\/title>/i.exec(html)?.[1]?.trim();
+    throw new Error(
+      `ixxx.com: no se encontró el marcador de tarjetas esperado (título de la página: "${titulo ?? '?'}")`,
+    );
+  }
   const chunks = html.split(marker);
   const items: PrismItem[] = [];
   const seen: Record<string, boolean> = {};

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         IXXX
-// @version      1.0.0
+// @version      1.0.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -237,24 +237,37 @@ function _destinoReal(hrefOut) {
   const bin = b64decode(b64);
   return (_a = /https?:\/\/[A-Za-z0-9\-._~:/?#[\]@!$&'()*+,;=%]+/.exec(bin)) == null ? void 0 : _a[0];
 }
+function _paginaDeVerificacion(html) {
+  return html.indexOf("Just a moment") !== -1 || html.indexOf("cf-chl") !== -1 || html.indexOf("challenge-platform") !== -1 || html.indexOf("Attention Required") !== -1;
+}
 function _parseListado(html) {
-  var _a, _b, _c, _d, _e;
+  var _a, _b, _c, _d, _e, _f, _g;
   const marker = "card sub group relative block space-y-1";
-  if (html.indexOf(marker) === -1) return [];
+  if (html.indexOf(marker) === -1) {
+    if (_paginaDeVerificacion(html)) {
+      throw new Error(
+        "ixxx.com respondi\xF3 con una verificaci\xF3n de Cloudflare en vez del listado"
+      );
+    }
+    const titulo = (_b = (_a = /<title>([\s\S]*?)<\/title>/i.exec(html)) == null ? void 0 : _a[1]) == null ? void 0 : _b.trim();
+    throw new Error(
+      `ixxx.com: no se encontr\xF3 el marcador de tarjetas esperado (t\xEDtulo de la p\xE1gina: "${titulo != null ? titulo : "?"}")`
+    );
+  }
   const chunks = html.split(marker);
   const items = [];
   const seen = {};
   for (let i = 1; i < chunks.length; i++) {
     const chunk = chunks[i];
-    const hrefOut = (_a = /href="(\/out\/\?l=[^"]+)"/.exec(chunk)) == null ? void 0 : _a[1];
+    const hrefOut = (_c = /href="(\/out\/\?l=[^"]+)"/.exec(chunk)) == null ? void 0 : _c[1];
     if (!hrefOut) continue;
     const url = _destinoReal(decodeEntities(hrefOut));
     if (!url || seen[url]) continue;
-    const title = decodeEntities(((_c = (_b = /alt="([^"]*)"/.exec(chunk)) == null ? void 0 : _b[1]) != null ? _c : "").trim());
+    const title = decodeEntities(((_e = (_d = /alt="([^"]*)"/.exec(chunk)) == null ? void 0 : _d[1]) != null ? _e : "").trim());
     if (!title) continue;
     seen[url] = true;
-    const cover = (_d = /src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp))"/.exec(chunk)) == null ? void 0 : _d[1];
-    const duration = (_e = /badge[^>]*>\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*</.exec(chunk)) == null ? void 0 : _e[1];
+    const cover = (_f = /src="(https:\/\/[^"]+\.(?:jpg|jpeg|png|webp))"/.exec(chunk)) == null ? void 0 : _f[1];
+    const duration = (_g = /badge[^>]*>\s*(\d{1,2}:\d{2}(?::\d{2})?)\s*</.exec(chunk)) == null ? void 0 : _g[1];
     items.push({ title, url, cover, update: duration || void 0 });
   }
   return items;

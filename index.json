@@ -123,7 +123,7 @@
     {
       "name": "IXXX",
       "package": "io.prismhub.ixxx",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -134,8 +134,8 @@
       "nsfw": "true",
       "latestLabel": "lo-mas-reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/ixxx.js",
-      "sha256": "cc1c5c7d6e19fa6338ff69b06b1c54ca8dbe275c90d7f58d4fd76add043011ca",
-      "signature": "lzgZf0qC3Jd0DofME2QCNk8qKvbhSOeht3aKaAdVBiyE2txVgbJvkr/rZ2ftyzBrtmGa1WCCdj8u9jJiWM3rBg=="
+      "sha256": "76bbbb978e1f03d5ae0920108126652ce9e1eed1c776305d39d2fdbfd608d522",
+      "signature": "Cp4O3iCiwqWqGF+6BOm0xuWiuUKLK1CkE+/LuAcKmNCFxgBcG6W0Kp4DzKtkmHeRapORDuCrPCCQeoaMqzg9Ag=="
     },
     {
       "name": "JKAnime",
