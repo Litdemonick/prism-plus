@@ -36,8 +36,8 @@
     "lastReason": null
   },
   "io.prismhub.lamovie": {
-    "consecutiveFailures": 0,
-    "lastReason": null
+    "consecutiveFailures": 1,
+    "lastReason": "site-down"
   },
   "io.prismhub.latanime": {
     "consecutiveFailures": 0,
