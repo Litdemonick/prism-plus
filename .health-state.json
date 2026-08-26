@@ -4,8 +4,8 @@
     "lastReason": null
   },
   "io.prismhub.animefenix": {
-    "consecutiveFailures": 0,
-    "lastReason": null
+    "consecutiveFailures": 1,
+    "lastReason": "site-down"
   },
   "io.prismhub.eporner": {
     "consecutiveFailures": 0,
