@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeFenix
-// @version      1.3.4
+// @version      1.3.5
 // @author       PrismPlus
 // @lang         es
 // @license      MIT

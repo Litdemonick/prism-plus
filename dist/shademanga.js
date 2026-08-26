@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ShadeManga
-// @version      1.4.4
+// @version      1.4.5
 // @author       PrismPlus
 // @lang         es
 // @license      MIT

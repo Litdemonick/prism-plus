@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.9.3
+// @version      1.9.4
 // @author       PrismPlus
 // @lang         es
 // @license      MIT

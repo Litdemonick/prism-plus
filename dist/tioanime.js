@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         TioAnime
-// @version      1.1.4
+// @version      1.1.5
 // @author       PrismPlus
 // @lang         es
 // @license      MIT

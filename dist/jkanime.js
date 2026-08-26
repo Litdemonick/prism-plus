@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.11
+// @version      1.12.12
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
