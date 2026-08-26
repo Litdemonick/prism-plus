@@ -11,6 +11,7 @@
       "version": "1.0.9",
       "author": "PrismPlus",
       "type": "bangumi",
+      "contentKind": "anime",
       "icon": "",
       "description": "Anime subtitulado y doblado con catálogo completo, filtros por género, estado, año y letra, y tres de sus cuatro servidores reproduciendo en la app.",
       "lang": "es",
@@ -18,8 +19,8 @@
       "license": "MIT",
       "latestLabel": "recientemente-agregados",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animeav1.js",
-      "sha256": "d2310a69ae413d58bb97559e29fb24fe48057300c9d67d565e8b34b070da22d5",
-      "signature": "C111GLW/aXJpEyGaDXV0ELPjfxuAMRF4ZxANZkgV/rYETethN3JD/O9p9Ll6yzZBBKiyaVCfk1jTYZLBEMLKAQ=="
+      "sha256": "f1b976e7605aaf66b565dbfcffaf82b6834326b949f746d472effb4f39cfaa8e",
+      "signature": "W+RPJXaBR8YkQpqbZThMTd+35eotsGWtwKdS0y+NBtaO+trP6Hy1CaZpWNhWAz0+lxMG/g5hhh7fgZCzWOLfBQ=="
     },
     {
       "name": "AnimeFenix",
@@ -27,6 +28,7 @@
       "version": "1.3.4",
       "author": "PrismPlus",
       "type": "bangumi",
+      "contentKind": "anime",
       "icon": "",
       "description": "Anime sub y latino con catálogo completo, filtros y varios servidores de respaldo para ver sin cortes.",
       "lang": "es",
@@ -34,8 +36,8 @@
       "license": "MIT",
       "latestLabel": "episodios-recientes",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animefenix.js",
-      "sha256": "fc0bb5e21b83f02817b81a437a87ef4890f421f1e6edca6dbc00c8baed08e6cf",
-      "signature": "AagYwGvbbxIj+u577yCDNKBraM1/34hBvvJUUCnV8/HqWjEub/M5VIDI9ZZ4VYKbu7LRx5J82KxjoeP2dXvgAw=="
+      "sha256": "003862189a1d70db9b6c15112f726d4a2fb709a3455e4a5c5b419a27bfc9d96f",
+      "signature": "gdHUEoQBUhZZcktnK2FhAPFy4bKwtTiya6C3sNkVwzkTLAuotlVPTUz9wu2Jn8nuYh89b5ID4A7/95hgbzH4Dw=="
     },
     {
       "name": "Eporner",
@@ -60,6 +62,7 @@
       "version": "1.9.3",
       "author": "PrismPlus",
       "type": "bangumi",
+      "contentKind": "accion-real",
       "icon": "",
       "description": "Pelis y series al toque, en español, con servidores directos listos para reproducir sin vueltas.",
       "lang": "es",
@@ -67,8 +70,8 @@
       "license": "MIT",
       "latestLabel": "lo-mas-reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/fuegocine.js",
-      "sha256": "608581d7657ba18f4646f6ea984a17ef96f4b32333b9bf9c6d65ff7883cc4fca",
-      "signature": "ELsAXB/VNBh9LgPhKBuwDmSHk0QlGBBq9CLo7UtgDa16VMcpqvc3cdQK4xqGipAXiNBYKU4M2ZTH1Kh/kAWWBA=="
+      "sha256": "87ce644c580c342ced5d4b569f524ed0f6d497a450cd2772c3d3eb7670e13d8b",
+      "signature": "SRJxz2ixeiUlCQJum/PKA1nau/rOFRd9WbD5UcXdVXS8hlFsmcCeKopjEmRbQhcvhmkeglPGfuq1irdken31BA=="
     },
     {
       "name": "HentaiLA",
@@ -143,6 +146,7 @@
       "version": "1.12.11",
       "author": "PrismPlus",
       "type": "bangumi",
+      "contentKind": "anime",
       "icon": "",
       "description": "Anime sub y latino con varios servidores de respaldo — si uno falla, seguís viendo por otro.",
       "lang": "es",
@@ -150,8 +154,8 @@
       "license": "MIT",
       "latestLabel": "programacion",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "89a2dd9ed3b93c43d6d2b0674ef9987718b582904e6d0c6694c399be937d1122",
-      "signature": "ywDFTFiTEp1xEmTm0yMTHy90Ggcl+M8D2DJh4cIHEqyx4W1m2Bb5R02hb85/bn7ZQcMsQH41kiLRTWoQbXoeCA=="
+      "sha256": "4d9fcb6321cd622f72d36162568961bfeda15f3a08ca73ccb1dc638d864c622f",
+      "signature": "7gA8BfBcyDV7JBB6+jvPn0akFuR764CBfWM0iheOD3aSDtlmegwbtJY6RqC8fytO/XnaQQ03zaHOwmOLhf3pAQ=="
     },
     {
       "name": "LaMovie",
@@ -159,6 +163,7 @@
       "version": "1.2.0",
       "author": "PrismHub",
       "type": "bangumi",
+      "contentKind": "accion-real",
       "icon": "",
       "description": "Películas, series, animes y novelas en español desde LaMovie — catálogo, búsqueda y filtros por género/año/calidad/idioma",
       "lang": "es",
@@ -166,8 +171,8 @@
       "license": "MIT",
       "latestLabel": "recien-anadidas",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/lamovie.js",
-      "sha256": "85bd113900efd33c8c6324a6b02ea6a1bfaa41b22db101563040598d83b943b2",
-      "signature": "jZPetZLU01KUJcvHyaenIu+tF2l9gGaNAZI9m+HevozNgJ9YHyh5eWYS8e0MwHIWsCJURyJa59jTVCVW9fVRBA=="
+      "sha256": "dc2ceeeddf8667b58d65dad9ae79fcabe29200b48e5a769b81b80b872a084e7b",
+      "signature": "0DGuzmweu0Tuo3kNAG3OetURxvuhegwcUysM2Y0OgxCGJM5S796NL8uT/n6ygRjX0nwCiubzEXzyM0qQwc8qAA=="
     },
     {
       "name": "LatAnime",
@@ -175,6 +180,7 @@
       "version": "1.1.4",
       "author": "PrismPlus",
       "type": "bangumi",
+      "contentKind": "anime",
       "icon": "",
       "description": "Anime doblado al latino y castellano, con filtros por año, género, letra y categoría, y varios servidores por episodio.",
       "lang": "es",
@@ -182,8 +188,8 @@
       "license": "MIT",
       "latestLabel": "anadidos-recientemente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/latanime.js",
-      "sha256": "6e0e019ae081bb8f7a8a4e40806cc2ed7fc706f6fc1f9590142fccd4613224c8",
-      "signature": "b1ySzGQM5mvPlEeKe/acu4aprXHD+lNkAQI+/DJ+fg0l7ST5BF4Jk2SNnwOWJBnKZrdvdpwu6wGrBopAbh8hBQ=="
+      "sha256": "d7ed11f8a00ecba236aaa4182c498eb12ebd64c3b8747fa29a93394070953e4d",
+      "signature": "N2X/WH6xklHCudnUh1gT7Zbg4HqDk2WVDrcsCmfHE7r4JE2k0xRGHm+XiuwhDzWKibtrVfXY0fcmjp2FwL6PDg=="
     },
     {
       "name": "MangaDex",
@@ -257,6 +263,7 @@
       "version": "1.4.4",
       "author": "PrismPlus",
       "type": "mixed",
+      "contentKind": "anime",
       "icon": "",
       "description": "Manga y anime en un solo lugar: leé y mirá sin cambiar de app (incluye contenido +18).",
       "lang": "es",
@@ -265,8 +272,8 @@
       "nsfw": "false",
       "latestLabel": "novedades",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/shademanga.js",
-      "sha256": "636a59187d6d2e5c01dfa6336d7f824bdff9441562d8489a3b2f730d8c356c55",
-      "signature": "w3iHVXeyv9CYh5APeD93+cjnwyjaNA1g6lcP2kJrZ8bG6fieqc3QZtHX48utVUvYE218rngA78LDyeglx4K9DQ=="
+      "sha256": "f59ea040c1c2089da0c3fd56ca110ab241cd8ae1bc7b27961e4484725646c24e",
+      "signature": "uIUsf8CFgyL9Zg8C/T1C6lxxysT+uQjVBZo+X4G259sirQwHKMI+YYeJ/2/TPfL830cIJQX+VZI6B92xbA34BA=="
     },
     {
       "name": "TioAnime",
@@ -274,6 +281,7 @@
       "version": "1.1.4",
       "author": "PrismPlus",
       "type": "bangumi",
+      "contentKind": "anime",
       "icon": "",
       "description": "Anime sub y latino, filtros completos y servidores de respaldo, directo al capítulo que buscás.",
       "lang": "es",
@@ -281,8 +289,8 @@
       "license": "MIT",
       "latestLabel": "ultimos-episodios",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js",
-      "sha256": "e6957d17feeec6f9349a71051625aed22012995956120e4dd08bdc117739460d",
-      "signature": "qkgFx121U4dRpWkbYZn6MJyPu6oX2FPvI5VgAUijxFRsksQOLxaLf8X+HM3bVU/mMuKWChTyK9AGwa4HdcucCw=="
+      "sha256": "0caadc6318fd3c1bfa3ab65f6066ea6b96bab21839396ea7dd0997e51a5c721c",
+      "signature": "Jw2v0jaxxBLiYMUw3lQ0zekqlTgJ30K1RjQ1wH7497P5wyB4J3+3QIhsIqBrNZvLt+G7qGyK0XdcHuftrX07AQ=="
     },
     {
       "name": "TuMangaOnline",

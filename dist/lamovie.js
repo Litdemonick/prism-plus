@@ -7,6 +7,7 @@
 // @package      io.prismhub.lamovie
 // @type         bangumi
 // @nsfw         false
+// @contentKind  accion-real
 // @latestLabel  recien-anadidas
 // @webSite      https://lamovie.org
 // @description  Películas, series, animes y novelas en español desde LaMovie — catálogo, búsqueda y filtros por género/año/calidad/idioma

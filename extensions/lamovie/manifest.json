@@ -4,6 +4,7 @@
   "version": "1.2.0",
   "author": "PrismHub",
   "type": "movie",
+  "contentKind": "accion-real",
   "icon": "",
   "description": "Películas, series, animes y novelas en español desde LaMovie — catálogo, búsqueda y filtros por género/año/calidad/idioma",
   "lang": "es",

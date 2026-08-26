@@ -7,6 +7,7 @@
 // @package      io.prismhub.tioanime
 // @type         bangumi
 // @nsfw         false
+// @contentKind  anime
 // @latestLabel  ultimos-episodios
 // @webSite      https://tioanime.com
 // @description  Anime sub y latino, filtros completos y servidores de respaldo, directo al capítulo que buscás.

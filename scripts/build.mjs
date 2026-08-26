@@ -152,6 +152,21 @@ function makeHeader(m) {
     // correctamente — rompía por completo la Zona +18 (nunca preguntaba
     // nada, nunca separaba nada) para toda extensión ya instalada.
     `// @nsfw         ${m.nsfw === 'true' ? 'true' : 'false'}`,
+    // Qué clase de vídeo trae — 'anime', 'accion-real' o 'mixto' (las dos en
+    // el mismo sitio). Ver Extension.contentKind del lado de la app: es lo
+    // único que le permite separar Anime de Series/Películas, porque
+    // `type`/`mapType()` ya colapsa 'anime'/'movie'/'series'/'tv'/'live' a
+    // un solo 'bangumi' — sin esto la app no tiene forma de distinguirlos.
+    //
+    // NUNCA se emite en una extensión +18 de punta a punta (nsfw:true), aun
+    // si el manifest la declarara por error: esa extensión no tiene que
+    // aparecer en ninguna zona normal, jamás — layout de protección extra
+    // además del filtro que ya aplica la app del otro lado (ver
+    // ZonaCatalogoController). Opcional: sin esto, la extensión sigue
+    // funcionando igual, solo queda "sin clasificar" en las zonas nuevas.
+    ...(m.contentKind && m.nsfw !== 'true'
+      ? [`// @contentKind  ${m.contentKind}`]
+      : []),
     // Como llama el sitio a su seccion de «lo ultimo».
     //
     // Es una CLAVE, no un texto: 'programacion', 'ultimos-anadidos',

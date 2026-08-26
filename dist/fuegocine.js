@@ -7,6 +7,7 @@
 // @package      io.prismhub.fuegocine
 // @type         bangumi
 // @nsfw         false
+// @contentKind  accion-real
 // @latestLabel  lo-mas-reciente
 // @webSite      https://www.fuegocine.com
 // @description  Pelis y series al toque, en español, con servidores directos listos para reproducir sin vueltas.

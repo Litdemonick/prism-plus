@@ -4,6 +4,7 @@
   "version": "1.12.11",
   "author": "PrismPlus",
   "type": "anime",
+  "contentKind": "anime",
   "icon": "",
   "description": "Anime sub y latino con varios servidores de respaldo — si uno falla, seguís viendo por otro.",
   "lang": "es",

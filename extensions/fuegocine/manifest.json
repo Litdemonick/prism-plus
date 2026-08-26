@@ -4,6 +4,7 @@
   "version": "1.9.3",
   "author": "PrismPlus",
   "type": "movie",
+  "contentKind": "accion-real",
   "icon": "",
   "description": "Pelis y series al toque, en español, con servidores directos listos para reproducir sin vueltas.",
   "lang": "es",

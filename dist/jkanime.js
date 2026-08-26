@@ -7,6 +7,7 @@
 // @package      io.prismhub.jkanime
 // @type         bangumi
 // @nsfw         false
+// @contentKind  anime
 // @latestLabel  programacion
 // @webSite      https://jkanime.net
 // @description  Anime sub y latino con varios servidores de respaldo — si uno falla, seguís viendo por otro.

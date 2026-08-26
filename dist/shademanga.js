@@ -7,6 +7,7 @@
 // @package      io.prismhub.shademanga
 // @type         mixed
 // @nsfw         false
+// @contentKind  anime
 // @latestLabel  novedades
 // @webSite      https://www.shademanga.com
 // @description  Manga y anime en un solo lugar: leé y mirá sin cambiar de app (incluye contenido +18).

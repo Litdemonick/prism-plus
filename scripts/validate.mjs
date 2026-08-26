@@ -25,6 +25,11 @@ const VALID_TYPES = [
   'mixedReading',
 ];
 const REQUIRED_EXPORTS = ['latest', 'search', 'detail', 'watch'];
+// Qué clase de vídeo trae una extensión — ver el comentario largo en
+// makeHeader() de build.mjs. Opcional: sin declararlo, la extensión sigue
+// funcionando igual, solo queda "sin clasificar" en las zonas nuevas de la
+// app (Anime/Series/Películas).
+const VALID_CONTENT_KINDS = ['anime', 'accion-real', 'mixto'];
 
 // ─── Scan ────────────────────────────────────────────────────────────────────
 
@@ -70,6 +75,22 @@ for (const name of entries) {
       if (manifest.type && !VALID_TYPES.includes(manifest.type)) {
         issues.push(
           `manifest: tipo '${manifest.type}' no válido — usa uno de: ${VALID_TYPES.join(', ')}`,
+        );
+      }
+
+      // contentKind válido
+      if (manifest.contentKind && !VALID_CONTENT_KINDS.includes(manifest.contentKind)) {
+        issues.push(
+          `manifest: contentKind '${manifest.contentKind}' no válido — usa uno de: ${VALID_CONTENT_KINDS.join(', ')}`,
+        );
+      }
+      // Nunca junto con nsfw:true — una extensión +18 de punta a punta no
+      // tiene que entrar a ninguna zona normal, jamás. build.mjs ya no lo
+      // emitiría igual (ver makeHeader()), pero fallar acá avisa ANTES de
+      // compilar, en vez de que el descarte pase desapercibido.
+      if (manifest.contentKind && manifest.nsfw === 'true') {
+        issues.push(
+          `manifest: contentKind no puede declararse junto con nsfw:true (esta extensión no debe entrar a ninguna zona normal)`,
         );
       }
 

@@ -7,6 +7,7 @@
 // @package      io.prismhub.animeav1
 // @type         bangumi
 // @nsfw         false
+// @contentKind  anime
 // @latestLabel  recientemente-agregados
 // @webSite      https://animeav1.com
 // @description  Anime subtitulado y doblado con catálogo completo, filtros por género, estado, año y letra, y tres de sus cuatro servidores reproduciendo en la app.

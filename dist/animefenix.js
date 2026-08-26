@@ -7,6 +7,7 @@
 // @package      io.prismhub.animefenix
 // @type         bangumi
 // @nsfw         false
+// @contentKind  anime
 // @latestLabel  episodios-recientes
 // @webSite      https://animefenix2.tv
 // @description  Anime sub y latino con catálogo completo, filtros y varios servidores de respaldo para ver sin cortes.

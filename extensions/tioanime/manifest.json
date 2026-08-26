@@ -4,6 +4,7 @@
   "version": "1.1.4",
   "author": "PrismPlus",
   "type": "anime",
+  "contentKind": "anime",
   "icon": "",
   "description": "Anime sub y latino, filtros completos y servidores de respaldo, directo al capítulo que buscás.",
   "lang": "es",

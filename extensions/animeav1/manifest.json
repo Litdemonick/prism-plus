@@ -4,6 +4,7 @@
   "version": "1.0.9",
   "author": "PrismPlus",
   "type": "anime",
+  "contentKind": "anime",
   "icon": "",
   "description": "Anime subtitulado y doblado con catálogo completo, filtros por género, estado, año y letra, y tres de sus cuatro servidores reproduciendo en la app.",
   "lang": "es",
