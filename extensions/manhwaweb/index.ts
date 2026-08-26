@@ -260,26 +260,34 @@ export async function detail(id: string): Promise<PrismDetail> {
     })
     .filter((g): g is string => typeof g === 'string');
 
-  // Contenido agregado de otros sitios (_plataforma != "manual") trae
-  // capítulos "fantasma": el link existe pero /chapters/see/{id} tira 404,
-  // porque ManhwaWeb nunca tiene el contenido real, solo la referencia
-  // (confirmado en vivo con Vinland Saga, 224 capítulos).
+  // ── Por qué ya NO se filtra por `img`, ni siquiera en plataformas
+  // agregadas (_plataforma != "manual") ──────────────────────────────────
   //
-  // OJO: antes esto se filtraba por `img` no vacío en el listado, pero eso
-  // estaba MAL — `img` en /manhwa/see es solo una miniatura de preview que
-  // la mayoría de los capítulos no trae, aunque el capítulo funcione
-  // perfecto. Verificado en vivo con "Nivel Cardiaco" (_plataforma
-  // "manual"): 33 capítulos, solo 1 con `img` poblado, pero /chapters/see
-  // devuelve 26 y 24 imágenes para los capítulos 2 y 15. O sea que ese
-  // filtro escondía 32 capítulos que sí andaban. Se filtra por la
-  // plataforma real, que es la condición que de verdad distingue los dos
-  // casos.
-  const isManual = d['_plataforma'] === 'manual';
+  // Acá antes se creía que `img` vacío en el listado significaba capítulo
+  // "fantasma" (el link existe pero /chapters/see/{id} tira 404) — medido
+  // en su momento con Vinland Saga. Pero eso resultó ser la MISMA confusión
+  // que ya se había corregido para "manual" más abajo, solo que sin medirla
+  // todavía en plataformas agregadas: `img` es una miniatura de preview que
+  // tarda en generarse, no una señal de si el capítulo funciona.
+  //
+  // Confirmado en vivo (2026-08-26) con "¿Alcance Mi Punto Máximo En Un
+  // Programa Nocturno?" (_plataforma "lezhin", sex_variety_1747318243369):
+  // 22 capítulos reales en el listado, pero SOLO 8 con `img` poblado — el
+  // filtro viejo escondía los otros 14, incluido un especial "8.5" que el
+  // propio sitio muestra sin problema. Se pidió a mano /chapters/see del
+  // capítulo 9 (uno de los "sin img"): responde 200, con sus 14 páginas
+  // reales y `roto: "no"`. O sea que el capítulo andaba perfecto y no se
+  // veía en la app por nada.
+  //
+  // La API no manda ninguna otra señal en el listado que distinga un
+  // capítulo roto de uno real (mismos campos siempre: chapter/img/link/
+  // create/versions) — un capítulo genuinamente roto (si existe alguno hoy)
+  // va a fallar recién al abrirlo, con el lector mostrando "sin páginas" en
+  // ESE capítulo puntual, que es mejor que esconder catálogo entero por las
+  // dudas.
   const rawChapters = (d['chapters'] as Record<string, unknown>[]) || [];
   const episodes = rawChapters
-    .filter(c => c['link'] && (
-      isManual || (Array.isArray(c['img']) && (c['img'] as unknown[]).length > 0)
-    ))
+    .filter(c => c['link'])
     .map((c) => {
       const link = c['link'] as string;
       // Extract chapter ID: last non-empty path segment of the link
