@@ -107,7 +107,9 @@
       "latestLabel": "lo-mas-reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/hqporner.js",
       "sha256": "6581a90bb1b8eb4e308e719fea1e426d32ac5f8169442bcb6630fbfb450337a6",
-      "signature": "KA+i1iKLAc1SxUb+pAAdb0rnjTECEryt+n34YRXfAt1LaaGWoy8HXZFm+aLLxFyRzfwKDWiTqBToJQBsvRGYBw=="
+      "signature": "KA+i1iKLAc1SxUb+pAAdb0rnjTECEryt+n34YRXfAt1LaaGWoy8HXZFm+aLLxFyRzfwKDWiTqBToJQBsvRGYBw==",
+      "unstable": true,
+      "unstableReason": "site-down"
     },
     {
       "name": "Ikigai Mangas",
