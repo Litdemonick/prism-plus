@@ -4,7 +4,7 @@
     "lastReason": null
   },
   "io.prismhub.animefenix": {
-    "consecutiveFailures": 6,
+    "consecutiveFailures": 7,
     "lastReason": "site-down"
   },
   "io.prismhub.eporner": {
@@ -20,8 +20,8 @@
     "lastReason": null
   },
   "io.prismhub.hqporner": {
-    "consecutiveFailures": 0,
-    "lastReason": null
+    "consecutiveFailures": 1,
+    "lastReason": "site-down"
   },
   "io.prismhub.ikigai": {
     "consecutiveFailures": 0,
