@@ -4,7 +4,7 @@
     "lastReason": null
   },
   "io.prismhub.animefenix": {
-    "consecutiveFailures": 25,
+    "consecutiveFailures": 26,
     "lastReason": "site-down"
   },
   "io.prismhub.eporner": {
@@ -36,8 +36,8 @@
     "lastReason": null
   },
   "io.prismhub.lamovie": {
-    "consecutiveFailures": 1,
-    "lastReason": "broken"
+    "consecutiveFailures": 0,
+    "lastReason": null
   },
   "io.prismhub.latanime": {
     "consecutiveFailures": 0,
