@@ -37,7 +37,9 @@
       "latestLabel": "episodios-recientes",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animefenix.js",
       "sha256": "bd54c63ba00cdd561f3166c62daf41795806dc4b278a46964022c53155a4d2ab",
-      "signature": "xXoDYbRtNH1NB07Cn1gGDRDQOhm2KsPXj5jngR4esR1ByEKfInNtsr05WF5jJ+0aEZS2jOVCmJazyUo1IeHXCQ=="
+      "signature": "xXoDYbRtNH1NB07Cn1gGDRDQOhm2KsPXj5jngR4esR1ByEKfInNtsr05WF5jJ+0aEZS2jOVCmJazyUo1IeHXCQ==",
+      "unstable": true,
+      "unstableReason": "site-down"
     },
     {
       "name": "Eporner",
