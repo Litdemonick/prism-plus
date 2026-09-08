@@ -37,9 +37,7 @@
       "latestLabel": "episodios-recientes",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animefenix.js",
       "sha256": "bd54c63ba00cdd561f3166c62daf41795806dc4b278a46964022c53155a4d2ab",
-      "signature": "xXoDYbRtNH1NB07Cn1gGDRDQOhm2KsPXj5jngR4esR1ByEKfInNtsr05WF5jJ+0aEZS2jOVCmJazyUo1IeHXCQ==",
-      "unstable": true,
-      "unstableReason": "site-down"
+      "signature": "xXoDYbRtNH1NB07Cn1gGDRDQOhm2KsPXj5jngR4esR1ByEKfInNtsr05WF5jJ+0aEZS2jOVCmJazyUo1IeHXCQ=="
     },
     {
       "name": "Eporner",
@@ -145,7 +143,7 @@
     {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
-      "version": "1.12.13",
+      "version": "1.12.14",
       "author": "PrismPlus",
       "type": "bangumi",
       "contentKind": "anime",
@@ -156,8 +154,8 @@
       "license": "MIT",
       "latestLabel": "programacion",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "7db11406511168ac210ee2176ff4cfc50f428448d2fdc630d15329a3af272599",
-      "signature": "e4K8JQx2hXFv95FJbsHQACQxBrLx1cLUyc0JFWlKllTaRqzr4w1e2eN7YuYo4Jf0k7j9WGf7cO5olnp9QU7mDQ=="
+      "sha256": "cec597672fd514db8971108db803a625ed7309f0af531f8802a811a79f796408",
+      "signature": "YGxqaaQAZPUX9DT0n7xMKn9BDuNQiKpBFfeXnF/oaccTD9g6nwITSn0sE5To+7DsMESNeY91ChPya9InNJYyDw=="
     },
     {
       "name": "LaMovie",

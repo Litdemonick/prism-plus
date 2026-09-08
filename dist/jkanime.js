@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.13
+// @version      1.12.14
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -1256,7 +1256,11 @@ async function watch(url) {
     // Cifra el archivo del lado del navegador: nativo no va a andar nunca, y
     // la única forma de verlo era el WebView. Ver el porqué largo arriba.
     "mega.nz",
-    "mega.co.nz"
+    "mega.co.nz",
+    // El archivo ya no existe del lado de Streamtape. Ver el porqué largo
+    // arriba.
+    "streamtape",
+    "strtape"
   ];
   const usable = resolved.filter((s) => {
     var _a;

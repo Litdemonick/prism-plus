@@ -826,6 +826,23 @@ export async function watch(url: string): Promise<PrismWatch> {
   // El resolver ya devolvía null a propósito y sigue en `servidores/doodstream/`
   // con sus mediciones.
   //
+  // ── Streamtape: quinta excepción — el archivo ya no existe ────────────────
+  //
+  // Medido en vivo el 2026-09-07, contra el sitio real y no contra una
+  // muestra vieja: se probó Streamtape en 6 títulos sin relación entre sí
+  // (One Piece, Kimetsu no Yaiba en dos versiones, Konosuba, Dragon Ball Z,
+  // Danmachi) y los 6 dieron HTTP 404 directo desde streamtape.com. Antes de
+  // sacarlo se confirmó que el resolver decodifica BIEN la dirección — se
+  // comparó byte a byte contra el array `servers` crudo que manda la propia
+  // página de jkanime.net — así que no es un bug de extracción: el video en
+  // sí no está. Reportado en vivo con el registro completo de la app: mpv
+  // "Failed to open", GET → 404, y el usuario viendo exactamente eso en su
+  // propia conexión (no es un bloqueo del lado del robot de pruebas).
+  //
+  // El resolver queda igual en `servidores/streamtape/`, con toda la lógica
+  // contra los señuelos del embed: si Streamtape vuelve a servir archivos de
+  // verdad, sacarlo de esta lista alcanza.
+  //
   // El resto sigue en la lista, incluidos los que van al navegador, porque un
   // botón que abre en el navegador es mucho mejor que ningún botón.
   const FUERA_DE_LA_LISTA = [
@@ -836,6 +853,9 @@ export async function watch(url: string): Promise<PrismWatch> {
     // Cifra el archivo del lado del navegador: nativo no va a andar nunca, y
     // la única forma de verlo era el WebView. Ver el porqué largo arriba.
     'mega.nz', 'mega.co.nz',
+    // El archivo ya no existe del lado de Streamtape. Ver el porqué largo
+    // arriba.
+    'streamtape', 'strtape',
   ];
   const usable = resolved.filter((s) => {
     const u = (s.url ?? '').toLowerCase();
