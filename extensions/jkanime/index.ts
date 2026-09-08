@@ -749,43 +749,29 @@ export async function watch(url: string): Promise<PrismWatch> {
     .map(s => _rawServerStream(s))
     .filter((s): s is PrismStream => s !== null);
 
-  // Mega sigue afuera: cifrado client-side, sin URL interceptable (igual que
-  // en animeytx) — ni el resolver ni el reproductor tienen algo real que
-  // reproducir.
+  // ── Segundo cambio de rumbo: fuera el WebView, en TODA la lista ──────────
   //
-  // A pedido explícito, el resto de la lista negra histórica (Streamtape,
-  // Mp4upload, Mediafire, Streamwish/sfastwish/wishfast/swdyu, Filemoon vía
-  // bysekoze.com) VUELVE a la lista de servidores: cada uno tenía un motivo
-  // real y confirmado por el que NO reproduce bien en el reproductor NATIVO
-  // (buffering que nunca se estabiliza, CDN random a veces roto, etc.), pero
-  // ahora que el reproductor WebView (el visible, con su propio player
-  // embebido) se reforzó bastante (detección de crash/proceso muerto,
-  // reintento automático, mejor manejo de "no se pudo crear el WebView"),
-  // vale la pena ofrecerlos igual: si el nativo falla, la app ya cae sola al
-  // WebView (ver switchServer/_setServerFailed en video_controller.dart) sin
-  // que el usuario tenga que hacer nada más que elegir el servidor. Mp4upload
-  // en particular es el caso más claro: el archivo en sí es válido y un
-  // navegador lo reproduce sin problema, solo mpv tenía el problema.
-  // Filemoon (bysekoze.com) es el más arriesgado de los cinco — se había
-  // confirmado en vivo que fallaba TAMBIÉN por WebView en un intento
-  // anterior — puede seguir sin andar; si vuelve a fallar así, es candidato
-  // a sacarse de nuevo.
-  // Los de _JS_ONLY_HOSTS SIGUEN EN LA LISTA. Esa lista solo quiere decir "no
-  // pierdas tiempo con dio, andá derecho al WebView", y acá además los estaba
-  // BORRANDO: el servidor desaparecía de la app aunque el sitio lo ofreciera, y
-  // el usuario se quedaba sin saber si el problema era la app, la red o el
-  // episodio. Un botón que abre en WebView es mucho mejor que ningún botón.
+  // La vuelta de acá abajo (Streamtape, Mp4upload, Streamwish, Filemoon)
+  // seguía en pie por la razón que dice el historial: si el nativo falla, la
+  // app cae sola al WebView y un botón que abre en WebView es mejor que
+  // ningún botón. Pedido explícito, en una revisión aparte: dejar de
+  // depender del WebView en cualquier extensión — no como respaldo. Los
+  // reportes en vivo del reproductor (audio con delay, video que no carga,
+  // tirones) apuntan justamente a esa vía.
   //
-  // (Filemoon aparecía igual, pero de casualidad: su URL es bysekoze.com y no
-  // contiene la palabra "filemoon", así que se escapaba del filtro.)
+  // Mega es la baja de ESTA vuelta: cifra el archivo del lado del navegador,
+  // así que nativo no va a andar nunca y la única forma de verlo era el
+  // WebView — que es justo lo que se está sacando. Sin una forma nativa real,
+  // no hay término medio: se saca de la lista.
   //
-  // Mega también vuelve. Cifra todo del lado del navegador, así que nativo NO
-  // va a andar nunca y no tiene sentido pelearlo — pero el que lo reproduce es
-  // justamente un navegador, y la app tiene uno. Al fallar el nativo,
-  // _setServerFailed le pasa la URL del embed a webViewFallback y se abre el
-  // reproductor WebView, que con mega.nz funciona. Sacarlo de la lista era
-  // quitarle al usuario la única forma que sí tenía de verlo.
-  // Mediafire sale de la lista, a pedido del usuario: **no es un servidor de
+  // El resto (Streamtape, Mp4upload, Streamwish, Filemoon) NO se toca acá:
+  // cada uno tiene su resolver propio en `servidores/` y, medido, resuelve
+  // nativo la mayoría de las veces (ver el catálogo en
+  // `servidores/index.ts`). Sacarlos de la lista sería peor que dejarlos: se
+  // revisan uno por uno, con el usuario probando en vivo, antes de decidir
+  // si se arreglan o se sacan — no todos juntos a ciegas.
+  //
+  // Mediafire sigue afuera, a pedido del usuario: **no es un servidor de
   // vídeo sino alojamiento de archivos**, y además reportó que cuando abre se ve
   // mal (carga la imagen en vez de reproducir). Que la medición diera 206
   // video/mp4 solo dice que el archivo baja, no que se reproduzca bien.
@@ -847,6 +833,9 @@ export async function watch(url: string): Promise<PrismWatch> {
     'mp4upload',
     'mixdrop', 'mxdrop', 'xdrop',
     'dood', 'dsvplay', 'playmogo', 'dooodster', 'd-s.io',
+    // Cifra el archivo del lado del navegador: nativo no va a andar nunca, y
+    // la única forma de verlo era el WebView. Ver el porqué largo arriba.
+    'mega.nz', 'mega.co.nz',
   ];
   const usable = resolved.filter((s) => {
     const u = (s.url ?? '').toLowerCase();

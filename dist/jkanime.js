@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.12
+// @version      1.12.13
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -1252,7 +1252,11 @@ async function watch(url) {
     "dsvplay",
     "playmogo",
     "dooodster",
-    "d-s.io"
+    "d-s.io",
+    // Cifra el archivo del lado del navegador: nativo no va a andar nunca, y
+    // la única forma de verlo era el WebView. Ver el porqué largo arriba.
+    "mega.nz",
+    "mega.co.nz"
   ];
   const usable = resolved.filter((s) => {
     var _a;
