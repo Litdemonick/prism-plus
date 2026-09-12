@@ -112,7 +112,7 @@
     {
       "name": "Ikigai Mangas",
       "package": "io.prismhub.ikigai",
-      "version": "1.1.6",
+      "version": "1.1.7",
       "author": "PrismPlus",
       "type": "mixedReading",
       "icon": "",
@@ -122,8 +122,8 @@
       "license": "MIT",
       "latestLabel": "nuevos-capitulos",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/ikigai.js",
-      "sha256": "1cbb6d2c808d3e0116051c725b7addcbae00ab913f73007364412536d2e3e737",
-      "signature": "BSOMGbLY2nlnKBJPwkCqS9Jn654naI6FUt1MFpUiUgYxvnA2V1uxdVWmlAGJEayOVkb5gqJx8jMG8eXPG7CyCQ=="
+      "sha256": "ac986034d29b1e840bf7e28632071bc8af65e97ba04ea5be6e7baa61cde9d5a5",
+      "signature": "1AAi6qkKViYqZx2rVy18JbARp2zIhLe4KI3CNOjQLw9kbCOpSFpGzJRXxLFDbAbmyiW4l1SrqILPXTzAriEuBA=="
     },
     {
       "name": "IXXX",
