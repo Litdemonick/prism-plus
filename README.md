@@ -21,9 +21,9 @@
 
 </div>
 
-Prism+ es la **única fuente de extensiones de [PrismHub](https://github.com/Litdemonick/Prism_Hub)**. PrismHub se alimenta exclusivamente de este repositorio: trae de fábrica un conjunto curado de extensiones nativas y descarga el resto del catálogo desde aquí.
+Prism+ es la **única fuente de extensiones de [PrismHub](https://github.com/Litdemonick/PrismHub)**. PrismHub se alimenta exclusivamente de este repositorio: trae de fábrica un conjunto curado de extensiones nativas y descarga el resto del catálogo desde aquí.
 
-> Este repo tomó como idea y punto de partida el concepto de extensiones de **MiruApp**, pero es un desarrollo **100% propio**: SDK, formato de bundle, firma, sanitización, page-sniff, Studio y el catálogo entero se construyeron desde cero para PrismHub. El soporte y las decisiones del proyecto son y seguirán siendo de su creador, [Litdemonick](https://github.com/Litdemonick).
+> Este repo tomó como idea y punto de partida el concepto de extensiones de **MiruApp**, pero es un desarrollo **100% propio**: SDK, formato de bundle, firma, sanitización, page-sniff, Studio y el catálogo entero se construyeron desde cero para PrismHub. El soporte y las decisiones del proyecto son y seguirán siendo de su creador, [Litdemonick](https://github.com/Litdemonick) ([LinkedIn](https://www.linkedin.com/in/carlos-miranda-89239339b/)).
 
 Cada extensión habla con una fuente (un sitio de anime, una API de manga, una plataforma de películas, un feed de video) y expone una interfaz unificada. El build genera **el formato nativo de PrismHub** automáticamente — cabecera `==PrismHubExtension==` + `export default class extends Extension` — así que todo lo que se publica aquí funciona directamente en la app.
 
@@ -174,7 +174,7 @@ globalThis.__fetchErr = function(id, msg) {
 ''');
 ```
 
-> PrismHub implementa todos estos polyfills en [`lib/data/services/extension/extension_service.dart`](https://github.com/Litdemonick/Prism_Hub/blob/develop/lib/data/services/extension/extension_service.dart).
+> PrismHub implementa todos estos polyfills del lado nativo de la app (`extension_service.dart`), que no es parte de este repositorio.
 >
 > **Nota adicional:** Si cargas múltiples extensiones en instancias de runtime independientes, usa nombres de canal únicos por instancia (ej: `'hostFetch_io_prismhub_jikan'`) para evitar que los handlers de diferentes runtimes se sobreescriban entre sí.
 
@@ -700,7 +700,7 @@ npm run build   # validate + typecheck + esbuild + test
 
 ## 🔌 Consumo desde PrismHub
 
-> ⚠️ **Prism+ es exclusivo de [PrismHub](https://github.com/Litdemonick/Prism_Hub).** No es un núcleo universal para otras apps: cada extensión se publica en el **formato nativo de PrismHub** (cabecera `==PrismHubExtension==` + `export default class extends Extension`) y se ejecuta dentro del runtime de PrismHub. Otra app no podría cargarlas sin replicar ese runtime.
+> ⚠️ **Prism+ es exclusivo de [PrismHub](https://github.com/Litdemonick/PrismHub).** No es un núcleo universal para otras apps: cada extensión se publica en el **formato nativo de PrismHub** (cabecera `==PrismHubExtension==` + `export default class extends Extension`) y se ejecuta dentro del runtime de PrismHub. Otra app no podría cargarlas sin replicar ese runtime.
 
 PrismHub ya viene configurado para alimentarse de este repositorio. No hay nada que integrar manualmente:
 
