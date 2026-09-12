@@ -563,25 +563,50 @@ export async function detail(slug: string): Promise<PrismDetail> {
   // capitulo llevan miniatura, contadores y fecha, asi que nunca cerraban
   // dentro de una ventana corta — de 25 capitulos entraban 2.
   const reCap = /href="\/capitulo\/(\d+)\/"/g;
-  let m: RegExpExecArray | null;
-  while ((m = reCap.exec(html)) !== null) {
-    const id = m[1];
-    if (vistos.has(id)) continue;
-    const texto = _stripTags(html.slice(m.index, m.index + 500));
-    // "Primer Capítulo" y "Último Capítulo" son los botones de atajo de la
-    // ficha, no entradas de la lista: apuntan a capítulos que ya están más
-    // abajo y colarlos duplicaría el primero y el último.
-    if (/^(primer|último|ultimo)\s+cap/i.test(texto)) continue;
-    vistos.add(id);
-    const num = /cap[íi]tulo\s*([\d.]+)/i.exec(texto);
-    // La ventana trae de yapa los "me gusta", las vistas y la fecha. Se corta en
-    // el encabezado del capitulo para que el titulo no salga con esa cola.
-    const enc = /(cap[íi]tulo\s*[\d.]+(?:\s*:\s*[^<]{1,60})?)/i.exec(texto);
-    episodes.push({
-      title: enc ? enc[1].trim() : `Capítulo ${num ? num[1] : episodes.length + 1}`,
-      url: id,
-      number: num ? Number(num[1]) : undefined,
-    });
+  const _agregarCapitulos = (fragmento: string) => {
+    let m: RegExpExecArray | null;
+    reCap.lastIndex = 0;
+    while ((m = reCap.exec(fragmento)) !== null) {
+      const id = m[1];
+      if (vistos.has(id)) continue;
+      const texto = _stripTags(fragmento.slice(m.index, m.index + 500));
+      // "Primer Capítulo" y "Último Capítulo" son los botones de atajo de la
+      // ficha, no entradas de la lista: apuntan a capítulos que ya están más
+      // abajo y colarlos duplicaría el primero y el último.
+      if (/^(primer|último|ultimo)\s+cap/i.test(texto)) continue;
+      vistos.add(id);
+      const num = /cap[íi]tulo\s*([\d.]+)/i.exec(texto);
+      // La ventana trae de yapa los "me gusta", las vistas y la fecha. Se
+      // corta en el encabezado del capitulo para que el titulo no salga con
+      // esa cola.
+      const enc = /(cap[íi]tulo\s*[\d.]+(?:\s*:\s*[^<]{1,60})?)/i.exec(texto);
+      episodes.push({
+        title: enc ? enc[1].trim() : `Capítulo ${num ? num[1] : episodes.length + 1}`,
+        url: id,
+        number: num ? Number(num[1]) : undefined,
+      });
+    }
+  };
+  _agregarCapitulos(html);
+
+  // La lista de capítulos viene paginada (nav con "Página 1/2/3…" al pie) y la
+  // ficha solo trae la primera: medido con un título de 50 capítulos, la
+  // página 1 traía nada más que 24. Se leen las páginas que falten del MISMO
+  // recorte <main> — cada una es un fetch aparte a `?pagina=N`.
+  let ultimaPagina = 1;
+  const rePagina = /aria-label="P[aá]gina (\d+)"/gi;
+  let mp: RegExpExecArray | null;
+  while ((mp = rePagina.exec(html)) !== null) {
+    const n = Number(mp[1]);
+    if (n > ultimaPagina) ultimaPagina = n;
+  }
+  for (let pagina = 2; pagina <= ultimaPagina; pagina++) {
+    const completoPagina = await _html(`${url}?pagina=${pagina}`);
+    const iniP = completoPagina.indexOf('<main');
+    const finP = completoPagina.lastIndexOf('</main>');
+    const htmlPagina =
+      iniP !== -1 && finP > iniP ? completoPagina.slice(iniP, finP) : completoPagina;
+    _agregarCapitulos(htmlPagina);
   }
   // Orden de lectura: del 1 en adelante. Antes se invertía a ciegas la lista de
   // la página, y como esa lista no siempre viene en el mismo sentido el
@@ -604,8 +629,9 @@ export async function detail(slug: string): Promise<PrismDetail> {
   // Leyendo el texto aparecen todos, sin depender de ninguna tabla.
   const genres: string[] = [];
   const reGen = /href="\/series\/\?[^"]*generos\[\]=\d+"[^>]*>([^<]{1,40})</g;
-  while ((m = reGen.exec(html)) !== null) {
-    const nombre = _decode(m[1]);
+  let mg: RegExpExecArray | null;
+  while ((mg = reGen.exec(html)) !== null) {
+    const nombre = _decode(mg[1]);
     if (nombre && !genres.includes(nombre)) genres.push(nombre);
   }
 

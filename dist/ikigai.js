@@ -304,20 +304,38 @@ async function detail(slug) {
   const episodes = [];
   const vistos = /* @__PURE__ */ new Set();
   const reCap = /href="\/capitulo\/(\d+)\/"/g;
-  let m;
-  while ((m = reCap.exec(html)) !== null) {
-    const id = m[1];
-    if (vistos.has(id)) continue;
-    const texto = _stripTags(html.slice(m.index, m.index + 500));
-    if (/^(primer|último|ultimo)\s+cap/i.test(texto)) continue;
-    vistos.add(id);
-    const num = /cap[íi]tulo\s*([\d.]+)/i.exec(texto);
-    const enc = /(cap[íi]tulo\s*[\d.]+(?:\s*:\s*[^<]{1,60})?)/i.exec(texto);
-    episodes.push({
-      title: enc ? enc[1].trim() : `Cap\xEDtulo ${num ? num[1] : episodes.length + 1}`,
-      url: id,
-      number: num ? Number(num[1]) : void 0
-    });
+  const _agregarCapitulos = (fragmento) => {
+    let m;
+    reCap.lastIndex = 0;
+    while ((m = reCap.exec(fragmento)) !== null) {
+      const id = m[1];
+      if (vistos.has(id)) continue;
+      const texto = _stripTags(fragmento.slice(m.index, m.index + 500));
+      if (/^(primer|último|ultimo)\s+cap/i.test(texto)) continue;
+      vistos.add(id);
+      const num = /cap[íi]tulo\s*([\d.]+)/i.exec(texto);
+      const enc = /(cap[íi]tulo\s*[\d.]+(?:\s*:\s*[^<]{1,60})?)/i.exec(texto);
+      episodes.push({
+        title: enc ? enc[1].trim() : `Cap\xEDtulo ${num ? num[1] : episodes.length + 1}`,
+        url: id,
+        number: num ? Number(num[1]) : void 0
+      });
+    }
+  };
+  _agregarCapitulos(html);
+  let ultimaPagina = 1;
+  const rePagina = /aria-label="P[aá]gina (\d+)"/gi;
+  let mp;
+  while ((mp = rePagina.exec(html)) !== null) {
+    const n = Number(mp[1]);
+    if (n > ultimaPagina) ultimaPagina = n;
+  }
+  for (let pagina = 2; pagina <= ultimaPagina; pagina++) {
+    const completoPagina = await _html(`${url}?pagina=${pagina}`);
+    const iniP = completoPagina.indexOf("<main");
+    const finP = completoPagina.lastIndexOf("</main>");
+    const htmlPagina = iniP !== -1 && finP > iniP ? completoPagina.slice(iniP, finP) : completoPagina;
+    _agregarCapitulos(htmlPagina);
   }
   episodes.sort((a, b) => {
     if (a.number == null && b.number == null) return 0;
@@ -327,8 +345,9 @@ async function detail(slug) {
   });
   const genres = [];
   const reGen = /href="\/series\/\?[^"]*generos\[\]=\d+"[^>]*>([^<]{1,40})</g;
-  while ((m = reGen.exec(html)) !== null) {
-    const nombre = _decode(m[1]);
+  let mg;
+  while ((mg = reGen.exec(html)) !== null) {
+    const nombre = _decode(mg[1]);
     if (nombre && !genres.includes(nombre)) genres.push(nombre);
   }
   const plano = _stripTags(html);
