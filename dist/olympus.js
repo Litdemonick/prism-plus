@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Olympus
-// @version      1.2.12
+// @version      1.2.13
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -14,6 +14,20 @@
 // extensions/olympus/index.ts
 var BASE = "https://olympusxyz.com";
 var BACKEND = "https://panel.olympusxyz.com";
+var _TILDES = {
+  \u00E1: "a",
+  \u00E9: "e",
+  \u00ED: "i",
+  \u00F3: "o",
+  \u00FA: "u",
+  \u00FC: "u"
+};
+function _sinTildes(s) {
+  return s.replace(/[áéíóúü]/g, (c) => {
+    var _a;
+    return (_a = _TILDES[c]) != null ? _a : c;
+  });
+}
 async function _get(url) {
   const raw = await sendMessage("request", JSON.stringify([url, { method: "get", headers: {} }]));
   try {
@@ -63,8 +77,10 @@ async function search(keyword, page, filter) {
     return (((_f = (_e = d.data) == null ? void 0 : _e.series) == null ? void 0 : _f.data) || []).map(_item);
   }
   const all = await _fullList();
-  const kw = q.toLowerCase();
-  const matches = all.filter((s) => s.type === "comic" && s.name.toLowerCase().includes(kw));
+  const kw = _sinTildes(q.toLowerCase());
+  const matches = all.filter(
+    (s) => s.type === "comic" && _sinTildes(s.name.toLowerCase()).includes(kw)
+  );
   matches.sort(
     (a, b) => direction === "desc" ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name)
   );

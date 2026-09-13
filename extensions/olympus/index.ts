@@ -8,6 +8,21 @@ const BASE = 'https://olympusxyz.com';
 // El listado de capítulos vive en el backend directo (no en el proxy del front).
 const BACKEND = 'https://panel.olympusxyz.com';
 
+// La búsqueda por texto compara por substring exacto (`.includes`), y el
+// título real lleva tildes ("Me Case con la Dragona que Maté") mientras que
+// una consulta armada a mano —o venida de deslugificar un enlace roto, ver
+// PrismHub `_tryAutoMigrate`— casi nunca las trae ("...que mate"). Sin
+// sacarlas de los dos lados, esa búsqueda nunca encontraba el título de
+// verdad. No se usa `String.prototype.normalize` (no está garantizado en el
+// motor JS de la app) — se reemplaza a mano, alcanza con las vocales
+// acentuadas y la diéresis del español.
+const _TILDES: Record<string, string> = {
+  á: 'a', é: 'e', í: 'i', ó: 'o', ú: 'u', ü: 'u',
+};
+function _sinTildes(s: string): string {
+  return s.replace(/[áéíóúü]/g, c => _TILDES[c] ?? c);
+}
+
 async function _get<T = unknown>(url: string): Promise<T> {
   const raw = await sendMessage('request', JSON.stringify([url, { method: 'get', headers: {} }]));
   try { return JSON.parse(raw) as T; } catch { return raw as unknown as T; }
@@ -103,8 +118,10 @@ export async function search(
   // no se pueden aplicar acá sin pedir el detalle de cada uno de los ~850
   // resultados (demasiado costoso). Orden sí se puede, es local.
   const all = await _fullList();
-  const kw = q.toLowerCase();
-  const matches = all.filter(s => s.type === 'comic' && s.name.toLowerCase().includes(kw));
+  const kw = _sinTildes(q.toLowerCase());
+  const matches = all.filter(
+    s => s.type === 'comic' && _sinTildes(s.name.toLowerCase()).includes(kw),
+  );
   matches.sort((a, b) =>
     direction === 'desc' ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name),
   );
