@@ -4,7 +4,7 @@
     "lastReason": null
   },
   "io.prismhub.animefenix": {
-    "consecutiveFailures": 66,
+    "consecutiveFailures": 67,
     "lastReason": "site-down"
   },
   "io.prismhub.eporner": {
@@ -48,8 +48,8 @@
     "lastReason": null
   },
   "io.prismhub.manhwaweb": {
-    "consecutiveFailures": 0,
-    "lastReason": null
+    "consecutiveFailures": 1,
+    "lastReason": "broken"
   },
   "io.prismhub.olympus": {
     "consecutiveFailures": 0,
