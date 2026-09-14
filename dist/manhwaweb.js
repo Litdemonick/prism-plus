@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ManhwaWeb
-// @version      1.4.2
+// @version      1.4.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -228,17 +228,19 @@ async function detail(id) {
     return null;
   }).filter((g) => typeof g === "string");
   const rawChapters = d["chapters"] || [];
-  const episodes = rawChapters.filter((c) => c["link"]).map((c) => {
-    var _a2;
-    const link = c["link"];
-    const chapterId = (_a2 = link.replace(/\/$/, "").split("/").pop()) != null ? _a2 : link;
+  const episodes = rawChapters.map((c) => {
+    var _a2, _b;
+    const versions = c["versions"] || [];
+    const link = c["link"] || ((_a2 = versions[0]) == null ? void 0 : _a2["link"]);
+    if (!link) return null;
+    const chapterId = (_b = link.replace(/\/$/, "").split("/").pop()) != null ? _b : link;
     const num = c["chapter"];
     return {
       title: `Cap\xEDtulo ${num}`,
       url: chapterId,
       number: typeof num === "number" ? num : void 0
     };
-  });
+  }).filter((e) => e !== null);
   const rawStatus = String((_a = d["_status"]) != null ? _a : "").toLowerCase();
   const status = rawStatus.includes("publicando") ? "ongoing" : rawStatus.includes("finalizado") || rawStatus.includes("completo") ? "completed" : rawStatus.includes("pausa") || rawStatus.includes("hiatus") ? "hiatus" : rawStatus.includes("proximamente") || rawStatus.includes("pr\xF3ximamente") ? "upcoming" : void 0;
   return { title, cover, description, episodes, genres, status, headers: HEADERS };

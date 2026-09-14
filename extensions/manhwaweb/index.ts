@@ -285,11 +285,22 @@ export async function detail(id: string): Promise<PrismDetail> {
   // va a fallar recién al abrirlo, con el lector mostrando "sin páginas" en
   // ESE capítulo puntual, que es mejor que esconder catálogo entero por las
   // dudas.
+  // El enlace de un capítulo puede venir directo en `link`, o si no —
+  // confirmado en vivo con una novela ("El villano rubio..."): sus 200
+  // capítulos NO traían `link` directo, solo adentro de `versions[0]`—
+  // adentro de `versions`, el array de re-subidas/otros grupos de scan.
+  // Un manga normal trae las dos formas a la vez (el mismo enlace
+  // duplicado); acá se prefiere la directa cuando existe, y si no se cae a
+  // la primera versión. Antes esto filtraba por `c['link']` a secas, así
+  // que un capítulo sin esa copia directa quedaba afuera — con las 200
+  // faltando así, el listado entero llegaba vacío a la app ("sin capítulos
+  // aún" con la ficha cargando bien, porque la ficha no depende de esto).
   const rawChapters = (d['chapters'] as Record<string, unknown>[]) || [];
   const episodes = rawChapters
-    .filter(c => c['link'])
     .map((c) => {
-      const link = c['link'] as string;
+      const versions = (c['versions'] as Record<string, unknown>[]) || [];
+      const link = (c['link'] as string) || (versions[0]?.['link'] as string);
+      if (!link) return null;
       // Extract chapter ID: last non-empty path segment of the link
       const chapterId = link.replace(/\/$/, '').split('/').pop() ?? link;
       const num = c['chapter'] as number;
@@ -298,7 +309,8 @@ export async function detail(id: string): Promise<PrismDetail> {
         url: chapterId,
         number: typeof num === 'number' ? num : undefined,
       };
-    });
+    })
+    .filter((e): e is NonNullable<typeof e> => e !== null);
 
   // Estado de publicación — el backend lo manda en `_status` en minúsculas
   // (confirmado en vivo: "publicandose"). Solo se mapea lo que reconocemos;
