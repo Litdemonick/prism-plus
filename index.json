@@ -212,7 +212,7 @@
     {
       "name": "ManhwaWeb",
       "package": "io.prismhub.manhwaweb",
-      "version": "1.4.2",
+      "version": "1.4.3",
       "author": "PrismPlus",
       "type": "manga",
       "icon": "",
@@ -223,8 +223,8 @@
       "nsfw": "false",
       "latestLabel": "nuevos-capitulos",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/manhwaweb.js",
-      "sha256": "8c214ded9516739c91e2b13ed58b3d41f6069ca2163d1d1c9e2b4e52d8af7082",
-      "signature": "iwZUgJ6WNpiNuQuRpmiRJyr0mnU1Wns1WiaJ2yReM7yQ+dQflW+LI5bbwIHS2GNehthygnUwIe1GLSLhjclGCg=="
+      "sha256": "ec4b14210ee564cfe85034493c3418dae8b81d7d6e1f773507fce3679ca1f4fd",
+      "signature": "eRU05yWIVM5fNZlLsvJ7y2cPFmNVViXvelSntQOqUJJaR5EQcsDD0k28aUWHbSEoiphTCA6nJf3C6Avxax6xAw=="
     },
     {
       "name": "Olympus",
