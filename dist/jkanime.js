@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.14
+// @version      1.12.15
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -296,18 +296,13 @@ async function resolver(url, referer) {
   return null;
 }
 
-// extensions/jkanime/servidores/doodstream/index.ts
-async function resolver2(_url, _referer) {
-  return null;
-}
-
 // extensions/jkanime/servidores/filemoon/index.ts
 function b64urlAWord(s) {
   const normal = s.replace(/-/g, "+").replace(/_/g, "/");
   const relleno = normal.length % 4 === 0 ? "" : "=".repeat(4 - normal.length % 4);
   return CryptoJS.enc.Base64.parse(normal + relleno);
 }
-async function resolver3(url, referer) {
+async function resolver2(url, referer) {
   var _a;
   const host = hostDe(url) || "bysekoze.com";
   const codigo = codigoDe(url);
@@ -371,7 +366,7 @@ async function resolver3(url, referer) {
 }
 
 // extensions/jkanime/servidores/generico/index.ts
-async function resolver4(url, referer) {
+async function resolver3(url, referer) {
   var _a;
   const html = await pedir(url, referer);
   if (!html) return null;
@@ -398,7 +393,7 @@ ${desempaquetarTodo(html)}`.replace(/\\\//g, "/");
 }
 
 // extensions/jkanime/servidores/magi/index.ts
-async function resolver5(url, referer) {
+async function resolver4(url, referer) {
   const hdrs = { Referer: referer };
   const html = await pedir(url, referer);
   if (!html) return null;
@@ -414,126 +409,8 @@ async function resolver5(url, referer) {
   return null;
 }
 
-// extensions/jkanime/servidores/mega/index.ts
-async function resolver6(_url, _referer) {
-  return null;
-}
-
-// extensions/jkanime/servidores/mixdrop/index.ts
-var DOMINIOS_DE_REPUESTO = ["miixdrop.com", "mxdrop.to", "mixdrop.top"];
-function conOtroDominio(url, dominio) {
-  const host = hostDe(url);
-  if (!host || host === dominio) return null;
-  return url.replace(host, dominio);
-}
-async function sacarDestino(url, referer) {
-  var _a;
-  const html = await pedir(url, referer, CABECERAS_DEL_REPRODUCTOR);
-  if (!html) return null;
-  const desempaquetado = desempaquetarTodo(html);
-  const wurl = /MDCore\.wurl\s*=\s*["']([^"']+)["']/.exec(desempaquetado);
-  if (wurl == null ? void 0 : wurl[1]) return wurl[1];
-  const mp4 = /(\/\/[^"'\s]+\.mp4[^"'\s]*)/.exec(desempaquetado);
-  return (_a = mp4 == null ? void 0 : mp4[1]) != null ? _a : null;
-}
-async function resolver7(url, referer) {
-  let destino = await sacarDestino(url, referer);
-  if (!destino) {
-    for (const dominio of DOMINIOS_DE_REPUESTO) {
-      const otra = conOtroDominio(url, dominio);
-      if (!otra) continue;
-      destino = await sacarDestino(otra, referer);
-      if (destino) break;
-    }
-  }
-  if (!destino) return null;
-  const completa = destino.indexOf("http") === 0 ? destino : `https:${destino}`;
-  return {
-    url: completa,
-    headers: __spreadValues({
-      Referer: "https://mixdrop.top/"
-    }, CABECERAS_DEL_REPRODUCTOR)
-  };
-}
-
-// extensions/jkanime/servidores/mp4upload/index.ts
-async function resolver8(url, referer) {
-  var _a;
-  const html = await pedir(url, referer);
-  if (!html) return null;
-  const candidatos = (_a = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g)) != null ? _a : [];
-  const real = candidatos.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
-  if (!real) return null;
-  return { url: real, headers: { Referer: "https://www.mp4upload.com/" } };
-}
-
-// extensions/jkanime/servidores/streamtape/index.ts
-function normalizar(path) {
-  let out = path.trim();
-  if (out.indexOf("//") === 0) out = `https:${out}`;
-  else if (out.indexOf("/") === 0) out = `https:/${out}`;
-  if (!/[?&]stream=/.test(out)) out += "&stream=1";
-  return out;
-}
-function desdeElJs(html, embedUrl) {
-  const armados = /(["'])(\/{1,2}[^"']*)\1\s*\+\s*(?:(["'])\3\s*\+\s*)?\(\s*(["'])([^"']+)\4\s*\)((?:\s*\.\s*substring\(\s*\d+\s*(?:,\s*\d+\s*)?\))+)/g;
-  const recortes = /\.\s*substring\(\s*(\d+)\s*(?:,\s*(\d+)\s*)?\)/g;
-  const host = (/^https?:\/\/([^/]+)/.exec(embedUrl) || ["", ""])[1].replace(/^www\./, "");
-  if (!host) return null;
-  const idEmbed = (/\/[ev]\/([A-Za-z0-9_-]+)/.exec(embedUrl) || ["", ""])[1];
-  const candidatos = [];
-  let m;
-  armados.lastIndex = 0;
-  while ((m = armados.exec(html)) !== null) {
-    let resto = m[5];
-    recortes.lastIndex = 0;
-    let r;
-    while ((r = recortes.exec(m[6])) !== null) {
-      resto = r[2] === void 0 ? resto.substring(parseInt(r[1], 10)) : resto.substring(parseInt(r[1], 10), parseInt(r[2], 10));
-    }
-    candidatos.push(m[2] + resto);
-  }
-  if (!candidatos.length) return null;
-  const bienFormados = candidatos.filter((c) => {
-    const forma = /^\/\/([^/]+)\/get_video\?/.exec(c);
-    return !!forma && forma[1].replace(/^www\./, "") === host && c.indexOf("token=") !== -1;
-  });
-  if (idEmbed) {
-    const conElId = bienFormados.filter((c) => c.indexOf(`id=${idEmbed}&`) !== -1);
-    if (conElId.length) return normalizar(conElId[0]);
-  }
-  for (const c of bienFormados) {
-    if (bienFormados.filter((o) => o === c).length > 1) {
-      console.log("[af] streamtape: elegido por repetici\xF3n, sin id en el embed");
-      return normalizar(c);
-    }
-  }
-  console.log(
-    `[af] streamtape: ${candidatos.length} candidato(s) en el JS, ninguno confiable (id esperado: ${idEmbed || "desconocido"})`
-  );
-  return null;
-}
-async function resolver9(url, referer) {
-  const html = await pedir(url, referer);
-  if (!html) return null;
-  const headers = { Referer: "https://streamtape.com/" };
-  const delJs = desdeElJs(html, url);
-  if (delJs) return { url: delJs, headers };
-  const div = /id=["'](?:ideoolink|botlink|robotlink)["'][^>]*>\s*(\/\/?[^<]*get_video\?[^<]*)</.exec(html);
-  if (div) {
-    console.log("[af] streamtape: sin JS utilizable, se usa el div (puede ser se\xF1uelo)");
-    return { url: normalizar(div[1].trim()), headers };
-  }
-  let m = /(https?:\/\/streamtape\.[a-z]+\/get_video\?[^"'\s<>]+)/.exec(html);
-  if (m) return { url: normalizar(m[1]), headers };
-  m = /(\/\/streamtape\.[a-z]+\/get_video\?[^"'\s<>]+)/.exec(html);
-  if (m) return { url: normalizar(m[1]), headers };
-  console.log("[af] streamtape: no se encontr\xF3 ninguna URL get_video en el embed");
-  return null;
-}
-
 // extensions/jkanime/servidores/streamwish/index.ts
-async function resolver10(url, referer) {
+async function resolver5(url, referer) {
   var _a;
   const host = hostDe(url);
   if (!host) return null;
@@ -593,7 +470,7 @@ function descifrar(crudo) {
     return null;
   }
 }
-async function resolver11(url, referer) {
+async function resolver6(url, referer) {
   let html = await pedir(url, referer, CABECERAS_DEL_REPRODUCTOR);
   if (!html) return null;
   const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html);
@@ -647,70 +524,35 @@ var SERVIDORES = [
     hosts: ["/magi"],
     botones: 59,
     nativo: true,
-    resolver: resolver5
-  },
-  {
-    boton: "Streamtape",
-    hosts: ["streamtape", "stape", "strtape"],
-    botones: 59,
-    nativo: true,
-    resolver: resolver9
-  },
-  {
-    boton: "Mega",
-    hosts: ["mega.nz", "mega.co.nz"],
-    botones: 59,
-    nativo: false,
-    resolver: resolver6
+    resolver: resolver4
   },
   {
     boton: "Streamwish",
     hosts: ["sfastwish", "streamwish", "wishfast", "swdyu"],
     botones: 59,
     nativo: true,
-    resolver: resolver10
+    resolver: resolver5
   },
   {
     boton: "VOE",
     hosts: ["voe.sx", "voe."],
     botones: 59,
     nativo: true,
-    resolver: resolver11
+    resolver: resolver6
   },
   {
     boton: "Vidhide",
     hosts: ["vidhide", "vhide"],
     botones: 59,
     nativo: true,
-    resolver: resolver10
-  },
-  {
-    boton: "Mixdrop",
-    hosts: ["mixdrop", "mxdrop", "xdrop"],
-    botones: 59,
-    nativo: true,
-    resolver: resolver7
+    resolver: resolver5
   },
   {
     boton: "Filemoon",
     hosts: ["bysekoze", "byse.", "filemoon", "moonplayer"],
     botones: 58,
     nativo: true,
-    resolver: resolver3
-  },
-  {
-    boton: "Doodstream",
-    hosts: ["dsvplay", "playmogo", "dooodster", "dood"],
-    botones: 55,
-    nativo: false,
     resolver: resolver2
-  },
-  {
-    boton: "Mp4upload",
-    hosts: ["mp4upload"],
-    botones: 48,
-    nativo: true,
-    resolver: resolver8
   }
 ];
 function fichaDe(url) {
@@ -722,7 +564,7 @@ async function resolverServidor(url, referer) {
   const ficha = fichaDe(url);
   if (ficha) return ficha.resolver(url, referer);
   console.log(`[jk] servidor sin ficha, se prueba a mano: ${url.slice(0, 60)}`);
-  return resolver4(url, referer);
+  return resolver3(url, referer);
 }
 
 // extensions/jkanime/index.ts
