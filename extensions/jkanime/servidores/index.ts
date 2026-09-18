@@ -3,45 +3,45 @@
 // Una carpeta por servidor, con su nombre. Cada una lleva su propio resolver y
 // arriba de todo lo que se midió de ese servidor, para no volver a averiguarlo.
 //
-// **Por qué está copiado del SDK y no importado de él:** streamtape, mixdrop y
-// byse los usan también otras extensiones. Compartiendo el código, tocar uno
-// para arreglar jkanime podía romper LatAnime o AnimeFenix sin que nadie se
-// enterara hasta que un usuario lo reportara. Con la copia, lo que se toque acá
-// se queda acá — y, sobre todo, lo que se toque en el SDK ya no puede romper
-// esto.
+// **Por qué está copiado del SDK y no importado de él:** streamwish también lo
+// usan otras extensiones. Compartiendo el código, tocar uno para arreglar
+// jkanime podía romper LatAnime o AnimeFenix sin que nadie se enterara hasta
+// que un usuario lo reportara. Con la copia, lo que se toque acá se queda
+// acá — y, sobre todo, lo que se toque en el SDK ya no puede romper esto.
 //
-// **Esta extensión es la que más reproduce en la app de todo el repo**: de once
-// servidores, nueve resuelven nativo. Por eso la copia arrancó IGUAL a lo que
-// funcionaba y no se retocó nada "por las dudas": la mayor parte de estos
-// resolvers ya eran propios de la extensión y solo se mudaron de archivo.
+// **Solo quedan los servidores activos, a pedido explícito (2026-09-18):**
+// Desu, Magi, Streamwish, VOE, Vidhide y Filemoon. El resto (Doodstream,
+// Filemoon-mega, Mixdrop, Mp4upload, Streamtape) ya venía excluido de la
+// lista real hace rato (`FUERA_DE_LA_LISTA` en `index.ts` — Mp4upload por el
+// caudal, Mixdrop por el dominio inestable, Streamtape porque el archivo ya
+// no existe del lado del sitio, Mega/Doodstream porque nunca resolvieron
+// nativo) — antes se los dejaba con su carpeta entera "por si volvían a
+// andar". Ahora se sacan del todo: no tiene sentido cargar código de un
+// resolver que ni se prueba nunca. Si algún día alguno vuelve a andar, está
+// en el historial de git de este archivo, no hace falta reescribirlo de
+// cero.
 //
-// El precio, asumido: cuando un servidor cambia de formato hay que arreglarlo
-// en cada extensión por separado.
+// El precio asumido de la copia sigue igual: cuando un servidor cambia de
+// formato hay que arreglarlo en cada extensión por separado.
 //
-// ── El catálogo, medido el 2026-08-05 ────────────────────────────────────────
+// ── El catálogo activo, medido el 2026-08-05 ─────────────────────────────────
 //
 // Recorridos 59 episodios para el peso, y 3 episodios completos servidor por
-// servidor para saber cuáles reproducen.
+// servidor para saber cuáles reproducen. Solo los seis que quedaron:
 //
 //    59  Desu        nika.playmudos.com   ⚡ ya resuelto en la lista, y primero
 //    59  Magi        nika.playmudos.com   ⚡ mismo archivo que Desu
-//    59  Streamtape  streamtape.com       ⚡ 3/3 resuelve · 2/3 abre
-//    59  Mega        mega.nz              🌐 cifra el archivo, no la dirección
 //    59  Streamwish  sfastwish.com        ⚡ 3/3
 //    59  VOE         voe.sx               ⚡ 3/3
 //    59  Vidhide     vidhidevip.com       ⚡ 3/3
-//    59  Mixdrop     mixdrop.top          ⚡ 3/3
 //    58  Filemoon    bysekoze.com         ⚡ 2/2
-//    55  Doodstream  dsvplay.com          🌐 0/2, no entrega la dirección
-//    48  Mp4upload   www.mp4upload.com    ⚡ 1/1
 //
 // Cada servidor aparece dos veces por episodio en la mayoría: una en SUB y otra
 // en LAT ("VOE" y "VOE LAT"), por eso los botones que ve el usuario son más.
 //
-// **Mediafire ya no está.** Aparecía en 59 episodios y hasta resolvía, pero se
-// sacó a pedido del usuario: no es un servidor de vídeo sino alojamiento de
-// archivos, y además reportó que cuando abre se ve mal. El filtro está en
-// `index.ts` de la extensión.
+// **Mediafire, Streamtape, Mega, Mixdrop, Doodstream y Mp4upload ya no
+// están** — ver el porqué de cada uno en el comentario largo de arriba y en
+// `FUERA_DE_LA_LISTA`, en `index.ts` de la extensión.
 //
 // ── Tres trampas al medir esta extensión ────────────────────────────────────
 //
@@ -66,14 +66,9 @@
 
 import { type ServidorResuelto, pedir, hostDe, resolverReproductorPropio } from './comun';
 import * as desu from './desu';
-import * as doodstream from './doodstream';
 import * as filemoon from './filemoon';
 import * as generico from './generico';
 import * as magi from './magi';
-import * as mega from './mega';
-import * as mixdrop from './mixdrop';
-import * as mp4upload from './mp4upload';
-import * as streamtape from './streamtape';
 import * as streamwish from './streamwish';
 import * as vidhide from './vidhide';
 import * as voe from './voe';
@@ -117,20 +112,6 @@ export const SERVIDORES: Servidor[] = [
     resolver: magi.resolver,
   },
   {
-    boton: 'Streamtape',
-    hosts: ['streamtape', 'stape', 'strtape'],
-    botones: 59,
-    nativo: true,
-    resolver: streamtape.resolver,
-  },
-  {
-    boton: 'Mega',
-    hosts: ['mega.nz', 'mega.co.nz'],
-    botones: 59,
-    nativo: false,
-    resolver: mega.resolver,
-  },
-  {
     boton: 'Streamwish',
     hosts: ['sfastwish', 'streamwish', 'wishfast', 'swdyu'],
     botones: 59,
@@ -152,32 +133,11 @@ export const SERVIDORES: Servidor[] = [
     resolver: vidhide.resolver,
   },
   {
-    boton: 'Mixdrop',
-    hosts: ['mixdrop', 'mxdrop', 'xdrop'],
-    botones: 59,
-    nativo: true,
-    resolver: mixdrop.resolver,
-  },
-  {
     boton: 'Filemoon',
     hosts: ['bysekoze', 'byse.', 'filemoon', 'moonplayer'],
     botones: 58,
     nativo: true,
     resolver: filemoon.resolver,
-  },
-  {
-    boton: 'Doodstream',
-    hosts: ['dsvplay', 'playmogo', 'dooodster', 'dood'],
-    botones: 55,
-    nativo: false,
-    resolver: doodstream.resolver,
-  },
-  {
-    boton: 'Mp4upload',
-    hosts: ['mp4upload'],
-    botones: 48,
-    nativo: true,
-    resolver: mp4upload.resolver,
   },
 ];
 
