@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.16
+// @version      1.12.17
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -410,17 +410,22 @@ async function resolver4(url, referer) {
 }
 
 // extensions/jkanime/servidores/streamwish/index.ts
+var apiCerrada = /* @__PURE__ */ new Set();
 async function resolver5(url, referer) {
   var _a;
   const host = hostDe(url);
   if (!host) return null;
   const hdrs = { Referer: `https://${host}/` };
   const idM = /\/(?:e|f|d|v)\/([A-Za-z0-9]+)/.exec(url);
-  if (idM) {
+  if (idM && !apiCerrada.has(host)) {
     const json = await pedir(`https://${host}/api/file/${idM[1]}?json=1`, `https://${host}/`, {
       "X-Requested-With": "XMLHttpRequest",
       Accept: "application/json"
     });
+    if (!json) {
+      apiCerrada.add(host);
+      console.log(`[jk] ${host}: la API no contesta, se va derecho al embed de ac\xE1 en m\xE1s`);
+    }
     if (json) {
       const m3u82 = /"file"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(json);
       if (m3u82) return { url: m3u82[1].replace(/\\\//g, "/"), headers: hdrs };
@@ -448,6 +453,9 @@ ${desempaquetarTodo(html)}`.replace(/\\\//g, "/");
   const mp4s = (_a = plano.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g)) != null ? _a : [];
   const real = mp4s.find((u) => !/\.(?:css|js|jpg|png|woff)/.test(u));
   if (real) return { url: real, headers: hdrs };
+  console.log(
+    `[jk] ${host}: el embed lleg\xF3 (${html.length} car., ${plano.length} tras desempaquetar) pero no tiene ninguna direcci\xF3n de v\xEDdeo reconocible`
+  );
   return null;
 }
 

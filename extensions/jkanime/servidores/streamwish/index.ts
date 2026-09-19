@@ -25,6 +25,29 @@
 
 import { pedir, hostDe, desempaquetarTodo, b64aTexto, type ServidorResuelto } from '../comun';
 
+/**
+ * Hosts cuya API JSON ya contestó que no, en lo que va de esta sesión.
+ *
+ * ── Por qué hace falta ──────────────────────────────────────────────────────
+ *
+ * La API se prueba primero porque cuando anda es un viaje en vez de dos. Pero
+ * cuando el host la tiene cerrada contesta 403 SIEMPRE, y ese intento perdido
+ * se pagaba en cada episodio. Medido en un televisor, abriendo un capítulo:
+ *
+ *     GET https://sfastwish.com/…  → 403 · 775 ms
+ *     GET https://sfastwish.com/…  → 200 · 777 ms
+ *
+ * Casi ochocientos milisegundos de espera antes de ver imagen, cada vez, para
+ * preguntar algo que ya se sabe que va a fallar.
+ *
+ * Con esto se pregunta UNA vez por host: si contesta, se sigue usando el
+ * camino corto; si no, los episodios siguientes van derecho al embed. El
+ * conjunto vive en memoria y se va con el motor, así que un host que vuelva a
+ * habilitarla se reintenta en la sesión siguiente — no queda marcado para
+ * siempre.
+ */
+const apiCerrada = new Set<string>();
+
 export async function resolver(url: string, referer: string): Promise<ServidorResuelto | null> {
   const host = hostDe(url);
   if (!host) return null;
@@ -32,11 +55,15 @@ export async function resolver(url: string, referer: string): Promise<ServidorRe
 
   // La API JSON del motor streamwish.
   const idM = /\/(?:e|f|d|v)\/([A-Za-z0-9]+)/.exec(url);
-  if (idM) {
+  if (idM && !apiCerrada.has(host)) {
     const json = await pedir(`https://${host}/api/file/${idM[1]}?json=1`, `https://${host}/`, {
       'X-Requested-With': 'XMLHttpRequest',
       Accept: 'application/json',
     });
+    if (!json) {
+      apiCerrada.add(host);
+      console.log(`[jk] ${host}: la API no contesta, se va derecho al embed de acá en más`);
+    }
     if (json) {
       const m3u8 = /"file"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(json);
       if (m3u8) return { url: m3u8[1].replace(/\\\//g, '/'), headers: hdrs };
@@ -71,5 +98,15 @@ export async function resolver(url: string, referer: string): Promise<ServidorRe
   const real = mp4s.find((u) => !/\.(?:css|js|jpg|png|woff)/.test(u));
   if (real) return { url: real, headers: hdrs };
 
+  // Se dice POR QUÉ no salió, no solo que no salió.
+  //
+  // Devolver null a secas deja a la app mostrando «este servidor no está
+  // disponible» sin ninguna pista, y desde el registro del usuario no se puede
+  // distinguir «el embed no llegó» de «llegó pero cambió y ya no se reconoce».
+  // Son dos arreglos distintos: uno es de red, el otro es de este archivo.
+  console.log(
+    `[jk] ${host}: el embed llegó (${html.length} car., ${plano.length} tras ` +
+      `desempaquetar) pero no tiene ninguna dirección de vídeo reconocible`,
+  );
   return null;
 }
