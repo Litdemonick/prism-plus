@@ -6,33 +6,22 @@
 //
 // ── Por qué existe esta copia ───────────────────────────────────────────────
 //
-// Es una de las dos únicas cosas que jkanime todavía sacaba de `sdk/embeds.ts`
-// (la otra es StreamTape, en la carpeta de al lado). Copiado tal cual de
-// `resolveGeneric`. Con esto, esta extensión ya no depende del SDK para
+// Es una de las pocas cosas que jkanime todavía sacaba de `sdk/embeds.ts`.
+// Copiado tal cual de `resolveGeneric`. Con esto, esta extensión ya no depende del SDK para
 // resolver ningún servidor: tocar el SDK no la puede romper, y arreglar algo
 // acá no puede romper a las demás.
 //
-// **Lo que NO se movió, a propósito:** voe, streamwish/vidhide, mixdrop,
-// mp4upload y los dos reproductores propios (Desu y Magi) los resuelve esta
-// extensión con código suyo desde hace rato, en `index.ts`. Anda, está medido,
-// y moverlo era riesgo sin ganancia.
+// **Lo que NO se movió, a propósito:** voe, streamwish/vidhide y los dos
+// reproductores propios (Desu y Magi) los resuelve esta extensión con código
+// suyo desde hace rato, en `index.ts`. Anda, está medido, y moverlo era
+// riesgo sin ganancia.
 //
 // ── Qué agarra hoy ──────────────────────────────────────────────────────────
 //
-// Medido el 2026-08-05 sobre 3 episodios, lo único que hoy cae acá es
-// `dsvplay.com` (Doodstream), y devuelve null — ya tiene su carpeta con lo
-// medido.
-//
-// Mediafire también caía acá y **se sacó de la lista a pedido del usuario**.
-// El motivo es doble y vale anotarlo: no es un servidor de vídeo sino
-// alojamiento de archivos, así que no corresponde ofrecerlo como uno más; y
-// además el usuario reportó que cuando SÍ abre, se ve mal — carga la imagen en
-// vez de reproducir. Que devuelva 206 video/mp4 en la medición no alcanza: eso
-// solo dice que el archivo baja, no que se reproduzca bien. El filtro está en
-// `index.ts` de la extensión.
-//
-// O sea que hoy el genérico no le sirve a nadie en particular: queda como red
-// para lo que el sitio sume mañana.
+// Nada que la extensión ofrezca: `watch()` solo deja pasar a los seis
+// servidores activos, así que ningún botón del sitio llega hasta acá. Queda
+// como red para cuando se sume un servidor nuevo y todavía no tenga su ficha,
+// y para que el registro deje ver que hay que agregarlo con su carpeta.
 
 import { pedir, hostDe, desempaquetarTodo, b64aTexto, type ServidorResuelto } from '../comun';
 

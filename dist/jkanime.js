@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.15
+// @version      1.12.16
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -1068,7 +1068,13 @@ async function watch(url) {
       )
     )
   );
-  const subStreams = subResolved.filter((s) => s !== null);
+  const yaVistos = /* @__PURE__ */ new Set();
+  const subStreams = subResolved.filter((s) => s !== null).filter((s) => {
+    const clave = `${s.quality}|${s.url}`;
+    if (yaVistos.has(clave)) return false;
+    yaVistos.add(clave);
+    return true;
+  });
   const m = /(?:var|let|const)\s+servers\s*=\s*(\[[\s\S]*?\]);/.exec(html) || /(?:var|let|const)\s+video\s*=\s*(\[[\s\S]*?\]);/.exec(html);
   if (!m) {
     return { streams: subStreams, pageUrl: episodeUrl };
@@ -1084,30 +1090,10 @@ async function watch(url) {
   }
   servers.sort((a, b) => (a.lang || 0) - (b.lang || 0));
   const resolved = servers.map((s) => _rawServerStream(s)).filter((s) => s !== null);
-  const FUERA_DE_LA_LISTA = [
-    "mediafire",
-    "mp4upload",
-    "mixdrop",
-    "mxdrop",
-    "xdrop",
-    "dood",
-    "dsvplay",
-    "playmogo",
-    "dooodster",
-    "d-s.io",
-    // Cifra el archivo del lado del navegador: nativo no va a andar nunca, y
-    // la única forma de verlo era el WebView. Ver el porqué largo arriba.
-    "mega.nz",
-    "mega.co.nz",
-    // El archivo ya no existe del lado de Streamtape. Ver el porqué largo
-    // arriba.
-    "streamtape",
-    "strtape"
-  ];
   const usable = resolved.filter((s) => {
-    var _a;
-    const u = ((_a = s.url) != null ? _a : "").toLowerCase();
-    return !FUERA_DE_LA_LISTA.some((nombre) => u.indexOf(nombre) !== -1);
+    var _a, _b;
+    const boton = ((_a = s.quality) != null ? _a : "").toLowerCase().replace(/\s+(lat|cast)$/, "").trim();
+    return fichaDe((_b = s.url) != null ? _b : "") !== null || SERVIDORES.some((f) => f.boton.toLowerCase() === boton);
   });
   const direct = usable.filter((s) => _isDirect(s.url));
   const embeds = usable.filter((s) => !_isDirect(s.url));
@@ -1143,14 +1129,6 @@ function _isDirect(url) {
   return u.indexOf(".m3u8") !== -1 || u.indexOf(".mp4") !== -1 || u.indexOf(".mkv") !== -1 || u.indexOf(".ts") !== -1;
 }
 function _resolveRedirect(url) {
-  if (url.indexOf("/jkokru.php") !== -1) {
-    const id = _urlParam(url, "u");
-    return id ? `http://ok.ru/videoembed/${id}` : url;
-  }
-  if (url.indexOf("/jkvmixdrop.php") !== -1) {
-    const id = _urlParam(url, "u");
-    return id ? `https://mixdrop.ag/e/${id}` : url;
-  }
   if (url.indexOf("/jksw.php") !== -1) {
     const id = _urlParam(url, "u");
     return id ? `https://sfastwish.com/e/${id}` : url;
@@ -1186,15 +1164,8 @@ function _b64decode(s) {
 function _guessServerName(url) {
   const u = url.toLowerCase();
   if (u.indexOf("voe") !== -1) return "Voe";
-  if (u.indexOf("streamtape") !== -1 || u.indexOf("stape") !== -1) return "Streamtape";
-  if (u.indexOf("mixdrop") !== -1 || u.indexOf("mxdrop") !== -1) return "Mixdrop";
-  if (u.indexOf("mp4upload") !== -1) return "Mp4Upload";
-  if (u.indexOf("dood") !== -1 || u.indexOf("ds2play") !== -1 || u.indexOf("ds2video") !== -1) return "Doodstream";
   if (u.indexOf("streamwish") !== -1 || u.indexOf("sfastwish") !== -1 || u.indexOf("wishfast") !== -1 || u.indexOf("vidhide") !== -1) return "Streamwish";
   if (u.indexOf("filemoon") !== -1 || u.indexOf("moonplayer") !== -1) return "Filemoon";
-  if (u.indexOf("yourupload") !== -1 || u.indexOf("yupload") !== -1) return "YourUpload";
-  if (u.indexOf("hqq") !== -1 || u.indexOf("netu") !== -1) return "Netu";
-  if (u.indexOf("mega.nz") !== -1 || u.indexOf("mega.co.nz") !== -1) return "Mega";
   return "Embed";
 }
 function _toSlug(url) {

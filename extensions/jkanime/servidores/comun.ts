@@ -5,10 +5,10 @@
 // jkanime — ninguna otra extensión las toca.
 //
 // Buena parte de estos resolvers ya eran propios de la extensión (voe,
-// streamwish/vidhide, mp4upload y los dos reproductores internos, con su propio
-// base64 y su propio desempaquetador): esos se MUDARON de archivo, tal cual,
-// sin retocar una línea. Lo que sí se copió del SDK fue lo que todavía salía de
-// ahí: streamtape, mixdrop, filemoon (byse) y el genérico.
+// streamwish/vidhide y los dos reproductores internos, con su propio base64 y
+// su propio desempaquetador): esos se MUDARON de archivo, tal cual, sin
+// retocar una línea. Lo que sí se copió del SDK fue lo que todavía salía de
+// ahí: filemoon (byse) y el genérico.
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
 

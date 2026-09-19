@@ -10,16 +10,11 @@
 // acá — y, sobre todo, lo que se toque en el SDK ya no puede romper esto.
 //
 // **Solo quedan los servidores activos, a pedido explícito (2026-09-18):**
-// Desu, Magi, Streamwish, VOE, Vidhide y Filemoon. El resto (Doodstream,
-// Filemoon-mega, Mixdrop, Mp4upload, Streamtape) ya venía excluido de la
-// lista real hace rato (`FUERA_DE_LA_LISTA` en `index.ts` — Mp4upload por el
-// caudal, Mixdrop por el dominio inestable, Streamtape porque el archivo ya
-// no existe del lado del sitio, Mega/Doodstream porque nunca resolvieron
-// nativo) — antes se los dejaba con su carpeta entera "por si volvían a
-// andar". Ahora se sacan del todo: no tiene sentido cargar código de un
-// resolver que ni se prueba nunca. Si algún día alguno vuelve a andar, está
-// en el historial de git de este archivo, no hace falta reescribirlo de
-// cero.
+// Desu, Magi, Streamwish, VOE, Vidhide y Filemoon. Los demás botones que
+// todavía manda el sitio (Doodstream, Mixdrop, Mp4upload, Streamtape, Mega,
+// Mediafire) no se ofrecen: `watch()` en `index.ts` solo deja pasar a estos
+// seis. Sus resolvers se borraron de acá — si algún día alguno vuelve a
+// andar, está en el historial de git, no hace falta reescribirlo de cero.
 //
 // El precio asumido de la copia sigue igual: cuando un servidor cambia de
 // formato hay que arreglarlo en cada extensión por separado.
@@ -40,8 +35,8 @@
 // en LAT ("VOE" y "VOE LAT"), por eso los botones que ve el usuario son más.
 //
 // **Mediafire, Streamtape, Mega, Mixdrop, Doodstream y Mp4upload ya no
-// están** — ver el porqué de cada uno en el comentario largo de arriba y en
-// `FUERA_DE_LA_LISTA`, en `index.ts` de la extensión.
+// están** — `watch()`, en `index.ts` de la extensión, solo deja pasar a los
+// seis de la lista de arriba.
 //
 // ── Tres trampas al medir esta extensión ────────────────────────────────────
 //

@@ -1,5 +1,5 @@
 import { matchFirst, matchGroups, stripTags, decodeEntities } from '../../sdk/html';
-import { fichaDe, resolverServidor, resolverReproductorPropio } from './servidores';
+import { SERVIDORES, fichaDe, resolverServidor, resolverReproductorPropio } from './servidores';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream } from '../../sdk/types';
 
 // sendMessage("request", ...) usa el dio de PrismHub (con UA, cookies y redirecciones),
@@ -581,12 +581,9 @@ type PrismEpisode = { title: string; url: string; number?: number };
 // Esta lista los excluía sin haberlo probado nunca de verdad.
 // voe.sx/voe. también se sacaron: _resolveVoeDio() funciona (verificado con
 // curl, direct_access_url real y reproducible).
-// vidhide y mixdrop también se sacaron, y por lo mismo: nunca se habían
-// probado. Medidos en vivo contra el bundle ya compilado:
-//   vidhide  → 3 de 3 intentos dan la lista HLS real (master.m3u8 en
-//              acek-cdn.com, 200 application/vnd.apple.mpegurl)
-//   mixdrop  → 206 video/mp4, el archivo entero
-// Los dos reproducen nativo perfectamente y estaban sin botón.
+// vidhide también se sacó, y por lo mismo: nunca se había probado. Medido en
+// vivo contra el bundle ya compilado: 3 de 3 intentos dan la lista HLS real
+// (master.m3u8 en acek-cdn.com, 200 application/vnd.apple.mpegurl).
 const _JS_ONLY_HOSTS = [
   'filelions',
   'filemoon', 'moonplayer',
@@ -716,7 +713,18 @@ export async function watch(url: string): Promise<PrismWatch> {
       ),
     ),
   );
-  const subStreams = subResolved.filter((s): s is PrismStream => s !== null);
+  // Sin repetidos: en algunos episodios viejos la página trae el mismo iframe
+  // dos veces (visto en One Piece 100: Desu y Magi salían dos veces, con la
+  // misma dirección), y el usuario veía dos botones idénticos.
+  const yaVistos = new Set<string>();
+  const subStreams = subResolved
+    .filter((s): s is PrismStream => s !== null)
+    .filter((s) => {
+      const clave = `${s.quality}|${s.url}`;
+      if (yaVistos.has(clave)) return false;
+      yaVistos.add(clave);
+      return true;
+    });
 
   const m =
     /(?:var|let|const)\s+servers\s*=\s*(\[[\s\S]*?\]);/.exec(html) ||
@@ -749,117 +757,26 @@ export async function watch(url: string): Promise<PrismWatch> {
     .map(s => _rawServerStream(s))
     .filter((s): s is PrismStream => s !== null);
 
-  // ── Segundo cambio de rumbo: fuera el WebView, en TODA la lista ──────────
+  // ── Solo los seis servidores activos, y ninguno más ─────────────────────
   //
-  // La vuelta de acá abajo (Streamtape, Mp4upload, Streamwish, Filemoon)
-  // seguía en pie por la razón que dice el historial: si el nativo falla, la
-  // app cae sola al WebView y un botón que abre en WebView es mejor que
-  // ningún botón. Pedido explícito, en una revisión aparte: dejar de
-  // depender del WebView en cualquier extensión — no como respaldo. Los
-  // reportes en vivo del reproductor (audio con delay, video que no carga,
-  // tirones) apuntan justamente a esa vía.
+  // Pedido explícito (2026-09-18): Desu, Magi, Streamwish, VOE, Vidhide y
+  // Filemoon — "no más, no menos". El sitio sigue mandando otros botones
+  // (Mixdrop, Mp4upload, Streamtape, Mega, Doodstream, Mediafire...) que ya
+  // no se ofrecen; por qué sale cada uno está en el historial de git de
+  // esta función, no acá.
   //
-  // Mega es la baja de ESTA vuelta: cifra el archivo del lado del navegador,
-  // así que nativo no va a andar nunca y la única forma de verlo era el
-  // WebView — que es justo lo que se está sacando. Sin una forma nativa real,
-  // no hay término medio: se saca de la lista.
+  // Es una lista de LOS QUE SÍ, no de los que no: Mixdrop cambia de dominio
+  // seguido (`mdbekjwqa.pw`, `mdy48tn97.com`...) y una lista de excluidos
+  // por texto de la URL se le escapaba cada vez que rotaba. Con la de
+  // permitidos, cualquier botón nuevo que el sitio sume mañana queda afuera
+  // solo, hasta que alguien lo agregue a propósito en `servidores/`.
   //
-  // El resto (Streamtape, Mp4upload, Streamwish, Filemoon) NO se toca acá:
-  // cada uno tiene su resolver propio en `servidores/` y, medido, resuelve
-  // nativo la mayoría de las veces (ver el catálogo en
-  // `servidores/index.ts`). Sacarlos de la lista sería peor que dejarlos: se
-  // revisan uno por uno, con el usuario probando en vivo, antes de decidir
-  // si se arreglan o se sacan — no todos juntos a ciegas.
-  //
-  // Mediafire sigue afuera, a pedido del usuario: **no es un servidor de
-  // vídeo sino alojamiento de archivos**, y además reportó que cuando abre se ve
-  // mal (carga la imagen en vez de reproducir). Que la medición diera 206
-  // video/mp4 solo dice que el archivo baja, no que se reproduzca bien.
-  //
-  // **Mp4upload también sale, a pedido del usuario el 2026-08-06.** Es la
-  // segunda excepción a la regla de no sacar botones, y se plantea acá para que
-  // quede claro qué se perdió: eran 48 botones y el servidor RESUELVE bien —
-  // 206, el archivo es un MP4 sano de 282 MB.
-  //
-  // Lo que no se pudo arreglar es el caudal. Ese host tarda ~1,5 s en empezar a
-  // contestar cada pedido, así que lo que importa no es el ancho de banda sino
-  // cuántos pedidos se hacen: leyendo de corrido entrega 1812 KB/s y de a trozos
-  // cerrados de 256 KB baja a 171, cuando el archivo necesita 206. Se intentó
-  // resolverlo del lado de la app manteniéndole la lectura abierta (ver
-  // `bomba_de_datos.dart` en PrismHub), y aun así seguía trabándose en las dos
-  // plataformas. El usuario prefirió sacarlo antes que dejar un botón que carga
-  // y se atora.
-  //
-  // Si algún día se quiere volver a intentar, está todo medido: el resolver
-  // sigue en `servidores/mp4upload/` con sus números, y el mecanismo de lectura
-  // continua sigue en la app esperando que alguien lo declare.
-  //
-  // ── Mixdrop: tercera excepción, a pedido explícito ─────────────────────────
-  //
-  // El resolver funciona y quedó medido: reintenta en los dominios que andan
-  // cuando el del episodio está caído, y resuelve a 206 video/mp4. Pero
-  // Mixdrop cambia de dominio seguido, borra archivos y devuelve HTTP 200 con
-  // páginas vacías, así que el botón sale bien un día y al navegador el otro.
-  // Se saca antes que dejar algo que a veces anda y a veces no.
-  //
-  // No se borró nada: `servidores/mixdrop/` sigue entero con sus mediciones,
-  // así que volver a ponerlo es sacar su nombre de esta lista y nada más.
-  //
-  // ── Doodstream: cuarta excepción — falla por las tres vías ────────────────
-  //
-  // Medido el 2026-08-06, y cada fallo por un motivo distinto:
-  //
-  //   nativo            403 de Cloudflare. `dsvplay.com` redirige a
-  //                     `playmogo.com` y devuelve el desafío "Just a moment…"
-  //                     (con su `cf-ray`), que hay que resolver ejecutando JS.
-  //                     Un cliente HTTP no puede.
-  //   WebView Windows   lo tapa **SmartScreen de Microsoft** dentro de WebView2,
-  //                     por sitio engañoso. Aparece ANTES de que la página
-  //                     exista, así que no es cosa del bloqueador: no hay
-  //                     pedidos que cortar.
-  //   WebView Android   pantalla negra, ni carga.
-  //
-  // Que Microsoft lo tenga fichado como engañoso pesa por sí solo: mandar ahí
-  // al usuario va en contra de lo que se busca. Y la extensión queda igual de
-  // completa sin él, con 7 botones.
-  //
-  // El resolver ya devolvía null a propósito y sigue en `servidores/doodstream/`
-  // con sus mediciones.
-  //
-  // ── Streamtape: quinta excepción — el archivo ya no existe ────────────────
-  //
-  // Medido en vivo el 2026-09-07, contra el sitio real y no contra una
-  // muestra vieja: se probó Streamtape en 6 títulos sin relación entre sí
-  // (One Piece, Kimetsu no Yaiba en dos versiones, Konosuba, Dragon Ball Z,
-  // Danmachi) y los 6 dieron HTTP 404 directo desde streamtape.com. Antes de
-  // sacarlo se confirmó que el resolver decodifica BIEN la dirección — se
-  // comparó byte a byte contra el array `servers` crudo que manda la propia
-  // página de jkanime.net — así que no es un bug de extracción: el video en
-  // sí no está. Reportado en vivo con el registro completo de la app: mpv
-  // "Failed to open", GET → 404, y el usuario viendo exactamente eso en su
-  // propia conexión (no es un bloqueo del lado del robot de pruebas).
-  //
-  // El resolver queda igual en `servidores/streamtape/`, con toda la lógica
-  // contra los señuelos del embed: si Streamtape vuelve a servir archivos de
-  // verdad, sacarlo de esta lista alcanza.
-  //
-  // El resto sigue en la lista, incluidos los que van al navegador, porque un
-  // botón que abre en el navegador es mucho mejor que ningún botón.
-  const FUERA_DE_LA_LISTA = [
-    'mediafire',
-    'mp4upload',
-    'mixdrop', 'mxdrop', 'xdrop',
-    'dood', 'dsvplay', 'playmogo', 'dooodster', 'd-s.io',
-    // Cifra el archivo del lado del navegador: nativo no va a andar nunca, y
-    // la única forma de verlo era el WebView. Ver el porqué largo arriba.
-    'mega.nz', 'mega.co.nz',
-    // El archivo ya no existe del lado de Streamtape. Ver el porqué largo
-    // arriba.
-    'streamtape', 'strtape',
-  ];
+  // Pasa el que es de un host conocido (`fichaDe`) O el que trae el nombre
+  // de uno de los seis en el botón: así no se pierde uno válido si su sitio
+  // cambia de dominio pero el botón sigue llamándose igual.
   const usable = resolved.filter((s) => {
-    const u = (s.url ?? '').toLowerCase();
-    return !FUERA_DE_LA_LISTA.some((nombre) => u.indexOf(nombre) !== -1);
+    const boton = (s.quality ?? '').toLowerCase().replace(/\s+(lat|cast)$/, '').trim();
+    return fichaDe(s.url ?? '') !== null || SERVIDORES.some((f) => f.boton.toLowerCase() === boton);
   });
 
   // Direct streams (mp4/m3u8) antes que embeds crudos
@@ -971,14 +888,6 @@ function _isDirect(url: string): boolean {
 }
 
 function _resolveRedirect(url: string): string {
-  if (url.indexOf('/jkokru.php') !== -1) {
-    const id = _urlParam(url, 'u');
-    return id ? `http://ok.ru/videoembed/${id}` : url;
-  }
-  if (url.indexOf('/jkvmixdrop.php') !== -1) {
-    const id = _urlParam(url, 'u');
-    return id ? `https://mixdrop.ag/e/${id}` : url;
-  }
   if (url.indexOf('/jksw.php') !== -1) {
     const id = _urlParam(url, 'u');
     return id ? `https://sfastwish.com/e/${id}` : url;
@@ -1018,16 +927,9 @@ function _b64decode(s: string): string {
 function _guessServerName(url: string): string {
   const u = url.toLowerCase();
   if (u.indexOf('voe') !== -1) return 'Voe';
-  if (u.indexOf('streamtape') !== -1 || u.indexOf('stape') !== -1) return 'Streamtape';
-  if (u.indexOf('mixdrop') !== -1 || u.indexOf('mxdrop') !== -1) return 'Mixdrop';
-  if (u.indexOf('mp4upload') !== -1) return 'Mp4Upload';
-  if (u.indexOf('dood') !== -1 || u.indexOf('ds2play') !== -1 || u.indexOf('ds2video') !== -1) return 'Doodstream';
   if (u.indexOf('streamwish') !== -1 || u.indexOf('sfastwish') !== -1 ||
       u.indexOf('wishfast') !== -1 || u.indexOf('vidhide') !== -1) return 'Streamwish';
   if (u.indexOf('filemoon') !== -1 || u.indexOf('moonplayer') !== -1) return 'Filemoon';
-  if (u.indexOf('yourupload') !== -1 || u.indexOf('yupload') !== -1) return 'YourUpload';
-  if (u.indexOf('hqq') !== -1 || u.indexOf('netu') !== -1) return 'Netu';
-  if (u.indexOf('mega.nz') !== -1 || u.indexOf('mega.co.nz') !== -1) return 'Mega';
   return 'Embed';
 }
 
