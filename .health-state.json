@@ -76,7 +76,7 @@
     "lastReason": null
   },
   "io.prismhub.xvideos": {
-    "consecutiveFailures": 1,
-    "lastReason": "broken"
+    "consecutiveFailures": 0,
+    "lastReason": null
   }
 }
