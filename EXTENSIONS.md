@@ -47,7 +47,7 @@ extensions/
   "package": "io.prismhub.nombreextension",
   "version": "1.0.0",
   "author": "PrismHub",
-  "type": "anime | manga | movie | series | video",
+  "type": "anime | manga | movie | series | video | live",
   "icon": "https://sitio.com/favicon.ico",
   "description": "Descripción corta en español"
 }
@@ -63,6 +63,27 @@ export async function search(keyword: string, page: number): Promise<PrismItem[]
 export async function detail(url: string): Promise<PrismDetail>
 export async function watch(url: string): Promise<PrismWatch>
 ```
+
+### Excepción: extensiones `"type": "live"`
+
+Sin catálogo ni fichas — una agenda de eventos con hora fija y/o canales
+fijos 24/7 (deportes, IPTV). **No exportan las cuatro de arriba**: en su
+lugar, estas tres:
+
+```typescript
+export async function schedule(): Promise<PrismLiveEvent[]>
+export async function channels(): Promise<PrismLiveChannel[]>
+export async function resolveSignal(id: string): Promise<PrismStream[]>
+```
+
+`schedule()`/`channels()` devuelven cada señal como un `PrismLiveSignal`
+liviano (`id`+`label`, lo que se ve en el selector) — recién
+`resolveSignal(id)` la resuelve de verdad a uno o más `PrismStream`. Como en
+cualquier `PrismStream`, marcar `nativo: true` **solo si se midió** que
+resuelve a un stream reproducible (HLS/mp4 directo) por el reproductor de la
+app — si hace falta un navegador para verla, se deja sin marcar y el cliente
+la deja al final o la descarta, nunca abre un WebView para esto. PrismHub no
+guarda nada de esto en Historial, Descargas ni "Continuar viendo".
 
 ---
 

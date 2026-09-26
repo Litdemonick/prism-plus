@@ -52,12 +52,15 @@ for (const name of entries) {
   const manifestPath = join(dir, 'manifest.json');
   const indexPath    = join(dir, 'index.ts');
   const issues       = [];
+  // Declarada acá afuera (no dentro del `else`) porque la sección de
+  // index.ts, más abajo, también la necesita para saber si esta extensión
+  // es "type": "live" — antes quedaba fuera de alcance ahí.
+  let manifest = null;
 
   // ── manifest.json ─────────────────────────────────────────────────────────
   if (!existsSync(manifestPath)) {
     issues.push('falta manifest.json');
   } else {
-    let manifest;
     try {
       manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
     } catch {
@@ -112,8 +115,13 @@ for (const name of entries) {
   } else {
     const src = readFileSync(indexPath, 'utf8');
 
-    // Las 4 funciones obligatorias
-    for (const fn of REQUIRED_EXPORTS) {
+    // Las 4 funciones obligatorias — salvo "type": "live" (agenda/canales,
+    // sin catálogo ni fichas), que en cambio exige las tres propias suyas.
+    const esLive = String(manifest?.type || '').toLowerCase() === 'live';
+    const requeridas = esLive
+      ? ['schedule', 'channels', 'resolveSignal']
+      : REQUIRED_EXPORTS;
+    for (const fn of requeridas) {
       if (!src.includes(`export async function ${fn}(`)) {
         issues.push(`index.ts: falta 'export async function ${fn}('`);
       }

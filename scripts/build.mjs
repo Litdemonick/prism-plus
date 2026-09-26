@@ -125,7 +125,12 @@ function mapType(t) {
   if (s === 'mixedreading') return 'mixedReading';
   if (['manga', 'comic', 'manhwa', 'manhua'].includes(s)) return 'manga';
   if (['novel', 'fikushon', 'ln'].includes(s)) return 'fikushon';
-  return 'bangumi'; // anime, movie, series, tv, live → video
+  // Agenda/canales en vivo: pasa literal, igual que mixed/mixedReading — NO es
+  // un alias de video. Antes caía en el catch-all de abajo (comentario viejo:
+  // "anime, movie, series, tv, live → video"), pero una extensión en vivo no
+  // tiene episodios ni catálogo — tratarla como bangumi la rompería.
+  if (s === 'live') return 'live';
+  return 'bangumi'; // anime, movie, series, tv → video
 }
 
 // Cabecera ==PrismHubExtension== que PrismHub parsea para los metadatos.
@@ -274,6 +279,15 @@ export default class extends Extension {
   async createFilter(filter) { return (typeof createFilter === 'function') ? createFilter(filter) : {}; }
   async top(filter, page) { return (typeof top === 'function') ? top(filter, page) : []; }
   async createTopFilter() { return (typeof createTopFilter === 'function') ? createTopFilter() : {}; }
+
+  // Solo las extensiones "type": "live" implementan estas tres — el resto
+  // nunca las llama (PrismHub las gatea por ExtensionType.live), así que el
+  // guard \`typeof X === 'function'\` alcanza: no hace falta saber el tipo acá.
+  async schedule() { return (typeof schedule === 'function') ? schedule() : []; }
+  async channels() { return (typeof channels === 'function') ? channels() : []; }
+  async resolveSignal(id) {
+    return (typeof resolveSignal === 'function') ? resolveSignal(id) : [];
+  }
 
   // Adapta el detail de Prism+ al de PrismHub: episodios planos [{title,url}] ->
   // grupos [{title, urls:[{name,url}]}], y description -> desc.

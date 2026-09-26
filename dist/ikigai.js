@@ -524,6 +524,15 @@ export default class extends Extension {
   async top(filter, page) { return (typeof top === 'function') ? top(filter, page) : []; }
   async createTopFilter() { return (typeof createTopFilter === 'function') ? createTopFilter() : {}; }
 
+  // Solo las extensiones "type": "live" implementan estas tres — el resto
+  // nunca las llama (PrismHub las gatea por ExtensionType.live), así que el
+  // guard `typeof X === 'function'` alcanza: no hace falta saber el tipo acá.
+  async schedule() { return (typeof schedule === 'function') ? schedule() : []; }
+  async channels() { return (typeof channels === 'function') ? channels() : []; }
+  async resolveSignal(id) {
+    return (typeof resolveSignal === 'function') ? resolveSignal(id) : [];
+  }
+
   // Adapta el detail de Prism+ al de PrismHub: episodios planos [{title,url}] ->
   // grupos [{title, urls:[{name,url}]}], y description -> desc.
   async detail(url) {

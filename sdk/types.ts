@@ -57,6 +57,16 @@ export interface PrismItem {
   rating?: number;
   /** Tipo de media del ítem (sobreescribe el tipo de la extensión si es mixto) */
   type?: MediaType;
+  /**
+   * El SITIO clasifica esta obra puntual como contenido para adultos —
+   * `true` solo cuando el sitio lo dice de verdad (un campo propio, ej.
+   * `contentRating` de MangaDex), nunca inferido por género ni por cuál
+   * filtro se usó para pedirla. Con eso ya alcanza para saberlo: `false`/
+   * sin poner NO significa "confirmado normal", solo "el sitio no lo dijo
+   * acá" — el resto de las señales (extensión `nsfw`, filtro de adultos,
+   * géneros) siguen aplicando igual.
+   */
+  adult?: boolean;
 }
 
 // ─── Detalle ─────────────────────────────────────────────────────────────────
@@ -115,6 +125,8 @@ export interface PrismDetail {
    * contenido. El resto de extensiones no lo necesita — su tipo ya es fijo.
    */
   type?: 'manga' | 'bangumi' | 'fikushon';
+  /** Igual que `PrismItem.adult` — ver ahí el porqué completo. */
+  adult?: boolean;
 }
 
 // ─── Reproducción ─────────────────────────────────────────────────────────────
@@ -187,4 +199,49 @@ export interface PrismWatch {
    * Ejemplos: "region_blocked", "premium_required", "js_eval_required"
    */
   reason?: string;
+}
+
+// ─── En vivo ─────────────────────────────────────────────────────────────────
+//
+// Extensiones `type: 'live'` (agenda deportiva, IPTV, radios en vivo...): sin
+// catálogo ni fichas, así que NUNCA implementan latest/search/detail/watch —
+// exportan en cambio schedule()/channels()/resolveSignal(). El cliente no las
+// guarda en Historial, Descargas ni "Continuar viendo": no hay nada que
+// retomar en algo que ya terminó de transmitirse.
+
+export type LiveEventStatus = 'upcoming' | 'live' | 'finished';
+
+/**
+ * Una transmisión candidata de un evento o canal — el pickeable en el
+ * selector de señales del cliente. La resolución de verdad (a un stream
+ * reproducible) es aparte, en resolveSignal(id): acá solo va lo que hace
+ * falta para MOSTRAR la opción antes de resolverla.
+ */
+export interface PrismLiveSignal {
+  id: string;
+  label: string;
+}
+
+/** Un evento de la agenda — un partido, pelea, torneo con hora fija */
+export interface PrismLiveEvent {
+  id: string;
+  title: string;
+  /** Categoría o liga ("UEFA Nations League", "NBA") */
+  league?: string;
+  leagueImage?: string;
+  /** Deporte o categoría amplia, para filtrar (fútbol, tenis, golf, boxeo...) */
+  sport?: string;
+  /** Inicio en ISO 8601 CON zona horaria — el cliente lo pasa a la hora local */
+  startsAt: string;
+  /** Si no se manda, el cliente lo calcula comparando startsAt con la hora actual */
+  status?: LiveEventStatus;
+  signals: PrismLiveSignal[];
+}
+
+/** Un canal fijo, sin agenda — transmite 24/7 */
+export interface PrismLiveChannel {
+  id: string;
+  name: string;
+  icon?: string;
+  signals: PrismLiveSignal[];
 }
