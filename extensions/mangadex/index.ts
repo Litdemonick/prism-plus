@@ -111,6 +111,16 @@ function _portada(m: Obra): string | undefined {
   return archivo ? `${PORTADAS}/${m.id}/${archivo}.512.jpg` : undefined;
 }
 
+// La API misma trae `contentRating` por obra (safe/suggestive/erotica/
+// pornographic) — hasta ahora acá solo se usaba para PEDIR ('contentRating[]='
+// en la URL), nunca se devolvía. Solo erotica/pornographic marcan `adult:
+// true`; 'suggestive' es el escalón de abajo (más laxo que "Ecchi" en otros
+// sitios) y queda sin marcar — el resto de las señales de la app (filtro,
+// géneros) lo siguen cubriendo igual si corresponde.
+function _esAdulto(rating: unknown): boolean | undefined {
+  return rating === 'erotica' || rating === 'pornographic' ? true : undefined;
+}
+
 function _item(m: Obra, actualizacion?: string): PrismItem {
   const a = m.attributes ?? {};
   return {
@@ -119,6 +129,7 @@ function _item(m: Obra, actualizacion?: string): PrismItem {
     cover: _portada(m),
     update: actualizacion,
     year: typeof a.year === 'number' ? a.year : undefined,
+    adult: _esAdulto(a.contentRating),
   };
 }
 
@@ -440,6 +451,7 @@ export async function detail(url: string): Promise<PrismDetail> {
     year: typeof a.year === 'number' ? a.year : undefined,
     extra: Object.keys(extra).length ? extra : undefined,
     episodes: await _capitulos(id),
+    adult: _esAdulto(a.contentRating),
   };
 }
 

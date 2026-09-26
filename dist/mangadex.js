@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         MangaDex
-// @version      1.0.4
+// @version      1.0.5
 // @author       PrismPlus
 // @lang         multi
 // @license      MIT
@@ -66,6 +66,9 @@ function _portada(m) {
   const archivo = (_b = rel == null ? void 0 : rel.attributes) == null ? void 0 : _b["fileName"];
   return archivo ? `${PORTADAS}/${m.id}/${archivo}.512.jpg` : void 0;
 }
+function _esAdulto(rating) {
+  return rating === "erotica" || rating === "pornographic" ? true : void 0;
+}
 function _item(m, actualizacion) {
   var _a;
   const a = (_a = m.attributes) != null ? _a : {};
@@ -74,7 +77,8 @@ function _item(m, actualizacion) {
     url: m.id,
     cover: _portada(m),
     update: actualizacion,
-    year: typeof a.year === "number" ? a.year : void 0
+    year: typeof a.year === "number" ? a.year : void 0,
+    adult: _esAdulto(a.contentRating)
   };
 }
 async function _obrasPorId(ids) {
@@ -300,7 +304,8 @@ async function detail(url) {
     status: _ESTADO_PRISM[a.status],
     year: typeof a.year === "number" ? a.year : void 0,
     extra: Object.keys(extra).length ? extra : void 0,
-    episodes: await _capitulos(id)
+    episodes: await _capitulos(id),
+    adult: _esAdulto(a.contentRating)
   };
 }
 var _TANDAS = 5;
@@ -439,6 +444,15 @@ export default class extends Extension {
   async createFilter(filter) { return (typeof createFilter === 'function') ? createFilter(filter) : {}; }
   async top(filter, page) { return (typeof top === 'function') ? top(filter, page) : []; }
   async createTopFilter() { return (typeof createTopFilter === 'function') ? createTopFilter() : {}; }
+
+  // Solo las extensiones "type": "live" implementan estas tres — el resto
+  // nunca las llama (PrismHub las gatea por ExtensionType.live), así que el
+  // guard `typeof X === 'function'` alcanza: no hace falta saber el tipo acá.
+  async schedule() { return (typeof schedule === 'function') ? schedule() : []; }
+  async channels() { return (typeof channels === 'function') ? channels() : []; }
+  async resolveSignal(id) {
+    return (typeof resolveSignal === 'function') ? resolveSignal(id) : [];
+  }
 
   // Adapta el detail de Prism+ al de PrismHub: episodios planos [{title,url}] ->
   // grupos [{title, urls:[{name,url}]}], y description -> desc.
