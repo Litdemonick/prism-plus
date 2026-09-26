@@ -216,11 +216,17 @@ async function _allChapters(slug: string): Promise<OlympusChapterRef[]> {
   const url = (page: number) =>
     `${BACKEND}/api/series/${encodeURIComponent(slug)}/chapters?page=${page}&direction=asc&type=comic`;
   const first = await _get<{ data: OlympusChapterRef[]; meta?: { last_page?: number } }>(url(1));
-  const all = [...(first.data || [])];
+  // Array.isArray y no solo `|| []`: un 404 de esta ruta también puede traer
+  // un `data` que no es la lista (ver el porqué largo en `_esSerieValida`,
+  // que cubre el caso hermano del endpoint de arriba). Sin esto, un `data`
+  // presente pero no-array rompía el spread entero (`TypeError: is not
+  // iterable`) en vez de devolver una lista vacía como cualquier otro fallo
+  // ya manejado acá.
+  const all = [...(Array.isArray(first.data) ? first.data : [])];
   const lastPage = first.meta?.last_page ?? 1;
   for (let page = 2; page <= lastPage; page++) {
     const d = await _get<{ data: OlympusChapterRef[] }>(url(page));
-    all.push(...(d.data || []));
+    all.push(...(Array.isArray(d.data) ? d.data : []));
   }
   return all;
 }
@@ -248,6 +254,37 @@ async function _resolveCurrentSlug(oldSlug: string): Promise<string | null> {
   }
 }
 
+// ¿"data" es de verdad una serie, o es el sobre de un error que también
+// trae ese campo?
+//
+// ── Por qué hace falta ──────────────────────────────────────────────────
+//
+// Confirmado en vivo (curl directo contra el sitio): un slug viejo NO
+// devuelve un cuerpo vacío. Devuelve 404 con un JSON que TAMBIÉN tiene
+// "data" — solo que es la ruta que no encontró, no la obra:
+//
+//   {"error":true,"statusCode":404,
+//    "message":"Page not found: /api/__stale_slug_404?type=comic",
+//    "data":{"path":"/api/__stale_slug_404?type=comic"}}
+//
+// El chequeo de antes era `if (!d?.data)` — y acá SIEMPRE hay `data`,
+// error o no. O sea que la corrección de slug viejo (`_resolveCurrentSlug`,
+// que existe justo para este caso — Olympus renombra sus obras cada
+// tanto) nunca se disparaba: la obra se veía "sin capítulos" para
+// siempre, en vez de reengancharse con el slug vigente. Reportado en vivo,
+// con capturas de PrismHub, y confirmado con el pedido a mano de acá arriba.
+//
+// Una serie de VERDAD siempre trae un nombre. Con esto alcanza para
+// distinguir las dos formas sin necesitar el `statusCode` del cuerpo
+// (que ni pasa por `_get`, que solo devuelve el JSON ya parseado).
+function _esSerieValida(data: unknown): data is Record<string, unknown> {
+  return (
+    !!data &&
+    typeof data === 'object' &&
+    typeof (data as Record<string, unknown>)['name'] === 'string'
+  );
+}
+
 export async function detail(slug: string): Promise<PrismDetail> {
   let d = await _get<{ data: Record<string, unknown> }>(
     `${BASE}/api/series/${encodeURIComponent(slug)}?type=comic`,
@@ -257,7 +294,7 @@ export async function detail(slug: string): Promise<PrismDetail> {
   // vez. Sin esto, un título ya guardado en favoritos/historial quedaba
   // muerto para siempre con un error del servidor, aunque siguiera
   // perfectamente disponible en el sitio bajo otro slug.
-  if (!d?.data) {
+  if (!_esSerieValida(d?.data)) {
     const current = await _resolveCurrentSlug(slug);
     if (current) {
       slug = current;
@@ -274,7 +311,7 @@ export async function detail(slug: string): Promise<PrismDetail> {
   // sin ninguna pista de que el problema era del servidor (confirmado en
   // vivo). Mejor un error explícito que el usuario pueda entender.
   const s = d?.data;
-  if (!s || typeof s !== 'object') {
+  if (!_esSerieValida(s)) {
     throw new Error('Olympus no devolvió datos para esta obra. Intentá más tarde.');
   }
 

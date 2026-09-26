@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Olympus
-// @version      1.2.13
+// @version      1.2.14
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -140,11 +140,11 @@ async function _allChapters(slug) {
   var _a, _b;
   const url = (page) => `${BACKEND}/api/series/${encodeURIComponent(slug)}/chapters?page=${page}&direction=asc&type=comic`;
   const first = await _get(url(1));
-  const all = [...first.data || []];
+  const all = [...Array.isArray(first.data) ? first.data : []];
   const lastPage = (_b = (_a = first.meta) == null ? void 0 : _a.last_page) != null ? _b : 1;
   for (let page = 2; page <= lastPage; page++) {
     const d = await _get(url(page));
-    all.push(...d.data || []);
+    all.push(...Array.isArray(d.data) ? d.data : []);
   }
   return all;
 }
@@ -161,12 +161,15 @@ async function _resolveCurrentSlug(oldSlug) {
     return null;
   }
 }
+function _esSerieValida(data) {
+  return !!data && typeof data === "object" && typeof data["name"] === "string";
+}
 async function detail(slug) {
   var _a;
   let d = await _get(
     `${BASE}/api/series/${encodeURIComponent(slug)}?type=comic`
   );
-  if (!(d == null ? void 0 : d.data)) {
+  if (!_esSerieValida(d == null ? void 0 : d.data)) {
     const current = await _resolveCurrentSlug(slug);
     if (current) {
       slug = current;
@@ -176,7 +179,7 @@ async function detail(slug) {
     }
   }
   const s = d == null ? void 0 : d.data;
-  if (!s || typeof s !== "object") {
+  if (!_esSerieValida(s)) {
     throw new Error("Olympus no devolvi\xF3 datos para esta obra. Intent\xE1 m\xE1s tarde.");
   }
   const title = s["name"] || slug;
