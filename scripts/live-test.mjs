@@ -18,6 +18,8 @@
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
+import http from 'node:http';
+import https from 'node:https';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DIST_DIR = join(ROOT, 'dist');
@@ -47,7 +49,6 @@ let defaultUA = UA;
 // genérico como "one piece" en un sitio de películas daría 0 resultados y
 // parecería un fallo cuando en realidad la extensión anda bien.
 const KEYWORDS = {
-  'io.prismhub.animefenix': 'one piece',
   'io.prismhub.jkanime': 'one piece',
   'io.prismhub.tioanime': 'one piece',
   'io.prismhub.fuegocine': 'batman',
@@ -200,6 +201,65 @@ async function retry(fn, { attempts = 3, baseDelay = 1500, label = '' } = {}) {
 
 const short = (e) => String(e?.message ?? e).split('\n')[0].slice(0, 160);
 
+// ─── Chequeo real de imágenes (Fase 0 del plan) ────────────────────────────
+//
+// Por qué existe: Ikigai dejó de mostrar portadas y páginas (bloqueo de
+// Cloudflare por faltar cabeceras Sec-Fetch-*) y esta misma suite seguía en
+// verde — el chequeo de portada de más abajo (6b) solo mira que `cover` sea
+// un string no vacío, nunca la descarga de verdad.
+//
+// Con `fetch` (undici) no se hubiera detectado tampoco: undici agrega
+// `Sec-Fetch-Mode` por su cuenta, así que la misma imagen que la app
+// bloqueada cargaba bien desde acá. Por eso esto usa `node:http`/`https`
+// directo, con SOLO las cabeceras que la propia extensión devuelve — ni una
+// más, igual que hace el cliente de la app.
+//
+// La ÚNICA agregada a mano es un User-Agent por defecto, y no por gusto:
+// cuando la extensión no manda `headers` (el caso más común), la app dibuja
+// la portada con `ExtendedNetworkImageProvider`, que cae al `HttpClient` de
+// dart:io — y ESE sí manda un User-Agent propio siempre, nunca ninguno.
+// Sin este default, un CDN que lo exige (medido en vivo: el de MangaDex
+// contesta 400 "You must set an appropriate User-Agent header" a un pedido
+// sin ninguno) se hubiera marcado roto acá aunque en la app real cargue
+// bien. Verificado con curl contra el mismo CDN: 200 con esta cadena.
+const UA_DART_POR_DEFECTO = 'Dart/3.5 (dart:io)';
+
+function descargarImagen(url, headers = {}, saltos = 4) {
+  return new Promise((resolve) => {
+    let mod;
+    try {
+      mod = new URL(url).protocol === 'http:' ? http : https;
+    } catch {
+      resolve({ ok: false, detalle: 'url inválida' });
+      return;
+    }
+    // El default nunca pisa lo que la extensión sí declaró (a propósito:
+    // esta es la única cabecera que se agrega sola, y solo para faltar lo
+    // menos posible a cómo se comporta la app de verdad).
+    const yaTieneUA = Object.keys(headers).some(
+      (k) => k.toLowerCase() === 'user-agent',
+    );
+    const conDefault = yaTieneUA
+      ? headers
+      : { ...headers, 'User-Agent': UA_DART_POR_DEFECTO };
+    const req = mod.get(url, { headers: conDefault, timeout: 15000 }, (res) => {
+      const { statusCode = 0, headers: h } = res;
+      res.resume(); // no hace falta el cuerpo, solo cabeceras
+      if (statusCode >= 300 && statusCode < 400 && h.location && saltos > 0) {
+        resolve(descargarImagen(new URL(h.location, url).href, headers, saltos - 1));
+        return;
+      }
+      const tipo = h['content-type'] || '';
+      resolve({
+        ok: statusCode === 200 && tipo.startsWith('image/'),
+        detalle: `HTTP ${statusCode}${tipo ? ' · ' + tipo : ''}`,
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', (e) => resolve({ ok: false, detalle: short(e) }));
+  });
+}
+
 // ─── Chequeos por extensión ─────────────────────────────────────────────────
 
 async function checkExtension(inst, pkg) {
@@ -252,6 +312,14 @@ async function checkExtension(inst, pkg) {
     }
   } catch (e) {
     add('latest', false, short(e));
+  }
+
+  // 1b. La portada del listado tiene que cargar DE VERDAD, no solo traer un
+  //     string — con SOLO las cabeceras que la extensión declaró.
+  const conPortada = (firstPage || []).find((i) => i?.cover);
+  if (conPortada) {
+    const r = await descargarImagen(conPortada.cover, conPortada.headers || {});
+    add('latest — portada carga', r.ok, r.detalle);
   }
 
   // 2. Paginación real: la página 2 tiene que traer algo NUEVO, no repetir la 1.
@@ -450,6 +518,8 @@ async function checkExtension(inst, pkg) {
           // título del listado era justo lo que ocultaba el bug.
           title: typeof d?.title === 'string' ? d.title.trim() : '',
           cover: typeof d?.cover === 'string' ? d.cover.trim() : '',
+          headers: d?.headers || {},
+          groups,
           probed: item,
         };
         if (count > 0) break;
@@ -474,12 +544,169 @@ async function checkExtension(inst, pkg) {
       }
       if (best.cover) avisar('detail — portada', true, 'ok');
       else avisar('detail — portada', false, `detail() devolvió portada vacía para ${best.probed.url}`);
+
+      // 6c. Esa portada tiene que cargar DE VERDAD (ver el comentario largo
+      // junto a descargarImagen: esto es justo lo que Ikigai rompió sin que
+      // ninguna comprobación de arriba lo notara).
+      if (best.cover) {
+        const r = await descargarImagen(best.cover, best.headers);
+        add('detail — portada carga', r.ok, r.detalle);
+      }
+    }
+
+    // 6d. Para lectura (manga/cómic): la PRIMERA página de un capítulo real
+    // tiene que cargar también — mismo bug de Ikigai, del lado del lector.
+    // Se prueba solo si watch() devuelve la forma {urls:[...]} (páginas de
+    // imagen); una extensión de vídeo devuelve otra forma y no aplica acá.
+    const primerCapitulo = (best?.groups || []).flatMap((g) => g?.urls || [])[0];
+    if (primerCapitulo?.url) {
+      try {
+        const w = await withTimeout(inst.watch(primerCapitulo.url), 40000, 'watch');
+        if (w && Array.isArray(w.urls) && w.urls.length > 0) {
+          const r = await descargarImagen(w.urls[0], w.headers || {});
+          add('watch — primera página carga', r.ok, r.detalle);
+        }
+      } catch (e) {
+        avisar('watch — primera página carga', false, short(e));
+      }
     }
   } catch (e) {
     add('detail', false, short(e));
   }
 
   return checks;
+}
+
+// ─── Chequeos para extensiones "en vivo" (agenda/canales) ──────────────────
+//
+// No comparten NADA con checkExtension: una extensión `live` nunca
+// implementa latest/search/detail/watch (ver EXTENSIONS.md), así que
+// llamarlas ahí solo daría "no es una función" — hace falta su propio
+// camino, con el mismo estilo de reporte (add/avisar/local) para que la
+// corrida de abajo los trate igual sin necesitar código aparte.
+async function checkLiveExtension(inst, pkg) {
+  const checks = [];
+  const add = (name, ok, detail) => checks.push({ name, ok, detail });
+  const avisar = (name, ok, detail) => checks.push({ name, ok, detail, leve: true });
+
+  // 1. channels() — los canales fijos, si la extensión los tiene. Ninguno es
+  //    obligatorio (una extensión puede ser solo agenda, sin canales 24/7).
+  let canales = [];
+  try {
+    canales = await retry(() => withTimeout(inst.channels(), 20000, 'channels'), {
+      label: 'channels',
+    });
+    if (!Array.isArray(canales)) {
+      add('channels', false, 'no devolvió una lista');
+    } else {
+      const malformados = canales.filter(
+        (c) => !c || !c.id || !c.name || !Array.isArray(c.signals),
+      );
+      add(
+        'channels',
+        malformados.length === 0,
+        malformados.length
+          ? `${malformados.length} canal(es) sin id/name/signals`
+          : `${canales.length} canal(es)`,
+      );
+    }
+  } catch (e) {
+    add('channels', false, short(e));
+  }
+
+  // 2. schedule() — la agenda. Tampoco obligatoria (una extensión puede ser
+  //    solo canales, sin agenda de eventos) — sin ítems no es una falla en
+  //    sí, pero si HAY eventos tienen que venir bien formados.
+  let eventos = [];
+  try {
+    eventos = await retry(() => withTimeout(inst.schedule(), 20000, 'schedule'), {
+      label: 'schedule',
+    });
+    if (!Array.isArray(eventos)) {
+      add('schedule', false, 'no devolvió una lista');
+    } else {
+      const malformados = eventos.filter(
+        (e) => !e || !e.id || !e.title || !e.startsAt || !Array.isArray(e.signals),
+      );
+      add(
+        'schedule',
+        malformados.length === 0,
+        malformados.length
+          ? `${malformados.length} evento(s) sin id/title/startsAt/signals`
+          : `${eventos.length} evento(s)`,
+      );
+      if (eventos.length > 0) {
+        const sinSenales = eventos.filter((e) => (e.signals || []).length === 0).length;
+        avisar(
+          'schedule — eventos sin señal',
+          sinSenales === 0,
+          sinSenales ? `${sinSenales} de ${eventos.length}` : 'ninguno',
+        );
+      }
+    }
+  } catch (e) {
+    add('schedule', false, short(e));
+  }
+
+  if (canales.length === 0 && eventos.length === 0) {
+    add('contenido', false, 'ni channels() ni schedule() trajeron nada');
+  }
+
+  // 3. resolveSignal() — sobre una señal real, de lo que haya (canal o
+  //    evento). Vacío es una respuesta VÁLIDA (la señal no resolvió a un
+  //    stream nativo) — lo único que no puede pasar es que reviente.
+  const primeraSenal =
+    canales.flatMap((c) => c.signals || [])[0] ??
+    eventos.flatMap((e) => e.signals || [])[0];
+  if (primeraSenal) {
+    try {
+      const streams = await retry(
+        () => withTimeout(inst.resolveSignal(primeraSenal.id), 25000, 'resolveSignal'),
+        { label: 'resolveSignal' },
+      );
+      if (!Array.isArray(streams)) {
+        add('resolveSignal', false, 'no devolvió una lista');
+      } else if (streams.length === 0) {
+        avisar('resolveSignal', true, 'sin stream para esta señal puntual (puede ser válido)');
+      } else {
+        const s = streams[0];
+        add(
+          'resolveSignal',
+          typeof s.url === 'string' && s.url.trim().length > 0,
+          s.url ? `${new URL(s.url).host} · nativo=${s.nativo ?? 'sin declarar'}` : 'sin url',
+        );
+      }
+    } catch (e) {
+      add('resolveSignal', false, short(e));
+    }
+  } else {
+    avisar('resolveSignal', false, 'no había ninguna señal para probar');
+  }
+
+  // 4. Protección de entrada: un id roto o vacío no puede tirar la
+  //    extensión — tiene que devolver vacío, como cualquier señal que no
+  //    resolvió.
+  local('resolveSignal — id inválido', await _noRevienta(inst, ''), 'id vacío');
+  local(
+    'resolveSignal — id roto',
+    await _noRevienta(inst, 'esto-no-es-base64-valido!!'),
+    'id con caracteres inválidos',
+  );
+
+  function local(name, ok, detail) {
+    checks.push({ name, ok, detail, local: true });
+  }
+
+  return checks;
+}
+
+async function _noRevienta(inst, id) {
+  try {
+    const r = await withTimeout(inst.resolveSignal(id), 10000, 'resolveSignal');
+    return Array.isArray(r);
+  } catch {
+    return false;
+  }
 }
 
 // ─── Corrida ────────────────────────────────────────────────────────────────
@@ -507,6 +734,7 @@ for (const file of bundles) {
   const code = readFileSync(join(DIST_DIR, file), 'utf8');
   const pkg = /@package\s+(\S+)/.exec(code)?.[1] ?? file.replace('.js', '');
   const name = /@name\s+(.+)/.exec(code)?.[1]?.trim() ?? file;
+  const tipo = /@type\s+(\S+)/.exec(code)?.[1];
 
   if (ONLY && ONLY !== pkg && ONLY !== file.replace('.js', '') && ONLY !== name) continue;
 
@@ -518,7 +746,10 @@ for (const file of bundles) {
   try {
     const mod = await import(pathToFileURL(join(DIST_DIR, file)).href);
     const inst = new mod.default();
-    checks = await checkExtension(inst, pkg);
+    checks =
+      tipo === 'live'
+        ? await checkLiveExtension(inst, pkg)
+        : await checkExtension(inst, pkg);
   } catch (e) {
     checks = [{ name: 'cargar bundle', ok: false, detail: short(e) }];
   }
