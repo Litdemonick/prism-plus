@@ -34,6 +34,21 @@ function _stripTags(s: string): string {
   return _decode(s.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' '));
 }
 
+// Cabeceras para TODA imagen del sitio (portadas y paginas de capitulo).
+//
+// El CDN (image2/image3.ikigaimangas.cloud) esta detras de una regla de
+// Cloudflare que responde 403 "Sorry, you have been blocked" a cualquier pedido
+// sin cabeceras Sec-Fetch-*, que un navegador siempre manda y el cliente de la
+// app no. Medido el 2026-09-26: sin ella 403 con cualquier User-Agent y
+// Referer; con solo `Sec-Fetch-Dest: image`, 200 con UA de PC, de celular y
+// hasta con el de Dart.
+const IMG_HEADERS: Record<string, string> = {
+  Referer: BASE + '/',
+  'Sec-Fetch-Dest': 'image',
+  'Sec-Fetch-Mode': 'no-cors',
+  'Sec-Fetch-Site': 'cross-site',
+};
+
 // OJO: la URL de la portada NO se toca.
 //
 // Pasan por un redimensionador y van FIRMADAS, y la firma cubre la ruta entera
@@ -78,6 +93,7 @@ function _itemsDe(html: string): PrismItem[] {
       title: titulo,
       url: slug,
       cover: img ? _decode(img[1]) : undefined,
+      headers: IMG_HEADERS,
     });
   }
   return items;
@@ -160,6 +176,7 @@ function _nuevosCapitulos(html: string): PrismItem[] {
       // en error—.
       url: m[1].replace('/series/', '').replace(/\/$/, ''),
       cover: m[2],
+      headers: IMG_HEADERS,
       update: cap ? `Cap. ${cap[1]}` : undefined,
     });
   }
@@ -656,7 +673,16 @@ export async function detail(slug: string): Promise<PrismDetail> {
       /\bnovela\b/i.test(title);
   const type = esNovela ? 'fikushon' : 'manga';
 
-  return { title, cover, description, episodes, genres, status, type };
+  return {
+    title,
+    cover,
+    description,
+    episodes,
+    genres,
+    status,
+    type,
+    headers: IMG_HEADERS,
+  };
 }
 
 // ─── Lectura ─────────────────────────────────────────────────────────────────
@@ -744,12 +770,15 @@ export async function watch(
   // un cambio de CDN no rompa la extensión.
   const urls: string[] = [];
   const vistos = new Set<string>();
-  const re = /https:\/\/image\d?\.ikigaimangas\.cloud\/[^"'\s\\]+?\.(?:webp|jpg|jpeg|png)/g;
+  // Solo rutas de pagina (/series/<id>/<cap>/...), y admitiendo espacios en el
+  // nombre: algunas carpetas traen paginas como "0-Nombre De La Obra.webp" y
+  // cortar en el primer espacio las perdia.
+  const re =
+    /https:\/\/image\d?\.ikigaimangas\.cloud\/series\/\d+\/\d+\/[^"'<>\\]+?\.(?:webp|jpg|jpeg|png)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null) {
-    const u = _decode(m[0]);
+    const u = _decode(m[0]).replace(/ /g, '%20');
     if (/rs:fill/.test(u)) continue;
-    if (!/\/series\/\d+\/\d+\//.test(u)) continue;
     if (vistos.has(u)) continue;
     vistos.add(u);
     urls.push(u);
@@ -780,8 +809,7 @@ export async function watch(
   });
 
   if (urls.length > 0) {
-    // Referer del lector: el CDN puede rechazar pedidos sin él.
-    return { urls, headers: { Referer: LECTOR + '/' } };
+    return { urls, headers: IMG_HEADERS };
   }
 
   // Sin paginas puede ser una novela: el mismo capitulo, pero en texto.

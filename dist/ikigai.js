@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Ikigai Mangas
-// @version      1.1.7
+// @version      1.1.8
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -26,6 +26,12 @@ function _decode(s) {
 function _stripTags(s) {
   return _decode(s.replace(/<[^>]*>/g, " ").replace(/\s+/g, " "));
 }
+var IMG_HEADERS = {
+  Referer: BASE + "/",
+  "Sec-Fetch-Dest": "image",
+  "Sec-Fetch-Mode": "no-cors",
+  "Sec-Fetch-Site": "cross-site"
+};
 function _itemsDe(html) {
   const items = [];
   const vistos = /* @__PURE__ */ new Set();
@@ -44,7 +50,8 @@ function _itemsDe(html) {
     items.push({
       title: titulo,
       url: slug,
-      cover: img ? _decode(img[1]) : void 0
+      cover: img ? _decode(img[1]) : void 0,
+      headers: IMG_HEADERS
     });
   }
   return items;
@@ -86,6 +93,7 @@ function _nuevosCapitulos(html) {
       // en error—.
       url: m[1].replace("/series/", "").replace(/\/$/, ""),
       cover: m[2],
+      headers: IMG_HEADERS,
       update: cap ? `Cap. ${cap[1]}` : void 0
     });
   }
@@ -354,7 +362,16 @@ async function detail(slug) {
   const status = /\bcompleta\b/i.test(plano) ? "completed" : /\bhiatus\b/i.test(plano) ? "hiatus" : /\ben curso\b/i.test(plano) ? "ongoing" : void 0;
   const esNovela = /(^|>)\s*Novela\s*(<|$)/i.test(html) || /-novela\/?$/i.test(slug) || /\bnovela\b/i.test(title);
   const type = esNovela ? "fikushon" : "manga";
-  return { title, cover, description, episodes, genres, status, type };
+  return {
+    title,
+    cover,
+    description,
+    episodes,
+    genres,
+    status,
+    type,
+    headers: IMG_HEADERS
+  };
 }
 function _cuerpoDelCapitulo(html) {
   const abre = /<div[^>]*\bclass="[^"]*\bprose\b[^"]*"[^>]*>/i.exec(html);
@@ -390,12 +407,11 @@ async function watch(chapterId) {
   const html = await _html(url);
   const urls = [];
   const vistos = /* @__PURE__ */ new Set();
-  const re = /https:\/\/image\d?\.ikigaimangas\.cloud\/[^"'\s\\]+?\.(?:webp|jpg|jpeg|png)/g;
+  const re = /https:\/\/image\d?\.ikigaimangas\.cloud\/series\/\d+\/\d+\/[^"'<>\\]+?\.(?:webp|jpg|jpeg|png)/g;
   let m;
   while ((m = re.exec(html)) !== null) {
-    const u = _decode(m[0]);
+    const u = _decode(m[0]).replace(/ /g, "%20");
     if (/rs:fill/.test(u)) continue;
-    if (!/\/series\/\d+\/\d+\//.test(u)) continue;
     if (vistos.has(u)) continue;
     vistos.add(u);
     urls.push(u);
@@ -414,7 +430,7 @@ async function watch(chapterId) {
     return na - nb;
   });
   if (urls.length > 0) {
-    return { urls, headers: { Referer: LECTOR + "/" } };
+    return { urls, headers: IMG_HEADERS };
   }
   const parrafos = _parrafosDe(html);
   if (parrafos.length > 0) {
