@@ -1,0 +1,12 @@
+{
+  "name": "Fútbol Libre",
+  "package": "io.prismhub.futbollibre",
+  "version": "1.0.0",
+  "author": "PrismPlus",
+  "type": "live",
+  "icon": "",
+  "description": "Agenda deportiva del día (fútbol y más) y canales fijos en vivo, con señales que resuelven directo — sin navegador.",
+  "lang": "es",
+  "webSite": "https://futbollibrefullhd.org",
+  "license": "MIT"
+}
