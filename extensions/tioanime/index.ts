@@ -315,12 +315,14 @@ export async function watch(url: string): Promise<PrismWatch> {
     try {
       const res = await resolverServidor(url, `${BASE}/`);
       if (res && res.url) {
-        return { streams: [{ url: res.url, quality: 'Servidor', headers: res.headers }], pageUrl: '' };
+        return { streams: [{ url: res.url, quality: 'Servidor', headers: res.headers, nativo: true }] };
       }
-    } catch {
-      /* sigue abajo con la URL cruda */
+    } catch (e) {
+      console.log(`[ta] no se pudo resolver ${url.slice(0, 50)}: ${e}`);
     }
-    return { streams: [{ url, quality: 'Servidor' }], pageUrl: '' };
+    // Sin resolver no hay nada que reproducir: devolver el embed crudo solo
+    // hacía que el reproductor intentara abrir una página como si fuera vídeo.
+    return { streams: [], reason: 'resolve_failed' };
   }
 
   const episodeUrl = _fullUrl(url);
@@ -331,23 +333,18 @@ export async function watch(url: string): Promise<PrismWatch> {
   if (videosM) {
     const videos = JSON.parse(videosM[1].replace(/\\\//g, '/')) as [string, string, number, number][];
     for (const [name, embedUrl] of videos) {
-      // Ya no se filtra nada: se muestran los tres y cada uno lleva su marca.
-      // El rayo/mundo sale de la tabla de `servidores/`, que es donde está lo
-      // que se midió de cada uno.
-      streams.push({ url: embedUrl, quality: name, nativo: fichaDe(embedUrl)?.nativo });
+      // **Solo salen los que reproducen en la app**, según la tabla de
+      // `servidores/`. La app ya no abre páginas en un navegador: uno sin
+      // resolvedor (Mega, Netu, Amus…) sería un botón que no reproduce nunca.
+      // Se deja anotado para venir a agregarlo si el sitio lo usa seguido.
+      const ficha = fichaDe(embedUrl);
+      if (!ficha || !ficha.nativo) {
+        console.log(`[ta] servidor sin reproducción en la app, no se ofrece: ${name} ${embedUrl.slice(0, 50)}`);
+        continue;
+      }
+      streams.push({ url: embedUrl, quality: name, nativo: true });
     }
   }
 
-  // Los que reproducen en la app, primero.
-  //
-  // Hace falta desde que Mega volvió a la lista: el sitio lo lista PRIMERO de
-  // los tres, y el cliente toma el primer servidor como el inicial. Sin esto,
-  // devolver Mega a la lista habría hecho que cada episodio abriera de entrada
-  // en el navegador interno en vez de en el reproductor de la app.
-  //
-  // Es un reordenamiento, no un filtro: están los tres, y entre los nativos se
-  // respeta el orden del sitio.
-  streams.sort((a, b) => (a.nativo === false ? 1 : 0) - (b.nativo === false ? 1 : 0));
-
-  return { streams, pageUrl: episodeUrl };
+  return { streams };
 }

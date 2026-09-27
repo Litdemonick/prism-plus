@@ -276,7 +276,7 @@
     {
       "name": "TioAnime",
       "package": "io.prismhub.tioanime",
-      "version": "1.1.5",
+      "version": "1.1.6",
       "author": "PrismPlus",
       "type": "bangumi",
       "contentKind": "anime",
@@ -287,8 +287,8 @@
       "license": "MIT",
       "latestLabel": "ultimos-episodios",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tioanime.js",
-      "sha256": "6f45795c14f64c6e2bae71c778501bfe0c7a6c27e1b7f63eda31e04d2d7605a5",
-      "signature": "ozH2/jbAdvlRrdaTP53FiZz4deO/CAUlhKi5y0oM7Y+rNb1yj3NaJ0yFd4RdYqn6sczI2895NWNKvQlxh1pzAg=="
+      "sha256": "a1ff720968a86ba19735dcc8add8a7ea9cd8d144521697aaef76ad3b57890a53",
+      "signature": "GuaS1eM5tQGuV93zzY+NJaYM7vC4ForQFgcaro7NnP/p/hxV/G66Zn82CckhikeUqyDEyFGRVBOfe0XyX4zKBA=="
     },
     {
       "name": "TuDeporte",

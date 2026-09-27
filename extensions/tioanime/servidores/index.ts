@@ -48,7 +48,7 @@
 // 2020 y atado a una IP ajena), así que iría con el mundo.
 
 import { type ServidorResuelto, pedir, hostDe, buscarDireccion } from './comun';
-import * as mega from './mega';
+import * as okru from './ok.ru';
 import * as voe from './voe';
 import * as yourupload from './yourupload';
 
@@ -82,12 +82,19 @@ export const SERVIDORES: Servidor[] = [
     nativo: true,
     resolver: yourupload.resolver,
   },
+  // Okru se suma el 2026-09-27: aparecía en los episodios sin resolvedor y
+  // salía como un botón que no abría nada. Copiado de FuegoCine, donde ese
+  // día se lo arregló y se lo midió bajando vídeo.
+  //
+  // Mega sale ese mismo día: sin el navegador interno no tiene forma de
+  // reproducir. Amus, Mepu, Netu, StreamSB y VidGuard tampoco tienen
+  // resolvedor y dieron cero sobre seis títulos: no se ofrecen (ver watch).
   {
-    boton: 'Mega',
-    hosts: ['mega.nz', 'mega.co.nz'],
-    botones: 80,
-    nativo: false,
-    resolver: mega.resolver,
+    boton: 'Okru',
+    hosts: ['ok.ru', 'okru'],
+    botones: 0,
+    nativo: true,
+    resolver: okru.resolver,
   },
 ];
 

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         TioAnime
-// @version      1.1.5
+// @version      1.1.6
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -250,8 +250,20 @@ ${desempaquetarTodo(html)}`.replace(/\\\//g, "/");
   return null;
 }
 
-// extensions/tioanime/servidores/mega/index.ts
-async function resolver(_url, _referer) {
+// extensions/tioanime/servidores/ok.ru/index.ts
+var MARCAS = ["hlsManifestUrl\\&quot;:\\&quot;", "hlsManifestUrl&quot;:&quot;"];
+async function resolver(url) {
+  const html = await pedir(url, "https://ok.ru/");
+  if (!html) return null;
+  for (const marca of MARCAS) {
+    const desde = html.indexOf(marca);
+    if (desde === -1) continue;
+    const ini = desde + marca.length;
+    const fin = html.indexOf("&quot;", ini);
+    if (fin === -1) continue;
+    const salida = html.slice(ini, fin).replace(/\\+$/, "").split("\\\\u0026").join("&").split("\\u0026").join("&");
+    if (/^https?:\/\//.test(salida)) return { url: salida };
+  }
   return null;
 }
 
@@ -322,6 +334,7 @@ async function resolver3(url, referer) {
   const hdrs = { Referer: "https://www.yourupload.com/" };
   const norm = (u) => u.replace(/\\\//g, "/").replace(/^\/\//, "https://");
   let m = /(?:file|src|source)\s*:\s*["']([^"']+\.(?:mp4|m3u8)[^"']*)["']/i.exec(html);
+  if (m && m[1].indexOf("novideo") !== -1) return null;
   if (m) return { url: norm(m[1]), headers: hdrs };
   m = /(https?:\/\/[^"'\s<>]+\.mp4[^"'\s<>]*)/.exec(html);
   if (m) return { url: m[1], headers: hdrs };
@@ -346,11 +359,18 @@ var SERVIDORES = [
     nativo: true,
     resolver: resolver3
   },
+  // Okru se suma el 2026-09-27: aparecía en los episodios sin resolvedor y
+  // salía como un botón que no abría nada. Copiado de FuegoCine, donde ese
+  // día se lo arregló y se lo midió bajando vídeo.
+  //
+  // Mega sale ese mismo día: sin el navegador interno no tiene forma de
+  // reproducir. Amus, Mepu, Netu, StreamSB y VidGuard tampoco tienen
+  // resolvedor y dieron cero sobre seis títulos: no se ofrecen (ver watch).
   {
-    boton: "Mega",
-    hosts: ["mega.nz", "mega.co.nz"],
-    botones: 80,
-    nativo: false,
+    boton: "Okru",
+    hosts: ["ok.ru", "okru"],
+    botones: 0,
+    nativo: true,
     resolver
   }
 ];
@@ -567,16 +587,16 @@ async function detail(url) {
   return { title, cover, description, genres, episodes, status };
 }
 async function watch(url) {
-  var _a;
   if (url.indexOf("http") === 0 && url.indexOf("tioanime.com") === -1) {
     try {
       const res = await resolverServidor(url, `${BASE}/`);
       if (res && res.url) {
-        return { streams: [{ url: res.url, quality: "Servidor", headers: res.headers }], pageUrl: "" };
+        return { streams: [{ url: res.url, quality: "Servidor", headers: res.headers, nativo: true }] };
       }
     } catch (e) {
+      console.log(`[ta] no se pudo resolver ${url.slice(0, 50)}: ${e}`);
     }
-    return { streams: [{ url, quality: "Servidor" }], pageUrl: "" };
+    return { streams: [], reason: "resolve_failed" };
   }
   const episodeUrl = _fullUrl(url);
   const html = await _get(episodeUrl);
@@ -585,11 +605,15 @@ async function watch(url) {
   if (videosM) {
     const videos = JSON.parse(videosM[1].replace(/\\\//g, "/"));
     for (const [name, embedUrl] of videos) {
-      streams.push({ url: embedUrl, quality: name, nativo: (_a = fichaDe(embedUrl)) == null ? void 0 : _a.nativo });
+      const ficha = fichaDe(embedUrl);
+      if (!ficha || !ficha.nativo) {
+        console.log(`[ta] servidor sin reproducci\xF3n en la app, no se ofrece: ${name} ${embedUrl.slice(0, 50)}`);
+        continue;
+      }
+      streams.push({ url: embedUrl, quality: name, nativo: true });
     }
   }
-  streams.sort((a, b) => (a.nativo === false ? 1 : 0) - (b.nativo === false ? 1 : 0));
-  return { streams, pageUrl: episodeUrl };
+  return { streams };
 }
 
 // OJO: nunca usar url.indexOf('.mp4')/('.m3u8') suelto — algunos dominios de

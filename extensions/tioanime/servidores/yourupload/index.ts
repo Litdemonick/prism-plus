@@ -27,6 +27,11 @@ export async function resolver(url: string, referer: string): Promise<ServidorRe
 
   // 1. Reproductor JW: file / src / source
   let m = /(?:file|src|source)\s*:\s*["']([^"']+\.(?:mp4|m3u8)[^"']*)["']/i.exec(html);
+  // Un vídeo que el sitio ya borró trae `/embed/novideo.mp4`: no es vídeo, es
+  // su cartel de "no disponible". Medido el 2026-09-27 en 3 de 8 episodios.
+  // Devolverlo como dirección hacía que el reproductor probara abrir una ruta
+  // relativa; sin vídeo, la app pasa directo al siguiente servidor.
+  if (m && m[1].indexOf('novideo') !== -1) return null;
   if (m) return { url: norm(m[1]), headers: hdrs };
 
   // 2. Cualquier mp4 absoluto del CDN
