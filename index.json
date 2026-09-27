@@ -175,7 +175,7 @@
     {
       "name": "LatAnime",
       "package": "io.prismhub.latanime",
-      "version": "1.1.5",
+      "version": "1.1.6",
       "author": "PrismPlus",
       "type": "bangumi",
       "contentKind": "anime",
@@ -186,8 +186,8 @@
       "license": "MIT",
       "latestLabel": "anadidos-recientemente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/latanime.js",
-      "sha256": "6de28350448dc2ad8e24d4dc16c8c54503b8d9b90145ab8c569c426aac8aab35",
-      "signature": "Rf2tcxuNrjUzMMGpWesrYHRRo0Aslt8J9AoPsTmdk5yyLUHd9tfaZldyLTFhkYoU2q5X8LxjXrNroRjIQz8RBA=="
+      "sha256": "df961ea6d107e115a1308fe422c185a96ffe905119d1802c97c6df6b6a13e7be",
+      "signature": "TuVTStNGf8zTtxSvpCelle3vSz5xLU8AJig0ldqxIeaERme8VsbKMItR3F5c2AHlaPSZzJmdICZpSuRLQSB1BA=="
     },
     {
       "name": "MangaDex",

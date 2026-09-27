@@ -36,6 +36,15 @@
 //     2  Savefiles   streamhls.to           🌐 el POST a /dl no trae fuentes
 //     1  Puj         mojon.latanime.org     🌐 envoltorio del propio sitio
 //
+// ── Lo que salió el 2026-09-27 ───────────────────────────────────────────────
+//
+// La app ya no abre páginas en un navegador: todo lo marcado 🌐 arriba era un
+// botón que no reproducía nunca, y salió con su carpeta. Hexload también:
+// resuelve, pero su CDN (drewimplemnt.top) cortó la conexión en 6 de 6
+// episodios ese día, con Node y con curl (TLS rechazado o conexión negada).
+// Quedaron los seis que bajaron vídeo: Savefiles 6/6, Mp4upload 6/6, Byse 6/6,
+// Voe 5/6 y Mixdrop 4/5 (Uqload no apareció en la muestra).
+//
 // **La etiqueta no sirve para decidir nada acá.** El sitio rotula algunos
 // botones como "Ok" —se vieron 8, repartidos entre mixdrop, hexload, mega y
 // dsvplay—, así que el mismo nombre cae en servidores distintos. Por eso la
@@ -57,11 +66,7 @@
 
 import { type ServidorResuelto, pedir, hostDe, buscarDireccion } from './comun';
 import * as byse from './byse';
-import * as dsvplay from './dsvplay';
-import * as hexload from './hexload';
-import * as mega from './mega';
 import * as mixdrop from './mixdrop';
-import * as mojon from './mojon';
 import * as mp4upload from './mp4upload';
 import * as savefiles from './savefiles';
 import * as uqload from './uqload';
@@ -96,13 +101,6 @@ export interface Servidor {
  */
 export const SERVIDORES: Servidor[] = [
   {
-    boton: 'Puj',
-    hosts: ['mojon.latanime.org'],
-    botones: 1,
-    nativo: false,
-    resolver: mojon.resolver,
-  },
-  {
     boton: 'Savefiles',
     hosts: ['savefiles'],
     botones: 119,
@@ -131,36 +129,6 @@ export const SERVIDORES: Servidor[] = [
     resolver: byse.resolver,
   },
   {
-    // Mismo servicio y mismo resolver que el de arriba, pero este host contesta
-    // sin datos de reproducción. Ficha aparte para que el icono no mienta.
-    boton: 'Byse',
-    hosts: ['byse.sx', 'byse.'],
-    botones: 21,
-    nativo: false,
-    resolver: byse.resolver,
-  },
-  {
-    boton: 'Hexload',
-    hosts: ['hexload'],
-    botones: 117,
-    nativo: true,
-    resolver: hexload.resolver,
-  },
-  {
-    boton: 'Mega',
-    hosts: ['mega.nz', 'mega.co.nz'],
-    botones: 115,
-    nativo: false,
-    resolver: mega.resolver,
-  },
-  {
-    boton: 'Dsvplay',
-    hosts: ['dsvplay', 'playmogo', 'dooodster', 'dood'],
-    botones: 115,
-    nativo: false,
-    resolver: dsvplay.resolver,
-  },
-  {
     boton: 'Mp4upload',
     hosts: ['mp4upload'],
     botones: 101,
@@ -174,14 +142,6 @@ export const SERVIDORES: Servidor[] = [
     nativo: true,
     resolver: uqload.resolver,
   },
-  {
-    // El mismo motor que savefiles, pero acá el POST vuelve sin fuentes.
-    boton: 'Savefiles',
-    hosts: ['streamhls'],
-    botones: 2,
-    nativo: false,
-    resolver: savefiles.resolver,
-  },
 ];
 
 /** La ficha del servidor al que apunta esta dirección, o null si no es ninguno. */
@@ -193,9 +153,7 @@ export function fichaDe(url: string): Servidor | null {
 /**
  * Resuelve una dirección de servidor a algo que la app pueda abrir.
  *
- * Devuelve null cuando no se puede: ahí la app reintenta ESE mismo servidor con
- * su navegador interno, que ejecuta JS de verdad y a veces llega donde esto no.
- * Por eso un servidor que no resuelve igual se deja en la lista.
+ * Devuelve null cuando no se puede, y ahí la app prueba con otro servidor.
  */
 export async function resolverServidor(
   url: string,

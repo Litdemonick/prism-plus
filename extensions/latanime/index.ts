@@ -434,28 +434,22 @@ export async function detail(url: string): Promise<PrismDetail> {
 // reproduce. Todos los demás servidores del sitio se resuelven nativos, ver
 // sdk/embeds.ts (dsvplay/Doodstream, byse, hexload, savefiles, mixdrop, voe y
 // mp4upload — medidos uno por uno).
-function _esMega(u: string): boolean {
-  return u.indexOf('mega.nz') !== -1 || u.indexOf('mega.co.nz') !== -1;
-}
-
 export async function watch(url: string): Promise<PrismWatch> {
   // Fast-path: switchServer pidiendo resolver UN servidor puntual.
   if (url.indexOf('http') === 0 && url.indexOf('latanime.org') === -1) {
-    if (!_esMega(url)) {
-      try {
-        const res = await resolverServidor(url, `${BASE}/`);
-        if (res && res.url) {
-          return {
-            streams: [{ url: res.url, quality: _nombreDe(url), headers: res.headers }],
-            pageUrl: '',
-          };
-        }
-      } catch {
-        /* sigue: que lo intente el WebView */
+    try {
+      const res = await resolverServidor(url, `${BASE}/`);
+      if (res && res.url) {
+        return {
+          streams: [{ url: res.url, quality: _nombreDe(url), headers: res.headers, nativo: true }],
+        };
       }
+    } catch (e) {
+      console.log(`[la] no se pudo resolver ${url.slice(0, 50)}: ${e}`);
     }
-    // Sin resolver: se devuelve la página para que la app abra el WebView.
-    return { streams: [], pageUrl: url };
+    // Sin resolver no hay nada que reproducir, y la app ya no tiene navegador
+    // interno al que mandar la página.
+    return { streams: [], reason: 'resolve_failed' };
   }
 
   const episodeUrl = _fullUrl(url);
@@ -474,32 +468,30 @@ export async function watch(url: string): Promise<PrismWatch> {
     }
     if (embed.indexOf('http') !== 0) continue;
     const etiqueta = decodeEntities(m[2].trim()) || _nombreDe(embed);
-    // El rayo/mundo sale de la tabla de `servidores/`, que va por HOST. Acá
-    // hace falta que sea así: el sitio rotula algunos botones como "Ok", el
-    // mismo nombre para servidores distintos, así que por la etiqueta no se
-    // puede decidir nada.
-    streams.push({
-      url: embed,
-      quality: _nombreBonito(etiqueta),
-      nativo: fichaDe(embed)?.nativo,
-    });
+    // Solo salen los que reproducen en la app, según la tabla de `servidores/`,
+    // que va por HOST: el sitio rotula algunos botones como "Ok", el mismo
+    // nombre para servidores distintos, así que por la etiqueta no se puede
+    // decidir nada. Uno sin ficha nativa sería un botón que no reproduce.
+    const ficha = fichaDe(embed);
+    if (!ficha || !ficha.nativo) {
+      console.log(`[la] servidor sin reproducción en la app, no se ofrece: ${etiqueta} ${embed.slice(0, 50)}`);
+      continue;
+    }
+    streams.push({ url: embed, quality: _nombreBonito(etiqueta), nativo: true });
   }
 
-  return { streams, pageUrl: episodeUrl };
+  return { streams };
 }
 
 /** Nombre de servidor a partir del host, para cuando la etiqueta viene vacía. */
 function _nombreDe(u: string): string {
   const l = u.toLowerCase();
-  if (l.indexOf('dsvplay') !== -1 || l.indexOf('playmogo') !== -1 || l.indexOf('dood') !== -1)
-    return 'Doodstream';
   if (l.indexOf('bysekoze') !== -1) return 'Byse';
-  if (l.indexOf('hexload') !== -1) return 'Hexload';
   if (l.indexOf('savefiles') !== -1) return 'Savefiles';
   if (l.indexOf('mixdrop') !== -1) return 'Mixdrop';
   if (l.indexOf('voe') !== -1) return 'Voe';
   if (l.indexOf('mp4upload') !== -1) return 'Mp4upload';
-  if (l.indexOf('mega') !== -1) return 'Mega';
+  if (l.indexOf('uqload') !== -1) return 'Uqload';
   return 'Servidor';
 }
 

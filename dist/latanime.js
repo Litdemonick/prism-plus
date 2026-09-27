@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LatAnime
-// @version      1.1.5
+// @version      1.1.6
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -360,37 +360,8 @@ async function resolver(url, referer) {
   }
 }
 
-// extensions/latanime/servidores/dsvplay/index.ts
-async function resolver2(_url, _referer) {
-  return null;
-}
-
-// extensions/latanime/servidores/hexload/index.ts
-async function resolver3(url, referer) {
-  const host = hostDe(url) || "hexload.com";
-  const codigo = codigoDe(url);
-  if (!codigo) return null;
-  const crudo = await postForm(
-    `https://${host}/download`,
-    { op: "download3", id: codigo, ajax: "1", method_free: "1" },
-    referer || `https://${host}/`
-  );
-  if (!crudo) return null;
-  const m = /"url"\s*:\s*"([^"]+)"/.exec(crudo);
-  if (!m) {
-    console.log("[la] hexload: el POST no devolvi\xF3 ninguna url");
-    return null;
-  }
-  return { url: m[1].replace(/\\\//g, "/"), headers: { Referer: `https://${host}/` } };
-}
-
-// extensions/latanime/servidores/mega/index.ts
-async function resolver4(_url, _referer) {
-  return null;
-}
-
 // extensions/latanime/servidores/mixdrop/index.ts
-async function resolver5(url, referer) {
+async function resolver2(url, referer) {
   const html = await pedir(url, referer);
   if (!html) return null;
   const desempaquetado = desempaquetarTodo(html);
@@ -405,13 +376,8 @@ async function resolver5(url, referer) {
   return { url: completa, headers: { Referer: "https://mixdrop.top/" } };
 }
 
-// extensions/latanime/servidores/mojon/index.ts
-async function resolver6(_url, _referer) {
-  return null;
-}
-
 // extensions/latanime/servidores/mp4upload/index.ts
-async function resolver7(url, referer) {
+async function resolver3(url, referer) {
   var _a;
   const html = await pedir(url, referer);
   if (!html) return null;
@@ -422,7 +388,7 @@ async function resolver7(url, referer) {
 }
 
 // extensions/latanime/servidores/savefiles/index.ts
-async function resolver8(url, referer) {
+async function resolver4(url, referer) {
   const host = hostDe(url) || "savefiles.com";
   const codigo = codigoDe(url);
   if (!codigo) return null;
@@ -442,7 +408,7 @@ async function resolver8(url, referer) {
 }
 
 // extensions/latanime/servidores/uqload/index.ts
-async function resolver9(url, referer) {
+async function resolver5(url, referer) {
   const host = hostDe(url);
   if (!host) return null;
   const hdrs = { Referer: `https://${host}/` };
@@ -483,7 +449,7 @@ function descifrar(crudo) {
     return null;
   }
 }
-async function resolver10(url, referer) {
+async function resolver6(url, referer) {
   let html = await pedir(url, referer);
   if (!html) return null;
   const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html);
@@ -524,32 +490,25 @@ async function resolver10(url, referer) {
 // extensions/latanime/servidores/index.ts
 var SERVIDORES = [
   {
-    boton: "Puj",
-    hosts: ["mojon.latanime.org"],
-    botones: 1,
-    nativo: false,
-    resolver: resolver6
-  },
-  {
     boton: "Savefiles",
     hosts: ["savefiles"],
     botones: 119,
     nativo: true,
-    resolver: resolver8
+    resolver: resolver4
   },
   {
     boton: "Mixdrop",
     hosts: ["mixdrop", "mxdrop", "xdrop"],
     botones: 119,
     nativo: true,
-    resolver: resolver5
+    resolver: resolver2
   },
   {
     boton: "Voe",
     hosts: ["voe.sx", "voe."],
     botones: 118,
     nativo: true,
-    resolver: resolver10
+    resolver: resolver6
   },
   {
     boton: "Byse",
@@ -559,56 +518,18 @@ var SERVIDORES = [
     resolver
   },
   {
-    // Mismo servicio y mismo resolver que el de arriba, pero este host contesta
-    // sin datos de reproducción. Ficha aparte para que el icono no mienta.
-    boton: "Byse",
-    hosts: ["byse.sx", "byse."],
-    botones: 21,
-    nativo: false,
-    resolver
-  },
-  {
-    boton: "Hexload",
-    hosts: ["hexload"],
-    botones: 117,
-    nativo: true,
-    resolver: resolver3
-  },
-  {
-    boton: "Mega",
-    hosts: ["mega.nz", "mega.co.nz"],
-    botones: 115,
-    nativo: false,
-    resolver: resolver4
-  },
-  {
-    boton: "Dsvplay",
-    hosts: ["dsvplay", "playmogo", "dooodster", "dood"],
-    botones: 115,
-    nativo: false,
-    resolver: resolver2
-  },
-  {
     boton: "Mp4upload",
     hosts: ["mp4upload"],
     botones: 101,
     nativo: true,
-    resolver: resolver7
+    resolver: resolver3
   },
   {
     boton: "Uqload",
     hosts: ["uqload"],
     botones: 2,
     nativo: true,
-    resolver: resolver9
-  },
-  {
-    // El mismo motor que savefiles, pero acá el POST vuelve sin fuentes.
-    boton: "Savefiles",
-    hosts: ["streamhls"],
-    botones: 2,
-    nativo: false,
-    resolver: resolver8
+    resolver: resolver5
   }
 ];
 function fichaDe(url) {
@@ -903,25 +824,19 @@ async function detail(url) {
     status
   };
 }
-function _esMega(u) {
-  return u.indexOf("mega.nz") !== -1 || u.indexOf("mega.co.nz") !== -1;
-}
 async function watch(url) {
-  var _a;
   if (url.indexOf("http") === 0 && url.indexOf("latanime.org") === -1) {
-    if (!_esMega(url)) {
-      try {
-        const res = await resolverServidor(url, `${BASE}/`);
-        if (res && res.url) {
-          return {
-            streams: [{ url: res.url, quality: _nombreDe(url), headers: res.headers }],
-            pageUrl: ""
-          };
-        }
-      } catch (e) {
+    try {
+      const res = await resolverServidor(url, `${BASE}/`);
+      if (res && res.url) {
+        return {
+          streams: [{ url: res.url, quality: _nombreDe(url), headers: res.headers, nativo: true }]
+        };
       }
+    } catch (e) {
+      console.log(`[la] no se pudo resolver ${url.slice(0, 50)}: ${e}`);
     }
-    return { streams: [], pageUrl: url };
+    return { streams: [], reason: "resolve_failed" };
   }
   const episodeUrl = _fullUrl(url);
   const html = await _get(episodeUrl);
@@ -935,25 +850,23 @@ async function watch(url) {
     }
     if (embed.indexOf("http") !== 0) continue;
     const etiqueta = decodeEntities(m[2].trim()) || _nombreDe(embed);
-    streams.push({
-      url: embed,
-      quality: _nombreBonito(etiqueta),
-      nativo: (_a = fichaDe(embed)) == null ? void 0 : _a.nativo
-    });
+    const ficha = fichaDe(embed);
+    if (!ficha || !ficha.nativo) {
+      console.log(`[la] servidor sin reproducci\xF3n en la app, no se ofrece: ${etiqueta} ${embed.slice(0, 50)}`);
+      continue;
+    }
+    streams.push({ url: embed, quality: _nombreBonito(etiqueta), nativo: true });
   }
-  return { streams, pageUrl: episodeUrl };
+  return { streams };
 }
 function _nombreDe(u) {
   const l = u.toLowerCase();
-  if (l.indexOf("dsvplay") !== -1 || l.indexOf("playmogo") !== -1 || l.indexOf("dood") !== -1)
-    return "Doodstream";
   if (l.indexOf("bysekoze") !== -1) return "Byse";
-  if (l.indexOf("hexload") !== -1) return "Hexload";
   if (l.indexOf("savefiles") !== -1) return "Savefiles";
   if (l.indexOf("mixdrop") !== -1) return "Mixdrop";
   if (l.indexOf("voe") !== -1) return "Voe";
   if (l.indexOf("mp4upload") !== -1) return "Mp4upload";
-  if (l.indexOf("mega") !== -1) return "Mega";
+  if (l.indexOf("uqload") !== -1) return "Uqload";
   return "Servidor";
 }
 function _nombreBonito(s) {
