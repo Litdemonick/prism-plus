@@ -25,7 +25,7 @@
 //
 //   123  UPNShare   animeav1.uns.bio            ⚡ nativo
 //   122  HLS        player.zilla-networks.com   ⚡ nativo   ← el que trae elegido el sitio
-//   122  Mega       mega.nz                     🌐 navegador
+//   122  Mega       mega.nz                     sacado: no reproduce en la app
 //   122  MP4Upload  www.mp4upload.com           ⚡ nativo
 //
 // **Tres de cuatro reproducen en la app**, incluido el que el sitio deja
@@ -43,10 +43,11 @@
 // FuegoCine.
 
 import { type ServidorResuelto } from './comun';
+import * as byse from './byse';
 import * as hls from './hls';
-import * as mega from './mega';
 import * as mp4upload from './mp4upload';
 import * as upnshare from './upnshare';
+import * as voe from './voe';
 
 export { type ServidorResuelto, UA_ESCRITORIO } from './comun';
 
@@ -63,7 +64,8 @@ export interface Servidor {
 }
 
 /**
- * En el orden en el que se ofrecen: **los nativos primero y Mega al final**.
+ * En el orden en el que se ofrecen. Todos reproducen en la app: Mega se sacó
+ * el 2026-09-27, porque sin el navegador interno no tiene forma de reproducir.
  *
  * La app toma el primero de la lista como el servidor inicial del episodio, así
  * que este orden decide con cuál arranca. HLS va primero porque es el que el
@@ -92,12 +94,24 @@ export const SERVIDORES: Servidor[] = [
     nativo: true,
     resolver: mp4upload.resolver,
   },
+  // Voe y Byse aparecieron después de la medición de arriba: el 2026-09-27
+  // los traía cada episodio, y sin ficha salían como botones que no abrían
+  // nada. Copiados de LatAnime, donde ese día dieron 5 de 6 y 6 de 6 bajando
+  // vídeo de verdad. Byse cambia de dominio (bysekoze, byselapuix…): se lo
+  // reconoce por el prefijo.
   {
-    boton: 'Mega',
-    hosts: ['mega.nz', 'mega.co.nz'],
-    botones: 122,
-    nativo: false,
-    resolver: mega.resolver,
+    boton: 'Voe',
+    hosts: ['voe.sx', 'voe.'],
+    botones: 0,
+    nativo: true,
+    resolver: voe.resolver,
+  },
+  {
+    boton: 'Byse',
+    hosts: ['//byse'],
+    botones: 0,
+    nativo: true,
+    resolver: byse.resolver,
   },
 ];
 
@@ -110,9 +124,7 @@ export function fichaDe(url: string): Servidor | null {
 /**
  * Resuelve una dirección de servidor a algo que la app pueda abrir.
  *
- * Devuelve null cuando no se puede: ahí la app reintenta ESE mismo servidor con
- * su navegador interno, que ejecuta JS de verdad y a veces llega donde esto no.
- * Por eso un servidor que no resuelve igual se deja en la lista.
+ * Devuelve null cuando no se puede, y ahí la app prueba con otro servidor.
  */
 export async function resolverServidor(
   url: string,
@@ -120,10 +132,8 @@ export async function resolverServidor(
 ): Promise<ServidorResuelto | null> {
   const ficha = fichaDe(url);
   if (ficha) return ficha.resolver(url, referer);
-  // Un servidor que no está en la tabla. En los 100 títulos medidos no apareció
-  // ninguno, así que si esto salta es que el sitio sumó uno nuevo: se deja
-  // anotado en el registro para venir a agregarle su carpeta, y mientras tanto
-  // la app se lo lleva a su navegador interno.
-  console.log(`[av1] servidor desconocido, va al navegador: ${url.slice(0, 60)}`);
+  // Un servidor que no está en la tabla: el sitio sumó uno nuevo. Se deja
+  // anotado en el registro para venir a agregarle su carpeta.
+  console.log(`[av1] servidor desconocido, sin resolver: ${url.slice(0, 60)}`);
   return null;
 }

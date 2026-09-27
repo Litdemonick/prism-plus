@@ -8,7 +8,7 @@
     {
       "name": "AnimeAV1",
       "package": "io.prismhub.animeav1",
-      "version": "1.0.10",
+      "version": "1.0.11",
       "author": "PrismPlus",
       "type": "bangumi",
       "contentKind": "anime",
@@ -19,8 +19,8 @@
       "license": "MIT",
       "latestLabel": "recientemente-agregados",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animeav1.js",
-      "sha256": "d4d653c7fdae298ec1cc14c2bcdcaa2a028e348bb2192cdcf6793d38f3f4c050",
-      "signature": "Fahvd60Ahy12VDHPcjzFzd6HVdvNgjJvUJaKs8oiCml+XXmqUT+rJFJVWW5bYyPIMAhazb3ppnC+fDGVM6Y9DA=="
+      "sha256": "8a8932c2152789e9c70052499b3afea72a5d598a682d125ddedeb64afe60f08b",
+      "signature": "nITq+Rr17ShA9jMs/XbpsjYmR0/dSWzCVjSY9ZTfd5cYvzAKmFwKFeWhCAA5x/0/WOO4t4g4KeV12MhT7uUkBg=="
     },
     {
       "name": "Eporner",

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeAV1
-// @version      1.0.10
+// @version      1.0.11
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -166,39 +166,6 @@ var _NAMED_ENTITIES = {
   zwj: ""
 };
 
-// extensions/animeav1/servidores/hls/index.ts
-var CABECERAS = {
-  // La imprescindible. Sin ella, 403 en todos los pedacitos.
-  "Sec-Fetch-Site": "same-origin",
-  // El resto, leído del pedido real que hace el reproductor de la web.
-  "Sec-Fetch-Dest": "empty",
-  "Sec-Fetch-Mode": "cors",
-  Accept: "*/*",
-  "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-  Origin: "https://player.zilla-networks.com",
-  Referer: "https://player.zilla-networks.com/",
-  "sec-ch-ua": '"Chromium";v="131", "Not_A Brand";v="24"',
-  "sec-ch-ua-mobile": "?0",
-  "sec-ch-ua-platform": '"Windows"'
-};
-async function resolver(url, _referer) {
-  var _a;
-  const hash = (_a = /\/play\/([a-f0-9]{32})/i.exec(url)) == null ? void 0 : _a[1];
-  if (!hash) {
-    console.log(`[av1] hls: la direcci\xF3n no trae hash de 32 :: ${url.slice(0, 60)}`);
-    return null;
-  }
-  return {
-    url: `https://player.zilla-networks.com/m3u8/${hash}`,
-    headers: CABECERAS
-  };
-}
-
-// extensions/animeav1/servidores/mega/index.ts
-async function resolver2(_url, _referer) {
-  return null;
-}
-
 // extensions/animeav1/servidores/comun.ts
 var UA_ESCRITORIO = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 async function pedir(url, referer, headers) {
@@ -215,6 +182,119 @@ async function pedir(url, referer, headers) {
     console.log(`[av1] no se pudo pedir ${url.slice(0, 45)} :: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
     return null;
   }
+}
+function hostDe(url) {
+  const m = /^https?:\/\/([^/]+)/.exec(url);
+  return m ? m[1] : null;
+}
+function codigoDe(url) {
+  const sinQuery = url.split("?")[0].split("#")[0].replace(/\/+$/, "");
+  const ultimo = sinQuery.slice(sinQuery.lastIndexOf("/") + 1);
+  return ultimo.replace(/^embed-/, "").replace(/\.html?$/, "");
+}
+function b64aTexto(s) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const limpio = s.replace(/[^A-Za-z0-9+/]/g, "");
+  let out = "";
+  let i = 0;
+  while (i < limpio.length) {
+    const b1 = chars.indexOf(limpio[i++]);
+    const b2 = chars.indexOf(limpio[i++]);
+    const b3 = i < limpio.length ? chars.indexOf(limpio[i++]) : -1;
+    const b4 = i < limpio.length ? chars.indexOf(limpio[i++]) : -1;
+    out += String.fromCharCode(b1 << 2 | b2 >> 4);
+    if (b3 !== -1) out += String.fromCharCode((b2 & 15) << 4 | b3 >> 2);
+    if (b4 !== -1) out += String.fromCharCode((b3 & 3) << 6 | b4);
+  }
+  return out;
+}
+
+// extensions/animeav1/servidores/byse/index.ts
+function b64urlAWord(s) {
+  const normal = s.replace(/-/g, "+").replace(/_/g, "/");
+  const relleno = normal.length % 4 === 0 ? "" : "=".repeat(4 - normal.length % 4);
+  return CryptoJS.enc.Base64.parse(normal + relleno);
+}
+async function resolver(url, referer) {
+  var _a;
+  const host = hostDe(url) || "bysekoze.com";
+  const codigo = codigoDe(url);
+  if (!codigo) return null;
+  const crudo = await pedir(`https://${host}/api/videos/${codigo}`, referer || `https://${host}/`);
+  if (!crudo) return null;
+  let meta;
+  try {
+    meta = JSON.parse(crudo);
+  } catch (e) {
+    console.log("[av1] byse: la API no devolvi\xF3 JSON");
+    return null;
+  }
+  const pb = meta.playback;
+  if (!pb || !pb.iv || !pb.payload || !Array.isArray(pb.key_parts)) {
+    console.log("[av1] byse: la API no trajo datos de reproducci\xF3n");
+    return null;
+  }
+  const v = Number(pb.version);
+  const partes = pb.key_parts;
+  const indices = v >= 1 && v <= 20 && 31 - v <= partes.length ? [v, 31 - v] : null;
+  const elegidas = indices ? indices.map((i) => partes[i - 1]).filter((p) => typeof p === "string" && p.length > 0) : partes;
+  if (!elegidas.length) return null;
+  try {
+    let clave = b64urlAWord(elegidas[0]);
+    for (let i = 1; i < elegidas.length; i++) clave = clave.concat(b64urlAWord(elegidas[i]));
+    const iv = b64urlAWord(pb.iv);
+    const contador = CryptoJS.lib.WordArray.create(iv.words.concat([2]), 16);
+    const cifrado = b64urlAWord(pb.payload);
+    const sinEtiqueta = CryptoJS.lib.WordArray.create(
+      cifrado.words.slice(),
+      cifrado.sigBytes - 16
+    );
+    const claro = CryptoJS.AES.decrypt(
+      { ciphertext: sinEtiqueta },
+      clave,
+      { iv: contador, mode: CryptoJS.mode.CTR, padding: CryptoJS.pad.NoPadding }
+    ).toString(CryptoJS.enc.Utf8);
+    const m = /"url"\s*:\s*"([^"]+)"/.exec(claro);
+    if (!m) {
+      console.log("[av1] byse: se descifr\xF3 pero no hab\xEDa ninguna url adentro");
+      return null;
+    }
+    return {
+      url: m[1].replace(/\\u0026/g, "&").replace(/\\\//g, "/"),
+      headers: { Referer: `https://${host}/` }
+    };
+  } catch (e) {
+    console.log(`[av1] byse: no se pudo descifrar: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
+    return null;
+  }
+}
+
+// extensions/animeav1/servidores/hls/index.ts
+var CABECERAS = {
+  // La imprescindible. Sin ella, 403 en todos los pedacitos.
+  "Sec-Fetch-Site": "same-origin",
+  // El resto, leído del pedido real que hace el reproductor de la web.
+  "Sec-Fetch-Dest": "empty",
+  "Sec-Fetch-Mode": "cors",
+  Accept: "*/*",
+  "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+  Origin: "https://player.zilla-networks.com",
+  Referer: "https://player.zilla-networks.com/",
+  "sec-ch-ua": '"Chromium";v="131", "Not_A Brand";v="24"',
+  "sec-ch-ua-mobile": "?0",
+  "sec-ch-ua-platform": '"Windows"'
+};
+async function resolver2(url, _referer) {
+  var _a;
+  const hash = (_a = /\/play\/([a-f0-9]{32})/i.exec(url)) == null ? void 0 : _a[1];
+  if (!hash) {
+    console.log(`[av1] hls: la direcci\xF3n no trae hash de 32 :: ${url.slice(0, 60)}`);
+    return null;
+  }
+  return {
+    url: `https://player.zilla-networks.com/m3u8/${hash}`,
+    headers: CABECERAS
+  };
 }
 
 // extensions/animeav1/servidores/mp4upload/index.ts
@@ -308,6 +388,66 @@ async function resolver4(url, _referer) {
   return { url: mp4, headers: CABECERAS2 };
 }
 
+// extensions/animeav1/servidores/voe/index.ts
+function rot13(s) {
+  return s.replace(/[a-zA-Z]/g, (c) => {
+    const base = c <= "Z" ? 65 : 97;
+    return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
+  });
+}
+function desescapar(s) {
+  return s.replace(/\\\//g, "/");
+}
+function descifrar2(crudo) {
+  try {
+    let r = rot13(crudo);
+    for (const p of ["@$", "^^", "#&", "~@", "%?", "*~", "!!", "`"]) r = r.split(p).join("");
+    const paso3 = b64aTexto(r);
+    let corrido = "";
+    for (let i = 0; i < paso3.length; i++) corrido += String.fromCharCode(paso3.charCodeAt(i) - 3);
+    return b64aTexto(corrido.split("").reverse().join(""));
+  } catch (e) {
+    return null;
+  }
+}
+async function resolver5(url, referer) {
+  let html = await pedir(url, referer);
+  if (!html) return null;
+  const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html);
+  if (redir) {
+    const espejo = await pedir(redir[1], "https://voe.sx/");
+    if (espejo) html = espejo;
+  }
+  const bloque = /<script[^>]*type=["']application\/json["'][^>]*>\s*\[\s*"([^"]+)"\s*\]\s*<\/script>/.exec(html);
+  if (bloque) {
+    const claro = descifrar2(bloque[1]);
+    if (claro) {
+      const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(claro);
+      if (src) return { url: desescapar(src[1]) };
+      const cualquiera = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(desescapar(claro));
+      if (cualquiera) return { url: cualquiera[1] };
+      const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(claro);
+      if (mp4) return { url: desescapar(mp4[1]) };
+    }
+  }
+  let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
+  if (m) return { url: m[1] };
+  const enBase64 = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
+  if (enBase64) {
+    try {
+      const claro = b64aTexto(enBase64[1]);
+      const hls = /['"]hls['"]\s*:\s*['"]([^'"]+)['"]/.exec(claro);
+      if (hls) return { url: hls[1] };
+      const directo = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/.exec(claro);
+      if (directo) return { url: directo[1] };
+    } catch (e) {
+    }
+  }
+  m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
+  if (m) return { url: m[0] };
+  return null;
+}
+
 // extensions/animeav1/servidores/index.ts
 var SERVIDORES = [
   {
@@ -315,7 +455,7 @@ var SERVIDORES = [
     hosts: ["zilla-networks"],
     botones: 122,
     nativo: true,
-    resolver
+    resolver: resolver2
   },
   {
     boton: "UPNShare",
@@ -331,12 +471,24 @@ var SERVIDORES = [
     nativo: true,
     resolver: resolver3
   },
+  // Voe y Byse aparecieron después de la medición de arriba: el 2026-09-27
+  // los traía cada episodio, y sin ficha salían como botones que no abrían
+  // nada. Copiados de LatAnime, donde ese día dieron 5 de 6 y 6 de 6 bajando
+  // vídeo de verdad. Byse cambia de dominio (bysekoze, byselapuix…): se lo
+  // reconoce por el prefijo.
   {
-    boton: "Mega",
-    hosts: ["mega.nz", "mega.co.nz"],
-    botones: 122,
-    nativo: false,
-    resolver: resolver2
+    boton: "Voe",
+    hosts: ["voe.sx", "voe."],
+    botones: 0,
+    nativo: true,
+    resolver: resolver5
+  },
+  {
+    boton: "Byse",
+    hosts: ["//byse"],
+    botones: 0,
+    nativo: true,
+    resolver
   }
 ];
 function fichaDe(url) {
@@ -347,7 +499,7 @@ function fichaDe(url) {
 async function resolverServidor(url, referer) {
   const ficha = fichaDe(url);
   if (ficha) return ficha.resolver(url, referer);
-  console.log(`[av1] servidor desconocido, va al navegador: ${url.slice(0, 60)}`);
+  console.log(`[av1] servidor desconocido, sin resolver: ${url.slice(0, 60)}`);
   return null;
 }
 
@@ -628,19 +780,19 @@ function _estaRota(url) {
   return /\/embed-undef(?:ined)?\.html/i.test(url) || /[?#/]undefined(?:[?#/&]|$)/i.test(url);
 }
 async function watch(url) {
-  var _a, _b, _c, _d;
+  var _a, _b;
   if (url.indexOf("http") === 0 && url.indexOf("animeav1.com") === -1) {
     try {
       const res = await resolverServidor(url, `${BASE2}/`);
       if (res && res.url) {
         return {
-          streams: [{ url: res.url, quality: "Servidor", headers: res.headers }],
-          pageUrl: ""
+          streams: [{ url: res.url, quality: "Servidor", headers: res.headers, nativo: true }]
         };
       }
     } catch (e) {
+      console.log(`[av1] no se pudo resolver ${url.slice(0, 50)}: ${e}`);
     }
-    return { streams: [{ url, quality: "Servidor" }], pageUrl: "" };
+    return { streams: [], reason: "resolve_failed" };
   }
   const episodeUrl = _fullUrl(url);
   const html = await _get(episodeUrl);
@@ -682,33 +834,35 @@ async function watch(url) {
   for (const idioma of idiomas) {
     const delIdioma = porIdioma.filter((e) => e.idioma === idioma);
     const conFicha = delIdioma.map((e) => __spreadProps(__spreadValues({}, e), { ficha: fichaDe(e.url) })).sort((a, b) => {
-      var _a2, _b2, _c2;
-      return ((_a2 = a.ficha) == null ? void 0 : _a2.nativo) === ((_b2 = b.ficha) == null ? void 0 : _b2.nativo) ? 0 : ((_c2 = a.ficha) == null ? void 0 : _c2.nativo) ? -1 : 1;
+      var _a2, _b2, _c;
+      return ((_a2 = a.ficha) == null ? void 0 : _a2.nativo) === ((_b2 = b.ficha) == null ? void 0 : _b2.nativo) ? 0 : ((_c = a.ficha) == null ? void 0 : _c.nativo) ? -1 : 1;
     });
     for (const e of conFicha) {
       if (!e.url || seen[e.url]) continue;
-      if (((_a = e.ficha) == null ? void 0 : _a.boton) === "Mega") continue;
+      if (!e.ficha || !e.ficha.nativo) {
+        console.log(`[av1] servidor sin reproducci\xF3n en la app, no se ofrece: ${e.server} ${e.url.slice(0, 50)}`);
+        continue;
+      }
       seen[e.url] = true;
       streams.push({
         url: e.url,
         // Con el idioma pegado al nombre: sin eso, un episodio con doblaje
         // muestra "HLS" dos veces y no hay forma de saber cuál es cuál.
         quality: variosIdiomas ? `${e.server} \xB7 ${e.idioma}` : e.server,
-        // El rayo y el mundo salen de la tabla de `servidores/`, que es donde
-        // está lo que se midió de cada uno. Sin esto la app lo adivina por el
-        // nombre, y acá le erraría a dos: "HLS" no es el nombre de ningún
-        // servidor conocido, y Mega reproduce solo en el navegador.
-        nativo: (_b = e.ficha) == null ? void 0 : _b.nativo
+        // El rayo sale de la tabla de `servidores/`, que es donde está lo que
+        // se midió de cada uno. Sin esto la app lo adivina por el nombre, y
+        // "HLS" no es el nombre de ningún servidor conocido.
+        nativo: true
       });
     }
   }
   if (streams.length === 0) {
-    const iframe = (_c = /<iframe[^>]+src="([^"]+)"/i.exec(html)) == null ? void 0 : _c[1];
-    if (iframe) {
-      streams.push({ url: iframe, quality: "Servidor", nativo: (_d = fichaDe(iframe)) == null ? void 0 : _d.nativo });
+    const iframe = (_a = /<iframe[^>]+src="([^"]+)"/i.exec(html)) == null ? void 0 : _a[1];
+    if (iframe && ((_b = fichaDe(iframe)) == null ? void 0 : _b.nativo)) {
+      streams.push({ url: iframe, quality: "Servidor", nativo: true });
     }
   }
-  return { streams, pageUrl: episodeUrl };
+  return { streams };
 }
 
 // OJO: nunca usar url.indexOf('.mp4')/('.m3u8') suelto — algunos dominios de

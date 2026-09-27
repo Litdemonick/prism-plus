@@ -479,14 +479,15 @@ export async function watch(url: string): Promise<PrismWatch> {
       const res = await resolverServidor(url, `${BASE}/`);
       if (res && res.url) {
         return {
-          streams: [{ url: res.url, quality: 'Servidor', headers: res.headers }],
-          pageUrl: '',
+          streams: [{ url: res.url, quality: 'Servidor', headers: res.headers, nativo: true }],
         };
       }
-    } catch {
-      /* sigue abajo con la URL cruda */
+    } catch (e) {
+      console.log(`[av1] no se pudo resolver ${url.slice(0, 50)}: ${e}`);
     }
-    return { streams: [{ url, quality: 'Servidor' }], pageUrl: '' };
+    // Sin resolver no hay nada que reproducir: devolver el embed crudo solo
+    // hacía que el reproductor intentara abrir una página como si fuera vídeo.
+    return { streams: [], reason: 'resolve_failed' };
   }
 
   const episodeUrl = _fullUrl(url);
@@ -554,38 +555,36 @@ export async function watch(url: string): Promise<PrismWatch> {
       .sort((a, b) => (a.ficha?.nativo === b.ficha?.nativo ? 0 : a.ficha?.nativo ? -1 : 1));
     for (const e of conFicha) {
       if (!e.url || seen[e.url]) continue;
-      // Mega fuera de la lista, a pedido del usuario (2026-08-10). No reproduce
-      // en el nativo —descifra del lado del navegador y no hay dirección que
-      // sacar— así que su botón solo lleva al navegador interno.
-      //
-      // Acá sí se puede sacar y en tioanime NO: allá eran tres servidores y
-      // quitarlo dejaba episodios sin ninguno que abriera. Estos episodios
-      // quedan con tres, y los tres reproducen nativo.
-      if (e.ficha?.boton === 'Mega') continue;
+      // Solo salen los servidores que reproducen en la app. La app ya no abre
+      // páginas en un navegador, así que uno sin resolver propio (Mega, o uno
+      // nuevo que el sitio sume y todavía no tenga su carpeta) sería un botón
+      // que no reproduce nunca. Se deja anotado para venir a agregarlo.
+      if (!e.ficha || !e.ficha.nativo) {
+        console.log(`[av1] servidor sin reproducción en la app, no se ofrece: ${e.server} ${e.url.slice(0, 50)}`);
+        continue;
+      }
       seen[e.url] = true;
       streams.push({
         url: e.url,
         // Con el idioma pegado al nombre: sin eso, un episodio con doblaje
         // muestra "HLS" dos veces y no hay forma de saber cuál es cuál.
         quality: variosIdiomas ? `${e.server} · ${e.idioma}` : e.server,
-        // El rayo y el mundo salen de la tabla de `servidores/`, que es donde
-        // está lo que se midió de cada uno. Sin esto la app lo adivina por el
-        // nombre, y acá le erraría a dos: "HLS" no es el nombre de ningún
-        // servidor conocido, y Mega reproduce solo en el navegador.
-        nativo: e.ficha?.nativo,
+        // El rayo sale de la tabla de `servidores/`, que es donde está lo que
+        // se midió de cada uno. Sin esto la app lo adivina por el nombre, y
+        // "HLS" no es el nombre de ningún servidor conocido.
+        nativo: true,
       });
     }
   }
 
-  // Último recurso: el iframe que ya viene renderizado en la página.
+  // Último recurso: el iframe que ya viene renderizado en la página, si es de
+  // un servidor que reproduce en la app.
   if (streams.length === 0) {
     const iframe = /<iframe[^>]+src="([^"]+)"/i.exec(html)?.[1];
-    if (iframe) {
-      streams.push({ url: iframe, quality: 'Servidor', nativo: fichaDe(iframe)?.nativo });
+    if (iframe && fichaDe(iframe)?.nativo) {
+      streams.push({ url: iframe, quality: 'Servidor', nativo: true });
     }
   }
 
-  // pageUrl siempre: si ningún resolver nativo saca el stream, el cliente cae
-  // al WebView sobre la página real del episodio.
-  return { streams, pageUrl: episodeUrl };
+  return { streams };
 }
