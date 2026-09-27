@@ -56,7 +56,7 @@
     "lastReason": null
   },
   "io.prismhub.pornhub": {
-    "consecutiveFailures": 1,
+    "consecutiveFailures": 2,
     "lastReason": "broken"
   },
   "io.prismhub.shademanga": {
