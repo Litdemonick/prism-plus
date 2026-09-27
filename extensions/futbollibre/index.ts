@@ -18,12 +18,86 @@ async function _get(url: string, referer = BASE + '/'): Promise<string> {
   );
 }
 
+// ─── base64 a mano ──────────────────────────────────────────────────────────
+//
+// El motor de PrismHub (QuickJS) no tiene `Buffer` ni `atob`/`btoa` — el
+// `Buffer` de antes andaba en las pruebas con Node y en la app tiraba
+// `ReferenceError: 'Buffer' is not defined` en schedule() y channels(), así
+// que no cargaba nada. Mismo criterio que jkanime/fuegocine: puro JS.
+const _B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+function _utf8(s: string): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < s.length; i++) {
+    let c = s.charCodeAt(i);
+    if (c >= 0xd800 && c <= 0xdbff && i + 1 < s.length) {
+      const d = s.charCodeAt(i + 1);
+      if (d >= 0xdc00 && d <= 0xdfff) {
+        c = 0x10000 + ((c - 0xd800) << 10) + (d - 0xdc00);
+        i++;
+      }
+    }
+    if (c < 0x80) out.push(c);
+    else if (c < 0x800) out.push(0xc0 | (c >> 6), 0x80 | (c & 63));
+    else if (c < 0x10000)
+      out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+    else
+      out.push(
+        0xf0 | (c >> 18),
+        0x80 | ((c >> 12) & 63),
+        0x80 | ((c >> 6) & 63),
+        0x80 | (c & 63),
+      );
+  }
+  return out;
+}
+
+function _deUtf8(b: number[]): string {
+  let s = '';
+  for (let i = 0; i < b.length; ) {
+    const c = b[i++];
+    let cp: number;
+    if (c < 0x80) cp = c;
+    else if (c < 0xe0) cp = ((c & 31) << 6) | (b[i++] & 63);
+    else if (c < 0xf0)
+      cp = ((c & 15) << 12) | ((b[i++] & 63) << 6) | (b[i++] & 63);
+    else
+      cp =
+        ((c & 7) << 18) |
+        ((b[i++] & 63) << 12) |
+        ((b[i++] & 63) << 6) |
+        (b[i++] & 63);
+    s += String.fromCodePoint(cp);
+  }
+  return s;
+}
+
 function _b64(s: string): string {
-  return Buffer.from(s, 'utf8').toString('base64');
+  const b = _utf8(s);
+  let out = '';
+  for (let i = 0; i < b.length; i += 3) {
+    const n = (b[i] << 16) | ((b[i + 1] ?? 0) << 8) | (b[i + 2] ?? 0);
+    out += _B64[(n >> 18) & 63] + _B64[(n >> 12) & 63];
+    out += i + 1 < b.length ? _B64[(n >> 6) & 63] : '=';
+    out += i + 2 < b.length ? _B64[n & 63] : '=';
+  }
+  return out;
 }
 
 function _fromB64(s: string): string {
-  return Buffer.from(s, 'base64').toString('utf8');
+  const limpio = s.replace(/[^A-Za-z0-9+/]/g, '');
+  const b: number[] = [];
+  for (let i = 0; i < limpio.length; i += 4) {
+    const n =
+      (_B64.indexOf(limpio[i]) << 18) |
+      (_B64.indexOf(limpio[i + 1]) << 12) |
+      ((i + 2 < limpio.length ? _B64.indexOf(limpio[i + 2]) : 0) << 6) |
+      (i + 3 < limpio.length ? _B64.indexOf(limpio[i + 3]) : 0);
+    b.push((n >> 16) & 255);
+    if (i + 2 < limpio.length) b.push((n >> 8) & 255);
+    if (i + 3 < limpio.length) b.push(n & 255);
+  }
+  return _deUtf8(b);
 }
 
 // ─── Canales fijos (24/7) ───────────────────────────────────────────────────
@@ -125,7 +199,7 @@ export async function schedule(): Promise<PrismLiveEvent[]> {
 
     eventos.push({
       id: String(d.attributes.diary_description.length + startsAt.length) +
-        '-' + Buffer.from(startsAt + a.diary_description).toString('base64').slice(0, 24),
+        '-' + _b64(startsAt + a.diary_description).slice(0, 24),
       title: a.diary_description.replace(/\n+/g, ' ').trim(),
       league: liga?.name,
       leagueImage: imagenLiga,
@@ -188,24 +262,38 @@ async function _seguirHastaM3u8(
 
   const ifr = /<iframe[^>]+src=["']([^"']+)["']/i.exec(html);
   if (!ifr) return null;
-  let siguiente: string;
-  try {
-    siguiente = new URL(ifr[1], url).href;
-  } catch {
-    return null;
-  }
+  const siguiente = _resolverUrl(ifr[1], url);
+  if (!siguiente) return null;
   return _seguirHastaM3u8(siguiente, url, saltos - 1);
+}
+
+// ─── URLs a mano ────────────────────────────────────────────────────────────
+//
+// Sin `new URL(...)`: igual que `Buffer`, no es seguro contar con él en el
+// motor de la app — y como estaba dentro de un try que devolvía vacío, su
+// falta se hubiera visto como "sin señales" en vez de como un error.
+const _ABSOLUTA = /^https?:\/\/[^\s/?#]+/i;
+
+function _resolverUrl(relativa: string, base: string): string | null {
+  const r = relativa.trim();
+  if (_ABSOLUTA.test(r)) return r;
+  const origen = _ABSOLUTA.exec(base);
+  if (!origen) return null;
+  if (r.startsWith('//')) return base.slice(0, base.indexOf(':') + 1) + r;
+  if (r.startsWith('/')) return origen[0] + r;
+  const sinQuery = base.split(/[?#]/)[0];
+  return sinQuery.slice(0, sinQuery.lastIndexOf('/') + 1) + r;
 }
 
 export async function resolveSignal(id: string): Promise<PrismStream[]> {
   let inicial: string;
   try {
     inicial = _fromB64(id).trim();
-    // eslint-disable-next-line no-new
-    new URL(inicial); // valida que de verdad sea una URL antes de pedirle nada
   } catch {
     return [];
   }
+  // Valida que de verdad sea una URL antes de pedirle nada.
+  if (!_ABSOLUTA.test(inicial)) return [];
 
   const resuelto = await _seguirHastaM3u8(inicial, BASE + '/');
   if (!resuelto) return [];

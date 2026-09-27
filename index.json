@@ -59,7 +59,7 @@
     {
       "name": "Fútbol Libre",
       "package": "io.prismhub.futbollibre",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "PrismPlus",
       "type": "live",
       "icon": "",
@@ -68,8 +68,8 @@
       "webSite": "https://futbollibrefullhd.org",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/futbollibre.js",
-      "sha256": "6048dc09497eb7100a367c2d588002a490bc091cb9fa6b23d772c664966cf953",
-      "signature": "MuCEW5IUEnzV8q+2cnysYoM7ETyOhQEwqmvZ2FLZ+GQ/A+zhzOCn1NL4rxAvZkmtl768lnidd/x2I/Bhp36wDA=="
+      "sha256": "5e3e5e92d2459634e1e1085c391b77c124a9c33a366f0307b1af6408cbf114f7",
+      "signature": "XxehxifCQNkmTqCc+yAXfg2n8LDwY7oH9DgonBwAD9WJ9MAohTmwI3L5Wzu+QWu+phhMSxtdo0ArR/EBTLxcDg=="
     },
     {
       "name": "HentaiLA",

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Fútbol Libre
-// @version      1.0.0
+// @version      1.0.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -20,11 +20,69 @@ async function _get(url, referer = BASE + "/") {
     JSON.stringify([url, { method: "get", headers: { Referer: referer } }])
   );
 }
+var _B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+function _utf8(s) {
+  const out = [];
+  for (let i = 0; i < s.length; i++) {
+    let c = s.charCodeAt(i);
+    if (c >= 55296 && c <= 56319 && i + 1 < s.length) {
+      const d = s.charCodeAt(i + 1);
+      if (d >= 56320 && d <= 57343) {
+        c = 65536 + (c - 55296 << 10) + (d - 56320);
+        i++;
+      }
+    }
+    if (c < 128) out.push(c);
+    else if (c < 2048) out.push(192 | c >> 6, 128 | c & 63);
+    else if (c < 65536)
+      out.push(224 | c >> 12, 128 | c >> 6 & 63, 128 | c & 63);
+    else
+      out.push(
+        240 | c >> 18,
+        128 | c >> 12 & 63,
+        128 | c >> 6 & 63,
+        128 | c & 63
+      );
+  }
+  return out;
+}
+function _deUtf8(b) {
+  let s = "";
+  for (let i = 0; i < b.length; ) {
+    const c = b[i++];
+    let cp;
+    if (c < 128) cp = c;
+    else if (c < 224) cp = (c & 31) << 6 | b[i++] & 63;
+    else if (c < 240)
+      cp = (c & 15) << 12 | (b[i++] & 63) << 6 | b[i++] & 63;
+    else
+      cp = (c & 7) << 18 | (b[i++] & 63) << 12 | (b[i++] & 63) << 6 | b[i++] & 63;
+    s += String.fromCodePoint(cp);
+  }
+  return s;
+}
 function _b64(s) {
-  return Buffer.from(s, "utf8").toString("base64");
+  var _a, _b;
+  const b = _utf8(s);
+  let out = "";
+  for (let i = 0; i < b.length; i += 3) {
+    const n = b[i] << 16 | ((_a = b[i + 1]) != null ? _a : 0) << 8 | ((_b = b[i + 2]) != null ? _b : 0);
+    out += _B64[n >> 18 & 63] + _B64[n >> 12 & 63];
+    out += i + 1 < b.length ? _B64[n >> 6 & 63] : "=";
+    out += i + 2 < b.length ? _B64[n & 63] : "=";
+  }
+  return out;
 }
 function _fromB64(s) {
-  return Buffer.from(s, "base64").toString("utf8");
+  const limpio = s.replace(/[^A-Za-z0-9+/]/g, "");
+  const b = [];
+  for (let i = 0; i < limpio.length; i += 4) {
+    const n = _B64.indexOf(limpio[i]) << 18 | _B64.indexOf(limpio[i + 1]) << 12 | (i + 2 < limpio.length ? _B64.indexOf(limpio[i + 2]) : 0) << 6 | (i + 3 < limpio.length ? _B64.indexOf(limpio[i + 3]) : 0);
+    b.push(n >> 16 & 255);
+    if (i + 2 < limpio.length) b.push(n >> 8 & 255);
+    if (i + 3 < limpio.length) b.push(n & 255);
+  }
+  return _deUtf8(b);
 }
 var _CANALES = [
   { id: "dsports", nombre: "DSports" },
@@ -74,7 +132,7 @@ async function schedule() {
     const liga = (_d = (_c = a.country) == null ? void 0 : _c.data) == null ? void 0 : _d.attributes;
     const imagenLiga = (_g = (_f = (_e = liga == null ? void 0 : liga.image) == null ? void 0 : _e.data) == null ? void 0 : _f.attributes) == null ? void 0 : _g.url;
     eventos.push({
-      id: String(d.attributes.diary_description.length + startsAt.length) + "-" + Buffer.from(startsAt + a.diary_description).toString("base64").slice(0, 24),
+      id: String(d.attributes.diary_description.length + startsAt.length) + "-" + _b64(startsAt + a.diary_description).slice(0, 24),
       title: a.diary_description.replace(/\n+/g, " ").trim(),
       league: liga == null ? void 0 : liga.name,
       leagueImage: imagenLiga,
@@ -107,22 +165,29 @@ async function _seguirHastaM3u8(url, referer, saltos = _MAX_SALTOS) {
   }
   const ifr = /<iframe[^>]+src=["']([^"']+)["']/i.exec(html);
   if (!ifr) return null;
-  let siguiente;
-  try {
-    siguiente = new URL(ifr[1], url).href;
-  } catch (e) {
-    return null;
-  }
+  const siguiente = _resolverUrl(ifr[1], url);
+  if (!siguiente) return null;
   return _seguirHastaM3u8(siguiente, url, saltos - 1);
+}
+var _ABSOLUTA = /^https?:\/\/[^\s/?#]+/i;
+function _resolverUrl(relativa, base) {
+  const r = relativa.trim();
+  if (_ABSOLUTA.test(r)) return r;
+  const origen = _ABSOLUTA.exec(base);
+  if (!origen) return null;
+  if (r.startsWith("//")) return base.slice(0, base.indexOf(":") + 1) + r;
+  if (r.startsWith("/")) return origen[0] + r;
+  const sinQuery = base.split(/[?#]/)[0];
+  return sinQuery.slice(0, sinQuery.lastIndexOf("/") + 1) + r;
 }
 async function resolveSignal(id) {
   let inicial;
   try {
     inicial = _fromB64(id).trim();
-    new URL(inicial);
   } catch (e) {
     return [];
   }
+  if (!_ABSOLUTA.test(inicial)) return [];
   const resuelto = await _seguirHastaM3u8(inicial, BASE + "/");
   if (!resuelto) return [];
   return [
