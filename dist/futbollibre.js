@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Fútbol Libre
-// @version      1.0.1
+// @version      1.0.2
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -14,6 +14,12 @@
 var BASE = "https://futbollibrefullhd.org";
 var AGENDA_URL = "https://api.wqxag.com/diaries.json";
 var CANAL_BASE = "https://tvf90.com";
+var IMG_URL = "https://img.wqxag.com";
+function _imagen(url) {
+  if (!url) return void 0;
+  if (/^https?:\/\//i.test(url)) return url;
+  return IMG_URL + (url.startsWith("/") ? url : "/" + url);
+}
 async function _get(url, referer = BASE + "/") {
   return sendMessage(
     "request",
@@ -26,19 +32,21 @@ function _b64(s) {
 function _fromB64(s) {
   return CryptoJS.enc.Base64.parse(s).toString(CryptoJS.enc.Utf8);
 }
+var _LOGOS = BASE + "/img/logo-canal/";
 var _CANALES = [
-  { id: "dsports", nombre: "DSports" },
-  { id: "dsportsplus", nombre: "DSports+" },
-  { id: "espn", nombre: "ESPN" },
-  { id: "espn2", nombre: "ESPN 2" },
-  { id: "espn3", nombre: "ESPN 3" },
-  { id: "liga1max", nombre: "Liga 1 MAX" },
+  { id: "dsports", nombre: "DSports", logo: _LOGOS + "dsports.webp" },
+  { id: "dsportsplus", nombre: "DSports+", logo: _LOGOS + "dsports_plus.webp" },
+  { id: "espn", nombre: "ESPN", logo: _LOGOS + "espn.webp" },
+  { id: "espn2", nombre: "ESPN 2", logo: _LOGOS + "espn.webp" },
+  { id: "espn3", nombre: "ESPN 3", logo: _LOGOS + "espn.webp" },
+  { id: "liga1max", nombre: "Liga 1 MAX", logo: _LOGOS + "liga_1_max.webp" },
   { id: "telemundo", nombre: "Telemundo" }
 ];
 async function channels() {
   return _CANALES.map((c) => ({
     id: c.id,
     name: c.nombre,
+    icon: c.logo,
     signals: [
       {
         id: _b64(`${CANAL_BASE}/online/canal.php?stream=${c.id}`),
@@ -72,7 +80,7 @@ async function schedule() {
     if (signals.length === 0) continue;
     const startsAt = `${a.date_diary}T${a.diary_hour}-05:00`;
     const liga = (_d = (_c = a.country) == null ? void 0 : _c.data) == null ? void 0 : _d.attributes;
-    const imagenLiga = (_g = (_f = (_e = liga == null ? void 0 : liga.image) == null ? void 0 : _e.data) == null ? void 0 : _f.attributes) == null ? void 0 : _g.url;
+    const imagenLiga = _imagen((_g = (_f = (_e = liga == null ? void 0 : liga.image) == null ? void 0 : _e.data) == null ? void 0 : _f.attributes) == null ? void 0 : _g.url);
     eventos.push({
       id: String(d.attributes.diary_description.length + startsAt.length) + "-" + _b64(startsAt + a.diary_description).slice(0, 24),
       title: a.diary_description.replace(/\n+/g, " ").trim(),

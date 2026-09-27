@@ -10,6 +10,17 @@ const BASE = 'https://futbollibrefullhd.org';
 // que scrapear el HTML de la portada.
 const AGENDA_URL = 'https://api.wqxag.com/diaries.json';
 const CANAL_BASE = 'https://tvf90.com';
+// Las imágenes de la agenda (banderas/ligas) llegan con ruta RELATIVA
+// ("/uploads/x.png"). El sitio las completa con este dominio (su propio
+// config.js, IMG_URL) — medido: responde 200 en ~0,3 s. Sin completarlas la
+// app nunca podía cargarlas y quedaba el cuadro vacío.
+const IMG_URL = 'https://img.wqxag.com';
+
+function _imagen(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  if (/^https?:\/\//i.test(url)) return url;
+  return IMG_URL + (url.startsWith('/') ? url : '/' + url);
+}
 
 async function _get(url: string, referer = BASE + '/'): Promise<string> {
   return sendMessage(
@@ -43,13 +54,18 @@ function _fromB64(s: string): string {
 // dsports, dsportsplus, espn, espn2, espn3, liga1max, telemundo — los siete,
 // vía Referer-only header. Fox Sports igual aparece cuando un partido de la
 // AGENDA la trae como señal (ahí no hace falta esta lista fija).
-const _CANALES: { id: string; nombre: string }[] = [
-  { id: 'dsports', nombre: 'DSports' },
-  { id: 'dsportsplus', nombre: 'DSports+' },
-  { id: 'espn', nombre: 'ESPN' },
-  { id: 'espn2', nombre: 'ESPN 2' },
-  { id: 'espn3', nombre: 'ESPN 3' },
-  { id: 'liga1max', nombre: 'Liga 1 MAX' },
+// Logos: los mismos que usa el sitio en la página de cada canal (og:image),
+// medidos uno por uno (2026-09-27): 200 para dsports, dsports_plus, espn y
+// liga_1_max. ESPN 2/3 no tienen el suyo (404) y usan el de ESPN, la misma
+// marca; Telemundo no tiene ninguno y queda con el ícono de la app.
+const _LOGOS = BASE + '/img/logo-canal/';
+const _CANALES: { id: string; nombre: string; logo?: string }[] = [
+  { id: 'dsports', nombre: 'DSports', logo: _LOGOS + 'dsports.webp' },
+  { id: 'dsportsplus', nombre: 'DSports+', logo: _LOGOS + 'dsports_plus.webp' },
+  { id: 'espn', nombre: 'ESPN', logo: _LOGOS + 'espn.webp' },
+  { id: 'espn2', nombre: 'ESPN 2', logo: _LOGOS + 'espn.webp' },
+  { id: 'espn3', nombre: 'ESPN 3', logo: _LOGOS + 'espn.webp' },
+  { id: 'liga1max', nombre: 'Liga 1 MAX', logo: _LOGOS + 'liga_1_max.webp' },
   { id: 'telemundo', nombre: 'Telemundo' },
 ];
 
@@ -59,6 +75,7 @@ export async function channels(): Promise<PrismLiveChannel[]> {
   return _CANALES.map((c) => ({
     id: c.id,
     name: c.nombre,
+    icon: c.logo,
     signals: [
       {
         id: _b64(`${CANAL_BASE}/online/canal.php?stream=${c.id}`),
@@ -129,7 +146,7 @@ export async function schedule(): Promise<PrismLiveEvent[]> {
     const startsAt = `${a.date_diary}T${a.diary_hour}-05:00`;
 
     const liga = a.country?.data?.attributes;
-    const imagenLiga = liga?.image?.data?.attributes?.url;
+    const imagenLiga = _imagen(liga?.image?.data?.attributes?.url);
 
     eventos.push({
       id: String(d.attributes.diary_description.length + startsAt.length) +
