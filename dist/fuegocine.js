@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.9.4
+// @version      1.9.5
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -171,11 +171,6 @@ async function resolver(url) {
   return { url };
 }
 
-// extensions/fuegocine/servidores/drive/index.ts
-async function resolver2(_url) {
-  return null;
-}
-
 // extensions/fuegocine/servidores/comun.ts
 var UA_NAVEGADOR = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 async function pedir(url, referer, headers) {
@@ -294,7 +289,7 @@ ${u}`;
 }
 
 // extensions/fuegocine/servidores/dropload/index.ts
-async function resolver3(url, referer) {
+async function resolver2(url, referer) {
   const html = await pedir(url, referer);
   if (!html) return null;
   const host = hostDe(url);
@@ -302,7 +297,7 @@ async function resolver3(url, referer) {
 }
 
 // extensions/fuegocine/servidores/firestream/index.ts
-async function resolver4(url, referer) {
+async function resolver3(url, referer) {
   var _a;
   const host = hostDe(url) || "firestream.to";
   const codigo = codigoDe(url);
@@ -339,7 +334,7 @@ async function resolver4(url, referer) {
 }
 
 // extensions/fuegocine/servidores/goodstream/index.ts
-async function resolver5(url, referer) {
+async function resolver4(url, referer) {
   const html = await pedir(url, referer);
   if (!html) return null;
   const host = hostDe(url);
@@ -347,197 +342,24 @@ async function resolver5(url, referer) {
 }
 
 // extensions/fuegocine/servidores/ok.ru/index.ts
-async function resolver6(url) {
+var MARCAS = ["hlsManifestUrl\\&quot;:\\&quot;", "hlsManifestUrl&quot;:&quot;"];
+async function resolver5(url) {
   const html = await pedir(url, "https://ok.ru/");
   if (!html) return null;
-  const marca = "hlsManifestUrl\\&quot;:\\&quot;";
-  const desde = html.indexOf(marca);
-  if (desde === -1) return null;
-  const ini = desde + marca.length;
-  const fin = html.indexOf("\\&quot;", ini);
-  if (fin === -1) return null;
-  const salida = html.slice(ini, fin).split("\\\\u0026").join("&");
-  if (!/^https?:\/\//.test(salida)) return null;
-  return { url: salida };
-}
-
-// extensions/fuegocine/servidores/streamwish/index.ts
-async function resolver7(url, referer) {
-  var _a;
-  const host = hostDe(url);
-  if (!host) return null;
-  const hdrs = { Referer: `https://${host}/` };
-  const idM = /\/(?:e|f|d|v)\/([A-Za-z0-9]+)/.exec(url);
-  if (idM) {
-    const json = await pedir(`https://${host}/api/file/${idM[1]}?json=1`, `https://${host}/`, {
-      "X-Requested-With": "XMLHttpRequest",
-      Accept: "application/json"
-    });
-    if (json) {
-      const m3u82 = /"file"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(json);
-      if (m3u82) return { url: m3u82[1].replace(/\\\//g, "/"), headers: hdrs };
-      const mp4 = /"file"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(json);
-      if (mp4) return { url: mp4[1].replace(/\\\//g, "/"), headers: hdrs };
-    }
+  for (const marca of MARCAS) {
+    const desde = html.indexOf(marca);
+    if (desde === -1) continue;
+    const ini = desde + marca.length;
+    const fin = html.indexOf("&quot;", ini);
+    if (fin === -1) continue;
+    const salida = html.slice(ini, fin).replace(/\\+$/, "").split("\\\\u0026").join("&").split("\\u0026").join("&");
+    if (/^https?:\/\//.test(salida)) return { url: salida };
   }
-  const html = await pedir(url, `https://${host}/`);
-  if (!html) return null;
-  const plano = `${html}
-${desempaquetarTodo(html)}`.replace(/\\\//g, "/");
-  const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(plano);
-  if (m3u8) return { url: m3u8[1], headers: hdrs };
-  const file = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/i.exec(plano);
-  if (file) return { url: file[1], headers: hdrs };
-  const enBase64 = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
-  if (enBase64) {
-    try {
-      const dec = b64aTexto(enBase64[1]);
-      const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(dec.replace(/\\\//g, "/"));
-      if (src) return { url: src[1], headers: hdrs };
-    } catch (e) {
-    }
-  }
-  const mp4s = (_a = plano.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g)) != null ? _a : [];
-  const real = mp4s.find((u) => !/\.(?:css|js|jpg|png|woff)/.test(u));
-  if (real) return { url: real, headers: hdrs };
-  return null;
-}
-
-// extensions/fuegocine/servidores/unlimplay/index.ts
-function rutaAlDia(url) {
-  return url.replace(/\/(?:play\.php|play|f)\/embed\//, "/f/embed/");
-}
-var MARCA_MULTI = "#multi";
-var MARCA_IDIOMA = "#lang=";
-function idiomaDe(url) {
-  const i = url.indexOf(MARCA_IDIOMA);
-  return i === -1 ? null : url.slice(i + MARCA_IDIOMA.length);
-}
-function servidoresDeBloque(html) {
-  var _a;
-  const ini = html.indexOf("const EMBEDS");
-  if (ini === -1) return [];
-  const bloque = html.slice(ini, ini + 8e3);
-  const salida = [];
-  const vistos = {};
-  let idioma = "";
-  const re = /"([a-zA-ZÀ-ÿ0-9 _-]{3,24})"\s*:\s*(\{|"(https?:\/\/[^"]+)")/g;
-  for (const m of bloque.matchAll(re)) {
-    const clave = m[1].trim();
-    if (m[2] === "{") {
-      idioma = clave;
-      continue;
-    }
-    const dir = ((_a = m[3]) != null ? _a : "").replace(/\\\//g, "/");
-    if (!dir) continue;
-    const llave = `${idioma}|${clave}`;
-    if (vistos[llave]) continue;
-    vistos[llave] = true;
-    salida.push({
-      nombre: clave,
-      idioma,
-      url: dir,
-      // Los "direct" ya son el m3u8; el resto son páginas de embed.
-      yaResuelto: /\.m3u8/.test(dir)
-    });
-  }
-  return salida;
-}
-async function resolver8(url, referer) {
-  if (url.indexOf(MARCA_MULTI) !== -1) return null;
-  const html = await pedir(rutaAlDia(url), referer);
-  if (typeof html !== "string") return null;
-  const idioma = idiomaDe(url);
-  if (idioma) {
-    const delIdioma = servidoresDeBloque(html).find(
-      (s) => s.idioma === idioma && /^direct/i.test(s.nombre) && s.yaResuelto
-    );
-    if (delIdioma) {
-      return {
-        url: delIdioma.url,
-        headers: { "User-Agent": UA_NAVEGADOR }
-      };
-    }
-    console.log(`[fc/unlimplay] sin direct para "${idioma}", se usa el primero`);
-  }
-  const m = /"direct[^"]*":"([^"]+\.m3u8[^"]*)"/.exec(html);
-  if (!m) {
-    console.log("[fc/unlimplay] la p\xE1gina no trae el campo direct");
-    return null;
-  }
-  return {
-    url: m[1].replace(/\\\//g, "/"),
-    headers: { "User-Agent": UA_NAVEGADOR }
-  };
-}
-
-// extensions/fuegocine/servidores/voe/index.ts
-function rot13(s) {
-  return s.replace(/[a-zA-Z]/g, (c) => {
-    const base = c <= "Z" ? 65 : 97;
-    return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
-  });
-}
-function desescapar(s) {
-  return s.replace(/\\\//g, "/");
-}
-function descifrar(crudo) {
-  try {
-    let r = rot13(crudo);
-    for (const p of ["@$", "^^", "#&", "~@", "%?", "*~", "!!", "`"]) r = r.split(p).join("");
-    const paso3 = b64aTexto(r);
-    let corrido = "";
-    for (let i = 0; i < paso3.length; i++) corrido += String.fromCharCode(paso3.charCodeAt(i) - 3);
-    return b64aTexto(corrido.split("").reverse().join(""));
-  } catch (e) {
-    return null;
-  }
-}
-async function resolver9(url, referer) {
-  let html = await pedir(url, referer);
-  if (!html) return null;
-  const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html);
-  if (redir) {
-    const espejo = await pedir(redir[1], "https://voe.sx/");
-    if (espejo) html = espejo;
-  }
-  const bloque = /<script[^>]*type=["']application\/json["'][^>]*>\s*\[\s*"([^"]+)"\s*\]\s*<\/script>/.exec(html);
-  if (bloque) {
-    const claro = descifrar(bloque[1]);
-    if (claro) {
-      const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(claro);
-      if (src) return { url: desescapar(src[1]) };
-      const cualquiera = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(desescapar(claro));
-      if (cualquiera) return { url: cualquiera[1] };
-      const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(claro);
-      if (mp4) return { url: desescapar(mp4[1]) };
-    }
-  }
-  let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
-  if (m) return { url: m[1] };
-  const enBase64 = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
-  if (enBase64) {
-    try {
-      const claro = b64aTexto(enBase64[1]);
-      const hls = /['"]hls['"]\s*:\s*['"]([^'"]+)['"]/.exec(claro);
-      if (hls) return { url: hls[1] };
-      const directo = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/.exec(claro);
-      if (directo) return { url: directo[1] };
-    } catch (e) {
-    }
-  }
-  m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
-  if (m) return { url: m[0] };
-  return null;
-}
-
-// extensions/fuegocine/servidores/upns/index.ts
-async function resolver10(_url) {
   return null;
 }
 
 // extensions/fuegocine/servidores/vimeos/index.ts
-async function resolver11(url, referer) {
+async function resolver6(url, referer) {
   const html = await pedir(url, referer);
   if (!html) return null;
   const host = hostDe(url);
@@ -547,110 +369,49 @@ async function resolver11(url, referer) {
 // extensions/fuegocine/servidores/index.ts
 var SERVIDORES = [
   {
-    boton: "UA",
-    hosts: ["unlimplay"],
-    botones: 395,
-    nativo: true,
-    resolver: resolver8
-  },
-  {
-    boton: "US",
-    hosts: ["upns"],
-    botones: 241,
-    nativo: false,
-    resolver: resolver10
-  },
-  {
     boton: "FC",
-    hosts: ["rumble.cloud", "files.eintim.me", "1a-1791.com", "archive.org"],
+    // videro.my: el 2026-09-27 cinco de cada seis títulos ya servían FC desde
+    // ahí (un m3u8 abierto, sin cabeceras). Sin este host se quedaban sin
+    // ficha y el botón FC no reproducía.
+    hosts: ["rumble.cloud", "files.eintim.me", "1a-1791.com", "archive.org", "videro."],
     botones: 195,
     nativo: true,
     resolver
-  },
-  {
-    boton: "Drive",
-    hosts: ["drive.google.com"],
-    botones: 139,
-    nativo: false,
-    resolver: resolver2
   },
   {
     boton: "GS",
     hosts: ["gscdn", "goodstream"],
     botones: 128,
     nativo: true,
-    resolver: resolver5
+    resolver: resolver4
   },
   {
     boton: "FS",
     hosts: ["firestream"],
     botones: 92,
     nativo: true,
-    resolver: resolver4
+    resolver: resolver3
   },
   {
     boton: "OK.RU",
     hosts: ["ok.ru", "okru"],
     botones: 55,
     nativo: true,
-    resolver: resolver6
+    resolver: resolver5
   },
   {
     boton: "Vimeo",
     hosts: ["vimeos"],
     botones: 49,
     nativo: true,
-    resolver: resolver11
-  },
-  // ── Los que vienen ADENTRO de UA ────────────────────────────────────────
-  //
-  // unlimplay es un reproductor con nueve servidores adentro, y su página los
-  // publica en texto plano (ver `servidoresDe` en la carpeta de unlimplay).
-  // Ahora se ofrecen como botones propios en vez de mandar al usuario al
-  // navegador, que es donde estaban los anuncios.
-  //
-  // Medido el 2026-08-05 con From 3x5, uno por uno y pidiendo el vídeo:
-  //
-  //   ⚡ Goodstream   1551 ms · 200 hls ok   (ya tenía ficha propia arriba)
-  //   ⚡ Vidhide      2020 ms · 200 hls ok   dramiyos-cdn
-  //   ⚡ Directo 2    ya viene resuelto, es el m3u8 firmado
-  //   🌐 Streamhg · Filemoon · Voe · Streamwish · Netu · Doodstream
-  //
-  // Los seis que van al navegador NO están medidos como imposibles: es que esta
-  // extensión todavía no tiene su resolver. Varios existen en otras del repo
-  // —voe está en cinco, streamwish en jkanime— y traerlos acá es copiar y
-  // medir, no investigar. Queda como lo próximo.
-  // Voe y Streamwish salen de ADENTRO de unlimplay. Los resolvers vienen de
-  // otras extensiones del repo —voe de hentaila, streamwish de jkanime— donde
-  // estaban medidos andando. Se traen para que dejen de mandar al navegador.
-  {
-    boton: "UA Voe",
-    hosts: ["voe.sx", "voe."],
-    botones: 0,
-    nativo: true,
-    resolver: resolver9
-  },
-  {
-    // El mismo motor sirve para Streamwish y para Vidhide.
-    boton: "UA Streamwish",
-    hosts: ["streamwish", "sfastwish", "wishfast", "swdyu"],
-    botones: 0,
-    nativo: true,
-    resolver: resolver7
-  },
-  {
-    boton: "UA Vidhide",
-    hosts: ["vidhidepro", "vidhide", "vhide"],
-    botones: 0,
-    nativo: true,
-    resolver: resolver7
+    resolver: resolver6
   },
   {
     boton: "DL",
     hosts: ["dropload", "dr0pstream"],
     botones: 47,
     nativo: true,
-    resolver: resolver3
+    resolver: resolver2
   }
 ];
 function fichaDe(url) {
@@ -662,7 +423,7 @@ async function resolverServidor(url, referer) {
   const ficha = fichaDe(url);
   if (ficha) return ficha.resolver(url, referer);
   console.log(`[fc] servidor sin ficha, se prueba a mano: ${url.slice(0, 60)}`);
-  return resolver5(url, referer);
+  return resolver4(url, referer);
 }
 
 // extensions/fuegocine/index.ts
@@ -914,53 +675,35 @@ function _parseSvLinks(html) {
   return out;
 }
 async function watch(url) {
-  var _a, _b;
   if (url.indexOf("http") === 0 && url.indexOf(HOST) === -1) {
     try {
       const resolved = await _resolveServerUrl(url);
-      if (resolved) return { streams: [resolved], pageUrl: "" };
+      if (resolved) return { streams: [resolved] };
     } catch (e) {
+      console.log(`[fc] no se pudo resolver ${url.slice(0, 50)}: ${e}`);
     }
-    return { streams: [], pageUrl: url };
+    return { streams: [], reason: "resolve_failed" };
   }
   const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
-  if (typeof html !== "string") return { streams: [], pageUrl: fullUrl };
+  if (typeof html !== "string") return { streams: [] };
   const links = _parseSvLinks(html);
   const streams = [];
   const fichas = [];
   for (const link of links) {
-    const url2 = link.url.indexOf("unlimplay.com") !== -1 ? rutaAlDia(link.url) : link.url;
-    const destino = _destinoDe(url2);
+    const destino = _destinoDe(link.url);
     const ficha = destino ? fichaDe(destino) : null;
-    const esUnlimplay = url2.indexOf("unlimplay.com") !== -1;
-    if (!esUnlimplay) {
-      fichas.push((_a = ficha == null ? void 0 : ficha.boton) != null ? _a : "");
-      streams.push({
-        url: url2,
-        quality: link.name || "Servidor",
-        nativo: ficha == null ? void 0 : ficha.nativo
-      });
+    if (!ficha || !ficha.nativo) {
+      console.log(`[fc] servidor sin reproducci\xF3n en la app, no se ofrece: ${link.name} ${(destino || link.url).slice(0, 60)}`);
       continue;
     }
-    fichas.push((_b = ficha == null ? void 0 : ficha.boton) != null ? _b : "");
-    streams.push({
-      url: `${url2}${MARCA_MULTI}`,
-      quality: `${link.name || "UA"} Multi`,
-      nativo: false
-    });
+    fichas.push(ficha.boton);
+    streams.push({ url: link.url, quality: link.name || "Servidor", nativo: true });
   }
-  const FUERA_DE_LA_LISTA = ["drive.google.com"];
-  const visibles = streams.map((s, i) => ({ s, boton: fichas[i], i })).filter(
-    (x) => !FUERA_DE_LA_LISTA.some((d) => {
-      var _a2;
-      return ((_a2 = x.s.url) != null ? _a2 : "").toLowerCase().indexOf(d) !== -1;
-    })
-  );
-  const orden = visibles;
-  const peso = (x) => x.boton === "FC" ? 0 : x.s.nativo === false ? 2 : 1;
+  const orden = streams.map((s, i) => ({ s, boton: fichas[i], i }));
+  const peso = (x) => x.boton === "FC" ? 0 : 1;
   orden.sort((a, b) => peso(a) - peso(b) || a.i - b.i);
-  return { streams: orden.map((x) => x.s), pageUrl: fullUrl };
+  return { streams: orden.map((x) => x.s) };
 }
 
 // OJO: nunca usar url.indexOf('.mp4')/('.m3u8') suelto — algunos dominios de

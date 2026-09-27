@@ -25,26 +25,26 @@
 
 import { type ServidorResuelto } from './comun';
 import * as directo from './directo';
-import * as drive from './drive';
 import * as dropload from './dropload';
 import * as firestream from './firestream';
 import * as goodstream from './goodstream';
 import * as okru from './ok.ru';
-import * as streamwish from './streamwish';
-import * as unlimplay from './unlimplay';
-import * as voe from './voe';
-import * as upns from './upns';
 import * as vimeos from './vimeos';
 
 export { type ServidorResuelto } from './comun';
-export {
-  rutaAlDia as unlimplayAlDia,
-  MARCA_MULTI as unlimplayMarcaMulti,
-  MARCA_IDIOMA as unlimplayMarcaIdioma,
-  etiquetaDeIdioma,
-  servidoresDe as servidoresDeUnlimplay,
-  type ServidorDeUnlimplay,
-} from './unlimplay';
+
+// ── Los que salieron el 2026-09-27 ───────────────────────────────────────────
+//
+// La app ya no abre páginas en un navegador: un servidor que no resuelve a un
+// vídeo directo es un botón que no reproduce nunca. Se midió sobre seis
+// títulos, bajando vídeo, y salieron con su carpeta:
+//
+//   UA (unlimplay)  0 de 24. Su menú ya no trae servidores: solo "direct" y
+//                   "proxy", y los dos contestan 403 porque el vale del CDN
+//                   está atado a la IP de unlimplay. En la mitad de los
+//                   títulos el menú viene vacío (`EMBEDS = []`).
+//   US (upns)       marcado de navegador desde agosto.
+//   Drive           el propio Google corta el archivo a quien no tiene cuenta.
 
 export interface Servidor {
   /** El botón como lo muestra el sitio. */
@@ -61,32 +61,14 @@ export interface Servidor {
 /** Ordenados por peso: primero los que más aparecen en el catálogo. */
 export const SERVIDORES: Servidor[] = [
   {
-    boton: 'UA',
-    hosts: ['unlimplay'],
-    botones: 395,
-    nativo: true,
-    resolver: unlimplay.resolver,
-  },
-  {
-    boton: 'US',
-    hosts: ['upns'],
-    botones: 241,
-    nativo: false,
-    resolver: upns.resolver,
-  },
-  {
     boton: 'FC',
-    hosts: ['rumble.cloud', 'files.eintim.me', '1a-1791.com', 'archive.org'],
+    // videro.my: el 2026-09-27 cinco de cada seis títulos ya servían FC desde
+    // ahí (un m3u8 abierto, sin cabeceras). Sin este host se quedaban sin
+    // ficha y el botón FC no reproducía.
+    hosts: ['rumble.cloud', 'files.eintim.me', '1a-1791.com', 'archive.org', 'videro.'],
     botones: 195,
     nativo: true,
     resolver: directo.resolver,
-  },
-  {
-    boton: 'Drive',
-    hosts: ['drive.google.com'],
-    botones: 139,
-    nativo: false,
-    resolver: drive.resolver,
   },
   {
     boton: 'GS',
@@ -116,49 +98,6 @@ export const SERVIDORES: Servidor[] = [
     nativo: true,
     resolver: vimeos.resolver,
   },
-  // ── Los que vienen ADENTRO de UA ────────────────────────────────────────
-  //
-  // unlimplay es un reproductor con nueve servidores adentro, y su página los
-  // publica en texto plano (ver `servidoresDe` en la carpeta de unlimplay).
-  // Ahora se ofrecen como botones propios en vez de mandar al usuario al
-  // navegador, que es donde estaban los anuncios.
-  //
-  // Medido el 2026-08-05 con From 3x5, uno por uno y pidiendo el vídeo:
-  //
-  //   ⚡ Goodstream   1551 ms · 200 hls ok   (ya tenía ficha propia arriba)
-  //   ⚡ Vidhide      2020 ms · 200 hls ok   dramiyos-cdn
-  //   ⚡ Directo 2    ya viene resuelto, es el m3u8 firmado
-  //   🌐 Streamhg · Filemoon · Voe · Streamwish · Netu · Doodstream
-  //
-  // Los seis que van al navegador NO están medidos como imposibles: es que esta
-  // extensión todavía no tiene su resolver. Varios existen en otras del repo
-  // —voe está en cinco, streamwish en jkanime— y traerlos acá es copiar y
-  // medir, no investigar. Queda como lo próximo.
-  // Voe y Streamwish salen de ADENTRO de unlimplay. Los resolvers vienen de
-  // otras extensiones del repo —voe de hentaila, streamwish de jkanime— donde
-  // estaban medidos andando. Se traen para que dejen de mandar al navegador.
-  {
-    boton: 'UA Voe',
-    hosts: ['voe.sx', 'voe.'],
-    botones: 0,
-    nativo: true,
-    resolver: voe.resolver,
-  },
-  {
-    // El mismo motor sirve para Streamwish y para Vidhide.
-    boton: 'UA Streamwish',
-    hosts: ['streamwish', 'sfastwish', 'wishfast', 'swdyu'],
-    botones: 0,
-    nativo: true,
-    resolver: streamwish.resolver,
-  },
-  {
-    boton: 'UA Vidhide',
-    hosts: ['vidhidepro', 'vidhide', 'vhide'],
-    botones: 0,
-    nativo: true,
-    resolver: streamwish.resolver,
-  },
   {
     boton: 'DL',
     hosts: ['dropload', 'dr0pstream'],
@@ -177,9 +116,7 @@ export function fichaDe(url: string): Servidor | null {
 /**
  * Resuelve una dirección de servidor a algo que la app pueda abrir.
  *
- * Devuelve null cuando no se puede: ahí la app reintenta ESE mismo servidor con
- * su navegador interno, que ejecuta JS de verdad y a veces llega donde esto no.
- * Por eso un servidor que no resuelve igual se deja en la lista.
+ * Devuelve null cuando no se puede, y ahí la app prueba con otro servidor.
  */
 export async function resolverServidor(
   url: string,

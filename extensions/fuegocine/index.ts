@@ -1,12 +1,6 @@
 import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities } from '../../sdk/html';
-import {
-  fichaDe,
-  resolverServidor,
-  unlimplayAlDia,
-  unlimplayMarcaMulti,
-  type ServidorResuelto,
-} from './servidores';
+import { fichaDe, resolverServidor, type ServidorResuelto } from './servidores';
 import { b64aTexto } from './servidores/comun';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode, PrismSeason } from '../../sdk/types';
 
@@ -14,69 +8,6 @@ declare function sendMessage(channel: string, data: string): Promise<string>;
 
 const BASE = 'https://www.fuegocine.com';
 
-/// Los servidores de adentro de unlimplay que se midió que REPRODUCEN en la
-/// app. Solo estos salen como botón propio; el resto se llega por "UA Multi".
-///
-/// Se lleva a mano y no se deduce de la tabla de fichas a propósito: un host
-/// puede coincidir con una ficha y aun así no resolver desde este sitio —pasó
-/// con "remux", que salía con el rayo y devolvía nulo—. Acá solo entra lo
-/// comprobado pidiendo el vídeo.
-/// Escaneo del 2026-08-06 sobre **25 títulos** de la portada, midiendo las dos
-/// cosas: que el resolver devuelva dirección Y que el CDN mande bytes de verdad
-/// (se pide un rango real y se cuenta lo que llega).
-///
-///     servidor     resuelve  reproduce  falla
-///     goodstream     19/22        19        0   ← entra
-///     direct         26/26        16       10   ← ya estaba
-///     vidhide        61/62        10       51
-///     voe            17/88         7       10
-///     streamhg       14/22         6        8
-///     filelions       4/5          1        3
-///     filemoon · streamwish · doodstream · streamtape · netu · remux   0
-///
-/// **Goodstream es hoy el más confiable de todos, incluso más que el Direct**:
-/// cero fallos en 19 reproducciones. Ya había salido como botón y se había
-/// vuelto atrás por fallar seguido; con esta medición vuelve.
-///
-/// **Vidhide no entra hoy, pero NO está descartado.** Resuelve 61 de 62 —el
-/// resolver está impecable— y lo que falla es su CDN: 51 de sus fallos vienen
-/// de `acek-cdn.com`, el mismo que ese día se midió caído (502/504) también
-/// desde JKAnime. Se lo estaría juzgando en su peor día. Cuando ese CDN se
-/// recupere, se vuelve a medir y alcanza con sumarlo acá.
-///
-/// **El orden de esta lista es el orden de los botones**, y es a propósito:
-/// Goodstream va PRIMERO porque el cliente abre el primero de la lista y es el
-/// que más veces funciona. El Direct falla 10 de 26 con un 403 que no es
-/// nuestro —se probó el mismo m3u8 con Referer, con Origin, con los dos
-/// User-Agent y sin ninguna cabecera, y da 403 en las seis; el sitio además
-/// devuelve el mismo vale al segundo pedido, o sea que lo tiene cacheado y
-/// nace muerto—. Abrir primero el que anda ahorra ese salto al navegador.
-///
-/// **Hoy no se usa**: UA sale con un solo botón, su propio menú. Se deja la
-/// medición escrita porque es el trabajo caro —25 títulos, pidiendo el vídeo
-/// uno por uno— y es lo que habría que rehacer para volver a intentarlo. Ver el
-/// bloque de unlimplay más abajo, en watch().
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const _UA_QUE_ANDAN = ['goodstream', 'direct'];
-
-/// **Voe y Streamwish se probaron y NO entran.** Sus resolvers están copiados en
-/// `servidores/` —traídos de hentaila y de jkanime, donde sí andan— y desde acá
-/// resuelven: devuelven una dirección. Pero al pedir el vídeo no llega nada.
-///
-/// Medido el 2026-08-06 sobre From 3x5 y Supergirl, bajando el primer pedacito:
-///
-///   voe         404 · 0 KB
-///   streamwish  206 con 0 KB, las dos veces
-///
-/// Contra: goodstream da 267 y 978 KB, y vidhide 1269 y 1169 KB.
-///
-/// O sea que resolver no alcanza: hay que pedir el vídeo. Si se hubieran
-/// marcado con el rayo por "resuelve", el usuario los elegiría esperando el
-/// reproductor de la app y terminaría en el navegador igual — que es
-/// exactamente lo que este archivo viene evitando.
-///
-/// Los resolvers se dejan puestos igual: si el sitio cambia, ya están, y
-/// alcanza con sumar el nombre a la lista de arriba después de medirlo.
 const HOST = 'fuegocine.com';
 
 async function _get(url: string): Promise<string> {
@@ -397,15 +328,8 @@ export async function detail(url: string): Promise<PrismDetail> {
 //    Accept-Ranges) o un embed de terceros que sí necesita resolveEmbed
 //    (ej. firestream.to, que desde ahora resuelve nativo — ver
 //    resolveFirestream en el SDK).
-//  - unlimplay.com: la página del embed trae en texto plano un campo
-//    "direct":"https://sN.vimeos.net/hls2/.../master.m3u8?..." — mismo estilo
-//    de CDN firmado que uqload, sin necesidad de desempaquetar nada.
-// Antes acá se ocultaba drive.google.com. Se quitó: el sitio lo ofrece y el
-// usuario lo veía en la web pero no en la app —confirmado con Superman, donde
-// la página lista FS, US, Drive y UA y la app mostraba solo tres—. Ahora sale
-// con el mundo, como US: si el camino nativo no alcanza, la app lo reintenta
-// con su navegador interno, que es donde Drive sí reproduce. Ocultarlo solo le
-// quitaba esa oportunidad.
+// UA (unlimplay), US y Drive ya no se ofrecen: ver la nota en
+// `servidores/index.ts`.
 
 /**
  * Le pone `https:` a las direcciones que vienen sin protocolo.
@@ -414,15 +338,8 @@ export async function detail(url: string): Promise<PrismDetail> {
  * pagina web, donde el navegador le pone el protocolo de la pagina, pero no
  * cuando se pide desde afuera. Medido en vivo con el servidor GS(ads):
  * "Unsupported scheme '' in URI //gscdn.cam/video/embed/..." — el pedido ni se
- * hacia, el resolver devolvia nulo y el servidor terminaba abriendose en el
- * navegador interno (con sus anuncios) pudiendo reproducirse en la app.
+ * hacia y el resolver devolvia nulo, pudiendo reproducirse en la app.
  */
-/** "goodstream" -> "Goodstream", "direct 2" -> "Directo 2". */
-function _conMayuscula(s: string): string {
-  const n = s.toLowerCase() === 'direct 2' ? 'directo 2' : s;
-  return n.charAt(0).toUpperCase() + n.slice(1);
-}
-
 function _conEsquema(url: string): string {
   const u = url.trim();
   if (u.indexOf('//') === 0) return `https:${u}`;
@@ -490,34 +407,19 @@ export async function watch(url: string): Promise<PrismWatch> {
   if (url.indexOf('http') === 0 && url.indexOf(HOST) === -1) {
     try {
       const resolved = await _resolveServerUrl(url);
-      if (resolved) return { streams: [resolved], pageUrl: '' };
-    } catch {
-      /* sigue abajo, al navegador */
+      if (resolved) return { streams: [resolved] };
+    } catch (e) {
+      console.log(`[fc] no se pudo resolver ${url.slice(0, 50)}: ${e}`);
     }
-    // ── No se pudo resolver: va al navegador interno ──────────────────────
-    //
-    // Antes se devolvía la dirección CRUDA como si fuera un vídeo, y eso está
-    // mal para todo lo que no sea un enlace directo. El caso que lo destapó es
-    // **UA Multi**, que a propósito no resuelve —es el menú de la propia
-    // página, no un vídeo— y aun así salía así:
-    //
-    //     watch("…/embed/tv/125988/1/1#multi")
-    //       → { type: "hls", url: "…/embed/tv/125988/1/1#multi" }
-    //
-    // O sea: se le entregaba un HTML a mpv haciéndolo pasar por HLS. mpv no
-    // puede con eso, falla, y la app cae al navegador igual — pero después de
-    // dar la vuelta larga y de mostrar el fallo. Y en el navegador, sin que
-    // nadie lo esperara ahí, corren los anuncios de la página.
-    //
-    // Devolverlo como página es lo que ya hacen las demás extensiones: el
-    // navegador interno ejecuta JS de verdad y su sniffer encuentra el vídeo si
-    // lo hay. Para UA Multi además es lo que se busca — el usuario elige ahí.
-    return { streams: [], pageUrl: url };
+    // Sin resolver no hay nada que reproducir. Devolver la dirección cruda
+    // era darle una página a mpv como si fuera vídeo, y la app ya no tiene
+    // navegador interno al que mandarla.
+    return { streams: [], reason: 'resolve_failed' };
   }
 
   const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
-  if (typeof html !== 'string') return { streams: [], pageUrl: fullUrl };
+  if (typeof html !== 'string') return { streams: [] };
 
   const links = _parseSvLinks(html);
   const streams: PrismStream[] = [];
@@ -525,126 +427,37 @@ export async function watch(url: string): Promise<PrismWatch> {
   // ordenar más abajo.
   const fichas: string[] = [];
   for (const link of links) {
-    // Se normaliza acá también, y no solo al resolver: esta es la dirección que
-    // se le entrega a la app, y es la que abre el navegador interno cuando el
-    // camino nativo no alcanza. Con la ruta vieja, ahí se veía la portada del
-    // sitio en vez del reproductor.
-    const url =
-      link.url.indexOf('unlimplay.com') !== -1 ? unlimplayAlDia(link.url) : link.url;
-    // El rayo/mundo sale de la tabla de `servidores/`, que es donde está lo que
-    // se midió de cada uno. Se mira el destino y no el envoltorio: los botones
-    // de este sitio son etiquetas de dos letras ("FC", "UA", "GS(ads)") y todos
-    // los envoltorios de blogspot son iguales por fuera.
-    const destino = _destinoDe(url);
+    // La ficha sale de la tabla de `servidores/`, que es donde está lo que se
+    // midió de cada uno. Se mira el destino y no el envoltorio: los botones de
+    // este sitio son etiquetas de dos letras ("FC", "GS(ads)") y todos los
+    // envoltorios de blogspot son iguales por fuera.
+    const destino = _destinoDe(link.url);
     const ficha = destino ? fichaDe(destino) : null;
-    const esUnlimplay = url.indexOf('unlimplay.com') !== -1;
-    // Se guarda con qué ficha se reconoció, para ordenar abajo sin tener que
-    // volver a desenvolver el envoltorio de blogspot.
-    // Los que NO son unlimplay salen tal cual, uno por botón.
-    if (!esUnlimplay) {
-      fichas.push(ficha?.boton ?? '');
-      streams.push({
-        url,
-        quality: link.name || 'Servidor',
-        nativo: ficha?.nativo,
-      });
+    // **Solo salen los servidores que reproducen en la app.** La app ya no abre
+    // páginas en un navegador: uno sin ficha nativa (UA, US, Drive, o uno nuevo
+    // que el sitio sume) sería un botón que no reproduce nunca. Se deja anotado
+    // en el registro para venir a agregarlo si aparece seguido.
+    if (!ficha || !ficha.nativo) {
+      console.log(`[fc] servidor sin reproducción en la app, no se ofrece: ${link.name} ${(destino || link.url).slice(0, 60)}`);
       continue;
     }
-
-    // ── unlimplay: un solo boton, su propio menu ────────────────────────────
-    //
-    // unlimplay no es un servidor: es un reproductor con su propio menu, con
-    // nueve servidores adentro y en varios idiomas. Se probaron las dos formas
-    // de ofrecerlo y esta es la que quedo, a pedido explicito.
-    //
-    // ── Lo que se intento antes, y por que se volvio atras ──────────────────
-    //
-    // Se llego a abrir el menu y sacar cada servidor como boton propio, para
-    // que fueran directo al reproductor nativo. Se midio sobre 25 titulos,
-    // pidiendo el video de verdad y contando bytes:
-    //
-    //     goodstream   19 reproduce · 0 fallan
-    //     direct       16 reproduce · 10 fallan
-    //     vidhide      10 reproduce · 51 fallan   (su CDN, acek-cdn.com)
-    //     voe · streamhg · filelions              flojos
-    //     filemoon · streamwish · doodstream · streamtape · netu · remux   0
-    //
-    // O sea: de nueve servidores, dos servian. Y el Directo —que es el que el
-    // sitio pone primero— falla 10 de 26 con un 403 que NO es del pedido: se
-    // probo el mismo m3u8 con Referer, con Origin, con los dos User-Agent y
-    // sin ninguna cabecera, y da 403 en las seis. El sitio ademas devuelve el
-    // mismo vale al segundo pedido, o sea que lo tiene cacheado y nace muerto.
-    //
-    // Con lo cual el usuario tocaba un boton con rayo y terminaba igual en el
-    // navegador, pero despues de dar la vuelta larga y ver el fallo.
-    //
-    // ── Por que un solo boton alcanza ───────────────────────────────────────
-    //
-    // Lo que hacia molesto ir al navegador eran los anuncios de la pagina, y
-    // eso ya esta resuelto del lado de la app: el bloqueador corta los VAST en
-    // origen, asi que el anuncio no llega a existir. Con eso, el menu propio
-    // del sitio es mejor que dos botones nuestros que a veces andan: los tiene
-    // todos, en todos los idiomas, y elige el usuario.
-    //
-    // Y sale mas rapido: antes habia que pedir la pagina del embed SOLO para
-    // leer el menu y decidir que botones poner. Ahora no se pide nada.
-    //
-    // Si algun dia se quiere volver a intentar, esta todo: el lector del menu
-    // por idioma y la marca `#lang=` siguen en `servidores/unlimplay/`.
-    fichas.push(ficha?.boton ?? '');
-    streams.push({
-      url: `${url}${unlimplayMarcaMulti}`,
-      quality: `${link.name || 'UA'} Multi`,
-      nativo: false,
-    });
+    fichas.push(ficha.boton);
+    streams.push({ url: link.url, quality: link.name || 'Servidor', nativo: true });
   }
 
-  // FC primero; después el resto de los que reproducen en la app; los de
-  // navegador, al final.
+  // FC primero; después el resto, en el orden del sitio.
   //
-  // El cliente toma el PRIMER servidor de la lista como el inicial, y hasta
-  // ahora ese era simplemente el que el sitio listara antes. Medido el
-  // 2026-08-05 sobre seis títulos, eso daba dos problemas:
-  //
-  //   · **FC quedaba atrás siendo el mejor.** Es un mp4 directo y va a
-  //     27-107 Mbps medidos; los demás son listas HLS de 2 a 12 Mbps. Cuando
-  //     está, es el que conviene abrir.
-  //   · **En un título el primario era US, que abre el NAVEGADOR.** O sea que
-  //     ese episodio arrancaba fuera del reproductor de la app sin motivo,
-  //     habiendo un UA nativo en la misma lista.
-  //
-  // Es un reordenamiento, no un filtro: están todos y en su orden original
-  // dentro de cada grupo. Si el título no tiene FC, no cambia nada.
+  // El cliente toma el PRIMER servidor de la lista como el inicial. FC es un
+  // archivo directo y va a 27-107 Mbps medidos (2026-08-05); los demás son
+  // listas HLS de 2 a 12 Mbps. Cuando está, es el que conviene abrir.
   //
   // Ojo con FC igual: hay títulos suyos que se cortan, y no es el servidor sino
   // cómo quedó armado el archivo (el audio entero al final, lejos del vídeo —
   // ver la carpeta `directo/`). Cuando pasa, la app cae sola al siguiente.
-  // ── Drive sale de la lista, a pedido explícito (2026-08-06) ───────────────
-  //
-  // Drive no reproduce y no es cosa de la app: el propio Google corta el
-  // archivo cuando se le acaba la cuota de gente sin cuenta. Medido en vivo,
-  // eso es lo que se ve en el navegador interno:
-  //
-  //   «Inicia sesión en tu cuenta de Google para seguir reproduciendo este
-  //    vídeo. Se ha alcanzado el límite de usuarios que no han iniciado sesión.»
-  //
-  // O sea que el botón no promete un vídeo: promete un cartel. Y encima no se
-  // le puede ni cambiar la calidad, porque no hay nada reproduciéndose.
-  //
-  // No se borró nada: `servidores/drive/` sigue con sus mediciones, y volver a
-  // ponerlo es sacar su nombre de acá.
-  const FUERA_DE_LA_LISTA = ['drive.google.com'];
-  const visibles = streams
-    .map((s, i) => ({ s, boton: fichas[i], i }))
-    .filter((x) =>
-      !FUERA_DE_LA_LISTA.some((d) => (x.s.url ?? '').toLowerCase().indexOf(d) !== -1),
-    );
-
-  const orden = visibles;
-  const peso = (x: { s: PrismStream; boton: string }) =>
-    x.boton === 'FC' ? 0 : x.s.nativo === false ? 2 : 1;
+  const orden = streams.map((s, i) => ({ s, boton: fichas[i], i }));
+  const peso = (x: { boton: string }) => (x.boton === 'FC' ? 0 : 1);
   // El `i` desempata para que dentro de cada grupo se respete el orden del sitio.
   orden.sort((a, b) => peso(a) - peso(b) || a.i - b.i);
 
-  return { streams: orden.map((x) => x.s), pageUrl: fullUrl };
+  return { streams: orden.map((x) => x.s) };
 }
