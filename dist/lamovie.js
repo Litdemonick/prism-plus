@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LaMovie
-// @version      1.2.1
+// @version      1.3.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -10,7 +10,7 @@
 // @contentKind  accion-real
 // @latestLabel  recien-anadidas
 // @webSite      https://lamovie.org
-// @description  Películas, series, animes y novelas en español desde LaMovie — catálogo, búsqueda y filtros por género/año/calidad/idioma
+// @description  Películas, series y animes en español desde LaMovie — catálogo, búsqueda y filtros por tipo, género, año, país y plataforma
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
 var __getOwnPropSymbols = Object.getOwnPropertySymbols;
@@ -29,11 +29,6 @@ var __spreadValues = (a, b) => {
   return a;
 };
 
-// extensions/lamovie/servidores/doodstream/index.ts
-async function resolver(_url, _referer) {
-  return null;
-}
-
 // extensions/lamovie/servidores/comun.ts
 var UA_NAVEGADOR = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 async function pedir(url, referer, headers) {
@@ -51,7 +46,7 @@ async function pedir(url, referer, headers) {
       ])
     );
   } catch (e) {
-    console.log(`[fc] no se pudo pedir ${url.slice(0, 45)} :: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
+    console.log(`[lamovie] no se pudo pedir ${url.slice(0, 45)} :: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
     return null;
   }
 }
@@ -127,112 +122,17 @@ ${u}`;
   return out;
 }
 
-// extensions/lamovie/servidores/goodstream/index.ts
-async function resolver2(url, referer) {
-  const html = await pedir(url, referer);
-  if (!html) return null;
-  const host = hostDe(url);
-  return buscarDireccion(html, host ? { Referer: `https://${host}/` } : void 0);
-}
-
 // extensions/lamovie/servidores/vimeos/index.ts
-async function resolver3(url, referer) {
+async function resolver(url, referer) {
   const html = await pedir(url, referer);
   if (!html) return null;
   const host = hostDe(url);
   return buscarDireccion(html, host ? { Referer: `https://${host}/` } : void 0);
-}
-
-// extensions/lamovie/servidores/voe/index.ts
-function rot13(s) {
-  return s.replace(/[a-zA-Z]/g, (c) => {
-    const base = c <= "Z" ? 65 : 97;
-    return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
-  });
-}
-function desescapar(s) {
-  return s.replace(/\\\//g, "/");
-}
-function descifrar(crudo) {
-  try {
-    let r = rot13(crudo);
-    for (const p of ["@$", "^^", "#&", "~@", "%?", "*~", "!!", "`"]) r = r.split(p).join("");
-    const paso3 = b64aTexto(r);
-    let corrido = "";
-    for (let i = 0; i < paso3.length; i++) corrido += String.fromCharCode(paso3.charCodeAt(i) - 3);
-    return b64aTexto(corrido.split("").reverse().join(""));
-  } catch (e) {
-    return null;
-  }
-}
-async function resolver4(url, referer) {
-  let html = await pedir(url, referer);
-  if (!html) return null;
-  const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html);
-  if (redir) {
-    const espejo = await pedir(redir[1], "https://voe.sx/");
-    if (espejo) html = espejo;
-  }
-  const bloque = /<script[^>]*type=["']application\/json["'][^>]*>\s*\[\s*"([^"]+)"\s*\]\s*<\/script>/.exec(html);
-  if (bloque) {
-    const claro = descifrar(bloque[1]);
-    if (claro) {
-      const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(claro);
-      if (src) return { url: desescapar(src[1]) };
-      const cualquiera = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(desescapar(claro));
-      if (cualquiera) return { url: cualquiera[1] };
-      const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(claro);
-      if (mp4) return { url: desescapar(mp4[1]) };
-    }
-  }
-  let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
-  if (m) return { url: m[1] };
-  const enBase64 = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
-  if (enBase64) {
-    try {
-      const claro = b64aTexto(enBase64[1]);
-      const hls = /['"]hls['"]\s*:\s*['"]([^'"]+)['"]/.exec(claro);
-      if (hls) return { url: hls[1] };
-      const directo = /(https?:\/\/[^"'\s]+\.m3u8[^"'\s]*)/.exec(claro);
-      if (directo) return { url: directo[1] };
-    } catch (e) {
-    }
-  }
-  m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
-  if (m) return { url: m[0] };
-  return null;
 }
 
 // extensions/lamovie/servidores/index.ts
 var SERVIDORES = [
-  {
-    boton: "Vimeos",
-    hosts: ["vimeos"],
-    medido: "9/9",
-    nativo: true,
-    resolver: resolver3
-  },
-  {
-    boton: "GoodstreamOne",
-    hosts: ["goodstream"],
-    medido: "8/8",
-    nativo: true,
-    resolver: resolver2
-  },
-  {
-    boton: "Voe",
-    hosts: ["voe.sx", "voe.", "voedelivery", "jonathansociallike", "brookethoughi"],
-    medido: "anda en la app",
-    nativo: true,
-    resolver: resolver4
-  },
-  {
-    boton: "Doodstream",
-    hosts: ["doodstream", "dood.", "d000d", "dooood"],
-    medido: "0/7",
-    nativo: false,
-    resolver
-  }
+  { boton: "Vimeos", hosts: ["vimeos"], resolver }
 ];
 function servidorDe(url) {
   const u = url.toLowerCase();
@@ -243,7 +143,7 @@ function servidorDe(url) {
   }
   return null;
 }
-async function resolver5(url, referer) {
+async function resolver2(url, referer) {
   const s = servidorDe(url);
   if (!s) return null;
   try {
@@ -256,339 +156,306 @@ async function resolver5(url, referer) {
 
 // extensions/lamovie/index.ts
 var BASE = "https://lamovie.org";
-var API = "https://lamovie.org/wp-api/v1";
-var IMG = "https://lamovie.org/wp-content/uploads";
+var API = "https://tmdb.allcalidad.re/v1";
+var IMG = "https://image.tmdb.org/t/p";
+var EMBED = "https://vimeos.net/embed-";
 async function _get(url) {
   const raw = await sendMessage(
     "request",
     JSON.stringify([url, { method: "get", headers: { Referer: `${BASE}/` } }])
   );
-  return JSON.parse(raw);
+  const t = (raw || "").trim();
+  if (t.charAt(0) !== "{" && t.charAt(0) !== "[") {
+    throw new Error("LaMovie no devolvi\xF3 datos (la API respondi\xF3 otra cosa)");
+  }
+  return JSON.parse(t);
 }
-var POST_TYPES = ["movies", "tvshows", "animes", "novels"];
-var PERMALINK = {
-  movies: "peliculas",
-  tvshows: "series",
-  animes: "animes",
-  novels: "novelas"
-};
-function _tipoDeMedio(postType) {
-  if (postType === "movies") return "movie";
-  if (postType === "animes") return "anime";
+var KINDS = ["movie", "tvshow", "anime"];
+var SEGMENTO = { movie: "pelicula", tvshow: "serie", anime: "anime" };
+function _tipoDeMedio(kind) {
+  if (kind === "movie") return "movie";
+  if (kind === "anime") return "anime";
   return "series";
 }
-function _isSerial(postType) {
-  return postType !== "movies";
+function _img(path, tam) {
+  if (!path) return void 0;
+  if (path.indexOf("http") === 0) return path;
+  return `${IMG}/${tam}${path.charAt(0) === "/" ? "" : "/"}${path}`;
 }
-var _GENRES = {
-  17: "Drama",
-  18: "Comedia",
-  33: "Suspense",
-  32: "Acci\xF3n",
-  520: "Animaci\xF3n",
-  96: "Terror",
-  180: "Crimen",
-  130: "Aventura",
-  115: "Romance",
-  398: "Familia",
-  97: "Misterio",
-  131: "Ciencia ficci\xF3n",
-  229: "Fantas\xEDa",
-  704: "Sci-Fi & Fantasy",
-  705: "Action & Adventure",
-  164: "Documental",
-  165: "Historia",
-  8: "M\xFAsica",
-  6787: "Pel\xEDcula de TV",
-  3056: "B\xE9lica",
-  674: "Western",
-  703: "Kids",
-  786: "War & Politics",
-  12485: "Reality",
-  19824: "Soap"
-};
-var _COUNTRIES = {
-  457: "Estados Unidos",
-  774: "Reino Unido",
-  787: "Canad\xE1",
-  617: "Francia",
-  5436: "M\xE9xico",
-  2499: "Espa\xF1a",
-  733: "Jap\xF3n",
-  4601: "Corea del Sur",
-  1431: "Alemania",
-  3912: "Italia",
-  7746: "Argentina",
-  2654: "Australia",
-  3416: "India",
-  3623: "Brasil",
-  1198: "China",
-  3057: "Polonia",
-  9620: "Rusia",
-  7483: "Irlanda",
-  1364: "Dinamarca",
-  12155: "Colombia",
-  11668: "Turqu\xEDa",
-  8300: "Suecia",
-  9100: "Tailandia",
-  6033: "Pa\xEDses Bajos",
-  5210: "B\xE9lgica",
-  15438: "Chile",
-  16399: "Noruega",
-  27475: "Per\xFA",
-  35098: "Venezuela",
-  40202: "Portugal"
-};
-function _cover(images) {
-  const p = images == null ? void 0 : images.poster;
-  if (!p) return void 0;
-  return p.indexOf("http") === 0 ? p : `${IMG}${p}`;
+function _itemUrl(kind, id, slug) {
+  return `${BASE}/${SEGMENTO[kind]}/${id}/${slug}`;
 }
-function _postUrl(postType, slug) {
-  var _a;
-  const seg = (_a = PERMALINK[postType]) != null ? _a : postType;
-  return `${BASE}/${seg}/${slug}/`;
+function _episodioUrl(kind, id, temporada, episodio) {
+  return `${BASE}/${SEGMENTO[kind]}/${id}/temporada/${temporada}/episodio/${episodio}`;
 }
-function _yearFromDate(date) {
-  if (!date) return void 0;
-  const y = parseInt(date.slice(0, 4), 10);
+function _anio(i) {
+  if (i.year) return i.year;
+  const f = i.release_date || i.first_air_date;
+  if (!f) return void 0;
+  const y = parseInt(f.slice(0, 4), 10);
   return Number.isFinite(y) ? y : void 0;
 }
-function _tagsFromGenres(genres) {
-  if (!genres || genres.length === 0) return void 0;
-  const names = genres.map((g) => _GENRES[g]).filter((n) => !!n);
-  return names.length ? names : void 0;
+function _generos(i) {
+  const g = (i.genres || []).map((t) => t.title).filter((t) => !!t);
+  return g.length ? g : void 0;
 }
-function _itemFromPost(p) {
+function _itemDe(i) {
+  const ultimo = i.latest_episode;
   return {
-    title: p.title,
-    url: _postUrl(p.type, p.slug),
-    cover: _cover(p.images),
-    description: p.overview,
-    tags: _tagsFromGenres(p.genres),
-    year: _yearFromDate(p.release_date),
-    rating: p.rating ? parseFloat(p.rating) : void 0,
-    type: _tipoDeMedio(p.type)
+    title: i.title,
+    url: _itemUrl(i.kind, i.tmdb_id, i.slug),
+    cover: _img(i.poster_path, "w342"),
+    description: i.overview || void 0,
+    tags: _generos(i),
+    year: _anio(i),
+    rating: i.vote_average ? Math.round(i.vote_average * 10) / 10 : void 0,
+    type: _tipoDeMedio(i.kind),
+    update: ultimo && i.kind !== "movie" ? `T${ultimo.season} E${ultimo.episode}` : void 0
   };
 }
-var _YEARS = {
-  "2026": 74006,
-  "2025": 4,
-  "2024": 1354,
-  "2023": 2236,
-  "2022": 1461,
-  "2021": 2169,
-  "2020": 2792,
-  "2019": 1816,
-  "2018": 1926,
-  "2017": 1874,
-  "2016": 1618,
-  "2015": 8694,
-  "2014": 2052,
-  "2013": 775,
-  "2012": 762,
-  "2011": 769,
-  "2010": 3858,
-  "2009": 2092,
-  "2008": 1395,
-  "2007": 902,
-  "2006": 873,
-  "2005": 963,
-  "2004": 728,
-  "2003": 503,
-  "2002": 800,
-  "2001": 793,
-  "2000": 684,
-  "1999": 735,
-  "1998": 1279,
-  "1997": 600,
-  "1996": 1142,
-  "1995": 937,
-  "1994": 533,
-  "1993": 1707,
-  "1992": 657,
-  "1991": 2583,
-  "1990": 707,
-  "1989": 1258,
-  "1988": 1726,
-  "1987": 852,
-  "1986": 1313,
-  "1985": 1440,
-  "1984": 1237,
-  "1983": 6004,
-  "1982": 1165,
-  "1981": 1212,
-  "1980": 4122,
-  "1979": 2881,
-  "1976": 1378,
-  "1973": 2114
+var _TIPO_VIEJO = {
+  movies: "movie",
+  tvshows: "tvshow",
+  animes: "anime",
+  novels: "tvshow"
 };
-var _PROVIDERS = {
-  459: "Disney Plus",
-  460: "Google Play Movies",
-  461: "Apple TV",
-  462: "Rakuten TV",
-  463: "Microsoft Store",
-  464: "Amazon Video",
-  465: "MovistarTV",
-  466: "maxdome Store",
-  467: "Sky Store",
-  468: "Fetch TV",
-  469: "Cineplex",
-  470: "YouTube",
-  472: "blue TV",
-  474: "MagentaTV",
-  475: "Videoload",
-  476: "Freenet meinVOD",
-  477: "Viaplay",
-  478: "Blockbuster",
-  479: "SF Anytime",
-  480: "Elisa Viihde",
-  481: "Orange VOD",
-  482: "VIVA by videofutur",
-  483: "Premiere Max",
-  487: "Timvision",
-  488: "wavve",
-  489: "KPN",
-  490: "Path\xE9 Thuis",
-  491: "TV 2 Play",
-  492: "Premiery Canal+",
-  493: "Hulu",
-  494: "Fandango At Home",
-  522: "meJane",
-  523: "Player",
-  524: "Kinopoisk",
-  549: "Claro video",
-  551: "Movistar Plus+ Ficci\xF3n Total",
-  563: "Amazon Prime Video",
-  565: "Telia Play",
-  566: "Canal VOD",
-  567: "FILMO",
-  568: "Universcine",
-  569: "Bbox VOD",
-  572: "Netflix",
-  573: "U-NEXT",
-  574: "Netflix Standard with Ads",
-  575: "Watcha",
-  580: "Amazon Prime Video with Ads",
-  581: "Spectrum On Demand",
-  675: "Max",
-  677: "Videobuster"
+var _ORDEN_VIEJO = {
+  latest: "recent",
+  rated: "rating",
+  views: "popular"
 };
-function _parseFilter(filter) {
-  var _a, _b, _c, _d, _e, _f, _g, _h, _i;
-  const postType = (_a = filter == null ? void 0 : filter["tipo"]) == null ? void 0 : _a[0];
-  const genre = ((_b = filter == null ? void 0 : filter["genero"]) == null ? void 0 : _b[0]) ? parseInt(filter["genero"][0], 10) : void 0;
-  const year = ((_c = filter == null ? void 0 : filter["anio"]) == null ? void 0 : _c[0]) ? _YEARS[filter["anio"][0]] : void 0;
-  const country = ((_d = filter == null ? void 0 : filter["pais"]) == null ? void 0 : _d[0]) ? parseInt(filter["pais"][0], 10) : void 0;
-  const provider = ((_e = filter == null ? void 0 : filter["proveedor"]) == null ? void 0 : _e[0]) ? parseInt(filter["proveedor"][0], 10) : void 0;
-  const quality = ((_f = filter == null ? void 0 : filter["calidad"]) == null ? void 0 : _f[0]) ? parseInt(filter["calidad"][0], 10) : void 0;
-  const lang = ((_g = filter == null ? void 0 : filter["idioma"]) == null ? void 0 : _g[0]) ? parseInt(filter["idioma"][0], 10) : void 0;
-  const orderBy = ((_h = filter == null ? void 0 : filter["orden"]) == null ? void 0 : _h[0]) || "latest";
-  const order = ((_i = filter == null ? void 0 : filter["direccion"]) == null ? void 0 : _i[0]) || "desc";
+function _leerFiltro(filter) {
+  const v = (k) => {
+    var _a;
+    const x = (_a = filter == null ? void 0 : filter[k]) == null ? void 0 : _a[0];
+    return x ? String(x) : void 0;
+  };
+  const tipo = v("tipo");
+  const kind = tipo ? KINDS.includes(tipo) ? tipo : _TIPO_VIEJO[tipo] : void 0;
+  const o = v("orden");
+  const orden = o === "recent" || o === "popular" || o === "rating" ? o : o && _ORDEN_VIEJO[o] || "recent";
+  const anio = v("anio") ? parseInt(v("anio"), 10) : void 0;
+  const genero = v("genero");
+  const pais = v("pais");
   return {
-    postType: postType && POST_TYPES.includes(postType) ? postType : void 0,
-    genre,
-    year,
-    country,
-    provider,
-    quality,
-    lang,
-    orderBy,
-    order
+    kind,
+    orden,
+    genero: genero && !/^\d+$/.test(genero) ? genero : void 0,
+    anio: anio && Number.isFinite(anio) ? anio : void 0,
+    pais: pais && !/^\d+$/.test(pais) ? pais : void 0,
+    plataforma: v("plataforma")
   };
 }
-function _serverFilterParam(f) {
-  const obj = {};
-  if (f.genre) obj.genres = [f.genre];
-  if (f.year) obj.years = [f.year];
-  if (f.country) obj.countries = [f.country];
-  if (f.provider) obj.providers = [f.provider];
-  if (Object.keys(obj).length === 0) return "";
-  return `&filter=${encodeURIComponent(JSON.stringify(obj))}`;
-}
-function _matchesClientFilter(p, f) {
-  if (f.quality && !(p.quality || []).includes(f.quality)) return false;
-  if (f.lang && !(p.lang || []).includes(f.lang)) return false;
-  return true;
+var _GENEROS_RESPALDO = {
+  "acci\xF3n": "Acci\xF3n",
+  "action-adventure": "Acci\xF3n y aventura",
+  "animaci\xF3n": "Animaci\xF3n",
+  "aventura": "Aventura",
+  "b\xE9lica": "B\xE9lica",
+  "ciencia-ficci\xF3n": "Ciencia ficci\xF3n",
+  "sci-fi-fantasy": "Ciencia ficci\xF3n y fantas\xEDa",
+  "comedia": "Comedia",
+  "crimen": "Crimen",
+  "documental": "Documental",
+  "drama": "Drama",
+  "familia": "Familia",
+  "fantas\xEDa": "Fantas\xEDa",
+  "historia": "Historia",
+  "kids": "Infantil",
+  "misterio": "Misterio",
+  "m\xFAsica": "M\xFAsica",
+  "pel\xEDcula-de-tv": "Pel\xEDcula de TV",
+  "reality": "Reality",
+  "romance": "Romance",
+  "soap": "Telenovela",
+  "suspense": "Suspense",
+  "terror": "Terror",
+  "war-politics": "Guerra y pol\xEDtica",
+  "western": "Western"
+};
+var _PAISES_ES = {
+  us: "Estados Unidos",
+  gb: "Reino Unido",
+  jp: "Jap\xF3n",
+  kr: "Corea del Sur",
+  mx: "M\xE9xico",
+  es: "Espa\xF1a",
+  ar: "Argentina",
+  co: "Colombia",
+  cl: "Chile",
+  pe: "Per\xFA",
+  ve: "Venezuela",
+  br: "Brasil",
+  ca: "Canad\xE1",
+  fr: "Francia",
+  de: "Alemania",
+  it: "Italia",
+  cn: "China",
+  au: "Australia",
+  in: "India",
+  ie: "Irlanda",
+  be: "B\xE9lgica",
+  hk: "Hong Kong",
+  se: "Suecia",
+  pl: "Polonia",
+  ru: "Rusia",
+  za: "Sud\xE1frica",
+  ch: "Suiza",
+  th: "Tailandia",
+  dk: "Dinamarca",
+  nl: "Pa\xEDses Bajos",
+  fi: "Finlandia",
+  tr: "Turqu\xEDa",
+  cz: "Rep\xFAblica Checa",
+  no: "Noruega",
+  nz: "Nueva Zelanda",
+  id: "Indonesia",
+  ph: "Filipinas",
+  tw: "Taiw\xE1n",
+  pt: "Portugal",
+  uy: "Uruguay",
+  ec: "Ecuador",
+  bo: "Bolivia",
+  py: "Paraguay",
+  cr: "Costa Rica",
+  do: "Rep\xFAblica Dominicana",
+  pr: "Puerto Rico",
+  cu: "Cuba",
+  gt: "Guatemala",
+  at: "Austria",
+  gr: "Grecia",
+  hu: "Hungr\xEDa",
+  il: "Israel",
+  eg: "Egipto",
+  ng: "Nigeria",
+  my: "Malasia",
+  sg: "Singapur",
+  ro: "Rumania",
+  ua: "Ucrania",
+  is: "Islandia",
+  lu: "Luxemburgo"
+};
+var _PLATAFORMAS = [
+  "netflix",
+  "disney",
+  "prime-video",
+  "apple-tv",
+  "max",
+  "hbo-max",
+  "hbo",
+  "paramount",
+  "hulu",
+  "crunchyroll",
+  "peacock",
+  "star-plus",
+  "vix",
+  "amc"
+];
+var _taxonomias = null;
+async function _leerTaxonomias() {
+  if (_taxonomias) return _taxonomias;
+  try {
+    const t = await _get(`${API}/taxonomies`);
+    _taxonomias = {
+      generos: t.genres || [],
+      anios: (t.years || []).map((y) => y.year).filter((y) => !!y),
+      paises: t.countries || [],
+      cadenas: t.networks || []
+    };
+    return _taxonomias;
+  } catch (e) {
+    console.log(`[lamovie] sin taxonom\xEDas: ${e}`);
+    return null;
+  }
 }
 async function createFilter() {
-  const genreOptions = { "": "Todos" };
-  for (const [id, name] of Object.entries(_GENRES)) genreOptions[id] = name;
-  const countryOptions = { "": "Todos" };
-  for (const [id, name] of Object.entries(_COUNTRIES)) countryOptions[id] = name;
-  const providerOptions = { "": "Todos" };
-  for (const [id, name] of Object.entries(_PROVIDERS)) providerOptions[id] = name;
-  const tipoOptions = {
-    "": "Todos",
-    movies: "Pel\xEDculas",
-    tvshows: "Series",
-    animes: "Animes",
-    novels: "Novelas"
-  };
-  const yearOptions = { "": "Todos" };
-  for (const year of Object.keys(_YEARS)) yearOptions[year] = year;
-  const ordenOptions = {
-    latest: "Recientes",
-    popular: "Populares",
-    rated: "Valorados",
-    views: "Vistos"
-  };
-  const direccionOptions = { desc: "Mayor a menor", asc: "Menor a mayor" };
+  const tax = await _leerTaxonomias();
+  const generos = { "": "Todos" };
+  if (tax && tax.generos.length) {
+    for (const g of tax.generos) generos[g.slug] = _GENEROS_RESPALDO[g.slug] || g.title;
+  } else {
+    Object.assign(generos, _GENEROS_RESPALDO);
+  }
+  const anios = { "": "Todos" };
+  const listaAnios = tax && tax.anios.length ? tax.anios.slice().sort((a, b) => b - a) : [];
+  if (listaAnios.length === 0) {
+    const hoy = (/* @__PURE__ */ new Date()).getFullYear();
+    for (let y = hoy; y >= 1960; y--) listaAnios.push(y);
+  }
+  for (const y of listaAnios) anios[String(y)] = String(y);
+  const paises = { "": "Todos" };
+  const listaPaises = tax && tax.paises.length ? tax.paises.map((p) => ({ slug: p.slug, nombre: _PAISES_ES[p.slug] || p.title })) : Object.keys(_PAISES_ES).map((slug) => ({ slug, nombre: _PAISES_ES[slug] }));
+  listaPaises.sort((a, b) => a.nombre.localeCompare(b.nombre));
+  for (const p of listaPaises) paises[p.slug] = p.nombre;
+  const plataformas = { "": "Todas" };
+  const cadenas = tax ? tax.cadenas : [];
+  for (const slug of _PLATAFORMAS) {
+    const c = cadenas.find((x) => x.slug === slug);
+    if (c || cadenas.length === 0) plataformas[slug] = c ? c.title : slug;
+  }
   return {
-    tipo: { title: "Tipo", options: tipoOptions, default: "", min: 1, max: 1 },
-    orden: { title: "Orden", options: ordenOptions, default: "latest", min: 1, max: 1 },
-    direccion: { title: "Direcci\xF3n", options: direccionOptions, default: "desc", min: 1, max: 1 },
-    genero: { title: "G\xE9nero", options: genreOptions, default: "", min: 1, max: 1 },
-    anio: { title: "A\xF1o", options: yearOptions, default: "", min: 1, max: 1 },
-    pais: { title: "Pa\xEDs", options: countryOptions, default: "", min: 1, max: 1 },
-    proveedor: {
-      title: "Proveedor",
-      options: providerOptions,
+    tipo: {
+      title: "Tipo",
+      options: { "": "Todos", movie: "Pel\xEDculas", tvshow: "Series", anime: "Animes" },
+      default: "",
+      min: 1,
+      max: 1
+    },
+    orden: {
+      title: "Orden",
+      options: { recent: "Recientes", popular: "Populares", rating: "Mejor valorados" },
+      default: "recent",
+      min: 1,
+      max: 1
+    },
+    genero: { title: "G\xE9nero", options: generos, default: "", min: 1, max: 1 },
+    anio: { title: "A\xF1o", options: anios, default: "", min: 1, max: 1 },
+    pais: { title: "Pa\xEDs", options: paises, default: "", min: 1, max: 1 },
+    plataforma: {
+      title: "Plataforma (series y animes)",
+      options: plataformas,
       default: "",
       min: 1,
       max: 1
     }
   };
 }
-async function _listing(postType, page, f) {
-  const perPage = 20;
-  const filterParam = _serverFilterParam(f);
-  const base = `${API}/listing/${postType}?postType=${postType}&postsPerPage=${perPage}&orderBy=${f.orderBy}&order=${f.order}${filterParam}`;
-  const needsClientFilter = !!(f.quality || f.lang);
-  if (!needsClientFilter) {
-    const res = await _get(`${base}&page=${page}`);
-    if (res.error || !res.data) return [];
-    return res.data.posts.map(_itemFromPost);
-  }
-  const items = [];
-  let rawPage = page;
-  const maxRawFetches = 8;
-  for (let attempt = 0; attempt < maxRawFetches && items.length < perPage; attempt++, rawPage++) {
-    const res = await _get(`${base}&page=${rawPage}`);
-    if (res.error || !res.data || res.data.posts.length === 0) break;
-    for (const p of res.data.posts) {
-      if (_matchesClientFilter(p, f)) items.push(_itemFromPost(p));
-    }
-  }
-  return items;
+var POR_PAGINA = 24;
+function _consulta(kind, page, f) {
+  let q = `${API}/items?kind=${kind}&sort=${f.orden}&page=${page}&limit=${POR_PAGINA}`;
+  if (f.genero) q += `&genre=${encodeURIComponent(f.genero)}`;
+  if (f.anio) q += `&year=${f.anio}`;
+  if (f.pais) q += `&country=${encodeURIComponent(f.pais)}`;
+  if (f.plataforma && kind !== "movie") q += `&network=${encodeURIComponent(f.plataforma)}`;
+  return q;
+}
+function _sirve(i) {
+  return i.playable !== false;
+}
+async function _listar(kind, page, f) {
+  const r = await _get(_consulta(kind, page, f));
+  return (r.items || []).filter(_sirve).map(_itemDe);
 }
 async function latest(page, filter) {
-  const f = _parseFilter(filter);
-  if (f.postType) return _listing(f.postType, page, f);
+  const f = _leerFiltro(filter);
+  if (f.kind) return _listar(f.kind, page, f);
+  const tipos = f.plataforma ? KINDS.filter((k) => k !== "movie") : KINDS;
   const porTipo = await Promise.all(
-    POST_TYPES.map(
-      (t) => _listing(t, page, f).catch((e) => {
-        console.log(`[lamovie] no se pudo listar ${t}: ${e}`);
+    tipos.map(
+      (k) => _listar(k, page, f).catch((e) => {
+        console.log(`[lamovie] no se pudo listar ${k}: ${e}`);
         return [];
       })
     )
   );
+  return _intercalar(porTipo);
+}
+function _intercalar(listas) {
   const mezcla = [];
   const vistos = {};
-  const masLargo = Math.max(0, ...porTipo.map((l) => l.length));
+  const masLargo = Math.max(0, ...listas.map((l) => l.length));
   for (let i = 0; i < masLargo; i++) {
-    for (const lista of porTipo) {
+    for (const lista of listas) {
       const it = lista[i];
       if (!it || vistos[it.url]) continue;
       vistos[it.url] = true;
@@ -598,146 +465,188 @@ async function latest(page, filter) {
   return mezcla;
 }
 async function search(keyword, page, filter) {
-  var _a, _b;
   const kw = keyword.trim();
-  const f = _parseFilter(filter);
   if (!kw) return latest(page, filter);
-  if (kw.length < 3) return [];
-  const perPage = 40;
-  const tipos = f.postType ? [f.postType] : POST_TYPES;
-  const results = await Promise.all(
-    tipos.map(
-      (t) => _get(
-        `${API}/search?q=${encodeURIComponent(kw)}&page=${page}&postType=${t}&postsPerPage=${perPage}`
-      ).catch(() => null)
-    )
-  );
+  if (page > 1) return [];
+  const f = _leerFiltro(filter);
+  let q = `${API}/search?q=${encodeURIComponent(kw)}&limit=100`;
+  if (f.kind) q += `&kind=${f.kind}`;
+  const r = await _get(q);
+  const vistas = {};
   const items = [];
-  const vistas = /* @__PURE__ */ new Set();
-  for (const res of results) {
-    for (const post of (_b = (_a = res == null ? void 0 : res.data) == null ? void 0 : _a.posts) != null ? _b : []) {
-      if (!post) continue;
-      if (f.postType && post.type !== f.postType) continue;
-      if (f.genre && !(post.genres || []).includes(f.genre)) continue;
-      if (f.country && !(post.countries || []).includes(f.country)) continue;
-      if (f.year && _yearFromDate(post.release_date) !== f.year) continue;
-      if (!_matchesClientFilter(post, f)) continue;
-      const item = _itemFromPost(post);
-      if (vistas.has(item.url)) continue;
-      vistas.add(item.url);
-      items.push(item);
-    }
+  for (const i of r.items || []) {
+    if (!i || !_sirve(i)) continue;
+    if (f.kind && i.kind !== f.kind) continue;
+    if (f.genero && !(i.genres || []).some((g) => g.slug === f.genero)) continue;
+    if (f.anio && _anio(i) !== f.anio) continue;
+    if (f.pais && !(i.countries || []).some((c) => c.slug === f.pais)) continue;
+    if (f.plataforma && !(i.networks || []).some((c) => c.slug === f.plataforma)) continue;
+    const it = _itemDe(i);
+    if (vistas[it.url]) continue;
+    vistas[it.url] = true;
+    items.push(it);
   }
   return items;
 }
-function _parsePostUrl(url) {
-  for (const pt of POST_TYPES) {
-    const seg = PERMALINK[pt];
-    const m = new RegExp(`/${seg}/([^/]+)/?`).exec(url);
-    if (m) return { postType: pt, slug: m[1] };
+var _KIND_DE_SEGMENTO = {
+  pelicula: "movie",
+  serie: "tvshow",
+  anime: "anime"
+};
+async function _referenciaDe(url) {
+  const nueva = /\/(pelicula|serie|anime)\/(\d+)(?:\/temporada\/(\d+)\/episodio\/(\d+)|\/[^/?#]*)?/.exec(url);
+  if (nueva) {
+    return {
+      kind: _KIND_DE_SEGMENTO[nueva[1]],
+      id: parseInt(nueva[2], 10),
+      temporada: nueva[3] ? parseInt(nueva[3], 10) : void 0,
+      episodio: nueva[4] ? parseInt(nueva[4], 10) : void 0
+    };
   }
-  return null;
-}
-async function _fetchSeasons(showId, showSlug, showType, maxSeasons = 30) {
-  var _a, _b;
-  const seasons = [];
-  for (let season = 1; season <= maxSeasons; season++) {
-    const res = await _get(
-      `${API}/single/episodes/list?_id=${showId}&season=${season}&page=1&postsPerPage=100`
-    );
-    const posts = (_b = (_a = res == null ? void 0 : res.data) == null ? void 0 : _a.posts) != null ? _b : [];
-    if (posts.length === 0) break;
-    const episodes = posts.map((e) => ({
-      title: e.title,
-      url: `${BASE}/${PERMALINK[showType]}/${showSlug}/?showId=${showId}&s=${e.season_number}&e=${e.episode_number}&epId=${e._id}`,
-      thumbnail: e.still_path ? `https://image.tmdb.org/t/p/original${e.still_path}` : void 0,
-      duration: e.runtime ? parseInt(e.runtime, 10) * 60 : void 0,
-      airDate: e.date ? e.date.slice(0, 10) : void 0,
-      number: e.episode_number
-    }));
-    seasons.push({ title: `Temporada ${season}`, episodes });
-  }
-  return seasons;
-}
-async function detail(url) {
-  const parsed = _parsePostUrl(url);
-  if (!parsed) throw new Error("URL de LaMovie no reconocida");
-  const { postType, slug } = parsed;
-  const res = await _get(
-    `${API}/single/${postType}?slug=${encodeURIComponent(slug)}&postType=${postType}`
+  const vieja = /\/(peliculas|series|animes|novelas)\/([^/?#]+)/.exec(url);
+  if (!vieja) throw new Error("Direcci\xF3n de LaMovie no reconocida");
+  const seg = vieja[1];
+  const slug = decodeURIComponent(vieja[2]);
+  const aceptados = seg === "peliculas" ? ["movie"] : seg === "animes" ? ["anime", "tvshow"] : ["tvshow", "anime"];
+  const r = await _get(
+    `${API}/search?q=${encodeURIComponent(slug.replace(/-/g, " "))}&limit=100`
   );
-  if (res.error || !res.data) throw new Error("No se pudo cargar el detalle en LaMovie");
-  const p = res.data;
-  const episodesFlat = [];
-  let seasons;
-  if (_isSerial(postType)) {
-    seasons = await _fetchSeasons(p._id, slug, postType);
-  } else {
-    episodesFlat.push({
-      title: p.title,
-      url: `${BASE}/peliculas/${slug}/?showId=${p._id}`
+  const obra = (r.items || []).find((i) => i.slug === slug && aceptados.indexOf(i.kind) !== -1);
+  if (!obra) throw new Error("Este t\xEDtulo ya no est\xE1 en LaMovie");
+  const s = /[?&]s=(\d+)/.exec(url);
+  const e = /[?&]e=(\d+)/.exec(url);
+  return {
+    kind: obra.kind,
+    id: obra.tmdb_id,
+    temporada: s ? parseInt(s[1], 10) : void 0,
+    episodio: e ? parseInt(e[1], 10) : void 0
+  };
+}
+function _estado(s) {
+  switch (s) {
+    case "Returning Series":
+    case "In Production":
+      return "ongoing";
+    case "Ended":
+    case "Canceled":
+      return "completed";
+    case "Planned":
+    case "Post Production":
+    case "Rumored":
+      return "upcoming";
+    default:
+      return void 0;
+  }
+}
+async function _temporadas(kind, id) {
+  const r = await _get(`${API}/items/${kind}/${id}/seasons`);
+  const conVideo = (r.seasons || []).filter((t) => (t.playable_count || 0) > 0).sort((a, b) => a.season === 0 ? 1 : b.season === 0 ? -1 : a.season - b.season);
+  const detalles = await Promise.all(
+    conVideo.map(
+      (t) => _get(`${API}/items/${kind}/${id}/seasons/${t.season}`).then((d) => {
+        var _a;
+        return { t, episodios: ((_a = d.season) == null ? void 0 : _a.episodes) || [] };
+      }).catch((e) => {
+        console.log(`[lamovie] temporada ${t.season} sin cargar: ${e}`);
+        return { t, episodios: [] };
+      })
+    )
+  );
+  const temporadas = [];
+  for (const { t, episodios } of detalles) {
+    const lista = episodios.filter((e) => e.playable !== false && !!e.code).sort((a, b) => a.episode - b.episode).map((e) => ({
+      title: e.title || `Episodio ${e.episode}`,
+      url: _episodioUrl(kind, id, e.season, e.episode),
+      thumbnail: _img(e.still_path, "w300"),
+      duration: e.runtime ? e.runtime * 60 : void 0,
+      airDate: e.air_date ? e.air_date.slice(0, 10) : void 0,
+      number: e.episode
+    }));
+    if (lista.length === 0) continue;
+    const y = t.air_date ? parseInt(t.air_date.slice(0, 4), 10) : NaN;
+    temporadas.push({
+      title: t.name || (t.season === 0 ? "Especiales" : `Temporada ${t.season}`),
+      episodes: lista,
+      year: Number.isFinite(y) ? y : void 0,
+      cover: _img(t.poster_path, "w342")
     });
   }
+  return temporadas;
+}
+async function detail(url) {
+  const ref = await _referenciaDe(url);
+  const r = await _get(`${API}/items/${ref.kind}/${ref.id}`);
+  const i = r.item;
+  if (!i) throw new Error("No se pudo cargar la ficha en LaMovie");
+  const episodios = [];
+  let seasons;
+  if (i.kind === "movie") {
+    if (i.playable !== false && i.code) {
+      episodios.push({
+        title: i.title,
+        url: _itemUrl(i.kind, i.tmdb_id, i.slug),
+        duration: i.runtime ? i.runtime * 60 : void 0
+      });
+    }
+  } else {
+    seasons = await _temporadas(i.kind, i.tmdb_id);
+  }
+  const extra = {};
+  if (i.original_title && i.original_title !== i.title) extra["T\xEDtulo original"] = i.original_title;
+  if (i.certification) extra["Clasificaci\xF3n"] = i.certification;
+  const paises = (i.countries || []).map((c) => _PAISES_ES[c.slug] || c.title).filter((x) => !!x);
+  if (paises.length) extra["Pa\xEDs"] = paises.join(", ");
+  const cadenas = (i.networks || []).map((c) => c.title).filter((x) => !!x);
+  if (cadenas.length) extra["Cadena"] = cadenas.join(", ");
+  const estudios = (i.studios || []).slice(0, 3).map((c) => c.title).filter((x) => !!x);
+  if (estudios.length) extra["Estudio"] = estudios.join(", ");
   return {
-    title: p.title,
-    cover: _cover(p.images),
-    description: p.overview,
-    episodes: episodesFlat,
+    title: i.title,
+    cover: _img(i.poster_path, "w500"),
+    description: i.overview || void 0,
+    episodes: episodios,
     seasons,
-    genres: _tagsFromGenres(p.genres),
-    year: _yearFromDate(p.release_date),
-    rating: p.rating ? parseFloat(p.rating) : void 0,
-    extra: __spreadValues(__spreadValues({}, p.original_title ? { "T\xEDtulo original": p.original_title } : {}), p.certification ? { Clasificaci\u00F3n: p.certification } : {}),
+    genres: _generos(i),
+    status: i.kind === "movie" ? void 0 : _estado(i.status),
+    year: _anio(i),
+    rating: i.vote_average ? Math.round(i.vote_average * 10) / 10 : void 0,
+    extra,
     type: "bangumi"
   };
 }
-function _postIdFromUrl(url) {
-  const m = /[?&]epId=(\d+)/.exec(url) || /[?&]showId=(\d+)/.exec(url);
-  return m ? parseInt(m[1], 10) : null;
+async function _codigoDe(ref) {
+  if (ref.kind === "movie") {
+    const r2 = await _get(`${API}/items/movie/${ref.id}`);
+    return r2.item && r2.item.playable !== false ? r2.item.code || null : null;
+  }
+  if (ref.temporada == null || ref.episodio == null) {
+    throw new Error("Falta el episodio a reproducir");
+  }
+  const r = await _get(
+    `${API}/items/${ref.kind}/${ref.id}/seasons/${ref.temporada}/episodes/${ref.episodio}`
+  );
+  return r.episode && r.episode.playable !== false ? r.episode.code || null : null;
 }
-function _nombreDeBoton(e, host, conocido) {
-  const partes = [];
-  partes.push(conocido || e.server || host);
-  if (e.lang) partes.push(e.lang);
-  return partes.join(" ");
+async function _resolver(embed) {
+  const resuelto = await resolver2(embed, `${BASE}/`);
+  if (!resuelto) return { streams: [], reason: "resolve_failed" };
+  return {
+    streams: [
+      {
+        url: resuelto.url,
+        headers: resuelto.headers,
+        quality: "Vimeos",
+        nativo: true
+      }
+    ]
+  };
 }
 async function watch(url) {
-  if (url.indexOf("http") === 0 && url.indexOf(BASE) === -1) {
-    const resuelto = await resolver5(url, `${BASE}/`);
-    if (resuelto) {
-      return {
-        streams: [{ url: resuelto.url, headers: resuelto.headers }],
-        pageUrl: url
-      };
-    }
-    return { streams: [], pageUrl: url };
-  }
-  const postId = _postIdFromUrl(url);
-  if (postId == null) throw new Error("No se pudo identificar el contenido en LaMovie");
-  const cleanPageUrl = url.split("?")[0];
-  const res = await _get(`${API}/player?postId=${postId}&demo=0`);
-  if (res.error || !res.data) return { streams: [], pageUrl: cleanPageUrl };
-  const embeds = res.data.embeds || [];
-  if (embeds.length === 0) return { streams: [], pageUrl: cleanPageUrl };
-  const streams = [];
-  for (const e of embeds) {
-    if (e.url.indexOf("/embed.html") !== -1) continue;
-    const host = _guessServerName(e.url);
-    const s = servidorDe(e.url);
-    streams.push({
-      url: e.url,
-      quality: _nombreDeBoton(e, host, s ? s.boton : null),
-      // El rayo y el mundo los dice la extensión, que es la que lo midió, y no
-      // la app adivinando por el nombre del host.
-      nativo: s ? s.nativo : false,
-      headers: { Referer: `${BASE}/` }
-    });
-  }
-  return { streams, pageUrl: cleanPageUrl };
-}
-function _guessServerName(url) {
-  const m = /^https?:\/\/(?:www\.)?([^/:?#]+)/i.exec(url);
-  return m ? m[1] : "Embed";
+  if (url.indexOf("vimeos.") !== -1) return _resolver(url);
+  const ref = await _referenciaDe(url);
+  const code = await _codigoDe(ref);
+  if (!code) return { streams: [], reason: "not_available" };
+  return _resolver(`${EMBED}${code}.html`);
 }
 
 // OJO: nunca usar url.indexOf('.mp4')/('.m3u8') suelto — algunos dominios de

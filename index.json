@@ -158,19 +158,19 @@
     {
       "name": "LaMovie",
       "package": "io.prismhub.lamovie",
-      "version": "1.2.1",
+      "version": "1.3.0",
       "author": "PrismHub",
       "type": "bangumi",
       "contentKind": "accion-real",
       "icon": "",
-      "description": "Películas, series, animes y novelas en español desde LaMovie — catálogo, búsqueda y filtros por género/año/calidad/idioma",
+      "description": "Películas, series y animes en español desde LaMovie — catálogo, búsqueda y filtros por tipo, género, año, país y plataforma",
       "lang": "es",
       "webSite": "https://lamovie.org",
       "license": "MIT",
       "latestLabel": "recien-anadidas",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/lamovie.js",
-      "sha256": "2944bd8f1b5e6412a755109453599d2c833f604d04f1377b72c8c9cb6c8f0918",
-      "signature": "mVLVqm3dB9gCpWjkUzqzfjs4A8BYqCAm+Z70IuGSRIckWX33Z7lqGn3NA4Aa6dl857d2PwJHeEUrRbZy1NrbDQ=="
+      "sha256": "64aed502b8f8ea75f0bfb0533cb4b7b24bba7154347be677cd8d20980ac162cc",
+      "signature": "57WmKvdrOi6Rg/5Uqo33k2BCL0WNu2oKXOgRWze6IrtxBYhXZMalGGoC2TOAYmxUBXqj1n9ch8FK6MRhu+svDQ=="
     },
     {
       "name": "LatAnime",

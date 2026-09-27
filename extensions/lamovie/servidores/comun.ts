@@ -1,8 +1,8 @@
-// ─── Piezas compartidas por los servidores de FuegoCine ──────────────────────
+// ─── Piezas de los servidores de LaMovie ─────────────────────────────────────
 //
 // Copiadas del SDK y no importadas de él, a propósito: ver el porqué en
-// `index.ts` de esta misma carpeta. Compartidas SOLO entre los servidores de
-// FuegoCine — ninguna otra extensión las toca.
+// `index.ts` de esta misma carpeta. Solo las usa LaMovie — ninguna otra
+// extensión las toca.
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
 
@@ -60,31 +60,7 @@ export async function pedir(
       ]),
     );
   } catch (e) {
-    console.log(`[fc] no se pudo pedir ${url.slice(0, 45)} :: ${(e as Error)?.message ?? e}`);
-    return null;
-  }
-}
-
-/** POST con cuerpo JSON. Lo usa firestream para canjear su vale. */
-export async function postJson(
-  url: string,
-  cuerpo: unknown,
-  referer: string,
-): Promise<string | null> {
-  try {
-    return await sendMessage(
-      'request',
-      JSON.stringify([
-        url,
-        {
-          method: 'post',
-          headers: { 'Content-Type': 'application/json', Referer: referer },
-          data: JSON.stringify(cuerpo),
-        },
-      ]),
-    );
-  } catch (e) {
-    console.log(`[fc] POST falló ${url.slice(0, 45)} :: ${(e as Error)?.message ?? e}`);
+    console.log(`[lamovie] no se pudo pedir ${url.slice(0, 45)} :: ${(e as Error)?.message ?? e}`);
     return null;
   }
 }
@@ -95,13 +71,6 @@ export async function postJson(
 export function hostDe(url: string): string | null {
   const m = /^https?:\/\/([^/]+)/.exec(url);
   return m ? m[1] : null;
-}
-
-/** Último tramo del path, sin extensión ni el prefijo `embed-`. */
-export function codigoDe(url: string): string {
-  const sinQuery = url.split('?')[0].split('#')[0].replace(/\/+$/, '');
-  const ultimo = sinQuery.slice(sinQuery.lastIndexOf('/') + 1);
-  return ultimo.replace(/^embed-/, '').replace(/\.html?$/, '');
 }
 
 /** base64 a texto, sin depender de atob() del entorno. */
@@ -124,7 +93,7 @@ export function b64aTexto(s: string): string {
 
 // ─── Desempaquetador eval(p,a,c,k,e,d) (Dean Edwards) ────────────────────────
 //
-// Lo necesitan dropload y vimeos: la dirección no está en el HTML tal cual,
+// Lo necesita vimeos: la dirección no está en el HTML tal cual,
 // está partida en el diccionario del empaquetado y se arma al desempaquetar.
 
 /** Desempaqueta un bloque. Devuelve '' si no es de este formato. */
@@ -151,9 +120,7 @@ function desempaquetarUno(src: string): string {
  * Busca la dirección del vídeo dentro de una página de embed ya bajada.
  *
  * Desempaqueta lo que haya y prueba, en orden, las cuatro formas en que estos
- * sitios la guardan. Es lo único que comparten goodstream, dropload y vimeos:
- * cada uno tiene su propia carpeta y su propio resolver, así que arreglar uno
- * no toca a los otros dos.
+ * sitios la guardan.
  */
 /**
  * Las cabeceras con las que hay que PEDIR el vídeo.

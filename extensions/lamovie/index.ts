@@ -2,457 +2,399 @@ import type {
   PrismItem,
   PrismDetail,
   PrismWatch,
-  PrismStream,
   PrismEpisode,
   PrismSeason,
   MediaType,
+  ContentStatus,
 } from '../../sdk/types';
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
 
-import { resolver as resolverServidor, servidorDe } from './servidores';
+import { resolver as resolverServidor } from './servidores';
 
+// ─── El sitio nuevo ─────────────────────────────────────────────────────────
+//
+// El 2026-09-27 LaMovie se rehízo entero: dejó de ser WordPress y su vieja API
+// (`lamovie.org/wp-api/v1`, la de `siteConfig.fastApi`) pasó a contestar la
+// página HTML del sitio para cualquier ruta. La app nueva es una SPA que sale a
+// buscar todo a una API aparte, basada en TMDB, que está escrita en su propio
+// script (`const kh="https://tmdb.allcalidad.re"`).
+//
+// Lo que se midió con curl ese día, ruta por ruta:
+//
+//   /v1/items?kind=movie|tvshow|anime   listado, con `page`, `limit` (hasta 100)
+//        &sort=recent|popular|rating    `views` y cualquier otro valor = recent
+//        &genre=<slug>                  el slug, NO el id (`genre=28` da cero)
+//        &year=1999 &country=mx         el año tal cual; el país por código
+//        &network=netflix               solo tiene sentido en series y anime
+//   /v1/search?q=…&limit=100            SIN paginar: `page` y `offset` se
+//                                       ignoran, con `limit=100` llega todo
+//   /v1/items/{kind}/{id}               la ficha; en películas trae `code`
+//   /v1/items/{kind}/{id}/seasons       temporadas, con `playable_count`
+//   /v1/items/{kind}/{id}/seasons/{n}   episodios, cada uno con `code`
+//   /v1/taxonomies                      géneros, años, países y cadenas
+//
+// Y el vídeo: el reproductor del sitio arma `https://vimeos.net/embed-%code%.html`
+// (siteConfig.playerProvider) con el `code` de la película o del episodio. Es
+// el único servidor que tiene ahora; los demás (goodstream, voe, doodstream)
+// salieron junto con la API vieja.
 const BASE = 'https://lamovie.org';
-const API = 'https://lamovie.org/wp-api/v1';
-const IMG = 'https://lamovie.org/wp-content/uploads';
+const API = 'https://tmdb.allcalidad.re/v1';
+const IMG = 'https://image.tmdb.org/t/p';
+const EMBED = 'https://vimeos.net/embed-';
 
-// El sitio es una app 100% client-side (React sobre WordPress) — no hay HTML
-// para scrapear, todo el catálogo/búsqueda/detalle/servidores sale de esta
-// API propia (siteConfig.fastApi en el HTML del sitio, no la REST estándar de
-// WP, que no expone nada útil). Verificada en vivo con curl contra cada
-// endpoint.
 async function _get<T = any>(url: string): Promise<T> {
   const raw = await sendMessage(
     'request',
     JSON.stringify([url, { method: 'get', headers: { Referer: `${BASE}/` } }]),
   );
-  return JSON.parse(raw) as T;
+  // Si algún día la API vuelve a contestar HTML (como pasó con la vieja), que
+  // el error lo diga claro en vez de un "Unexpected token <" sin contexto.
+  const t = (raw || '').trim();
+  if (t.charAt(0) !== '{' && t.charAt(0) !== '[') {
+    throw new Error('LaMovie no devolvió datos (la API respondió otra cosa)');
+  }
+  return JSON.parse(t) as T;
 }
 
 // ─── Tipos de contenido ─────────────────────────────────────────────────────
-// Confirmado en vivo vía siteConfig.permalinks.types del HTML del sitio.
-type PostType = 'movies' | 'tvshows' | 'animes' | 'novels';
-const POST_TYPES: PostType[] = ['movies', 'tvshows', 'animes', 'novels'];
-const PERMALINK: Record<PostType, string> = {
-  movies: 'peliculas',
-  tvshows: 'series',
-  animes: 'animes',
-  novels: 'novelas',
-};
-// novels = telenovelas (contenido de video, no libros) — MediaType 'series'
-// es lo correcto acá, 'novel' del SDK es para light novels/libros.
-function _tipoDeMedio(postType: string): MediaType {
-  if (postType === 'movies') return 'movie';
-  if (postType === 'animes') return 'anime';
-  return 'series'; // tvshows, novels
-}
-function _isSerial(postType: string): boolean {
-  return postType !== 'movies';
-}
+type Kind = 'movie' | 'tvshow' | 'anime';
+const KINDS: Kind[] = ['movie', 'tvshow', 'anime'];
 
-// ─── Taxonomías (id -> nombre) ──────────────────────────────────────────────
-// Estático, tomado en vivo de siteConfig.datas del HTML del sitio —
-// mismo criterio que otras extensiones de este repo con listas de géneros
-// fijas: si el sitio agrega un término nuevo, ese id puntual no se traduce
-// hasta actualizar esta lista, pero el resto sigue andando normal.
-const _GENRES: Record<number, string> = {
-  17: 'Drama', 18: 'Comedia', 33: 'Suspense', 32: 'Acción', 520: 'Animación',
-  96: 'Terror', 180: 'Crimen', 130: 'Aventura', 115: 'Romance', 398: 'Familia',
-  97: 'Misterio', 131: 'Ciencia ficción', 229: 'Fantasía', 704: 'Sci-Fi & Fantasy',
-  705: 'Action & Adventure', 164: 'Documental', 165: 'Historia', 8: 'Música',
-  6787: 'Película de TV', 3056: 'Bélica', 674: 'Western', 703: 'Kids',
-  786: 'War & Politics', 12485: 'Reality', 19824: 'Soap',
-};
-// Solo las que de verdad aparecen en el catálogo — confirmado en vivo
-// escaneando +300 títulos reales (películas/series/animes): 4K, BDRip,
-// REMUX, WEB-DL y el resto de la lista original (sacada de siteConfig.datas,
-// que junta TODAS las etiquetas creadas alguna vez en el sitio, usadas o no)
-// no aparecieron en ningún ítem — dejarlas como opción de filtro solo
-// garantiza un "no hay datos" seguro.
-const _QUALITIES: Record<number, string> = {
-  495: 'Full HD', 496: 'Dual 1080p', 649: 'HD', 59268: 'Dual 720p', 58681: 'HDTV',
-};
-const _LANGS: Record<number, string> = {
-  58651: 'Latino', 58652: 'Inglés', 58654: 'Japonés', 58655: 'Subtitulado',
-  58653: 'Castellano', 58667: 'Coreano', 58661: 'Portugués',
-};
-const _COUNTRIES: Record<number, string> = {
-  457: 'Estados Unidos', 774: 'Reino Unido', 787: 'Canadá', 617: 'Francia',
-  5436: 'México', 2499: 'España', 733: 'Japón', 4601: 'Corea del Sur',
-  1431: 'Alemania', 3912: 'Italia', 7746: 'Argentina', 2654: 'Australia',
-  3416: 'India', 3623: 'Brasil', 1198: 'China', 3057: 'Polonia',
-  9620: 'Rusia', 7483: 'Irlanda', 1364: 'Dinamarca', 12155: 'Colombia',
-  11668: 'Turquía', 8300: 'Suecia', 9100: 'Tailandia', 6033: 'Países Bajos',
-  5210: 'Bélgica', 15438: 'Chile', 16399: 'Noruega', 27475: 'Perú',
-  35098: 'Venezuela', 40202: 'Portugal',
-};
+// El tramo de la dirección en el sitio para cada tipo (sus rutas son
+// /pelicula/:id/:slug, /serie/:id/:slug y /anime/:id/:slug).
+const SEGMENTO: Record<Kind, string> = { movie: 'pelicula', tvshow: 'serie', anime: 'anime' };
+
+function _tipoDeMedio(kind: string): MediaType {
+  if (kind === 'movie') return 'movie';
+  if (kind === 'anime') return 'anime';
+  return 'series';
+}
 
 // ─── Modelos de la API ──────────────────────────────────────────────────────
-interface LMImages {
-  poster?: string;
-  backdrop?: string;
-  logo?: string;
-}
-interface LMPost {
-  _id: number;
-  title: string;
-  overview?: string;
+interface LMTermino {
+  id: number | null;
   slug: string;
-  images?: LMImages;
-  rating?: string;
-  genres?: number[];
-  quality?: number[];
-  countries?: number[];
-  lang?: number[];
-  years?: number[];
-  type: string;
-  certification?: string;
-  release_date?: string;
-  runtime?: string;
-  original_title?: string;
-  latest_episode?: unknown;
-}
-interface LMEpisode {
-  _id: number;
   title: string;
+}
+interface LMItem {
+  tmdb_id: number;
+  kind: Kind;
+  code: string | null;
+  title: string;
+  original_title?: string | null;
   slug: string;
-  overview?: string;
-  runtime?: string;
-  still_path?: string;
-  season_number: number;
-  episode_number: number;
-  date?: string;
+  poster_path?: string | null;
+  backdrop_path?: string | null;
+  year?: number | null;
+  runtime?: number | null;
+  vote_average?: number | null;
+  overview?: string | null;
+  release_date?: string | null;
+  first_air_date?: string | null;
+  status?: string | null;
+  certification?: string | null;
+  number_of_seasons?: number | null;
+  genres?: LMTermino[];
+  countries?: LMTermino[];
+  networks?: LMTermino[];
+  studios?: LMTermino[];
+  playable?: boolean;
+  latest_episode?: { season: number; episode: number } | null;
 }
-interface LMPage<T> {
-  error: boolean;
-  message?: string;
-  data?: { posts: T[]; pagination?: { current_page: number; last_page: number; total: number } };
+interface LMPagina {
+  items?: LMItem[];
+  pagination?: { page: number; total_pages: number; has_next: boolean };
 }
-interface LMSingle {
-  error: boolean;
-  data?: LMPost;
+interface LMTemporadaResumen {
+  season: number;
+  name?: string;
+  air_date?: string | null;
+  poster_path?: string | null;
+  playable_count?: number;
 }
-interface LMPlayer {
-  error: boolean;
-  data?: {
-    embeds: { url: string; server: string; lang?: string; quality?: string }[];
-  };
+interface LMEpisodio {
+  season: number;
+  episode: number;
+  title?: string | null;
+  runtime?: number | null;
+  still_path?: string | null;
+  air_date?: string | null;
+  playable?: boolean;
+  code?: string | null;
 }
 
-function _cover(images?: LMImages): string | undefined {
-  const p = images?.poster;
-  if (!p) return undefined;
-  return p.indexOf('http') === 0 ? p : `${IMG}${p}`;
+function _img(path: string | null | undefined, tam: string): string | undefined {
+  if (!path) return undefined;
+  if (path.indexOf('http') === 0) return path;
+  return `${IMG}/${tam}${path.charAt(0) === '/' ? '' : '/'}${path}`;
 }
 
-// URL de la página del sitio para este post — usada como identificador de
-// PrismItem/PrismDetail (url). Se reconstruye el postType+slug desde acá al
-// pedir detail()/watch().
-function _postUrl(postType: string, slug: string): string {
-  const seg = PERMALINK[postType as PostType] ?? postType;
-  return `${BASE}/${seg}/${slug}/`;
+function _itemUrl(kind: Kind, id: number, slug: string): string {
+  return `${BASE}/${SEGMENTO[kind]}/${id}/${slug}`;
 }
 
-function _yearFromDate(date?: string): number | undefined {
-  if (!date) return undefined;
-  const y = parseInt(date.slice(0, 4), 10);
+function _episodioUrl(kind: Kind, id: number, temporada: number, episodio: number): string {
+  return `${BASE}/${SEGMENTO[kind]}/${id}/temporada/${temporada}/episodio/${episodio}`;
+}
+
+function _anio(i: LMItem): number | undefined {
+  if (i.year) return i.year;
+  const f = i.release_date || i.first_air_date;
+  if (!f) return undefined;
+  const y = parseInt(f.slice(0, 4), 10);
   return Number.isFinite(y) ? y : undefined;
 }
 
-function _tagsFromGenres(genres?: number[]): string[] | undefined {
-  if (!genres || genres.length === 0) return undefined;
-  const names = genres.map((g) => _GENRES[g]).filter((n): n is string => !!n);
-  return names.length ? names : undefined;
+function _generos(i: LMItem): string[] | undefined {
+  const g = (i.genres || []).map((t) => t.title).filter((t) => !!t);
+  return g.length ? g : undefined;
 }
 
-function _itemFromPost(p: LMPost): PrismItem {
+function _itemDe(i: LMItem): PrismItem {
+  const ultimo = i.latest_episode;
   return {
-    title: p.title,
-    url: _postUrl(p.type, p.slug),
-    cover: _cover(p.images),
-    description: p.overview,
-    tags: _tagsFromGenres(p.genres),
-    year: _yearFromDate(p.release_date),
-    rating: p.rating ? parseFloat(p.rating) : undefined,
-    type: _tipoDeMedio(p.type),
+    title: i.title,
+    url: _itemUrl(i.kind, i.tmdb_id, i.slug),
+    cover: _img(i.poster_path, 'w342'),
+    description: i.overview || undefined,
+    tags: _generos(i),
+    year: _anio(i),
+    rating: i.vote_average ? Math.round(i.vote_average * 10) / 10 : undefined,
+    type: _tipoDeMedio(i.kind),
+    update: ultimo && i.kind !== 'movie' ? `T${ultimo.season} E${ultimo.episode}` : undefined,
   };
 }
 
-// ─── Filtro (género/año/país/orden/tipo) ────────────────────────────────────
-// El parámetro `filter` de /listing SÍ funciona — el formato real (probado
-// en vivo, no documentado) es un objeto plano {taxonomía: [ids]}, ej.
-// {"genres":[32]} o {"years":[735],"countries":[733]} combinados. Confirmado
-// que funciona de verdad para genres/years/countries (los resultados
-// realmente cambian). quality y lang, en cambio, NO tienen efecto alguno vía
-// este parámetro con ningún nombre/forma probada — se quedan como filtro
-// aproximado del lado del cliente, sobre los resultados YA filtrados por
-// género/año/país en el servidor. orderBy real: latest/popular/rated/views
-// (no "date", que no es un valor válido) + order asc/desc.
-// Los años que el sitio tiene, con su id de término.
+// ─── Filtros ────────────────────────────────────────────────────────────────
 //
-// **El filtro espera el id, no el año.** Medido el 2026-08-06:
-// `{"years":[2013]}` devuelve cero y `{"years":[775]}` devuelve los de 2013.
-// Antes se mandaba el año directo, así que el filtro de año no filtraba nada.
-const _YEARS: Record<string, number> = {
-  '2026': 74006, '2025': 4, '2024': 1354, '2023': 2236, '2022': 1461, '2021': 2169,
-  '2020': 2792, '2019': 1816, '2018': 1926, '2017': 1874, '2016': 1618, '2015': 8694,
-  '2014': 2052, '2013': 775, '2012': 762, '2011': 769, '2010': 3858, '2009': 2092,
-  '2008': 1395, '2007': 902, '2006': 873, '2005': 963, '2004': 728, '2003': 503,
-  '2002': 800, '2001': 793, '2000': 684, '1999': 735, '1998': 1279, '1997': 600,
-  '1996': 1142, '1995': 937, '1994': 533, '1993': 1707, '1992': 657, '1991': 2583,
-  '1990': 707, '1989': 1258, '1988': 1726, '1987': 852, '1986': 1313, '1985': 1440,
-  '1984': 1237, '1983': 6004, '1982': 1165, '1981': 1212, '1980': 4122, '1979': 2881,
-  '1976': 1378, '1973': 2114,
-};
-
-// Los proveedores (Netflix, Disney+, Max…). El sitio los ofrece como
-// "Proveedor" en su propia barra de filtros. Medido: funciona.
-const _PROVIDERS: Record<number, string> = {
-  459: 'Disney Plus',
-  460: 'Google Play Movies',
-  461: 'Apple TV',
-  462: 'Rakuten TV',
-  463: 'Microsoft Store',
-  464: 'Amazon Video',
-  465: 'MovistarTV',
-  466: 'maxdome Store',
-  467: 'Sky Store',
-  468: 'Fetch TV',
-  469: 'Cineplex',
-  470: 'YouTube',
-  472: 'blue TV',
-  474: 'MagentaTV',
-  475: 'Videoload',
-  476: 'Freenet meinVOD',
-  477: 'Viaplay',
-  478: 'Blockbuster',
-  479: 'SF Anytime',
-  480: 'Elisa Viihde',
-  481: 'Orange VOD',
-  482: 'VIVA by videofutur',
-  483: 'Premiere Max',
-  487: 'Timvision',
-  488: 'wavve',
-  489: 'KPN',
-  490: 'Pathé Thuis',
-  491: 'TV 2 Play',
-  492: 'Premiery Canal+',
-  493: 'Hulu',
-  494: 'Fandango At Home',
-  522: 'meJane',
-  523: 'Player',
-  524: 'Kinopoisk',
-  549: 'Claro video',
-  551: 'Movistar Plus+ Ficción Total',
-  563: 'Amazon Prime Video',
-  565: 'Telia Play',
-  566: 'Canal VOD',
-  567: 'FILMO',
-  568: 'Universcine',
-  569: 'Bbox VOD',
-  572: 'Netflix',
-  573: 'U-NEXT',
-  574: 'Netflix Standard with Ads',
-  575: 'Watcha',
-  580: 'Amazon Prime Video with Ads',
-  581: 'Spectrum On Demand',
-  675: 'Max',
-  677: 'Videobuster',
-};
-
-// Órdenes medidos el 2026-08-06: estos cuatro cambian los resultados.
-// `imdb`, `tmdb` y `rank` los acepta pero devuelve lo mismo que `latest`.
-type OrderBy = 'latest' | 'popular' | 'rated' | 'views';
-interface LMFilter {
-  postType?: PostType;
-  genre?: number;
-  year?: number;
-  country?: number;
-  provider?: number;
-  quality?: number;
-  lang?: number;
-  orderBy: OrderBy;
-  order: 'asc' | 'desc';
+// Solo los que la API aplica de verdad (medidos uno por uno, ver arriba). Ya no
+// están "Dirección", "Calidad" ni "Idioma": la API nueva no ordena al revés y
+// no filtra por calidad ni idioma.
+type Orden = 'recent' | 'popular' | 'rating';
+interface Filtro {
+  kind?: Kind;
+  orden: Orden;
+  genero?: string;
+  anio?: number;
+  pais?: string;
+  plataforma?: string;
 }
 
-function _parseFilter(filter?: Record<string, string[]>): LMFilter {
-  const postType = filter?.['tipo']?.[0] as PostType | undefined;
-  const genre = filter?.['genero']?.[0] ? parseInt(filter['genero'][0], 10) : undefined;
-  // El año llega como el año en sí ("2013") y se traduce a su id de término,
-  // que es lo que el filtro de la API espera de verdad.
-  const year = filter?.['anio']?.[0] ? _YEARS[filter['anio'][0]] : undefined;
-  const country = filter?.['pais']?.[0] ? parseInt(filter['pais'][0], 10) : undefined;
-  const provider = filter?.['proveedor']?.[0]
-    ? parseInt(filter['proveedor'][0], 10)
+// Los valores de la versión anterior de la extensión, por si la app los tiene
+// guardados de una sesión vieja: se traducen en vez de dar cero resultados.
+const _TIPO_VIEJO: Record<string, Kind> = {
+  movies: 'movie', tvshows: 'tvshow', animes: 'anime', novels: 'tvshow',
+};
+const _ORDEN_VIEJO: Record<string, Orden> = {
+  latest: 'recent', rated: 'rating', views: 'popular',
+};
+
+function _leerFiltro(filter?: Record<string, string[]>): Filtro {
+  const v = (k: string): string | undefined => {
+    const x = filter?.[k]?.[0];
+    return x ? String(x) : undefined;
+  };
+  const tipo = v('tipo');
+  const kind = tipo
+    ? (KINDS as string[]).includes(tipo) ? (tipo as Kind) : _TIPO_VIEJO[tipo]
     : undefined;
-  const quality = filter?.['calidad']?.[0] ? parseInt(filter['calidad'][0], 10) : undefined;
-  const lang = filter?.['idioma']?.[0] ? parseInt(filter['idioma'][0], 10) : undefined;
-  const orderBy = (filter?.['orden']?.[0] as OrderBy) || 'latest';
-  const order = (filter?.['direccion']?.[0] as 'asc' | 'desc') || 'desc';
+  const o = v('orden');
+  const orden: Orden =
+    o === 'recent' || o === 'popular' || o === 'rating' ? o : (o && _ORDEN_VIEJO[o]) || 'recent';
+  const anio = v('anio') ? parseInt(v('anio') as string, 10) : undefined;
+  // Un género o país con el formato viejo (un id numérico) no existe en la API
+  // nueva: se descarta en vez de mandar algo que devuelve cero.
+  const genero = v('genero');
+  const pais = v('pais');
   return {
-    postType: postType && POST_TYPES.includes(postType) ? postType : undefined,
-    genre, year, country, provider, quality, lang, orderBy, order,
+    kind,
+    orden,
+    genero: genero && !/^\d+$/.test(genero) ? genero : undefined,
+    anio: anio && Number.isFinite(anio) ? anio : undefined,
+    pais: pais && !/^\d+$/.test(pais) ? pais : undefined,
+    plataforma: v('plataforma'),
   };
 }
 
-// El objeto que la API acepta en `filter`, con las taxonomías que se
-// comprobaron una por una el 2026-08-06: genres, years, countries y providers
-// cambian los resultados. quality y lang no, con ningún nombre — ver la nota
-// larga de createFilter.
-function _serverFilterParam(f: LMFilter): string {
-  const obj: Record<string, number[]> = {};
-  if (f.genre) obj.genres = [f.genre];
-  if (f.year) obj.years = [f.year];
-  if (f.country) obj.countries = [f.country];
-  if (f.provider) obj.providers = [f.provider];
-  if (Object.keys(obj).length === 0) return '';
-  return `&filter=${encodeURIComponent(JSON.stringify(obj))}`;
+// Géneros de respaldo, por si /v1/taxonomies no contesta al armar el filtro.
+// Sacados de esa misma ruta el 2026-09-27 (los slugs llevan tilde a propósito:
+// así los pide la API).
+const _GENEROS_RESPALDO: Record<string, string> = {
+  'acción': 'Acción', 'action-adventure': 'Acción y aventura', 'animación': 'Animación',
+  'aventura': 'Aventura', 'bélica': 'Bélica', 'ciencia-ficción': 'Ciencia ficción',
+  'sci-fi-fantasy': 'Ciencia ficción y fantasía', 'comedia': 'Comedia', 'crimen': 'Crimen',
+  'documental': 'Documental', 'drama': 'Drama', 'familia': 'Familia', 'fantasía': 'Fantasía',
+  'historia': 'Historia', 'kids': 'Infantil', 'misterio': 'Misterio', 'música': 'Música',
+  'película-de-tv': 'Película de TV', 'reality': 'Reality', 'romance': 'Romance',
+  'soap': 'Telenovela', 'suspense': 'Suspense', 'terror': 'Terror',
+  'war-politics': 'Guerra y política', 'western': 'Western',
+};
+
+// La API da los países con su nombre en inglés. Los más comunes se muestran en
+// español; el resto, como venga.
+const _PAISES_ES: Record<string, string> = {
+  us: 'Estados Unidos', gb: 'Reino Unido', jp: 'Japón', kr: 'Corea del Sur', mx: 'México',
+  es: 'España', ar: 'Argentina', co: 'Colombia', cl: 'Chile', pe: 'Perú', ve: 'Venezuela',
+  br: 'Brasil', ca: 'Canadá', fr: 'Francia', de: 'Alemania', it: 'Italia', cn: 'China',
+  au: 'Australia', in: 'India', ie: 'Irlanda', be: 'Bélgica', hk: 'Hong Kong', se: 'Suecia',
+  pl: 'Polonia', ru: 'Rusia', za: 'Sudáfrica', ch: 'Suiza', th: 'Tailandia', dk: 'Dinamarca',
+  nl: 'Países Bajos', fi: 'Finlandia', tr: 'Turquía', cz: 'República Checa', no: 'Noruega',
+  nz: 'Nueva Zelanda', id: 'Indonesia', ph: 'Filipinas', tw: 'Taiwán', pt: 'Portugal',
+  uy: 'Uruguay', ec: 'Ecuador', bo: 'Bolivia', py: 'Paraguay', cr: 'Costa Rica',
+  do: 'República Dominicana', pr: 'Puerto Rico', cu: 'Cuba', gt: 'Guatemala', at: 'Austria',
+  gr: 'Grecia', hu: 'Hungría', il: 'Israel', eg: 'Egipto', ng: 'Nigeria', my: 'Malasia',
+  sg: 'Singapur', ro: 'Rumania', ua: 'Ucrania', is: 'Islandia', lu: 'Luxemburgo',
+};
+
+// Cadenas de streaming que se ofrecen como "Plataforma". La API trae 271
+// cadenas (casi todas canales de TV japoneses); se muestran solo estas, y
+// solo si la API las tiene.
+const _PLATAFORMAS = [
+  'netflix', 'disney', 'prime-video', 'apple-tv', 'max', 'hbo-max', 'hbo', 'paramount',
+  'hulu', 'crunchyroll', 'peacock', 'star-plus', 'vix', 'amc',
+];
+
+let _taxonomias: {
+  generos: LMTermino[];
+  anios: number[];
+  paises: LMTermino[];
+  cadenas: LMTermino[];
+} | null = null;
+
+async function _leerTaxonomias(): Promise<typeof _taxonomias> {
+  if (_taxonomias) return _taxonomias;
+  try {
+    const t = await _get<{
+      genres?: LMTermino[];
+      years?: { year: number }[];
+      countries?: LMTermino[];
+      networks?: LMTermino[];
+    }>(`${API}/taxonomies`);
+    _taxonomias = {
+      generos: t.genres || [],
+      anios: (t.years || []).map((y) => y.year).filter((y) => !!y),
+      paises: t.countries || [],
+      cadenas: t.networks || [],
+    };
+    return _taxonomias;
+  } catch (e) {
+    console.log(`[lamovie] sin taxonomías: ${e}`);
+    return null;
+  }
 }
 
-function _matchesClientFilter(p: LMPost, f: LMFilter): boolean {
-  if (f.quality && !(p.quality || []).includes(f.quality)) return false;
-  if (f.lang && !(p.lang || []).includes(f.lang)) return false;
-  return true;
-}
-
-/**
- * Los filtros que el sitio SÍ aplica.
- *
- * **No están calidad ni idioma, y es a propósito.** Medido el 2026-08-06: el
- * parámetro `filter` de la API los ignora con cualquier nombre que se le
- * pase —`lang`, `langs`, `idioma`, `original_lang`, `quality`, `qualities`,
- * `calidad`— mientras que `genres` con los mismos formatos cambia los
- * resultados al instante. También se probó la otra vía, pidiendo el vale `tt`
- * de `/listing/tax/lang/{slug}` y usándolo contra `/listing/tax/{tt}`: devuelve
- * cero títulos siempre.
- *
- * Y aunque anduviera no serviría de mucho: TODOS los títulos del sitio traen
- * `lang: [58651, 58652]` —latino e inglés—, así que filtrar por latino no saca
- * ni uno. Filtrarlo del lado nuestro era mostrar un filtro que no filtra.
- *
- * Quedan los que sí andan, que son además los que se piden: recientes,
- * populares, valorados, vistos, y por tipo, género, año y país.
- */
 export async function createFilter(): Promise<Record<string, unknown>> {
-  const genreOptions: Record<string, string> = { '': 'Todos' };
-  for (const [id, name] of Object.entries(_GENRES)) genreOptions[id] = name;
-  const countryOptions: Record<string, string> = { '': 'Todos' };
-  for (const [id, name] of Object.entries(_COUNTRIES)) countryOptions[id] = name;
-  const providerOptions: Record<string, string> = { '': 'Todos' };
-  for (const [id, name] of Object.entries(_PROVIDERS)) providerOptions[id] = name;
-  const tipoOptions: Record<string, string> = {
-    '': 'Todos', movies: 'Películas', tvshows: 'Series', animes: 'Animes', novels: 'Novelas',
-  };
-  // Los años son LOS QUE EL SITIO TIENE, no un rango inventado.
-  //
-  // Antes se armaba de corrido desde el año que viene hasta 1970, y el sitio
-  // tiene 50 años sueltos que empiezan en 1973: elegir 1970, 1971 o 1972 daba
-  // cero resultados sin explicar por qué. Medido el 2026-08-06 contra su
-  // siteConfig.datas.years.
-  const yearOptions: Record<string, string> = { '': 'Todos' };
-  for (const year of Object.keys(_YEARS)) yearOptions[year] = year;
-  // Mismas 4 métricas + dirección que usa el sitio (Más recientes/populares/
-  // valorados/vistos, con su reverso).
-  const ordenOptions: Record<string, string> = {
-    latest: 'Recientes', popular: 'Populares', rated: 'Valorados', views: 'Vistos',
-  };
-  const direccionOptions: Record<string, string> = { desc: 'Mayor a menor', asc: 'Menor a mayor' };
+  const tax = await _leerTaxonomias();
+
+  const generos: Record<string, string> = { '': 'Todos' };
+  if (tax && tax.generos.length) {
+    for (const g of tax.generos) generos[g.slug] = _GENEROS_RESPALDO[g.slug] || g.title;
+  } else {
+    Object.assign(generos, _GENEROS_RESPALDO);
+  }
+
+  // Los años que el sitio tiene de verdad, no un rango inventado.
+  const anios: Record<string, string> = { '': 'Todos' };
+  const listaAnios = tax && tax.anios.length
+    ? tax.anios.slice().sort((a, b) => b - a)
+    : [];
+  if (listaAnios.length === 0) {
+    const hoy = new Date().getFullYear();
+    for (let y = hoy; y >= 1960; y--) listaAnios.push(y);
+  }
+  for (const y of listaAnios) anios[String(y)] = String(y);
+
+  const paises: Record<string, string> = { '': 'Todos' };
+  const listaPaises = tax && tax.paises.length
+    ? tax.paises.map((p) => ({ slug: p.slug, nombre: _PAISES_ES[p.slug] || p.title }))
+    : Object.keys(_PAISES_ES).map((slug) => ({ slug, nombre: _PAISES_ES[slug] }));
+  listaPaises.sort((a, b) => a.nombre.localeCompare(b.nombre));
+  for (const p of listaPaises) paises[p.slug] = p.nombre;
+
+  const plataformas: Record<string, string> = { '': 'Todas' };
+  const cadenas = tax ? tax.cadenas : [];
+  for (const slug of _PLATAFORMAS) {
+    const c = cadenas.find((x) => x.slug === slug);
+    if (c || cadenas.length === 0) plataformas[slug] = c ? c.title : slug;
+  }
 
   return {
-    tipo: { title: 'Tipo', options: tipoOptions, default: '', min: 1, max: 1 },
-    orden: { title: 'Orden', options: ordenOptions, default: 'latest', min: 1, max: 1 },
-    direccion: { title: 'Dirección', options: direccionOptions, default: 'desc', min: 1, max: 1 },
-    genero: { title: 'Género', options: genreOptions, default: '', min: 1, max: 1 },
-    anio: { title: 'Año', options: yearOptions, default: '', min: 1, max: 1 },
-    pais: { title: 'País', options: countryOptions, default: '', min: 1, max: 1 },
-    proveedor: {
-      title: 'Proveedor',
-      options: providerOptions,
-      default: '',
-      min: 1,
-      max: 1,
+    tipo: {
+      title: 'Tipo',
+      options: { '': 'Todos', movie: 'Películas', tvshow: 'Series', anime: 'Animes' },
+      default: '', min: 1, max: 1,
+    },
+    orden: {
+      title: 'Orden',
+      options: { recent: 'Recientes', popular: 'Populares', rating: 'Mejor valorados' },
+      default: 'recent', min: 1, max: 1,
+    },
+    genero: { title: 'Género', options: generos, default: '', min: 1, max: 1 },
+    anio: { title: 'Año', options: anios, default: '', min: 1, max: 1 },
+    pais: { title: 'País', options: paises, default: '', min: 1, max: 1 },
+    plataforma: {
+      title: 'Plataforma (series y animes)',
+      options: plataformas, default: '', min: 1, max: 1,
     },
   };
 }
 
 // ─── Catálogo ───────────────────────────────────────────────────────────────
-// Página real de la API (postsPerPage sí funciona acá, a diferencia de
-// /search — ver más abajo). género/año/país van server-side (filter real);
-// calidad/idioma, al no tener efecto en el servidor, se aplican local sobre
-// esos resultados YA acotados, pidiendo páginas de más si hace falta
-// completar una página de vista.
-async function _listing(postType: PostType, page: number, f: LMFilter): Promise<PrismItem[]> {
-  const perPage = 20;
-  const filterParam = _serverFilterParam(f);
-  const base = `${API}/listing/${postType}?postType=${postType}&postsPerPage=${perPage}&orderBy=${f.orderBy}&order=${f.order}${filterParam}`;
-  const needsClientFilter = !!(f.quality || f.lang);
-  if (!needsClientFilter) {
-    const res = await _get<LMPage<LMPost>>(`${base}&page=${page}`);
-    if (res.error || !res.data) return [];
-    return res.data.posts.map(_itemFromPost);
-  }
-  const items: PrismItem[] = [];
-  let rawPage = page;
-  const maxRawFetches = 8;
-  for (let attempt = 0; attempt < maxRawFetches && items.length < perPage; attempt++, rawPage++) {
-    const res = await _get<LMPage<LMPost>>(`${base}&page=${rawPage}`);
-    if (res.error || !res.data || res.data.posts.length === 0) break;
-    for (const p of res.data.posts) {
-      if (_matchesClientFilter(p, f)) items.push(_itemFromPost(p));
-    }
-  }
-  return items;
+const POR_PAGINA = 24;
+
+function _consulta(kind: Kind, page: number, f: Filtro): string {
+  let q = `${API}/items?kind=${kind}&sort=${f.orden}&page=${page}&limit=${POR_PAGINA}`;
+  if (f.genero) q += `&genre=${encodeURIComponent(f.genero)}`;
+  if (f.anio) q += `&year=${f.anio}`;
+  if (f.pais) q += `&country=${encodeURIComponent(f.pais)}`;
+  if (f.plataforma && kind !== 'movie') q += `&network=${encodeURIComponent(f.plataforma)}`;
+  return q;
+}
+
+// Lo que no se puede ver no se muestra: la API lista títulos que todavía no
+// tienen ni un vídeo (`playable: false`), y abrirlos era llegar a una ficha
+// vacía.
+function _sirve(i: LMItem): boolean {
+  return i.playable !== false;
+}
+
+async function _listar(kind: Kind, page: number, f: Filtro): Promise<PrismItem[]> {
+  const r = await _get<LMPagina>(_consulta(kind, page, f));
+  return (r.items || []).filter(_sirve).map(_itemDe);
 }
 
 /**
- * La portada: **todo mezclado**, como en el sitio.
+ * La portada: películas, series y animes mezclados, como en el sitio.
  *
- * Sin elegir tipo se piden los cuatro —películas, series, animes y novelas— y
- * se intercalan. Antes, sin tipo, se devolvían solo películas: la extensión se
- * llama LaMovie y trae series y animes, pero para verlos había que saber que
- * existía el filtro e ir a buscarlo.
- *
- * Se intercalan de a uno en vez de pegar los cuatro bloques uno detrás de otro
- * para que la primera pantalla ya muestre de todo, que es de lo que se trata.
+ * Se piden los tres a la vez (tarda lo que el más lento, no la suma) y se
+ * intercalan de a uno para que la primera pantalla ya muestre de todo. Cada
+ * tipo atrapa su propio error: que uno falle no deja la portada vacía.
  */
 export async function latest(page: number, filter?: Record<string, string[]>): Promise<PrismItem[]> {
-  const f = _parseFilter(filter);
-  if (f.postType) return _listing(f.postType, page, f);
+  const f = _leerFiltro(filter);
+  if (f.kind) return _listar(f.kind, page, f);
 
-  // **Los cuatro a la vez, no uno detrás de otro.**
-  //
-  // De a uno son cuatro viajes encadenados y la portada tardaría lo que suman
-  // los cuatro; en paralelo tarda lo que el más lento.
-  //
-  // Cada uno atrapa su propio error: que un tipo falle no puede dejar la
-  // portada vacía ni tumbar a los otros tres.
-  //
-  // ── Acá NO va un plazo propio. Se probó el 2026-08-06 y se sacó ────────────
-  //
-  // Ese día el sitio se puso malísimo —21 a 27 segundos para contestar su
-  // propia portada, comprobado con curl y también abriéndolo en un navegador,
-  // donde directamente no cargaba— y se le puso un plazo por tipo para mostrar
-  // lo que llegara sin esperar al que no venía. Con ocho segundos cortaba antes
-  // de que llegara nada y la portada quedaba SIEMPRE vacía; subirlo a dieciocho
-  // tampoco aportó, porque el puente de red ya corta a los veinte.
-  //
-  // O sea que era un límite de más encima del que la app ya tiene, y lo único
-  // que podía hacer era descartar contenido que sí iba a llegar. El problema
-  // era del sitio, no de acá, y no hay plazo que arregle un servidor caído.
+  // Con una plataforma elegida las películas no entran: la API no les asigna
+  // cadena y devolvería el listado entero sin filtrar.
+  const tipos = f.plataforma ? KINDS.filter((k) => k !== 'movie') : KINDS;
   const porTipo = await Promise.all(
-    POST_TYPES.map((t) =>
-      _listing(t, page, f).catch((e) => {
-        console.log(`[lamovie] no se pudo listar ${t}: ${e}`);
+    tipos.map((k) =>
+      _listar(k, page, f).catch((e) => {
+        console.log(`[lamovie] no se pudo listar ${k}: ${e}`);
         return [] as PrismItem[];
       }),
     ),
   );
+  return _intercalar(porTipo);
+}
 
+function _intercalar(listas: PrismItem[][]): PrismItem[] {
   const mezcla: PrismItem[] = [];
   const vistos: Record<string, boolean> = {};
-  const masLargo = Math.max(0, ...porTipo.map((l) => l.length));
+  const masLargo = Math.max(0, ...listas.map((l) => l.length));
   for (let i = 0; i < masLargo; i++) {
-    for (const lista of porTipo) {
+    for (const lista of listas) {
       const it = lista[i];
       if (!it || vistos[it.url]) continue;
       vistos[it.url] = true;
@@ -463,293 +405,248 @@ export async function latest(page: number, filter?: Record<string, string[]>): P
 }
 
 // ─── Búsqueda ───────────────────────────────────────────────────────────────
-// /search de la API devuelve UN resultado por "página" cruda (confirmado en
-// vivo: postsPerPage/limit/count/etc no cambian eso, per_page siempre vuelve
-// en 1) — se pagina puertas adentro pidiendo varias páginas crudas en
-// paralelo para armar una página de vista real, mismo espíritu que el ajuste
-// de paginación de FuegoCine esta sesión.
+//
+// /v1/search no pagina: con `limit=100` devuelve todos los resultados de una
+// vez (medido: "from" da 95, iguales con page=2 u offset=24). Así que la
+// página 1 trae todo y las siguientes, nada — si no, la grilla repetiría la
+// misma tanda al infinito.
 export async function search(
   keyword: string,
   page: number,
   filter?: Record<string, string[]>,
 ): Promise<PrismItem[]> {
   const kw = keyword.trim();
-  const f = _parseFilter(filter);
   if (!kw) return latest(page, filter);
-  if (kw.length < 3) return [];
+  if (page > 1) return [];
+  const f = _leerFiltro(filter);
 
-  // ── Se busca en CADA tipo, no en uno solo ───────────────────────────────
-  //
-  // El buscador del sitio filtra por `postType`, y sin ese parametro solo mira
-  // PELICULAS. De ahi el fallo reportado: buscar "from" traia una sola obra
-  // —"Algo de Tiffany's"— y dejaba fuera la serie "FROM", "Notes from the Last
-  // Row", "Arifureta" y "Uncle from Another World", que el propio sitio si
-  // encuentra y muestra con su etiqueta de SERIE o ANIME.
-  //
-  // Medido contra la red: sin postType, total=1; preguntando por los cuatro
-  // tipos y juntando, 5 — exactamente las cinco que muestra la web.
-  //
-  // Con un filtro de tipo puesto se le pregunta solo a ese, que ademas es mas
-  // rapido.
-  //
-  // ── Y `postsPerPage` de verdad funciona ─────────────────────────────────
-  //
-  // Antes se hacian VEINTE pedidos, uno por pagina, quedandose con el primer
-  // resultado de cada uno: el endpoint devuelve `per_page: 1` por defecto y esa
-  // era la forma de sacarle mas de una obra. Acepta `postsPerPage`, asi que
-  // ahora son cuatro pedidos en vez de veinte y traen la tanda entera.
-  const perPage = 40;
-  const tipos = f.postType ? [f.postType as PostType] : POST_TYPES;
-  const results = await Promise.all(
-    tipos.map((t) =>
-      _get<LMPage<LMPost>>(
-        `${API}/search?q=${encodeURIComponent(kw)}&page=${page}` +
-          `&postType=${t}&postsPerPage=${perPage}`,
-      ).catch(() => null),
-    ),
-  );
+  let q = `${API}/search?q=${encodeURIComponent(kw)}&limit=100`;
+  if (f.kind) q += `&kind=${f.kind}`;
+  const r = await _get<LMPagina>(q);
+
+  const vistas: Record<string, boolean> = {};
   const items: PrismItem[] = [];
-  // Sin repetidos: una obra puede volver en dos tipos, y dos tarjetas con la
-  // misma direccion rompen la grilla.
-  const vistas = new Set<string>();
-  for (const res of results) {
-    for (const post of res?.data?.posts ?? []) {
-      if (!post) continue;
-      if (f.postType && post.type !== f.postType) continue;
-      if (f.genre && !(post.genres || []).includes(f.genre)) continue;
-      if (f.country && !(post.countries || []).includes(f.country)) continue;
-      if (f.year && _yearFromDate(post.release_date) !== f.year) continue;
-      if (!_matchesClientFilter(post, f)) continue;
-      const item = _itemFromPost(post);
-      if (vistas.has(item.url)) continue;
-      vistas.add(item.url);
-      items.push(item);
-    }
+  for (const i of r.items || []) {
+    if (!i || !_sirve(i)) continue;
+    // La búsqueda no toma filtros: se aplican acá, sobre lo que trae cada obra.
+    if (f.kind && i.kind !== f.kind) continue;
+    if (f.genero && !(i.genres || []).some((g) => g.slug === f.genero)) continue;
+    if (f.anio && _anio(i) !== f.anio) continue;
+    if (f.pais && !(i.countries || []).some((c) => c.slug === f.pais)) continue;
+    if (f.plataforma && !(i.networks || []).some((c) => c.slug === f.plataforma)) continue;
+    const it = _itemDe(i);
+    if (vistas[it.url]) continue;
+    vistas[it.url] = true;
+    items.push(it);
   }
   return items;
 }
 
-// ─── Detalle ────────────────────────────────────────────────────────────────
-function _parsePostUrl(url: string): { postType: PostType; slug: string } | null {
-  for (const pt of POST_TYPES) {
-    const seg = PERMALINK[pt];
-    const m = new RegExp(`/${seg}/([^/]+)/?`).exec(url);
-    if (m) return { postType: pt, slug: m[1] };
-  }
-  return null;
+// ─── Direcciones ────────────────────────────────────────────────────────────
+interface Referencia {
+  kind: Kind;
+  id: number;
+  temporada?: number;
+  episodio?: number;
 }
 
-// showSlug/showType van codificados en la URL de cada episodio para que
-// watch() pueda reconstruir la página REAL del show como respaldo (ver
-// comentario largo en watch()) — no existe una página individual por
-// episodio en el sitio (confirmado en vivo: /episodio/{slug}-temporada-X-
-// episodio-Y/ da 404 real); la navegación real de episodios pasa DENTRO de
-// la página del show (botones "S1:E1"/"S1:E2" bajo el reproductor, misma
-// URL para todos).
-async function _fetchSeasons(
-  showId: number,
-  showSlug: string,
-  showType: PostType,
-  maxSeasons = 30,
-): Promise<PrismSeason[]> {
-  const seasons: PrismSeason[] = [];
-  for (let season = 1; season <= maxSeasons; season++) {
-    const res = await _get<LMPage<LMEpisode>>(
-      `${API}/single/episodes/list?_id=${showId}&season=${season}&page=1&postsPerPage=100`,
-    );
-    const posts = res?.data?.posts ?? [];
-    if (posts.length === 0) break;
-    const episodes: PrismEpisode[] = posts.map((e) => ({
-      title: e.title,
-      url:
-        `${BASE}/${PERMALINK[showType]}/${showSlug}/` +
-        `?showId=${showId}&s=${e.season_number}&e=${e.episode_number}&epId=${e._id}`,
-      thumbnail: e.still_path ? `https://image.tmdb.org/t/p/original${e.still_path}` : undefined,
-      duration: e.runtime ? parseInt(e.runtime, 10) * 60 : undefined,
-      airDate: e.date ? e.date.slice(0, 10) : undefined,
-      number: e.episode_number,
-    }));
-    seasons.push({ title: `Temporada ${season}`, episodes });
+const _KIND_DE_SEGMENTO: Record<string, Kind> = {
+  pelicula: 'movie', serie: 'tvshow', anime: 'anime',
+};
+
+/**
+ * Lee una dirección de esta extensión.
+ *
+ * Acepta también las de la versión anterior (`/peliculas/{slug}/`,
+ * `/series/{slug}/?showId=…&s=1&e=2`, `/animes/…`, `/novelas/…`), que siguen
+ * guardadas en Favoritos, Historial y Descargas de quien ya usaba LaMovie. No
+ * traen el id nuevo, así que se busca la obra por su slug; sin esto, todo lo
+ * guardado de antes abría "no se pudo cargar".
+ */
+async function _referenciaDe(url: string): Promise<Referencia> {
+  const nueva =
+    /\/(pelicula|serie|anime)\/(\d+)(?:\/temporada\/(\d+)\/episodio\/(\d+)|\/[^/?#]*)?/.exec(url);
+  if (nueva) {
+    return {
+      kind: _KIND_DE_SEGMENTO[nueva[1]],
+      id: parseInt(nueva[2], 10),
+      temporada: nueva[3] ? parseInt(nueva[3], 10) : undefined,
+      episodio: nueva[4] ? parseInt(nueva[4], 10) : undefined,
+    };
   }
-  return seasons;
+
+  const vieja = /\/(peliculas|series|animes|novelas)\/([^/?#]+)/.exec(url);
+  if (!vieja) throw new Error('Dirección de LaMovie no reconocida');
+  const seg = vieja[1];
+  const slug = decodeURIComponent(vieja[2]);
+  const aceptados: Kind[] =
+    seg === 'peliculas' ? ['movie'] : seg === 'animes' ? ['anime', 'tvshow'] : ['tvshow', 'anime'];
+  const r = await _get<LMPagina>(
+    `${API}/search?q=${encodeURIComponent(slug.replace(/-/g, ' '))}&limit=100`,
+  );
+  const obra = (r.items || []).find((i) => i.slug === slug && aceptados.indexOf(i.kind) !== -1);
+  if (!obra) throw new Error('Este título ya no está en LaMovie');
+  const s = /[?&]s=(\d+)/.exec(url);
+  const e = /[?&]e=(\d+)/.exec(url);
+  return {
+    kind: obra.kind,
+    id: obra.tmdb_id,
+    temporada: s ? parseInt(s[1], 10) : undefined,
+    episodio: e ? parseInt(e[1], 10) : undefined,
+  };
+}
+
+// ─── Detalle ────────────────────────────────────────────────────────────────
+function _estado(s?: string | null): ContentStatus | undefined {
+  switch (s) {
+    case 'Returning Series':
+    case 'In Production':
+      return 'ongoing';
+    case 'Ended':
+    case 'Canceled':
+      return 'completed';
+    case 'Planned':
+    case 'Post Production':
+    case 'Rumored':
+      return 'upcoming';
+    default:
+      return undefined;
+  }
+}
+
+async function _temporadas(kind: Kind, id: number): Promise<PrismSeason[]> {
+  const r = await _get<{ seasons?: LMTemporadaResumen[] }>(`${API}/items/${kind}/${id}/seasons`);
+  // Solo las que tienen algo para ver. La temporada 0 ("Especiales") entra si
+  // trae episodios, pero va al final como en el sitio.
+  const conVideo = (r.seasons || [])
+    .filter((t) => (t.playable_count || 0) > 0)
+    .sort((a, b) => (a.season === 0 ? 1 : b.season === 0 ? -1 : a.season - b.season));
+
+  const detalles = await Promise.all(
+    conVideo.map((t) =>
+      _get<{ season?: { episodes?: LMEpisodio[] } }>(`${API}/items/${kind}/${id}/seasons/${t.season}`)
+        .then((d) => ({ t, episodios: d.season?.episodes || [] }))
+        .catch((e) => {
+          console.log(`[lamovie] temporada ${t.season} sin cargar: ${e}`);
+          return { t, episodios: [] as LMEpisodio[] };
+        }),
+    ),
+  );
+
+  const temporadas: PrismSeason[] = [];
+  for (const { t, episodios } of detalles) {
+    const lista: PrismEpisode[] = episodios
+      .filter((e) => e.playable !== false && !!e.code)
+      .sort((a, b) => a.episode - b.episode)
+      .map((e) => ({
+        title: e.title || `Episodio ${e.episode}`,
+        url: _episodioUrl(kind, id, e.season, e.episode),
+        thumbnail: _img(e.still_path, 'w300'),
+        duration: e.runtime ? e.runtime * 60 : undefined,
+        airDate: e.air_date ? e.air_date.slice(0, 10) : undefined,
+        number: e.episode,
+      }));
+    if (lista.length === 0) continue;
+    const y = t.air_date ? parseInt(t.air_date.slice(0, 4), 10) : NaN;
+    temporadas.push({
+      title: t.name || (t.season === 0 ? 'Especiales' : `Temporada ${t.season}`),
+      episodes: lista,
+      year: Number.isFinite(y) ? y : undefined,
+      cover: _img(t.poster_path, 'w342'),
+    });
+  }
+  return temporadas;
 }
 
 export async function detail(url: string): Promise<PrismDetail> {
-  const parsed = _parsePostUrl(url);
-  if (!parsed) throw new Error('URL de LaMovie no reconocida');
-  const { postType, slug } = parsed;
-  const res = await _get<LMSingle>(
-    `${API}/single/${postType}?slug=${encodeURIComponent(slug)}&postType=${postType}`,
-  );
-  if (res.error || !res.data) throw new Error('No se pudo cargar el detalle en LaMovie');
-  const p = res.data;
+  const ref = await _referenciaDe(url);
+  const r = await _get<{ item?: LMItem }>(`${API}/items/${ref.kind}/${ref.id}`);
+  const i = r.item;
+  if (!i) throw new Error('No se pudo cargar la ficha en LaMovie');
 
-  const episodesFlat: PrismEpisode[] = [];
+  const episodios: PrismEpisode[] = [];
   let seasons: PrismSeason[] | undefined;
-  if (_isSerial(postType)) {
-    seasons = await _fetchSeasons(p._id, slug, postType);
+  if (i.kind === 'movie') {
+    // Película: un solo "episodio", la película misma, para que el flujo de
+    // reproducción sea el mismo watch(url).
+    if (i.playable !== false && i.code) {
+      episodios.push({
+        title: i.title,
+        url: _itemUrl(i.kind, i.tmdb_id, i.slug),
+        duration: i.runtime ? i.runtime * 60 : undefined,
+      });
+    }
   } else {
-    // Película: un solo "episodio" (la propia película) para que el flujo
-    // de reproducción sea el mismo watch(url) con postId en la query.
-    episodesFlat.push({
-      title: p.title,
-      url: `${BASE}/peliculas/${slug}/?showId=${p._id}`,
-    });
+    seasons = await _temporadas(i.kind, i.tmdb_id);
   }
 
+  const extra: Record<string, string> = {};
+  if (i.original_title && i.original_title !== i.title) extra['Título original'] = i.original_title;
+  if (i.certification) extra['Clasificación'] = i.certification;
+  const paises = (i.countries || []).map((c) => _PAISES_ES[c.slug] || c.title).filter((x) => !!x);
+  if (paises.length) extra['País'] = paises.join(', ');
+  const cadenas = (i.networks || []).map((c) => c.title).filter((x) => !!x);
+  if (cadenas.length) extra['Cadena'] = cadenas.join(', ');
+  const estudios = (i.studios || []).slice(0, 3).map((c) => c.title).filter((x) => !!x);
+  if (estudios.length) extra['Estudio'] = estudios.join(', ');
+
   return {
-    title: p.title,
-    cover: _cover(p.images),
-    description: p.overview,
-    episodes: episodesFlat,
+    title: i.title,
+    cover: _img(i.poster_path, 'w500'),
+    description: i.overview || undefined,
+    episodes: episodios,
     seasons,
-    genres: _tagsFromGenres(p.genres),
-    year: _yearFromDate(p.release_date),
-    rating: p.rating ? parseFloat(p.rating) : undefined,
-    extra: {
-      ...(p.original_title ? { 'Título original': p.original_title } : {}),
-      ...(p.certification ? { Clasificación: p.certification } : {}),
-    },
+    genres: _generos(i),
+    status: i.kind === 'movie' ? undefined : _estado(i.status),
+    year: _anio(i),
+    rating: i.vote_average ? Math.round(i.vote_average * 10) / 10 : undefined,
+    extra,
     type: 'bangumi',
   };
 }
 
 // ─── Reproducción ───────────────────────────────────────────────────────────
 //
-// Los servidores viven en `servidores/`, uno por carpeta, cada uno con lo que
-// se midió de él. Ver `servidores/index.ts` para el resumen.
-//
-// **Lo que cambió, y por qué la extensión estaba marcada como inestable.**
-//
-// Antes los embeds se devolvían CRUDOS, sin resolver, con este razonamiento:
-// «el m3u8 que sale de resolverlos responde 403 a CUALQUIER cliente que no sea
-// un navegador de verdad — probado con y sin User-Agent de browser». Es falso.
-// Medido el 2026-08-06 sobre 12 títulos: con User-Agent de navegador y el
-// Referer del propio host, vimeos da 9 de 9 y goodstream 8 de 8, bajando el
-// primer segmento de vídeo de verdad, entre 250 KB y 4,6 MB.
-//
-// Como no se resolvía nada, TODO se abría en el navegador interno aunque la
-// mitad de los servidores reprodujeran en la app sin problema.
-function _postIdFromUrl(url: string): number | null {
-  // **El episodio primero, la serie después. El orden importa.**
-  //
-  // La dirección de un episodio lleva LOS DOS —`?showId=79891&…&epId=79893`—
-  // y antes se miraba `showId` primero, así que todos los episodios de todas
-  // las series terminaban pidiendo el reproductor de la SERIE.
-  //
-  // Y el de la serie no trae los servidores del episodio: devuelve un solo
-  // embed de relleno, `https://lamovie.org/embed.html?v=1`, que es la página
-  // de "este contenido todavía no está disponible". Medido el 2026-08-06 con
-  // One Hundred Years of Solitude: con el id de la serie sale ese relleno y
-  // nada más; con el id del episodio salen los cuatro de verdad.
-  //
-  // Por eso al abrir un episodio arrancaba en el navegador interno mostrando
-  // "no disponible", y recién cambiando de servidor a mano aparecían los que
-  // sí andan.
-  const m = /[?&]epId=(\d+)/.exec(url) || /[?&]showId=(\d+)/.exec(url);
-  return m ? parseInt(m[1], 10) : null;
+// Solo sale lo que reproduce en el reproductor de la app. El único servidor
+// del sitio es vimeos, y su resolvedor (en `servidores/vimeos`) saca el m3u8
+// del embed. Si no lo logra, no se devuelve el embed crudo: la app ya no abre
+// páginas en un navegador, así que un servidor sin resolver solo sería un
+// botón que no reproduce.
+async function _codigoDe(ref: Referencia): Promise<string | null> {
+  if (ref.kind === 'movie') {
+    const r = await _get<{ item?: LMItem }>(`${API}/items/movie/${ref.id}`);
+    return r.item && r.item.playable !== false ? r.item.code || null : null;
+  }
+  if (ref.temporada == null || ref.episodio == null) {
+    throw new Error('Falta el episodio a reproducir');
+  }
+  const r = await _get<{ episode?: LMEpisodio }>(
+    `${API}/items/${ref.kind}/${ref.id}/seasons/${ref.temporada}/episodes/${ref.episodio}`,
+  );
+  return r.episode && r.episode.playable !== false ? r.episode.code || null : null;
 }
 
-/**
- * El nombre del botón, tal como lo va a ver el usuario.
- *
- * Se arma con lo que publica la API —servidor, idioma— y NO con la calidad que
- * declara, que miente: el sitio etiqueta "Full HD" títulos cuyo vimeos solo
- * trae 480p y 720p. La calidad de verdad la mide el reproductor.
- */
-function _nombreDeBoton(
-  e: { server?: string; lang?: string },
-  host: string,
-  conocido: string | null,
-): string {
-  const partes: string[] = [];
-  // El nombre del catálogo primero, si se lo reconoce.
-  //
-  // La API es incoherente con el suyo: al MISMO servidor lo llama "Online" en
-  // unos títulos y "LaMovie" en otros, así que en el selector salían dos
-  // nombres distintos para lo mismo y ninguno decía de qué servicio se trata.
-  partes.push(conocido || e.server || host);
-  if (e.lang) partes.push(e.lang);
-  return partes.join(' ');
+async function _resolver(embed: string): Promise<PrismWatch> {
+  const resuelto = await resolverServidor(embed, `${BASE}/`);
+  if (!resuelto) return { streams: [], reason: 'resolve_failed' };
+  return {
+    streams: [
+      {
+        url: resuelto.url,
+        headers: resuelto.headers,
+        quality: 'Vimeos',
+        nativo: true,
+      },
+    ],
+  };
 }
 
 export async function watch(url: string): Promise<PrismWatch> {
-  // Servidor ya elegido por el usuario (switchServer): llega la dirección del
-  // embed suelta. Se intenta resolver con el resolver de ESE servidor; si no
-  // devuelve nada, se entrega la página para que la app abra el navegador.
-  if (url.indexOf('http') === 0 && url.indexOf(BASE) === -1) {
-    const resuelto = await resolverServidor(url, `${BASE}/`);
-    if (resuelto) {
-      return {
-        streams: [{ url: resuelto.url, headers: resuelto.headers }],
-        pageUrl: url,
-      };
-    }
-    return { streams: [], pageUrl: url };
-  }
+  // Llega la dirección de un embed suelto (cambio de servidor desde la app).
+  if (url.indexOf('vimeos.') !== -1) return _resolver(url);
 
-  const postId = _postIdFromUrl(url);
-  if (postId == null) throw new Error('No se pudo identificar el contenido en LaMovie');
-
-  // La página real del sitio, sin los parámetros propios (?showId=&epId= son
-  // solo para recuperar el id acá adentro). Se manda SIEMPRE como pageUrl: si
-  // ningún servidor resuelve, esa página es la última salida y ahí el sitio
-  // reproduce con su propio reproductor.
-  const cleanPageUrl = url.split('?')[0];
-
-  const res = await _get<LMPlayer>(`${API}/player?postId=${postId}&demo=0`);
-  if (res.error || !res.data) return { streams: [], pageUrl: cleanPageUrl };
-
-  const embeds = res.data.embeds || [];
-  if (embeds.length === 0) return { streams: [], pageUrl: cleanPageUrl };
-
-  // **Salen TODOS los servidores, incluso los que no reproducen en la app.**
-  //
-  // Esto es a propósito y vale la pena decirlo: el sitio hace lo contrario.
-  // Su propio reproductor tiene `prior: ["vimeos","goodstream","voe"]` con
-  // `showPlayerName: false`, así que elige uno solo y esconde el resto — por
-  // eso en la web parece que hay un servidor nada más. Acá se muestran los que
-  // haya: si uno va lento o se cae, el usuario tiene a dónde ir.
-  //
-  // Los que no resuelven van igual, sin dirección resuelta y marcados 🌐: la
-  // app los abre en el navegador interno, que ejecuta el JS de la página.
-  const streams: PrismStream[] = [];
-  for (const e of embeds) {
-    // El relleno de "todavía no está disponible" NO es un servidor.
-    //
-    // Cuando al sitio le falta un título devuelve un embed que apunta a su
-    // propia página de aviso. No reproduce ni puede reproducir: es un cartel.
-    // Se descarta como se descartó en su momento el "mediafire" de otra
-    // extensión — la regla de no ocultar servidores vale para los servidores,
-    // y esto no lo es.
-    //
-    // Si era el único, quedan cero streams y la app abre la página del sitio,
-    // que es donde el aviso tiene sentido y trae el botón de pedirlo.
-    if (e.url.indexOf('/embed.html') !== -1) continue;
-    const host = _guessServerName(e.url);
-    const s = servidorDe(e.url);
-    streams.push({
-      url: e.url,
-      quality: _nombreDeBoton(e, host, s ? s.boton : null),
-      // El rayo y el mundo los dice la extensión, que es la que lo midió, y no
-      // la app adivinando por el nombre del host.
-      nativo: s ? s.nativo : false,
-      headers: { Referer: `${BASE}/` },
-    });
-  }
-
-  return { streams, pageUrl: cleanPageUrl };
-}
-
-// Sin new URL(...) a propósito: ese constructor no existe en el QuickJS de
-// PrismHub (confirmado en vivo — ninguna otra extensión de este repo lo usa,
-// todas extraen el host a mano). Devolvía siempre 'Embed' acá, así que los
-// tres servidores (vimeos/goodstream/voe) terminaban con el MISMO nombre —
-// y como X-Servers es un mapa por nombre, los tres colapsaban en una sola
-// entrada (la última pisaba a las anteriores), dejando un solo botón de
-// servidor visible aunque watch() devolviera los tres. Confirmado en vivo
-// con capturas: solo aparecía "Online Latino Full HD Embed" una vez.
-function _guessServerName(url: string): string {
-  const m = /^https?:\/\/(?:www\.)?([^/:?#]+)/i.exec(url);
-  return m ? m[1] : 'Embed';
+  const ref = await _referenciaDe(url);
+  const code = await _codigoDe(ref);
+  if (!code) return { streams: [], reason: 'not_available' };
+  return _resolver(`${EMBED}${code}.html`);
 }
