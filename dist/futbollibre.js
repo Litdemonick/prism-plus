@@ -20,69 +20,11 @@ async function _get(url, referer = BASE + "/") {
     JSON.stringify([url, { method: "get", headers: { Referer: referer } }])
   );
 }
-var _B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-function _utf8(s) {
-  const out = [];
-  for (let i = 0; i < s.length; i++) {
-    let c = s.charCodeAt(i);
-    if (c >= 55296 && c <= 56319 && i + 1 < s.length) {
-      const d = s.charCodeAt(i + 1);
-      if (d >= 56320 && d <= 57343) {
-        c = 65536 + (c - 55296 << 10) + (d - 56320);
-        i++;
-      }
-    }
-    if (c < 128) out.push(c);
-    else if (c < 2048) out.push(192 | c >> 6, 128 | c & 63);
-    else if (c < 65536)
-      out.push(224 | c >> 12, 128 | c >> 6 & 63, 128 | c & 63);
-    else
-      out.push(
-        240 | c >> 18,
-        128 | c >> 12 & 63,
-        128 | c >> 6 & 63,
-        128 | c & 63
-      );
-  }
-  return out;
-}
-function _deUtf8(b) {
-  let s = "";
-  for (let i = 0; i < b.length; ) {
-    const c = b[i++];
-    let cp;
-    if (c < 128) cp = c;
-    else if (c < 224) cp = (c & 31) << 6 | b[i++] & 63;
-    else if (c < 240)
-      cp = (c & 15) << 12 | (b[i++] & 63) << 6 | b[i++] & 63;
-    else
-      cp = (c & 7) << 18 | (b[i++] & 63) << 12 | (b[i++] & 63) << 6 | b[i++] & 63;
-    s += String.fromCodePoint(cp);
-  }
-  return s;
-}
 function _b64(s) {
-  var _a, _b;
-  const b = _utf8(s);
-  let out = "";
-  for (let i = 0; i < b.length; i += 3) {
-    const n = b[i] << 16 | ((_a = b[i + 1]) != null ? _a : 0) << 8 | ((_b = b[i + 2]) != null ? _b : 0);
-    out += _B64[n >> 18 & 63] + _B64[n >> 12 & 63];
-    out += i + 1 < b.length ? _B64[n >> 6 & 63] : "=";
-    out += i + 2 < b.length ? _B64[n & 63] : "=";
-  }
-  return out;
+  return CryptoJS.enc.Utf8.parse(s).toString(CryptoJS.enc.Base64);
 }
 function _fromB64(s) {
-  const limpio = s.replace(/[^A-Za-z0-9+/]/g, "");
-  const b = [];
-  for (let i = 0; i < limpio.length; i += 4) {
-    const n = _B64.indexOf(limpio[i]) << 18 | _B64.indexOf(limpio[i + 1]) << 12 | (i + 2 < limpio.length ? _B64.indexOf(limpio[i + 2]) : 0) << 6 | (i + 3 < limpio.length ? _B64.indexOf(limpio[i + 3]) : 0);
-    b.push(n >> 16 & 255);
-    if (i + 2 < limpio.length) b.push(n >> 8 & 255);
-    if (i + 3 < limpio.length) b.push(n & 255);
-  }
-  return _deUtf8(b);
+  return CryptoJS.enc.Base64.parse(s).toString(CryptoJS.enc.Utf8);
 }
 var _CANALES = [
   { id: "dsports", nombre: "DSports" },
