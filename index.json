@@ -253,9 +253,7 @@
       "latestLabel": "lo-mas-reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/pornhub.js",
       "sha256": "caba4923b94c657bfa531e3bbf2a388eb315a7afafe4d830b626dd47b473feae",
-      "signature": "VzWeYYBoCwl6UqE3o+K4Brx96wcHcAsRzXf1lzbFFsvtgwgLFPZf7lQzmeiJwhQSZ9PtUTlx2MtvkNoL2jaBDg==",
-      "unstable": true,
-      "unstableReason": "broken"
+      "signature": "VzWeYYBoCwl6UqE3o+K4Brx96wcHcAsRzXf1lzbFFsvtgwgLFPZf7lQzmeiJwhQSZ9PtUTlx2MtvkNoL2jaBDg=="
     },
     {
       "name": "ShadeManga",
