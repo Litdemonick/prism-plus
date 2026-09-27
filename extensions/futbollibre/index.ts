@@ -59,14 +59,14 @@ function _fromB64(s: string): string {
 // liga_1_max. ESPN 2/3 no tienen el suyo (404) y usan el de ESPN, la misma
 // marca; Telemundo no tiene ninguno y queda con el ícono de la app.
 const _LOGOS = BASE + '/img/logo-canal/';
-const _CANALES: { id: string; nombre: string; logo?: string }[] = [
-  { id: 'dsports', nombre: 'DSports', logo: _LOGOS + 'dsports.webp' },
-  { id: 'dsportsplus', nombre: 'DSports+', logo: _LOGOS + 'dsports_plus.webp' },
-  { id: 'espn', nombre: 'ESPN', logo: _LOGOS + 'espn.webp' },
-  { id: 'espn2', nombre: 'ESPN 2', logo: _LOGOS + 'espn.webp' },
-  { id: 'espn3', nombre: 'ESPN 3', logo: _LOGOS + 'espn.webp' },
-  { id: 'liga1max', nombre: 'Liga 1 MAX', logo: _LOGOS + 'liga_1_max.webp' },
-  { id: 'telemundo', nombre: 'Telemundo' },
+const _CANALES: { id: string; nombre: string; logo?: string; desc: string }[] = [
+  { id: 'dsports', nombre: 'DSports', logo: _LOGOS + 'dsports.webp', desc: 'DIRECTV Sports: fútbol sudamericano e internacional, tenis y otros deportes en vivo.' },
+  { id: 'dsportsplus', nombre: 'DSports+', logo: _LOGOS + 'dsports_plus.webp', desc: 'Segunda señal de DIRECTV Sports, con partidos y eventos en simultáneo.' },
+  { id: 'espn', nombre: 'ESPN', logo: _LOGOS + 'espn.webp', desc: 'ESPN: fútbol, básquet, tenis y más deportes en vivo.' },
+  { id: 'espn2', nombre: 'ESPN 2', logo: _LOGOS + 'espn.webp', desc: 'Señal alternativa de ESPN, con más partidos y eventos en vivo.' },
+  { id: 'espn3', nombre: 'ESPN 3', logo: _LOGOS + 'espn.webp', desc: 'Tercera señal de ESPN, para los eventos que corren al mismo tiempo.' },
+  { id: 'liga1max', nombre: 'Liga 1 MAX', logo: _LOGOS + 'liga_1_max.webp', desc: 'Canal oficial de la Liga 1 de Perú, con los partidos del torneo.' },
+  { id: 'telemundo', nombre: 'Telemundo', desc: 'Cadena en español de Estados Unidos, con fútbol y programación deportiva.' },
 ];
 
 export async function channels(): Promise<PrismLiveChannel[]> {
@@ -76,6 +76,7 @@ export async function channels(): Promise<PrismLiveChannel[]> {
     id: c.id,
     name: c.nombre,
     icon: c.logo,
+    description: c.desc,
     signals: [
       {
         id: _b64(`${CANAL_BASE}/online/canal.php?stream=${c.id}`),

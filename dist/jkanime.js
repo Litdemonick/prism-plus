@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.17
+// @version      1.12.18
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -1061,6 +1061,9 @@ async function watch(url) {
   }
   const episodeUrl = url.indexOf("http") === 0 ? url : `${BASE}/${url.replace(/\/+$/, "")}/`;
   const html = await _get(episodeUrl);
+  if (typeof html !== "string" || html.length === 0) {
+    throw new Error("JKAnime no respondi\xF3: el sitio puede estar ca\xEDdo o muy lento");
+  }
   const subEntries = _parseJkSubServers(html);
   subEntries.sort((a, b) => {
     const aDesu = a.name.toLowerCase() === "desu" ? 0 : 1;

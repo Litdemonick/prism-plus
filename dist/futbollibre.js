@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Fútbol Libre
-// @version      1.0.2
+// @version      1.0.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -34,19 +34,20 @@ function _fromB64(s) {
 }
 var _LOGOS = BASE + "/img/logo-canal/";
 var _CANALES = [
-  { id: "dsports", nombre: "DSports", logo: _LOGOS + "dsports.webp" },
-  { id: "dsportsplus", nombre: "DSports+", logo: _LOGOS + "dsports_plus.webp" },
-  { id: "espn", nombre: "ESPN", logo: _LOGOS + "espn.webp" },
-  { id: "espn2", nombre: "ESPN 2", logo: _LOGOS + "espn.webp" },
-  { id: "espn3", nombre: "ESPN 3", logo: _LOGOS + "espn.webp" },
-  { id: "liga1max", nombre: "Liga 1 MAX", logo: _LOGOS + "liga_1_max.webp" },
-  { id: "telemundo", nombre: "Telemundo" }
+  { id: "dsports", nombre: "DSports", logo: _LOGOS + "dsports.webp", desc: "DIRECTV Sports: f\xFAtbol sudamericano e internacional, tenis y otros deportes en vivo." },
+  { id: "dsportsplus", nombre: "DSports+", logo: _LOGOS + "dsports_plus.webp", desc: "Segunda se\xF1al de DIRECTV Sports, con partidos y eventos en simult\xE1neo." },
+  { id: "espn", nombre: "ESPN", logo: _LOGOS + "espn.webp", desc: "ESPN: f\xFAtbol, b\xE1squet, tenis y m\xE1s deportes en vivo." },
+  { id: "espn2", nombre: "ESPN 2", logo: _LOGOS + "espn.webp", desc: "Se\xF1al alternativa de ESPN, con m\xE1s partidos y eventos en vivo." },
+  { id: "espn3", nombre: "ESPN 3", logo: _LOGOS + "espn.webp", desc: "Tercera se\xF1al de ESPN, para los eventos que corren al mismo tiempo." },
+  { id: "liga1max", nombre: "Liga 1 MAX", logo: _LOGOS + "liga_1_max.webp", desc: "Canal oficial de la Liga 1 de Per\xFA, con los partidos del torneo." },
+  { id: "telemundo", nombre: "Telemundo", desc: "Cadena en espa\xF1ol de Estados Unidos, con f\xFAtbol y programaci\xF3n deportiva." }
 ];
 async function channels() {
   return _CANALES.map((c) => ({
     id: c.id,
     name: c.nombre,
     icon: c.logo,
+    description: c.desc,
     signals: [
       {
         id: _b64(`${CANAL_BASE}/online/canal.php?stream=${c.id}`),

@@ -691,6 +691,14 @@ export async function watch(url: string): Promise<PrismWatch> {
       : `${BASE}/${url.replace(/\/+$/, '')}/`;
 
   const html = await _get(episodeUrl);
+  // Sin página (el sitio no contestó a tiempo o está caído): se corta acá con
+  // un error claro en vez de seguir y reventar más abajo con "cannot read
+  // property 'matchAll' of undefined" (medido en vivo con jkanime.net
+  // tardando más de 35 s). La app detecta el fallo de red y le dice al
+  // usuario que el sitio no respondió.
+  if (typeof html !== 'string' || html.length === 0) {
+    throw new Error('JKAnime no respondió: el sitio puede estar caído o muy lento');
+  }
 
   // Servidores SUB propios de JKAnime (Desu/Magi) — nunca viven en el array
   // `servers` de abajo, así que se resuelven aparte y siempre se intentan,

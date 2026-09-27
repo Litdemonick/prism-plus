@@ -243,5 +243,8 @@ export interface PrismLiveChannel {
   id: string;
   name: string;
   icon?: string;
+  /** Qué pasa en el canal, en una línea (opcional). La app lo muestra debajo
+   * del nombre; una app vieja lo ignora sin romperse. */
+  description?: string;
   signals: PrismLiveSignal[];
 }

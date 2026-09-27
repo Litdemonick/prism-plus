@@ -59,7 +59,7 @@
     {
       "name": "Fútbol Libre",
       "package": "io.prismhub.futbollibre",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "author": "PrismPlus",
       "type": "live",
       "icon": "",
@@ -68,8 +68,8 @@
       "webSite": "https://futbollibrefullhd.org",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/futbollibre.js",
-      "sha256": "33f0898e438916a62c92aea19910bb447994143f25d2d8d59221770682c75d5d",
-      "signature": "8DVuNN3gwE3q7F8v8w437r3A7a8ibsNr+BIKbdIjSclDnAB7Hi9+4/sexfrfx7mdWa3N70rln36pPS+MhT//Dg=="
+      "sha256": "412f65b61f720f45ce85513716142ae924b960a511757c3298a596697da9bff0",
+      "signature": "yxbHefDZofj2hb2s6zYo/iV0eADAQbBvAMUca9ePcUjQrm+fdGZV2w6Zsq1a9Xv24Gv+dxgrPjZ/uUZ64boBCg=="
     },
     {
       "name": "HentaiLA",
@@ -141,7 +141,7 @@
     {
       "name": "JKAnime",
       "package": "io.prismhub.jkanime",
-      "version": "1.12.17",
+      "version": "1.12.18",
       "author": "PrismPlus",
       "type": "bangumi",
       "contentKind": "anime",
@@ -152,8 +152,8 @@
       "license": "MIT",
       "latestLabel": "programacion",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/jkanime.js",
-      "sha256": "228e5b5d5d6d453c1f072a43626921edba9d2ee5e995f2447c8d6fe41f05eec7",
-      "signature": "kfpdZiT07CCIIec1AgThcd3CjnYl5XeTySs2Da8c4qa8AjFHn19JZxVCtX0onK+P4ZFABtExSOEesoCE5rH4BQ=="
+      "sha256": "a0a66c886c89fe63ec018927e929d9f077fb7c5b9daf864d613523077e6e964a",
+      "signature": "aRicwJHoRc9qhFV1Lg7lRMvbE7bF6t5dYzBb+cAXeg4lwtAP+l6QxHFQnOMXyyCI9poywXA2kgEPVDVV2mXQBg=="
     },
     {
       "name": "LaMovie",
