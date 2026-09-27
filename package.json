@@ -29,6 +29,7 @@
     "build:ci": "npm run validate && node scripts/build.mjs"
   },
   "devDependencies": {
+    "crypto-js": "^4.2.0",
     "esbuild": "^0.25.0",
     "typescript": "^5.7.0"
   }

@@ -20,6 +20,7 @@ import { join } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import http from 'node:http';
 import https from 'node:https';
+import CryptoJS from 'crypto-js';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DIST_DIR = join(ROOT, 'dist');
@@ -170,6 +171,15 @@ globalThis.sendMessage = async (channel, data) => {
 
 // Los bundles se publican como `export default class extends Extension`.
 globalThis.Extension = class {};
+
+// PrismHub inyecta CryptoJS en tiempo de ejecución apenas el bundle lo
+// nombra (ver ExtensionService.librerias en la app) — sin esto, cualquier
+// extensión que lo use (base64, AES) tira "CryptoJS is not defined" ACÁ
+// aunque en la app real funcione perfecto. Se inyecta siempre, sin mirar si
+// el bundle lo nombra: la condición de la app es una optimización de
+// arranque (no cargar 83 KB de más), no algo que este script necesite
+// replicar.
+globalThis.CryptoJS = CryptoJS;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

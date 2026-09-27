@@ -291,6 +291,21 @@
       "signature": "ozH2/jbAdvlRrdaTP53FiZz4deO/CAUlhKi5y0oM7Y+rNb1yj3NaJ0yFd4RdYqn6sczI2895NWNKvQlxh1pzAg=="
     },
     {
+      "name": "TuDeporte",
+      "package": "io.prismhub.tudeporte",
+      "version": "1.0.0",
+      "author": "PrismPlus",
+      "type": "live",
+      "icon": "",
+      "description": "Agenda de fútbol del día con varias señales por partido, que resuelven directo — sin navegador.",
+      "lang": "es",
+      "webSite": "https://tudeporte.lat",
+      "license": "MIT",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tudeporte.js",
+      "sha256": "2e925e1e797ada94765a817ba0c8bb8a43149f0462cec59609b71dec04deaa28",
+      "signature": "rJgvIWIJCLQW0POwQuZ/jDN6w9DlJol+l3S7tXsv9OJ8lEkUYUgaLmD3mr9vMuiI+bp/GjVPcSQHcv6IhvZWDg=="
+    },
+    {
       "name": "TuMangaOnline",
       "package": "io.prismhub.tumangaonline",
       "version": "1.1.0",

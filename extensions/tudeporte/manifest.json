@@ -1,0 +1,12 @@
+{
+  "name": "TuDeporte",
+  "package": "io.prismhub.tudeporte",
+  "version": "1.0.0",
+  "author": "PrismPlus",
+  "type": "live",
+  "icon": "",
+  "description": "Agenda de fútbol del día con varias señales por partido, que resuelven directo — sin navegador.",
+  "lang": "es",
+  "webSite": "https://tudeporte.lat",
+  "license": "MIT"
+}
