@@ -643,15 +643,23 @@ function _cdnReferer(
 export async function resolveOkru(url: string): Promise<ResolvedEmbed | null> {
   const html = await fetchEmbed(url, 'https://ok.ru/');
   if (!html) return null;
-  const marker = 'hlsManifestUrl\\&quot;:\\&quot;';
-  const start = html.indexOf(marker);
-  if (start === -1) return null;
-  const from = start + marker.length;
-  const end = html.indexOf('\\&quot;', from);
-  if (end === -1) return null;
-  const url2 = html.slice(from, end).split('\\\\u0026').join('&');
-  if (!/^https?:\/\//.test(url2)) return null;
-  return { url: url2 };
+  // El escapado cambió: hasta agosto de 2026 venía doble (`\&quot;` y
+  // `\\u0026`) y el 2026-09-27 ya venía simple (`&quot;` y `&`). Buscando
+  // solo la forma vieja no se encontraba nada. Se aceptan las dos.
+  for (const marker of ['hlsManifestUrl\\&quot;:\\&quot;', 'hlsManifestUrl&quot;:&quot;']) {
+    const start = html.indexOf(marker);
+    if (start === -1) continue;
+    const from = start + marker.length;
+    const end = html.indexOf('&quot;', from);
+    if (end === -1) continue;
+    const url2 = html
+      .slice(from, end)
+      .replace(/\\+$/, '')
+      .split('\\\\u0026').join('&')
+      .split('\\u0026').join('&');
+    if (/^https?:\/\//.test(url2)) return { url: url2 };
+  }
+  return null;
 }
 
 /**
