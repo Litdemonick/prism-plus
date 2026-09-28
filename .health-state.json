@@ -3,6 +3,10 @@
     "consecutiveFailures": 0,
     "lastReason": null
   },
+  "io.prismhub.animeflv": {
+    "consecutiveFailures": 0,
+    "lastReason": null
+  },
   "io.prismhub.eporner": {
     "consecutiveFailures": 0,
     "lastReason": null
@@ -48,8 +52,8 @@
     "lastReason": null
   },
   "io.prismhub.manhwaweb": {
-    "consecutiveFailures": 0,
-    "lastReason": null
+    "consecutiveFailures": 1,
+    "lastReason": "broken"
   },
   "io.prismhub.olympus": {
     "consecutiveFailures": 0,
