@@ -237,7 +237,9 @@
       "latestLabel": "nuevos-capitulos",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/manhwaweb.js",
       "sha256": "163863e85ae90fbf14a5a61a081c6e08a40c599016d5b11c4cd313fe0aa985d3",
-      "signature": "pyCb8l3cXJdXQtihftG7MqbJwdBbxHdsFFUpAPEOTeu2Y/6hdwonyG9yYnylykH0CFPiQCMXfZxMjjhlt4GiCA=="
+      "signature": "pyCb8l3cXJdXQtihftG7MqbJwdBbxHdsFFUpAPEOTeu2Y/6hdwonyG9yYnylykH0CFPiQCMXfZxMjjhlt4GiCA==",
+      "unstable": true,
+      "unstableReason": "broken"
     },
     {
       "name": "Olympus",

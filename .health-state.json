@@ -40,8 +40,8 @@
     "lastReason": null
   },
   "io.prismhub.lamovie": {
-    "consecutiveFailures": 0,
-    "lastReason": null
+    "consecutiveFailures": 1,
+    "lastReason": "broken"
   },
   "io.prismhub.latanime": {
     "consecutiveFailures": 0,
@@ -52,7 +52,7 @@
     "lastReason": null
   },
   "io.prismhub.manhwaweb": {
-    "consecutiveFailures": 1,
+    "consecutiveFailures": 2,
     "lastReason": "broken"
   },
   "io.prismhub.olympus": {
