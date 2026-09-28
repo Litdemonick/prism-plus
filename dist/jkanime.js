@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.18
+// @version      1.12.19
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -896,6 +896,9 @@ async function detail(url) {
   var _a, _b, _c, _d;
   const slug = _toSlug(url);
   const html = await _get(`${BASE}/${slug}/`);
+  if (typeof html !== "string" || !html) {
+    throw new Error("JKAnime no respondi\xF3 a tiempo. Prob\xE1 de nuevo en un rato.");
+  }
   const title = matchFirst(html, /<h1[^>]*>([^<]+)<\/h1>/i) || matchFirst(html, /<title>\s*([^<]*?)\s*-\s*anime\s/i) || matchFirst(html, /<title>([^|<]+)/i) || slug;
   const cover = matchFirst(html, /property="og:image"\s+content="([^"]+)"/i) || matchFirst(html, /class="card-img-top"\s+src="([^"]+)"/i) || "";
   const description = stripTags(

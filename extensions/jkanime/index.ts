@@ -410,6 +410,12 @@ function _parseTopCards(html: string): PrismItem[] {
 export async function detail(url: string): Promise<PrismDetail> {
   const slug = _toSlug(url);
   const html = await _get(`${BASE}/${slug}/`);
+  // Sin página (el sitio no contestó a tiempo): se dice eso, en vez de
+  // reventar más abajo con «cannot read property 'matchAll' of undefined»
+  // (visto en un registro real, con jkanime tardando 25 s).
+  if (typeof html !== 'string' || !html) {
+    throw new Error('JKAnime no respondió a tiempo. Probá de nuevo en un rato.');
+  }
 
   // Ninguna página de jkanime trae <h1> (confirmado en vivo en varios
   // animes) — siempre cae al <title>, que viene con el nombre duplicado y
