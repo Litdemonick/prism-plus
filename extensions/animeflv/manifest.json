@@ -1,0 +1,14 @@
+{
+  "name": "AnimeFLV",
+  "package": "io.prismhub.animeflv",
+  "version": "1.0.0",
+  "author": "PrismPlus",
+  "type": "anime",
+  "contentKind": "anime",
+  "icon": "",
+  "description": "Anime sub español y latino con los últimos episodios del día, directorio completo por género y servidores que reproducen directo en la app.",
+  "lang": "es",
+  "webSite": "https://animeflv.or.at",
+  "license": "MIT",
+  "latestLabel": "ultimos-episodios"
+}

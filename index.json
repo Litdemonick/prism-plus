@@ -23,6 +23,23 @@
       "signature": "nITq+Rr17ShA9jMs/XbpsjYmR0/dSWzCVjSY9ZTfd5cYvzAKmFwKFeWhCAA5x/0/WOO4t4g4KeV12MhT7uUkBg=="
     },
     {
+      "name": "AnimeFLV",
+      "package": "io.prismhub.animeflv",
+      "version": "1.0.0",
+      "author": "PrismPlus",
+      "type": "bangumi",
+      "contentKind": "anime",
+      "icon": "",
+      "description": "Anime sub español y latino con los últimos episodios del día, directorio completo por género y servidores que reproducen directo en la app.",
+      "lang": "es",
+      "webSite": "https://animeflv.or.at",
+      "license": "MIT",
+      "latestLabel": "ultimos-episodios",
+      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animeflv.js",
+      "sha256": "be0c741d6d821c24447de748cd90dd66534095ed58a8ffe21f8176cf0fc7d651",
+      "signature": "UpsyDNGed4epIVkUA5ulkLwmg1Fpe6F/zJOaAkc+L5ZNoSS2UQMvVLrnc/tic8MJDy7OdZcdbNbJgw445zKOAA=="
+    },
+    {
       "name": "Eporner",
       "package": "io.prismhub.eporner",
       "version": "1.0.3",
