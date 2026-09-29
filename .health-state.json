@@ -40,7 +40,7 @@
     "lastReason": null
   },
   "io.prismhub.lamovie": {
-    "consecutiveFailures": 3,
+    "consecutiveFailures": 4,
     "lastReason": "broken"
   },
   "io.prismhub.latanime": {
@@ -52,16 +52,16 @@
     "lastReason": null
   },
   "io.prismhub.manhwaweb": {
-    "consecutiveFailures": 0,
-    "lastReason": null
+    "consecutiveFailures": 1,
+    "lastReason": "broken"
   },
   "io.prismhub.olympus": {
     "consecutiveFailures": 0,
     "lastReason": null
   },
   "io.prismhub.pornhub": {
-    "consecutiveFailures": 0,
-    "lastReason": null
+    "consecutiveFailures": 1,
+    "lastReason": "broken"
   },
   "io.prismhub.shademanga": {
     "consecutiveFailures": 0,
