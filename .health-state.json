@@ -40,7 +40,7 @@
     "lastReason": null
   },
   "io.prismhub.lamovie": {
-    "consecutiveFailures": 2,
+    "consecutiveFailures": 3,
     "lastReason": "broken"
   },
   "io.prismhub.latanime": {
