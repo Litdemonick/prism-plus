@@ -187,7 +187,9 @@
       "latestLabel": "recien-anadidas",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/lamovie.js",
       "sha256": "64aed502b8f8ea75f0bfb0533cb4b7b24bba7154347be677cd8d20980ac162cc",
-      "signature": "57WmKvdrOi6Rg/5Uqo33k2BCL0WNu2oKXOgRWze6IrtxBYhXZMalGGoC2TOAYmxUBXqj1n9ch8FK6MRhu+svDQ=="
+      "signature": "57WmKvdrOi6Rg/5Uqo33k2BCL0WNu2oKXOgRWze6IrtxBYhXZMalGGoC2TOAYmxUBXqj1n9ch8FK6MRhu+svDQ==",
+      "unstable": true,
+      "unstableReason": "broken"
     },
     {
       "name": "LatAnime",
@@ -237,9 +239,7 @@
       "latestLabel": "nuevos-capitulos",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/manhwaweb.js",
       "sha256": "163863e85ae90fbf14a5a61a081c6e08a40c599016d5b11c4cd313fe0aa985d3",
-      "signature": "pyCb8l3cXJdXQtihftG7MqbJwdBbxHdsFFUpAPEOTeu2Y/6hdwonyG9yYnylykH0CFPiQCMXfZxMjjhlt4GiCA==",
-      "unstable": true,
-      "unstableReason": "broken"
+      "signature": "pyCb8l3cXJdXQtihftG7MqbJwdBbxHdsFFUpAPEOTeu2Y/6hdwonyG9yYnylykH0CFPiQCMXfZxMjjhlt4GiCA=="
     },
     {
       "name": "Olympus",
