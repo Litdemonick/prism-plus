@@ -19,6 +19,18 @@
 // El precio asumido de la copia sigue igual: cuando un servidor cambia de
 // formato hay que arreglarlo en cada extensión por separado.
 //
+// ── Medido de nuevo el 2026-09-30 (Fase 3 Suprema) ──────────────────────────
+//
+// 305 obras de 1981 a 2026, 612 episodios, todos los servidores. Quedan TRES:
+//   Desu      100 % en todas las épocas · ~2,3 s · la calidad del sitio (hasta 1080p)
+//   Filemoon  100 % donde está          · ~3,3 s · la calidad del sitio (hasta 1080p)
+//   VOE       80–100 % en lo nuevo       · ~2,9 s · tope 720p (lo que falla son
+//             vídeos BORRADOS de VOE, 404 — el resolvedor anda)
+// Se sacaron: Magi (siempre el MISMO vídeo que Desu: 153 de 153), Streamwish y
+// Vidhide (~0 % en lo viejo, ~50 % en lo nuevo, 5–13 s de espera; sus páginas
+// llegan vacías). OK.ru propio (`jkokru.php`) da 404 en el propio sitio. Sus
+// carpetas se borraron: están en el historial de git si algún día vuelven.
+//
 // ── El catálogo activo, medido el 2026-08-05 ─────────────────────────────────
 //
 // Recorridos 59 episodios para el peso, y 3 episodios completos servidor por
@@ -63,9 +75,6 @@ import { type ServidorResuelto, pedir, hostDe, resolverReproductorPropio } from 
 import * as desu from './desu';
 import * as filemoon from './filemoon';
 import * as generico from './generico';
-import * as magi from './magi';
-import * as streamwish from './streamwish';
-import * as vidhide from './vidhide';
 import * as voe from './voe';
 
 export { type ServidorResuelto } from './comun';
@@ -100,32 +109,11 @@ export const SERVIDORES: Servidor[] = [
     resolver: desu.resolver,
   },
   {
-    boton: 'Magi',
-    hosts: ['/magi'],
-    botones: 59,
-    nativo: true,
-    resolver: magi.resolver,
-  },
-  {
-    boton: 'Streamwish',
-    hosts: ['sfastwish', 'streamwish', 'wishfast', 'swdyu'],
-    botones: 59,
-    nativo: true,
-    resolver: streamwish.resolver,
-  },
-  {
     boton: 'VOE',
     hosts: ['voe.sx', 'voe.'],
     botones: 59,
     nativo: true,
     resolver: voe.resolver,
-  },
-  {
-    boton: 'Vidhide',
-    hosts: ['vidhide', 'vhide'],
-    botones: 59,
-    nativo: true,
-    resolver: vidhide.resolver,
   },
   {
     boton: 'Filemoon',
@@ -145,9 +133,9 @@ export function fichaDe(url: string): Servidor | null {
 /**
  * Resuelve una dirección de servidor a algo que la app pueda abrir.
  *
- * Devuelve null cuando no se puede: ahí la app reintenta ESE mismo servidor con
- * su navegador interno, que ejecuta JS de verdad y a veces llega donde esto no.
- * Por eso un servidor que no resuelve igual se deja en la lista.
+ * Devuelve null cuando no se puede. La app ya no tiene navegador de respaldo:
+ * quien llama lo dice (ver `watch` en `index.ts`), con «borrado» si el servidor
+ * contestó 404/410.
  */
 export async function resolverServidor(
   url: string,
@@ -164,3 +152,4 @@ export async function resolverServidor(
 
 /** Para que el genérico y los ayudantes queden accesibles desde la extensión. */
 export { pedir, hostDe };
+export { estaBorrado } from './comun';

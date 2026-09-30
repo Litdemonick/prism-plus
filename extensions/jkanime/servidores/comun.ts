@@ -76,9 +76,24 @@ export async function pedir(
       JSON.stringify([url, { method: 'get', headers: { Referer: referer, ...headers } }]),
     );
   } catch (e) {
-    console.log(`[jk] no se pudo pedir ${url.slice(0, 45)} :: ${(e as Error)?.message ?? e}`);
+    const motivo = String((e as Error)?.message ?? e);
+    console.log(`[jk] no se pudo pedir ${url.slice(0, 45)} :: ${motivo}`);
+    // 404/410: el vídeo fue borrado del servidor. Se recuerda para decirlo así
+    // (y no «no se pudo abrir») — ver `estaBorrado`.
+    if (/\b(404|410)\b/.test(motivo)) {
+      if (_borrados.size > 200) _borrados.clear();
+      _borrados.add(url);
+    }
     return null;
   }
+}
+
+/** Direcciones que contestaron 404/410 en esta sesión (con techo). */
+const _borrados = new Set<string>();
+
+/** Si esta dirección contestó «ya no existe» (404/410). */
+export function estaBorrado(url: string): boolean {
+  return _borrados.has(url);
 }
 
 /**

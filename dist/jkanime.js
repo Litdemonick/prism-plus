@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.12.19
+// @version      1.13.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -195,9 +195,18 @@ async function pedir(url, referer, headers) {
       JSON.stringify([url, { method: "get", headers: __spreadValues({ Referer: referer }, headers) }])
     );
   } catch (e) {
-    console.log(`[jk] no se pudo pedir ${url.slice(0, 45)} :: ${(_a = e == null ? void 0 : e.message) != null ? _a : e}`);
+    const motivo = String((_a = e == null ? void 0 : e.message) != null ? _a : e);
+    console.log(`[jk] no se pudo pedir ${url.slice(0, 45)} :: ${motivo}`);
+    if (/\b(404|410)\b/.test(motivo)) {
+      if (_borrados.size > 200) _borrados.clear();
+      _borrados.add(url);
+    }
     return null;
   }
+}
+var _borrados = /* @__PURE__ */ new Set();
+function estaBorrado(url) {
+  return _borrados.has(url);
 }
 async function resolverReproductorPropio(iframeSrc, referer) {
   const hdrs = { Referer: referer };
@@ -392,73 +401,6 @@ ${desempaquetarTodo(html)}`.replace(/\\\//g, "/");
   return null;
 }
 
-// extensions/jkanime/servidores/magi/index.ts
-async function resolver4(url, referer) {
-  const hdrs = { Referer: referer };
-  const html = await pedir(url, referer);
-  if (!html) return null;
-  const patrones = [
-    /<source[^>]+src="(https?:\/\/[^"]+\.m3u8[^"]*)"/i,
-    /<source[^>]+src="(https?:\/\/[^"]+\.mp4[^"]*)"/i,
-    /source\s*:\s*['"]?(https?:\/\/[^'">\s]+\.m3u8)/i
-  ];
-  for (const re of patrones) {
-    const m = re.exec(html);
-    if (m) return { url: m[1], headers: hdrs };
-  }
-  return null;
-}
-
-// extensions/jkanime/servidores/streamwish/index.ts
-var apiCerrada = /* @__PURE__ */ new Set();
-async function resolver5(url, referer) {
-  var _a;
-  const host = hostDe(url);
-  if (!host) return null;
-  const hdrs = { Referer: `https://${host}/` };
-  const idM = /\/(?:e|f|d|v)\/([A-Za-z0-9]+)/.exec(url);
-  if (idM && !apiCerrada.has(host)) {
-    const json = await pedir(`https://${host}/api/file/${idM[1]}?json=1`, `https://${host}/`, {
-      "X-Requested-With": "XMLHttpRequest",
-      Accept: "application/json"
-    });
-    if (!json) {
-      apiCerrada.add(host);
-      console.log(`[jk] ${host}: la API no contesta, se va derecho al embed de ac\xE1 en m\xE1s`);
-    }
-    if (json) {
-      const m3u82 = /"file"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(json);
-      if (m3u82) return { url: m3u82[1].replace(/\\\//g, "/"), headers: hdrs };
-      const mp4 = /"file"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(json);
-      if (mp4) return { url: mp4[1].replace(/\\\//g, "/"), headers: hdrs };
-    }
-  }
-  const html = await pedir(url, `https://${host}/`);
-  if (!html) return null;
-  const plano = `${html}
-${desempaquetarTodo(html)}`.replace(/\\\//g, "/");
-  const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(plano);
-  if (m3u8) return { url: m3u8[1], headers: hdrs };
-  const file = /(?:file|source|src)\s*:\s*["']([^"']+\.(?:m3u8|mp4)[^"']*)["']/i.exec(plano);
-  if (file) return { url: file[1], headers: hdrs };
-  const enBase64 = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
-  if (enBase64) {
-    try {
-      const dec = b64aTexto(enBase64[1]);
-      const src = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(dec.replace(/\\\//g, "/"));
-      if (src) return { url: src[1], headers: hdrs };
-    } catch (e) {
-    }
-  }
-  const mp4s = (_a = plano.match(/https?:[^"'\s\\]+\.mp4[^"'\s\\]*/g)) != null ? _a : [];
-  const real = mp4s.find((u) => !/\.(?:css|js|jpg|png|woff)/.test(u));
-  if (real) return { url: real, headers: hdrs };
-  console.log(
-    `[jk] ${host}: el embed lleg\xF3 (${html.length} car., ${plano.length} tras desempaquetar) pero no tiene ninguna direcci\xF3n de v\xEDdeo reconocible`
-  );
-  return null;
-}
-
 // extensions/jkanime/servidores/voe/index.ts
 function rot13(s) {
   return s.replace(/[a-zA-Z]/g, (c) => {
@@ -478,7 +420,7 @@ function descifrar(crudo) {
     return null;
   }
 }
-async function resolver6(url, referer) {
+async function resolver4(url, referer) {
   let html = await pedir(url, referer, CABECERAS_DEL_REPRODUCTOR);
   if (!html) return null;
   const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html);
@@ -528,32 +470,11 @@ var SERVIDORES = [
     resolver
   },
   {
-    boton: "Magi",
-    hosts: ["/magi"],
-    botones: 59,
-    nativo: true,
-    resolver: resolver4
-  },
-  {
-    boton: "Streamwish",
-    hosts: ["sfastwish", "streamwish", "wishfast", "swdyu"],
-    botones: 59,
-    nativo: true,
-    resolver: resolver5
-  },
-  {
     boton: "VOE",
     hosts: ["voe.sx", "voe."],
     botones: 59,
     nativo: true,
-    resolver: resolver6
-  },
-  {
-    boton: "Vidhide",
-    hosts: ["vidhide", "vhide"],
-    botones: 59,
-    nativo: true,
-    resolver: resolver5
+    resolver: resolver4
   },
   {
     boton: "Filemoon",
@@ -902,7 +823,7 @@ async function detail(url) {
   const title = matchFirst(html, /<h1[^>]*>([^<]+)<\/h1>/i) || matchFirst(html, /<title>\s*([^<]*?)\s*-\s*anime\s/i) || matchFirst(html, /<title>([^|<]+)/i) || slug;
   const cover = matchFirst(html, /property="og:image"\s+content="([^"]+)"/i) || matchFirst(html, /class="card-img-top"\s+src="([^"]+)"/i) || "";
   const description = stripTags(
-    matchFirst(html, /class="[^"]*sinopsis[^"]*"[^>]*>([\s\S]*?)<\/(?:div|p)>/i) || matchFirst(html, /class="[^"]*descripci[^"]*"[^>]*>([\s\S]*?)<\/(?:div|p)>/i) || ""
+    matchFirst(html, /<p[^>]*class="[^"]*scroll[^"]*"[^>]*>([\s\S]*?)<\/p>/i) || matchFirst(html, /class="[^"]*sinopsis[^"]*"[^>]*>([\s\S]*?)<\/(?:div|p)>/i) || matchFirst(html, /class="[^"]*descripci[^"]*"[^>]*>([\s\S]*?)<\/(?:div|p)>/i) || ""
   ).trim();
   const animeId = matchFirst(html, /data-anime="(\d+)"/i) || matchFirst(html, /data-id="(\d+)"/i) || matchFirst(html, /"anime_id"\s*:\s*(\d+)/i) || matchFirst(html, /animeId\s*=\s*(\d+)/i);
   const token = matchFirst(html, /name="csrf-token"\s+content="([^"]+)"/i) || matchFirst(html, /content="([^"]+)"\s+name="csrf-token"/i) || matchFirst(html, /"csrf[_-]token"\s*:\s*"([^"]+)"/i);
@@ -977,19 +898,30 @@ async function detail(url) {
     }
     episodes.sort((a, b) => (a.number || 0) - (b.number || 0));
   }
-  const genres = matchGroups(
+  const genres = [...new Set(matchGroups(
     html,
     /<a[^>]+href="[^"]*\/genero\/[^"]*"[^>]*>([^<]+)<\/a>/gi
-  ).map((g) => g[0]);
+  ).map((g) => g[0].trim()).filter(Boolean))];
+  const emitido = matchFirst(html, /Emitido:\s*<\/span>\s*([^<]+)/i) || "";
+  const anio = parseInt(matchFirst(emitido, /(\d{4})/) || "", 10);
+  const year = Number.isFinite(anio) && anio > 1900 ? anio : void 0;
+  const puntos = parseFloat(matchFirst(html, /Puntuaci[oó]n:\s*<\/span>\s*([\d.]+)/i) || "");
+  const rating = Number.isFinite(puntos) && puntos > 0 && puntos <= 10 ? puntos : void 0;
+  const duracion = (matchFirst(html, /Duracion:\s*<\/span>\s*([^<]+)/i) || "").trim();
+  const extra = {};
+  if (duracion) extra["Duraci\xF3n"] = duracion;
+  if (emitido.trim()) extra["Emitido"] = emitido.trim();
   const statusText = (matchFirst(html, /Estado:\s*<\/span>\s*<div[^>]*>([^<]+)<\/div>/i) || "").toLowerCase();
   const status = statusText.includes("concluido") || statusText.includes("finalizado") ? "completed" : statusText.includes("emision") || statusText.includes("emisi\xF3n") ? "ongoing" : statusText.includes("proximamente") || statusText.includes("pr\xF3ximamente") ? "upcoming" : void 0;
-  return { title, cover, description, episodes, genres, status };
+  return __spreadValues(__spreadValues(__spreadValues({
+    title,
+    cover,
+    description,
+    episodes,
+    genres,
+    status
+  }, year ? { year } : {}), rating ? { rating } : {}), Object.keys(extra).length ? { extra } : {});
 }
-var _JS_ONLY_HOSTS = [
-  "filelions",
-  "filemoon",
-  "moonplayer"
-];
 function _isJkInternalEmbed(url) {
   if (url.indexOf("jkanime.net") === -1) return false;
   const path = url.replace(/^https?:\/\/jkanime\.net/, "").replace(/\/+$/, "");
@@ -1027,47 +959,41 @@ function _rawServerStream(server) {
   raw = _resolveRedirect(raw);
   const name = server.server || "Embed";
   const langSuffix = server.lang === 1 ? " LAT" : server.lang === 2 ? " CAST" : "";
-  const soloConJs = _JS_ONLY_HOSTS.some((h) => raw.toLowerCase().indexOf(h) !== -1);
   return {
     url: raw,
     quality: `${name}${langSuffix}`,
-    nativo: soloConJs ? false : (_a = fichaDe(raw)) == null ? void 0 : _a.nativo
+    nativo: (_a = fichaDe(raw)) == null ? void 0 : _a.nativo
   };
 }
 async function watch(url) {
   if (url.indexOf("http") === 0 && url.indexOf("jkanime.net") === -1) {
-    const uLow = url.toLowerCase();
-    const isJsOnly = _JS_ONLY_HOSTS.some((h) => uLow.indexOf(h) !== -1);
-    if (!isJsOnly) {
-      const name = _guessServerName(url);
-      const stream = await _resolveEmbedDio(name, url, `${BASE}/`);
-      if (stream) return { streams: [stream], pageUrl: "" };
-    }
-    return { streams: [], pageUrl: url };
+    const name = _guessServerName(url);
+    const stream = await _resolveEmbedDio(name, url, `${BASE}/`);
+    if (stream) return { streams: [stream], pageUrl: "" };
+    throw new Error(estaBorrado(url) ? "VIDEO_BORRADO: el v\xEDdeo ya no existe en este servidor" : "No se pudo abrir este servidor");
   }
   if (_isJkInternalEmbed(url)) {
     const uLow = url.toLowerCase();
     const isDesu = uLow.indexOf("/desu") !== -1 || uLow.indexOf("desudesuka") !== -1;
-    const isMagi = uLow.indexOf("/magi") !== -1;
-    if (isDesu || isMagi) {
+    if (isDesu) {
       const res = await resolverServidor(url, `${BASE}/`);
       if (res && res.url) {
         return {
-          streams: [
-            { url: res.url, quality: isDesu ? "Desu" : "Magi", headers: res.headers, nativo: true }
-          ],
+          streams: [{ url: res.url, quality: "Desu", headers: res.headers, nativo: true }],
           pageUrl: ""
         };
       }
     }
-    return { streams: [], pageUrl: url };
+    throw new Error("No se pudo abrir este servidor");
   }
   const episodeUrl = url.indexOf("http") === 0 ? url : `${BASE}/${url.replace(/\/+$/, "")}/`;
   const html = await _get(episodeUrl);
   if (typeof html !== "string" || html.length === 0) {
     throw new Error("JKAnime no respondi\xF3: el sitio puede estar ca\xEDdo o muy lento");
   }
-  const subEntries = _parseJkSubServers(html);
+  const subEntries = _parseJkSubServers(html).filter(
+    (e) => e.name.toLowerCase() !== "magi" && /^https?:\/\//.test(e.iframeSrc)
+  );
   subEntries.sort((a, b) => {
     const aDesu = a.name.toLowerCase() === "desu" ? 0 : 1;
     const bDesu = b.name.toLowerCase() === "desu" ? 0 : 1;
@@ -1078,13 +1004,15 @@ async function watch(url) {
       (e) => _withTimeout(
         _resolveJkInternalPlayer(e.iframeSrc, episodeUrl, e.name),
         _SERVER_TIMEOUT,
-        () => ({ url: e.iframeSrc, quality: e.name })
+        // Sin navegador de respaldo, la página cruda del reproductor no se
+        // puede abrir: si no llegó a tiempo, no se ofrece.
+        () => null
       )
     )
   );
   const yaVistos = /* @__PURE__ */ new Set();
   const subStreams = subResolved.filter((s) => s !== null).filter((s) => {
-    const clave = `${s.quality}|${s.url}`;
+    const clave = s.url;
     if (yaVistos.has(clave)) return false;
     yaVistos.add(clave);
     return true;
@@ -1111,13 +1039,33 @@ async function watch(url) {
   });
   const direct = usable.filter((s) => _isDirect(s.url));
   const embeds = usable.filter((s) => !_isDirect(s.url));
-  const streams = [...subStreams, ...direct, ...embeds];
+  const orden = (s) => {
+    var _a;
+    const q = ((_a = s.quality) != null ? _a : "").toLowerCase();
+    const lat = /\b(lat|cast)$/.test(q) ? 10 : 0;
+    const host = q.startsWith("filemoon") ? 0 : q.startsWith("voe") ? 1 : 2;
+    return lat + host;
+  };
+  const streams = [...subStreams, ...direct, ...embeds.sort((a, b) => orden(a) - orden(b))];
+  if (!streams.length) {
+    const jk = await _reproductorJk(html, episodeUrl);
+    if (jk) return { streams: [jk], pageUrl: episodeUrl };
+  }
   return { streams, pageUrl: episodeUrl };
 }
 async function _resolveEmbedDio(name, url, referer) {
   const res = await resolverServidor(url, referer);
   if (res && res.url) return { url: res.url, quality: name, headers: res.headers };
   return null;
+}
+async function _reproductorJk(html, episodeUrl) {
+  var _a, _b;
+  const iframe = (_a = /src="(https:\/\/jkanime\.net\/jkplayer\/jk\?u=[^"]+)"/.exec(html)) == null ? void 0 : _a[1];
+  if (!iframe) return null;
+  const pagina = await pedir(iframe, episodeUrl);
+  const url = pagina ? (_b = /url:\s*'(https:\/\/jkplayers\.com\/stream\/[^']+)'/.exec(pagina)) == null ? void 0 : _b[1] : void 0;
+  if (!url) return null;
+  return { url, quality: "JK", headers: { Referer: `${BASE}/` }, nativo: true };
 }
 function _parseJkSubServers(html) {
   const nameByIndex = {};

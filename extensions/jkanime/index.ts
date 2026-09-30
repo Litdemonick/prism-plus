@@ -1,5 +1,5 @@
 import { matchFirst, matchGroups, stripTags, decodeEntities } from '../../sdk/html';
-import { SERVIDORES, fichaDe, resolverServidor, resolverReproductorPropio } from './servidores';
+import { SERVIDORES, fichaDe, resolverServidor, resolverReproductorPropio, estaBorrado, pedir } from './servidores';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream } from '../../sdk/types';
 
 // sendMessage("request", ...) usa el dio de PrismHub (con UA, cookies y redirecciones),
@@ -432,7 +432,11 @@ export async function detail(url: string): Promise<PrismDetail> {
     matchFirst(html, /property="og:image"\s+content="([^"]+)"/i) ||
     matchFirst(html, /class="card-img-top"\s+src="([^"]+)"/i) || '';
 
+  // La sinopsis va hoy en <p class="scroll"> (medido 2026-09-30: salía vacía
+  // en las 168 fichas del banco porque solo se buscaba "sinopsis"). Las
+  // otras dos quedan de respaldo por si el sitio vuelve atrás.
   const description = stripTags(
+    matchFirst(html, /<p[^>]*class="[^"]*scroll[^"]*"[^>]*>([\s\S]*?)<\/p>/i) ||
     matchFirst(html, /class="[^"]*sinopsis[^"]*"[^>]*>([\s\S]*?)<\/(?:div|p)>/i) ||
     matchFirst(html, /class="[^"]*descripci[^"]*"[^>]*>([\s\S]*?)<\/(?:div|p)>/i) || ''
   ).trim();
@@ -550,10 +554,27 @@ export async function detail(url: string): Promise<PrismDetail> {
     episodes.sort((a, b) => (a.number || 0) - (b.number || 0));
   }
 
-  const genres = matchGroups(
+  // Sin repetidos: la página los lista dos veces (arriba y en el cuadro de
+  // datos) y la ficha mostraba «Acción, Comedia, Seinen» dos veces.
+  const genres = [...new Set(matchGroups(
     html,
     /<a[^>]+href="[^"]*\/genero\/[^"]*"[^>]*>([^<]+)<\/a>/gi,
-  ).map(g => g[0]);
+  ).map(g => g[0].trim()).filter(Boolean))];
+
+  // ── Los datos del cuadro de la ficha ─────────────────────────────────────
+  //
+  // El sitio publica «Emitido: Domingo, 12 de Octubre de 2025», «Puntuación:
+  // 8.58» (ya sobre 10) y «Duracion: 24 min.». La app los mostraba vacíos
+  // porque la extensión no los leía.
+  const emitido = matchFirst(html, /Emitido:\s*<\/span>\s*([^<]+)/i) || '';
+  const anio = parseInt(matchFirst(emitido, /(\d{4})/) || '', 10);
+  const year = Number.isFinite(anio) && anio > 1900 ? anio : undefined;
+  const puntos = parseFloat(matchFirst(html, /Puntuaci[oó]n:\s*<\/span>\s*([\d.]+)/i) || '');
+  const rating = Number.isFinite(puntos) && puntos > 0 && puntos <= 10 ? puntos : undefined;
+  const duracion = (matchFirst(html, /Duracion:\s*<\/span>\s*([^<]+)/i) || '').trim();
+  const extra: Record<string, string> = {};
+  if (duracion) extra['Duración'] = duracion;
+  if (emitido.trim()) extra['Emitido'] = emitido.trim();
 
   // Estado de emisión — el sitio lo pone como
   // <li><span>Estado:</span> <div class="enemision finished">Concluido</div></li>
@@ -572,7 +593,12 @@ export async function detail(url: string): Promise<PrismDetail> {
       ? 'upcoming'
       : undefined;
 
-  return { title, cover, description, episodes, genres, status };
+  return {
+    title, cover, description, episodes, genres, status,
+    ...(year ? { year } : {}),
+    ...(rating ? { rating } : {}),
+    ...(Object.keys(extra).length ? { extra } : {}),
+  };
 }
 
 type PrismEpisode = { title: string; url: string; number?: number };
@@ -590,10 +616,7 @@ type PrismEpisode = { title: string; url: string; number?: number };
 // vidhide también se sacó, y por lo mismo: nunca se había probado. Medido en
 // vivo contra el bundle ya compilado: 3 de 3 intentos dan la lista HLS real
 // (master.m3u8 en acek-cdn.com, 200 application/vnd.apple.mpegurl).
-const _JS_ONLY_HOSTS = [
-  'filelions',
-  'filemoon', 'moonplayer',
-];
+// (Ya no hay hosts «solo navegador»: la app no tiene WebView.)
 
 // URLs internas de jkanime que son embeds propios (desu, magi, desuka, etc.),
 // no URLs de episodio. Se detectan por el path después del dominio.
@@ -644,51 +667,43 @@ function _rawServerStream(server: JKServer): PrismStream | null {
   raw = _resolveRedirect(raw);
   const name = server.server || 'Embed';
   const langSuffix = server.lang === 1 ? ' LAT' : server.lang === 2 ? ' CAST' : '';
-  // El rayo/mundo sale de la tabla de `servidores/`, que es donde está lo que se
-  // midió de cada uno. Los de _JS_ONLY_HOSTS van al navegador sí o sí: esta
-  // extensión ya los manda derecho al sniffer sin intentar resolverlos.
-  const soloConJs = _JS_ONLY_HOSTS.some((h) => raw.toLowerCase().indexOf(h) !== -1);
+  // Nativo o no sale de la tabla de `servidores/`, que es donde está lo que se
+  // midió de cada uno.
   return {
     url: raw,
     quality: `${name}${langSuffix}`,
-    nativo: soloConJs ? false : fichaDe(raw)?.nativo,
+    nativo: fichaDe(raw)?.nativo,
   };
 }
 
 export async function watch(url: string): Promise<PrismWatch> {
   // Fast-path A: embed URL externo (dominio != jkanime.net)
   if (url.indexOf('http') === 0 && url.indexOf('jkanime.net') === -1) {
-    const uLow = url.toLowerCase();
-    // Para servidores JS-only, ir directo al WebView sniffer sin intentar dio
-    const isJsOnly = _JS_ONLY_HOSTS.some(h => uLow.indexOf(h) !== -1);
-    if (!isJsOnly) {
-      const name = _guessServerName(url);
-      const stream = await _resolveEmbedDio(name, url, `${BASE}/`);
-      if (stream) return { streams: [stream], pageUrl: '' };
-    }
-    // No se pudo resolver con dio (o es JS-only) → dejar que el WebView sniffer lo intente
-    return { streams: [], pageUrl: url };
+    const name = _guessServerName(url);
+    const stream = await _resolveEmbedDio(name, url, `${BASE}/`);
+    if (stream) return { streams: [stream], pageUrl: '' };
+    // Ya no hay navegador de respaldo en la app (se sacó el WebView): un
+    // servidor que no se resuelve se dice, con el motivo cuando se sabe.
+    throw new Error(estaBorrado(url)
+      ? 'VIDEO_BORRADO: el vídeo ya no existe en este servidor'
+      : 'No se pudo abrir este servidor');
   }
 
   // Fast-path B: embed interno de jkanime (desu/magi/desuka) — NO es URL de episodio
   if (_isJkInternalEmbed(url)) {
     const uLow = url.toLowerCase();
     const isDesu = uLow.indexOf('/desu') !== -1 || uLow.indexOf('desudesuka') !== -1;
-    const isMagi = uLow.indexOf('/magi') !== -1;
-    // Los dos salen de la tabla: sus fichas se reconocen justamente por el
-    // nombre en el path (/desu/, /magi/), que es el formato viejo.
-    if (isDesu || isMagi) {
+    // Solo Desu: Magi era siempre el mismo vídeo (medido 2026-09-30).
+    if (isDesu) {
       const res = await resolverServidor(url, `${BASE}/`);
       if (res && res.url) {
         return {
-          streams: [
-            { url: res.url, quality: isDesu ? 'Desu' : 'Magi', headers: res.headers, nativo: true },
-          ],
+          streams: [{ url: res.url, quality: 'Desu', headers: res.headers, nativo: true }],
           pageUrl: '',
         };
       }
     }
-    return { streams: [], pageUrl: url };
+    throw new Error('No se pudo abrir este servidor');
   }
 
   const episodeUrl =
@@ -709,7 +724,11 @@ export async function watch(url: string): Promise<PrismWatch> {
   // Servidores SUB propios de JKAnime (Desu/Magi) — nunca viven en el array
   // `servers` de abajo, así que se resuelven aparte y siempre se intentan,
   // pase lo que pase con ese array (incluso si no existe o viene vacío).
-  const subEntries = _parseJkSubServers(html);
+  // Fuera Magi (el mismo vídeo que Desu, 153 de 153 medidos) y las
+  // direcciones relativas (`/jkokru.php`: el OK.ru propio da 404 en el sitio).
+  const subEntries = _parseJkSubServers(html).filter(
+    (e) => e.name.toLowerCase() !== 'magi' && /^https?:\/\//.test(e.iframeSrc),
+  );
   // Desu siempre primero: es el servidor default del propio sitio y el más
   // confiable — garantiza que sea streams[0] (X-Primary-Server) sin depender
   // del orden en que la página lo liste.
@@ -723,7 +742,9 @@ export async function watch(url: string): Promise<PrismWatch> {
       _withTimeout(
         _resolveJkInternalPlayer(e.iframeSrc, episodeUrl, e.name),
         _SERVER_TIMEOUT,
-        () => ({ url: e.iframeSrc, quality: e.name } as PrismStream | null),
+        // Sin navegador de respaldo, la página cruda del reproductor no se
+        // puede abrir: si no llegó a tiempo, no se ofrece.
+        () => null,
       ),
     ),
   );
@@ -734,7 +755,8 @@ export async function watch(url: string): Promise<PrismWatch> {
   const subStreams = subResolved
     .filter((s): s is PrismStream => s !== null)
     .filter((s) => {
-      const clave = `${s.quality}|${s.url}`;
+      // Por la dirección: dos botones con el mismo archivo son uno solo.
+      const clave = s.url;
       if (yaVistos.has(clave)) return false;
       yaVistos.add(clave);
       return true;
@@ -799,7 +821,24 @@ export async function watch(url: string): Promise<PrismWatch> {
 
   // SUB (Desu/Magi, resueltos arriba) primero — es lo que la página muestra
   // por default — luego LAT directos, luego embeds sin resolver.
-  const streams = [...subStreams, ...direct, ...embeds];
+  // Del mejor al peor (medido 2026-09-30): Filemoon (100 %, hasta 1080p)
+  // antes que VOE (tope 720p, vídeos borrados en lo viejo). SUB antes que LAT.
+  const orden = (s: PrismStream): number => {
+    const q = (s.quality ?? '').toLowerCase();
+    const lat = /\b(lat|cast)$/.test(q) ? 10 : 0;
+    const host = q.startsWith('filemoon') ? 0 : q.startsWith('voe') ? 1 : 2;
+    return lat + host;
+  };
+  const streams = [...subStreams, ...direct, ...embeds.sort((a, b) => orden(a) - orden(b))];
+
+  // Sin ningún servidor: el reproductor propio del sitio («JK»), que en
+  // algunos episodios es lo único que hay (medido: listas de servidores
+  // vacías y solo `jkplayer/jk`). Si su archivo fue borrado, el reproductor
+  // de la app lo dice al intentar abrirlo.
+  if (!streams.length) {
+    const jk = await _reproductorJk(html, episodeUrl);
+    if (jk) return { streams: [jk], pageUrl: episodeUrl };
+  }
 
   return { streams, pageUrl: episodeUrl };
 }
@@ -840,6 +879,20 @@ interface _JkSubEntry {
   index: number;
   name: string;
   iframeSrc: string;
+}
+
+/**
+ * El reproductor propio del sitio para episodios sin otros servidores:
+ * `jkplayer/jk?u=stream/jkmedia/…` → su página trae `url: 'https://jkplayers.com/stream/…'`,
+ * que redirige al archivo. mpv sigue la redirección solo.
+ */
+async function _reproductorJk(html: string, episodeUrl: string): Promise<PrismStream | null> {
+  const iframe = /src="(https:\/\/jkanime\.net\/jkplayer\/jk\?u=[^"]+)"/.exec(html)?.[1];
+  if (!iframe) return null;
+  const pagina = await pedir(iframe, episodeUrl);
+  const url = pagina ? /url:\s*'(https:\/\/jkplayers\.com\/stream\/[^']+)'/.exec(pagina)?.[1] : undefined;
+  if (!url) return null;
+  return { url, quality: 'JK', headers: { Referer: `${BASE}/` }, nativo: true };
 }
 
 function _parseJkSubServers(html: string): _JkSubEntry[] {
