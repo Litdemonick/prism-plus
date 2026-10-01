@@ -206,9 +206,7 @@
       "latestLabel": "anadidos-recientemente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/latanime.js",
       "sha256": "df961ea6d107e115a1308fe422c185a96ffe905119d1802c97c6df6b6a13e7be",
-      "signature": "TuVTStNGf8zTtxSvpCelle3vSz5xLU8AJig0ldqxIeaERme8VsbKMItR3F5c2AHlaPSZzJmdICZpSuRLQSB1BA==",
-      "unstable": true,
-      "unstableReason": "site-down"
+      "signature": "TuVTStNGf8zTtxSvpCelle3vSz5xLU8AJig0ldqxIeaERme8VsbKMItR3F5c2AHlaPSZzJmdICZpSuRLQSB1BA=="
     },
     {
       "name": "MangaDex",
@@ -274,7 +272,9 @@
       "latestLabel": "lo-mas-reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/pornhub.js",
       "sha256": "caba4923b94c657bfa531e3bbf2a388eb315a7afafe4d830b626dd47b473feae",
-      "signature": "VzWeYYBoCwl6UqE3o+K4Brx96wcHcAsRzXf1lzbFFsvtgwgLFPZf7lQzmeiJwhQSZ9PtUTlx2MtvkNoL2jaBDg=="
+      "signature": "VzWeYYBoCwl6UqE3o+K4Brx96wcHcAsRzXf1lzbFFsvtgwgLFPZf7lQzmeiJwhQSZ9PtUTlx2MtvkNoL2jaBDg==",
+      "unstable": true,
+      "unstableReason": "broken"
     },
     {
       "name": "ShadeManga",
