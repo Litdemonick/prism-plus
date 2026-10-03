@@ -65,7 +65,7 @@ export async function pedir(
   }
 }
 
-/** POST con cuerpo JSON. Lo usa firestream para canjear su vale. */
+/** POST con cuerpo JSON. Lo usa PM (playmate) para pedir la fuente. */
 export async function postJson(
   url: string,
   cuerpo: unknown,
@@ -124,7 +124,7 @@ export function b64aTexto(s: string): string {
 
 // ─── Desempaquetador eval(p,a,c,k,e,d) (Dean Edwards) ────────────────────────
 //
-// Lo necesitan dropload y vimeos: la dirección no está en el HTML tal cual,
+// Lo necesita vimeos: la dirección no está en el HTML tal cual,
 // está partida en el diccionario del empaquetado y se arma al desempaquetar.
 
 /** Desempaqueta un bloque. Devuelve '' si no es de este formato. */
@@ -151,7 +151,7 @@ function desempaquetarUno(src: string): string {
  * Busca la dirección del vídeo dentro de una página de embed ya bajada.
  *
  * Desempaqueta lo que haya y prueba, en orden, las cuatro formas en que estos
- * sitios la guardan. Es lo único que comparten goodstream, dropload y vimeos:
+ * sitios la guardan. Lo usa vimeos:
  * cada uno tiene su propia carpeta y su propio resolver, así que arreglar uno
  * no toca a los otros dos.
  */

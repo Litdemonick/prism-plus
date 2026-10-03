@@ -26,9 +26,6 @@
 import { type ServidorResuelto } from './comun';
 import * as directo from './directo';
 import * as drive from './drive';
-import * as dropload from './dropload';
-import * as firestream from './firestream';
-import * as goodstream from './goodstream';
 import * as okru from './ok.ru';
 import * as playmate from './playmate';
 import * as videro from './videro';
@@ -66,6 +63,14 @@ export { type ServidorResuelto } from './comun';
 //   US (upns)       su API contesta «Video not found or deleted» en 19/19, con
 //                   el pedido exacto del reproductor (desofuscado).
 //   pixeldrain      15/15 borrados (404).
+//   DL (dropload)   pide un captcha de Cloudflare («no soy un robot») antes
+//                   del vídeo: 0/12 en todo el catálogo (21 botones).
+//   FS (firestream) 12/12 archivos borrados (404) en TODO el catálogo (solo
+//                   19 botones en 3240 obras).
+//   GS (goodstream) la página resuelve, pero su servidor de vídeo
+//                   (enc*.goodstream.one) no conecta: medido desde la PC
+//                   (0/20, «Connect Timeout») y confirmado por el usuario en el
+//                   teléfono con otra red (2026-10-03: «no disponible»).
 //   FCTL (hf.space) el mismo enlace dio vídeo 6/6 y horas después 2/6 («Not
 //                   found»), y tarda ~6 s. Algo que anda a veces no se ofrece.
 //   LVAD (loadvid)  la lista llega como TEXTO, no como dirección: necesita la
@@ -139,22 +144,6 @@ export const SERVIDORES: Servidor[] = [
     resolver: vidsst.resolver,
   },
   {
-    boton: 'GS',
-    hosts: ['gscdn', 'goodstream'],
-    botones: 128,
-    nativo: true,
-    orden: 8,
-    resolver: goodstream.resolver,
-  },
-  {
-    boton: 'FS',
-    hosts: ['firestream'],
-    botones: 92,
-    nativo: true,
-    orden: 9,
-    resolver: firestream.resolver,
-  },
-  {
     boton: 'OK.RU',
     hosts: ['ok.ru', 'okru'],
     botones: 55,
@@ -169,14 +158,6 @@ export const SERVIDORES: Servidor[] = [
     nativo: true,
     orden: 7,
     resolver: vimeos.resolver,
-  },
-  {
-    boton: 'DL',
-    hosts: ['dropload', 'dr0pstream'],
-    botones: 47,
-    nativo: true,
-    orden: 10,
-    resolver: dropload.resolver,
   },
 ];
 

@@ -353,11 +353,10 @@ export async function detail(url: string): Promise<PrismDetail> {
 //    normal) o bien ...r=<base64(url)> (visto en el mismo sitio con dos
 //    plantillas de wrapper distintas). El destino puede ser un archivo
 //    directo (mp4 en rumble.cloud, confirmado con Content-Type: video/mp4 y
-//    Accept-Ranges) o un embed de terceros que sí necesita resolveEmbed
-//    (ej. firestream.to, que desde ahora resuelve nativo — ver
-//    resolveFirestream en el SDK).
-// Qué servidores se ofrecen y cuáles no (UA, US, pixeldrain, FCTL…), con lo
-// medido de cada uno: ver la nota en `servidores/index.ts`.
+//    Accept-Ranges) o el embed de otro servidor, que resuelve su carpeta en
+//    `servidores/`.
+// Qué servidores se ofrecen y cuáles no (UA, US, GS, FS, pixeldrain,
+// FCTL…), con lo medido de cada uno: ver la nota en `servidores/index.ts`.
 
 /**
  * Le pone `https:` a las direcciones que vienen sin protocolo.
@@ -421,7 +420,11 @@ function _parseSvLinks(html: string): { name: string; url: string; calidad: stri
   const out: { name: string; url: string; calidad: string }[] = [];
   for (const m of block.matchAll(re)) {
     out.push({
-      name: m[2].replace(/&#\d+;/g, '').trim(),
+      // Sin el «(ads)» que el sitio le pone a algunos botones («GS(ads)»,
+      // «Vimeo(ads)»): avisa que SU página tiene publicidad, y en la app no
+      // hay ninguna (se reproduce el vídeo directo). Mostrarlo hacía pensar
+      // que sí (reportado 2026-10-03).
+      name: m[2].replace(/&#\d+;/g, '').replace(/\s*\(ads\)\s*$/i, '').trim(),
       calidad: m[3].replace(/&#\d+;/g, '').replace(/^#/, '').trim(),
       url: m[4],
     });

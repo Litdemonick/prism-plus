@@ -5,7 +5,7 @@
 // Nada que ver con vimeo.com: es la misma plataforma que hay detrás de
 // unlimplay (sus direcciones terminan en vimeos.net / vimeos.zip).
 //
-// Como dropload, guarda la dirección dentro de un `eval(p,a,c,k,e,d)`. La
+// Guarda la dirección dentro de un `eval(p,a,c,k,e,d)`. La
 // página además trae jwplayer y anuncios, que acá no se cargan: se saca la
 // dirección y se le pasa al reproductor de la app.
 //

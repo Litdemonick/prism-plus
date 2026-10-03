@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.10.2
+// @version      1.10.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -302,59 +302,6 @@ async function resolver2(url) {
   };
 }
 
-// extensions/fuegocine/servidores/dropload/index.ts
-async function resolver3(url, referer) {
-  const html = await pedir(url, referer);
-  if (!html) return null;
-  const host = hostDe(url);
-  return buscarDireccion(html, host ? { Referer: `https://${host}/` } : void 0);
-}
-
-// extensions/fuegocine/servidores/firestream/index.ts
-async function resolver4(url, referer) {
-  var _a;
-  const host = hostDe(url) || "firestream.to";
-  const codigo = codigoDe(url);
-  if (!codigo) return null;
-  const html = await pedir(url, referer || `https://${host}/`);
-  if (typeof html !== "string") return null;
-  const yaFirmada = /"signedVideoUrl"\s*:\s*"([^"]+)"/.exec(html);
-  if (yaFirmada && yaFirmada[1] && yaFirmada[1] !== "null") {
-    return {
-      url: yaFirmada[1].replace(/\\\//g, "/"),
-      headers: { Referer: `https://${host}/` }
-    };
-  }
-  const vale = /<script[^>]+id="token-blob"[^>]*>([^<]+)<\/script>/.exec(html);
-  if (!vale) {
-    console.log("[fc/firestream] la p\xE1gina no trae el vale para canjear");
-    return null;
-  }
-  const raw = await postJson(
-    `https://${host}/api/videos/${encodeURIComponent(codigo)}/resolve`,
-    { blob: vale[1].trim() },
-    url
-  );
-  if (!raw) return null;
-  const m = (_a = /"signedVideoUrl"\s*:\s*"([^"]+)"/.exec(raw)) != null ? _a : /"signedVideoSdUrl"\s*:\s*"([^"]+)"/.exec(raw);
-  if (!m) {
-    console.log("[fc/firestream] el canje no devolvi\xF3 ninguna url");
-    return null;
-  }
-  return {
-    url: m[1].replace(/\\\//g, "/"),
-    headers: { Referer: `https://${host}/` }
-  };
-}
-
-// extensions/fuegocine/servidores/goodstream/index.ts
-async function resolver5(url, referer) {
-  const html = await pedir(url, referer);
-  if (!html) return null;
-  const host = hostDe(url);
-  return buscarDireccion(html, host ? { Referer: `https://${host}/` } : void 0);
-}
-
 // extensions/fuegocine/servidores/ok.ru/index.ts
 var COMILLAS = ["\\&quot;", "&quot;"];
 function valorDe(html, clave) {
@@ -370,7 +317,7 @@ function valorDe(html, clave) {
   }
   return null;
 }
-async function resolver6(url) {
+async function resolver3(url) {
   const html = await pedir(url, "https://ok.ru/");
   if (!html) return null;
   const hls = valorDe(html, "hlsManifestUrl");
@@ -381,7 +328,7 @@ async function resolver6(url) {
 }
 
 // extensions/fuegocine/servidores/playmate/index.ts
-async function resolver7(url) {
+async function resolver4(url) {
   const codigo = codigoDe(url);
   if (!codigo) return null;
   const raw = await postJson("https://playmate.to/api/s", { c: codigo, d: "desktop" }, url);
@@ -401,7 +348,7 @@ async function resolver7(url) {
 }
 
 // extensions/fuegocine/servidores/videro/index.ts
-async function resolver8(url) {
+async function resolver5(url) {
   var _a, _b, _c;
   if (/\.m3u8(\?|$)/i.test(url)) return { url };
   const id = (_a = /\/e\/([A-Za-z0-9]+)/.exec(url)) == null ? void 0 : _a[1];
@@ -425,7 +372,7 @@ async function resolver8(url) {
 }
 
 // extensions/fuegocine/servidores/vidsst/index.ts
-async function resolver9(url, referer) {
+async function resolver6(url, referer) {
   var _a;
   const html = await pedir(url, referer);
   if (!html) return null;
@@ -440,7 +387,7 @@ async function resolver9(url, referer) {
 }
 
 // extensions/fuegocine/servidores/vimeos/index.ts
-async function resolver10(url, referer) {
+async function resolver7(url, referer) {
   const html = await pedir(url, referer);
   if (!html) return null;
   const host = hostDe(url);
@@ -476,7 +423,7 @@ var SERVIDORES = [
     botones: 20,
     nativo: true,
     orden: 2,
-    resolver: resolver7
+    resolver: resolver4
   },
   {
     // Videro: la lista directa (botón «FC») o su reproductor `/e/` («VRAD»).
@@ -485,7 +432,7 @@ var SERVIDORES = [
     botones: 6,
     nativo: true,
     orden: 3,
-    resolver: resolver8
+    resolver: resolver5
   },
   {
     boton: "VST",
@@ -493,23 +440,7 @@ var SERVIDORES = [
     botones: 20,
     nativo: true,
     orden: 4,
-    resolver: resolver9
-  },
-  {
-    boton: "GS",
-    hosts: ["gscdn", "goodstream"],
-    botones: 128,
-    nativo: true,
-    orden: 8,
-    resolver: resolver5
-  },
-  {
-    boton: "FS",
-    hosts: ["firestream"],
-    botones: 92,
-    nativo: true,
-    orden: 9,
-    resolver: resolver4
+    resolver: resolver6
   },
   {
     boton: "OK.RU",
@@ -517,7 +448,7 @@ var SERVIDORES = [
     botones: 55,
     nativo: true,
     orden: 6,
-    resolver: resolver6
+    resolver: resolver3
   },
   {
     boton: "Vimeo",
@@ -525,15 +456,7 @@ var SERVIDORES = [
     botones: 49,
     nativo: true,
     orden: 7,
-    resolver: resolver10
-  },
-  {
-    boton: "DL",
-    hosts: ["dropload", "dr0pstream"],
-    botones: 47,
-    nativo: true,
-    orden: 10,
-    resolver: resolver3
+    resolver: resolver7
   }
 ];
 function fichaDe(url) {
@@ -806,7 +729,11 @@ function _parseSvLinks(html) {
   const out = [];
   for (const m of block.matchAll(re)) {
     out.push({
-      name: m[2].replace(/&#\d+;/g, "").trim(),
+      // Sin el «(ads)» que el sitio le pone a algunos botones («GS(ads)»,
+      // «Vimeo(ads)»): avisa que SU página tiene publicidad, y en la app no
+      // hay ninguna (se reproduce el vídeo directo). Mostrarlo hacía pensar
+      // que sí (reportado 2026-10-03).
+      name: m[2].replace(/&#\d+;/g, "").replace(/\s*\(ads\)\s*$/i, "").trim(),
       calidad: m[3].replace(/&#\d+;/g, "").replace(/^#/, "").trim(),
       url: m[4]
     });
