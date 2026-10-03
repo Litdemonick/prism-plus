@@ -2,6 +2,7 @@ import type {
   PrismItem,
   PrismDetail,
   PrismWatch,
+  PrismStream,
   PrismEpisode,
   PrismSeason,
   MediaType,
@@ -10,7 +11,7 @@ import type {
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
 
-import { resolver as resolverServidor } from './servidores';
+import { resolver as resolverServidor, servidorDe } from './servidores';
 
 // ─── El sitio nuevo ─────────────────────────────────────────────────────────
 //
@@ -536,7 +537,8 @@ async function _temporadas(kind: Kind, id: number): Promise<PrismSeason[]> {
   const temporadas: PrismSeason[] = [];
   for (const { t, episodios } of detalles) {
     const lista: PrismEpisode[] = episodios
-      .filter((e) => e.playable !== false && !!e.code)
+      // Sin exigir `code` (la API ya no lo manda, ver watch).
+      .filter((e) => e.playable !== false)
       .sort((a, b) => a.episode - b.episode)
       .map((e) => ({
         title: e.title || `Episodio ${e.episode}`,
@@ -569,7 +571,9 @@ export async function detail(url: string): Promise<PrismDetail> {
   if (i.kind === 'movie') {
     // Película: un solo "episodio", la película misma, para que el flujo de
     // reproducción sea el mismo watch(url).
-    if (i.playable !== false && i.code) {
+    // Ya no se exige `code`: desde 2026-10 la ficha no lo trae (los
+    // servidores salen de /v1/playback, ver watch). Con `playable` alcanza.
+    if (i.playable !== false) {
       episodios.push({
         title: i.title,
         url: _itemUrl(i.kind, i.tmdb_id, i.slug),
@@ -607,46 +611,81 @@ export async function detail(url: string): Promise<PrismDetail> {
 
 // ─── Reproducción ───────────────────────────────────────────────────────────
 //
-// Solo sale lo que reproduce en el reproductor de la app. El único servidor
-// del sitio es vimeos, y su resolvedor (en `servidores/vimeos`) saca el m3u8
-// del embed. Si no lo logra, no se devuelve el embed crudo: la app ya no abre
-// páginas en un navegador, así que un servidor sin resolver solo sería un
-// botón que no reproduce.
-async function _codigoDe(ref: Referencia): Promise<string | null> {
-  if (ref.kind === 'movie') {
-    const r = await _get<{ item?: LMItem }>(`${API}/items/movie/${ref.id}`);
-    return r.item && r.item.playable !== false ? r.item.code || null : null;
-  }
-  if (ref.temporada == null || ref.episodio == null) {
-    throw new Error('Falta el episodio a reproducir');
-  }
-  const r = await _get<{ episode?: LMEpisodio }>(
-    `${API}/items/${ref.kind}/${ref.id}/seasons/${ref.temporada}/episodes/${ref.episodio}`,
-  );
-  return r.episode && r.episode.playable !== false ? r.episode.code || null : null;
+// ── Desde 2026-10: los servidores salen de /v1/playback ─────────────────────
+//
+// La ficha dejó de traer el `code` del vídeo (medido: `playable: true` y
+// `code` ausente en todas). El sitio pide los servidores aparte, a
+// `/v1/playback/<tipo>/<id>` (con `?season=&episode=` en series), y recibe
+// una LISTA: `{ url, host, lang, quality }`. Sin esto todas las fichas
+// quedaban sin episodios y la extensión estaba marcada rota.
+//
+// Medido sobre 100 películas y 120 episodios (2026-10-03): solo dos hosts.
+//   · vimeos.net      100/100 películas, 118/120 episodios. Resuelve nativo.
+//   · goodstream.one   91/100 películas,  75/120 episodios. El embed responde
+//     pero sus nodos de vídeo (encN/sN.goodstream.one) no aceptan conexión, y
+//     en el teléfono decía «no disponible» (ya medido con FuegoCine). FUERA.
+// Solo sale lo que reproduce en el reproductor de la app: la app ya no abre
+// páginas en un navegador.
+
+interface LMEmbed {
+  url: string;
+  host?: string;
+  lang?: string;
+  quality?: string;
 }
 
-async function _resolver(embed: string): Promise<PrismWatch> {
+async function _embedsDe(ref: Referencia): Promise<LMEmbed[]> {
+  if (ref.kind !== 'movie' && (ref.temporada == null || ref.episodio == null)) {
+    throw new Error('Falta el episodio a reproducir');
+  }
+  const q = ref.kind === 'movie' ? '' : `?season=${ref.temporada}&episode=${ref.episodio}`;
+  // Un 404 llega como { error: … }: sin embeds.
+  const r = await _get<{ embeds?: LMEmbed[] }>(`${API}/playback/${ref.kind}/${ref.id}${q}`);
+  return Array.isArray(r.embeds) ? r.embeds.filter((e) => e && typeof e.url === 'string') : [];
+}
+
+/** «Latino», «Japonés (sub. latino)»: corto, para el botón. */
+function _idioma(lang: string | undefined): string {
+  const l = (lang || '').trim();
+  if (!l) return '';
+  const sub = /^(.+?)\s*-\s*Subt[ií]tulos?\s+(.+)$/i.exec(l);
+  return sub ? `${sub[1]} (sub. ${sub[2].toLowerCase()})` : l;
+}
+
+async function _resolver(embed: string, lang?: string): Promise<PrismStream | null> {
   const resuelto = await resolverServidor(embed, `${BASE}/`);
-  if (!resuelto) return { streams: [], reason: 'resolve_failed' };
+  if (!resuelto) return null;
+  const idioma = _idioma(lang);
   return {
-    streams: [
-      {
-        url: resuelto.url,
-        headers: resuelto.headers,
-        quality: 'Vimeos',
-        nativo: true,
-      },
-    ],
+    url: resuelto.url,
+    headers: resuelto.headers,
+    quality: idioma ? `Vimeos · ${idioma}` : 'Vimeos',
+    nativo: true,
   };
 }
 
 export async function watch(url: string): Promise<PrismWatch> {
   // Llega la dirección de un embed suelto (cambio de servidor desde la app).
-  if (url.indexOf('vimeos.') !== -1) return _resolver(url);
+  if (url.indexOf('vimeos.') !== -1) {
+    const s = await _resolver(url);
+    return s ? { streams: [s] } : { streams: [], reason: 'servidores_no_disponibles' };
+  }
 
   const ref = await _referenciaDe(url);
-  const code = await _codigoDe(ref);
-  if (!code) return { streams: [], reason: 'not_available' };
-  return _resolver(`${EMBED}${code}.html`);
+  const todos = await _embedsDe(ref);
+  // Uno por dirección (el sitio a veces repite el mismo embed), y solo los
+  // que la app sabe reproducir.
+  const vistos = new Set<string>();
+  const propios = todos.filter((e) => {
+    if (!servidorDe(e.url) || vistos.has(e.url)) return false;
+    vistos.add(e.url);
+    return true;
+  });
+  if (!propios.length) {
+    return { streams: [], reason: todos.length ? 'servidores_no_disponibles' : 'sin_servidores' };
+  }
+  const resueltos = await Promise.all(propios.map((e) => _resolver(e.url, e.lang).catch(() => null)));
+  const streams = resueltos.filter((x): x is PrismStream => !!x);
+  if (!streams.length) return { streams: [], reason: 'servidores_no_disponibles' };
+  return { streams };
 }

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LaMovie
-// @version      1.3.0
+// @version      1.4.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -158,7 +158,6 @@ async function resolver2(url, referer) {
 var BASE = "https://lamovie.org";
 var API = "https://tmdb.allcalidad.re/v1";
 var IMG = "https://image.tmdb.org/t/p";
-var EMBED = "https://vimeos.net/embed-";
 async function _get(url) {
   const raw = await sendMessage(
     "request",
@@ -554,7 +553,7 @@ async function _temporadas(kind, id) {
   );
   const temporadas = [];
   for (const { t, episodios } of detalles) {
-    const lista = episodios.filter((e) => e.playable !== false && !!e.code).sort((a, b) => a.episode - b.episode).map((e) => ({
+    const lista = episodios.filter((e) => e.playable !== false).sort((a, b) => a.episode - b.episode).map((e) => ({
       title: e.title || `Episodio ${e.episode}`,
       url: _episodioUrl(kind, id, e.season, e.episode),
       thumbnail: _img(e.still_path, "w300"),
@@ -581,7 +580,7 @@ async function detail(url) {
   const episodios = [];
   let seasons;
   if (i.kind === "movie") {
-    if (i.playable !== false && i.code) {
+    if (i.playable !== false) {
       episodios.push({
         title: i.title,
         url: _itemUrl(i.kind, i.tmdb_id, i.slug),
@@ -614,39 +613,51 @@ async function detail(url) {
     type: "bangumi"
   };
 }
-async function _codigoDe(ref) {
-  if (ref.kind === "movie") {
-    const r2 = await _get(`${API}/items/movie/${ref.id}`);
-    return r2.item && r2.item.playable !== false ? r2.item.code || null : null;
-  }
-  if (ref.temporada == null || ref.episodio == null) {
+async function _embedsDe(ref) {
+  if (ref.kind !== "movie" && (ref.temporada == null || ref.episodio == null)) {
     throw new Error("Falta el episodio a reproducir");
   }
-  const r = await _get(
-    `${API}/items/${ref.kind}/${ref.id}/seasons/${ref.temporada}/episodes/${ref.episodio}`
-  );
-  return r.episode && r.episode.playable !== false ? r.episode.code || null : null;
+  const q = ref.kind === "movie" ? "" : `?season=${ref.temporada}&episode=${ref.episodio}`;
+  const r = await _get(`${API}/playback/${ref.kind}/${ref.id}${q}`);
+  return Array.isArray(r.embeds) ? r.embeds.filter((e) => e && typeof e.url === "string") : [];
 }
-async function _resolver(embed) {
+function _idioma(lang) {
+  const l = (lang || "").trim();
+  if (!l) return "";
+  const sub = /^(.+?)\s*-\s*Subt[ií]tulos?\s+(.+)$/i.exec(l);
+  return sub ? `${sub[1]} (sub. ${sub[2].toLowerCase()})` : l;
+}
+async function _resolver(embed, lang) {
   const resuelto = await resolver2(embed, `${BASE}/`);
-  if (!resuelto) return { streams: [], reason: "resolve_failed" };
+  if (!resuelto) return null;
+  const idioma = _idioma(lang);
   return {
-    streams: [
-      {
-        url: resuelto.url,
-        headers: resuelto.headers,
-        quality: "Vimeos",
-        nativo: true
-      }
-    ]
+    url: resuelto.url,
+    headers: resuelto.headers,
+    quality: idioma ? `Vimeos \xB7 ${idioma}` : "Vimeos",
+    nativo: true
   };
 }
 async function watch(url) {
-  if (url.indexOf("vimeos.") !== -1) return _resolver(url);
+  if (url.indexOf("vimeos.") !== -1) {
+    const s = await _resolver(url);
+    return s ? { streams: [s] } : { streams: [], reason: "servidores_no_disponibles" };
+  }
   const ref = await _referenciaDe(url);
-  const code = await _codigoDe(ref);
-  if (!code) return { streams: [], reason: "not_available" };
-  return _resolver(`${EMBED}${code}.html`);
+  const todos = await _embedsDe(ref);
+  const vistos = /* @__PURE__ */ new Set();
+  const propios = todos.filter((e) => {
+    if (!servidorDe(e.url) || vistos.has(e.url)) return false;
+    vistos.add(e.url);
+    return true;
+  });
+  if (!propios.length) {
+    return { streams: [], reason: todos.length ? "servidores_no_disponibles" : "sin_servidores" };
+  }
+  const resueltos = await Promise.all(propios.map((e) => _resolver(e.url, e.lang).catch(() => null)));
+  const streams = resueltos.filter((x) => !!x);
+  if (!streams.length) return { streams: [], reason: "servidores_no_disponibles" };
+  return { streams };
 }
 
 // OJO: nunca usar url.indexOf('.mp4')/('.m3u8') suelto — algunos dominios de
