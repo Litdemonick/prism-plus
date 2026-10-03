@@ -221,7 +221,51 @@ export async function search(
       items.push(_entryToItem(e));
     }
   }
-  return items;
+
+  // ── El título exacto, primero ───────────────────────────────────────────────
+  //
+  // Medido el 2026-10-02: «Batman» traía quince obras con Batman en el nombre
+  // y la película de 1989, que se llama exactamente así, recién en la página 2
+  // — y el buscador general de la app solo pide la 1. Si en lo juntado no hay
+  // ninguna con el título exacto, se miran como mucho dos páginas más del
+  // feed (solo en ese caso: una búsqueda normal no paga nada de más), y las
+  // exactas van adelante.
+  const exacto = (t: string) => _normalizar(t) === _normalizar(kw);
+  if (page === 1 && !items.some((i) => exacto(i.title))) {
+    for (let extra = 0; extra < 2; extra++, rawPage++) {
+      const startIndex = (rawPage - 1) * perPage + 1;
+      const json = await _get(
+        `${BASE}/feeds/posts/default?alt=json&max-results=${perPage}&start-index=${startIndex}&q=${encodeURIComponent(kw)}`,
+      );
+      if (typeof json === 'string') break;
+      const entries: _FeedEntry[] = (json as any)?.feed?.entry ?? [];
+      if (entries.length === 0) break;
+      for (const e of entries) {
+        const isMovie = e.category.some((c) => c.term === 'Movie');
+        const isSerie = e.category.some((c) => c.term === 'Serie');
+        if (!isMovie && !isSerie) continue;
+        if (tipo === 'Movie' && !isMovie) continue;
+        if (tipo === 'Serie' && !isSerie) continue;
+        const item = _entryToItem(e);
+        if (exacto(item.title) && !items.some((i) => i.url === item.url)) items.push(item);
+      }
+      if (items.some((i) => exacto(i.title))) break;
+    }
+  }
+  return [...items.filter((i) => exacto(i.title)), ...items.filter((i) => !exacto(i.title))];
+}
+
+/** Para comparar títulos sin tildes, mayúsculas ni signos. */
+function _normalizar(t: string): string {
+  let s = t.toLowerCase();
+  // `normalize` separa la tilde de la letra; si el motor de JavaScript no lo
+  // tuviera, se compara igual, solo que sin quitar tildes.
+  try {
+    s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  } catch {
+    /* sin normalize: queda con tildes */
+  }
+  return s.replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
 // ─── Detalle ────────────────────────────────────────────────────────────────
@@ -233,6 +277,15 @@ function _isSeriesHtml(html: string): boolean {
 export async function detail(url: string): Promise<PrismDetail> {
   const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
+  // ── Una página que llegó mal no es una ficha vacía ─────────────────────────
+  //
+  // Medido el 2026-10-02: con el sitio cargado, 7 de 247 fichas llegaron sin el
+  // bloque de datos y se devolvían sin título, año ni sinopsis — la app las
+  // mostraba vacías como si eso fuera todo. Sin la marca del tipo de post no es
+  // una página de obra: se avisa con un error y la app puede reintentar.
+  if (typeof html !== 'string' || !/<div data-post-type="[a-z]+" hidden>/.test(html)) {
+    throw new Error('FuegoCine no devolvió la ficha completa. Probá de nuevo en un momento.');
+  }
   const isSeries = _isSeriesHtml(html);
 
   const metaM = /<div data-post-type="[a-z]+" hidden>\s*<img src="([^"]+)"\s*\/>\s*<p id="tmdb-synopsis">([^<]*)<\/p>/.exec(
@@ -328,8 +381,8 @@ export async function detail(url: string): Promise<PrismDetail> {
 //    Accept-Ranges) o un embed de terceros que sí necesita resolveEmbed
 //    (ej. firestream.to, que desde ahora resuelve nativo — ver
 //    resolveFirestream en el SDK).
-// UA (unlimplay), US y Drive ya no se ofrecen: ver la nota en
-// `servidores/index.ts`.
+// Qué servidores se ofrecen y cuáles no (UA, US, pixeldrain, FCTL…), con lo
+// medido de cada uno: ver la nota en `servidores/index.ts`.
 
 /**
  * Le pone `https:` a las direcciones que vienen sin protocolo.
@@ -423,9 +476,12 @@ export async function watch(url: string): Promise<PrismWatch> {
 
   const links = _parseSvLinks(html);
   const streams: PrismStream[] = [];
-  // Con qué ficha se reconoció cada stream, en el mismo orden. Se usa para
-  // ordenar más abajo.
-  const fichas: string[] = [];
+  // El lugar de cada stream según lo medido (ver `orden` en `servidores/`).
+  const ordenes: number[] = [];
+  // Sin repetidos: el sitio a veces pone DOS botones con el mismo archivo
+  // detrás (mismo destino, otro nombre). Dos botones iguales no son dos
+  // oportunidades: si uno no anda, el otro tampoco.
+  const destinos = new Set<string>();
   for (const link of links) {
     // La ficha sale de la tabla de `servidores/`, que es donde está lo que se
     // midió de cada uno. Se mira el destino y no el envoltorio: los botones de
@@ -434,30 +490,37 @@ export async function watch(url: string): Promise<PrismWatch> {
     const destino = _destinoDe(link.url);
     const ficha = destino ? fichaDe(destino) : null;
     // **Solo salen los servidores que reproducen en la app.** La app ya no abre
-    // páginas en un navegador: uno sin ficha nativa (UA, US, Drive, o uno nuevo
+    // páginas en un navegador: uno sin ficha nativa (UA, US, pixeldrain, o uno nuevo
     // que el sitio sume) sería un botón que no reproduce nunca. Se deja anotado
     // en el registro para venir a agregarlo si aparece seguido.
     if (!ficha || !ficha.nativo) {
       console.log(`[fc] servidor sin reproducción en la app, no se ofrece: ${link.name} ${(destino || link.url).slice(0, 60)}`);
       continue;
     }
-    fichas.push(ficha.boton);
+    if (destino && destinos.has(destino)) {
+      console.log(`[fc] botón repetido, no se ofrece dos veces: ${link.name}`);
+      continue;
+    }
+    if (destino) destinos.add(destino);
+    ordenes.push(ficha.orden);
     streams.push({ url: link.url, quality: link.name || 'Servidor', nativo: true });
   }
 
-  // FC primero; después el resto, en el orden del sitio.
-  //
-  // El cliente toma el PRIMER servidor de la lista como el inicial. FC es un
-  // archivo directo y va a 27-107 Mbps medidos (2026-08-05); los demás son
-  // listas HLS de 2 a 12 Mbps. Cuando está, es el que conviene abrir.
+  // Sin ninguno que la app pueda abrir: se dice por qué, para que la app avise
+  // que es la FUENTE la que no tiene este contenido ahora (y no la app).
+  if (streams.length === 0) {
+    return { streams: [], reason: links.length > 0 ? 'servidores_no_disponibles' : 'sin_servidores' };
+  }
+
+  // En el orden medido: el primero es el que la app abre sola, así que va el
+  // que arranca más rápido y mejor se ve (FC, Drive, FCTL, PM…; ver `orden` en
+  // `servidores/index.ts`). El orden del sitio desempata.
   //
   // Ojo con FC igual: hay títulos suyos que se cortan, y no es el servidor sino
   // cómo quedó armado el archivo (el audio entero al final, lejos del vídeo —
   // ver la carpeta `directo/`). Cuando pasa, la app cae sola al siguiente.
-  const orden = streams.map((s, i) => ({ s, boton: fichas[i], i }));
-  const peso = (x: { boton: string }) => (x.boton === 'FC' ? 0 : 1);
-  // El `i` desempata para que dentro de cada grupo se respete el orden del sitio.
-  orden.sort((a, b) => peso(a) - peso(b) || a.i - b.i);
+  const orden = streams.map((s, i) => ({ s, peso: ordenes[i], i }));
+  orden.sort((a, b) => a.peso - b.peso || a.i - b.i);
 
   return { streams: orden.map((x) => x.s) };
 }

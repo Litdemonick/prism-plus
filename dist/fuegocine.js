@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.9.5
+// @version      1.10.0
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -288,8 +288,22 @@ ${u}`;
   return out;
 }
 
+// extensions/fuegocine/servidores/drive/index.ts
+function idDe(url) {
+  var _a, _b, _c, _d;
+  return (_d = (_c = (_a = /\/d\/([\w-]{10,})/.exec(url)) == null ? void 0 : _a[1]) != null ? _c : (_b = /[?&]id=([\w-]{10,})/.exec(url)) == null ? void 0 : _b[1]) != null ? _d : null;
+}
+async function resolver2(url) {
+  const id = idDe(url);
+  if (!id) return null;
+  return {
+    url: `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`,
+    headers: { "User-Agent": UA_NAVEGADOR }
+  };
+}
+
 // extensions/fuegocine/servidores/dropload/index.ts
-async function resolver2(url, referer) {
+async function resolver3(url, referer) {
   const html = await pedir(url, referer);
   if (!html) return null;
   const host = hostDe(url);
@@ -297,7 +311,7 @@ async function resolver2(url, referer) {
 }
 
 // extensions/fuegocine/servidores/firestream/index.ts
-async function resolver3(url, referer) {
+async function resolver4(url, referer) {
   var _a;
   const host = hostDe(url) || "firestream.to";
   const codigo = codigoDe(url);
@@ -334,7 +348,7 @@ async function resolver3(url, referer) {
 }
 
 // extensions/fuegocine/servidores/goodstream/index.ts
-async function resolver4(url, referer) {
+async function resolver5(url, referer) {
   const html = await pedir(url, referer);
   if (!html) return null;
   const host = hostDe(url);
@@ -343,7 +357,7 @@ async function resolver4(url, referer) {
 
 // extensions/fuegocine/servidores/ok.ru/index.ts
 var MARCAS = ["hlsManifestUrl\\&quot;:\\&quot;", "hlsManifestUrl&quot;:&quot;"];
-async function resolver5(url) {
+async function resolver6(url) {
   const html = await pedir(url, "https://ok.ru/");
   if (!html) return null;
   for (const marca of MARCAS) {
@@ -358,8 +372,67 @@ async function resolver5(url) {
   return null;
 }
 
+// extensions/fuegocine/servidores/playmate/index.ts
+async function resolver7(url) {
+  const codigo = codigoDe(url);
+  if (!codigo) return null;
+  const raw = await postJson("https://playmate.to/api/s", { c: codigo, d: "desktop" }, url);
+  if (!raw) return null;
+  try {
+    const j = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const sx = j == null ? void 0 : j.sx;
+    if (typeof sx !== "string" || !/^https?:\/\//.test(sx)) {
+      console.log(`[fc/pm] la API no trajo la fuente: ${String(raw).slice(0, 80)}`);
+      return null;
+    }
+    return { url: sx, headers: { "User-Agent": UA_NAVEGADOR, Referer: "https://playmate.to/" } };
+  } catch (e) {
+    console.log(`[fc/pm] respuesta que no es JSON: ${String(raw).slice(0, 80)}`);
+    return null;
+  }
+}
+
+// extensions/fuegocine/servidores/videro/index.ts
+async function resolver8(url) {
+  var _a, _b, _c;
+  if (/\.m3u8(\?|$)/i.test(url)) return { url };
+  const id = (_a = /\/e\/([A-Za-z0-9]+)/.exec(url)) == null ? void 0 : _a[1];
+  if (!id) return null;
+  const host = (_b = hostDe(url)) != null ? _b : "videro.my";
+  const raw = await pedir(`https://${host}/api/videos/public/${id}`, url, { Accept: "application/json" });
+  if (!raw) return null;
+  try {
+    const j = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const ruta = (_c = j == null ? void 0 : j.hls_url) != null ? _c : j == null ? void 0 : j.hls_path;
+    if ((j == null ? void 0 : j.status) !== "ready" || typeof ruta !== "string" || !ruta) {
+      console.log(`[fc/videro] no est\xE1 listo: ${String(raw).slice(0, 80)}`);
+      return null;
+    }
+    const lista = /^https?:\/\//.test(ruta) ? ruta : `https://${host}${ruta.startsWith("/") ? "" : "/"}${ruta}`;
+    return { url: lista, headers: { "User-Agent": UA_NAVEGADOR, Referer: url } };
+  } catch (e) {
+    console.log(`[fc/videro] respuesta que no es JSON: ${String(raw).slice(0, 80)}`);
+    return null;
+  }
+}
+
+// extensions/fuegocine/servidores/vidsst/index.ts
+async function resolver9(url, referer) {
+  var _a;
+  const html = await pedir(url, referer);
+  if (!html) return null;
+  const m = (_a = /const\s+url\s*=\s*"([^"]+)"/.exec(html)) != null ? _a : /const\s+url\s*=\s*'([^']+)'/.exec(html);
+  if (!m) {
+    console.log("[fc/vst] la p\xE1gina no trae la direcci\xF3n del v\xEDdeo");
+    return null;
+  }
+  const directo = m[1].replace(/\\\//g, "/");
+  if (!/^https?:\/\//.test(directo)) return null;
+  return { url: directo, headers: { "User-Agent": UA_NAVEGADOR, Referer: url } };
+}
+
 // extensions/fuegocine/servidores/vimeos/index.ts
-async function resolver6(url, referer) {
+async function resolver10(url, referer) {
   const html = await pedir(url, referer);
   if (!html) return null;
   const host = hostDe(url);
@@ -373,45 +446,86 @@ var SERVIDORES = [
     // videro.my: el 2026-09-27 cinco de cada seis títulos ya servían FC desde
     // ahí (un m3u8 abierto, sin cabeceras). Sin este host se quedaban sin
     // ficha y el botón FC no reproducía.
-    hosts: ["rumble.cloud", "files.eintim.me", "1a-1791.com", "archive.org", "videro."],
+    hosts: ["rumble.cloud", "files.eintim.me", "1a-1791.com", "archive.org"],
     botones: 195,
     nativo: true,
+    // Archivo directo, 27–107 Mbps y arranque mediano de 0,4 s.
+    orden: 0,
     resolver
+  },
+  {
+    boton: "Drive",
+    hosts: ["drive.google.com", "drive.usercontent.google.com"],
+    botones: 88,
+    nativo: true,
+    // 1080p H.264 y más de 100 Mbps; archivos de 2 a 5 GB.
+    orden: 1,
+    resolver: resolver2
+  },
+  {
+    boton: "PM",
+    hosts: ["playmate.to"],
+    botones: 20,
+    nativo: true,
+    orden: 2,
+    resolver: resolver7
+  },
+  {
+    // Videro: la lista directa (botón «FC») o su reproductor `/e/` («VRAD»).
+    boton: "VRAD",
+    hosts: ["videro."],
+    botones: 6,
+    nativo: true,
+    orden: 3,
+    resolver: resolver8
+  },
+  {
+    boton: "VST",
+    hosts: ["vids.st"],
+    botones: 20,
+    nativo: true,
+    orden: 4,
+    resolver: resolver9
   },
   {
     boton: "GS",
     hosts: ["gscdn", "goodstream"],
     botones: 128,
     nativo: true,
-    resolver: resolver4
+    orden: 8,
+    resolver: resolver5
   },
   {
     boton: "FS",
     hosts: ["firestream"],
     botones: 92,
     nativo: true,
-    resolver: resolver3
+    orden: 9,
+    resolver: resolver4
   },
   {
     boton: "OK.RU",
     hosts: ["ok.ru", "okru"],
     botones: 55,
     nativo: true,
-    resolver: resolver5
+    orden: 6,
+    resolver: resolver6
   },
   {
     boton: "Vimeo",
     hosts: ["vimeos"],
     botones: 49,
     nativo: true,
-    resolver: resolver6
+    orden: 7,
+    resolver: resolver10
   },
   {
     boton: "DL",
     hosts: ["dropload", "dr0pstream"],
     botones: 47,
     nativo: true,
-    resolver: resolver2
+    orden: 10,
+    resolver: resolver3
   }
 ];
 function fichaDe(url) {
@@ -423,7 +537,7 @@ async function resolverServidor(url, referer) {
   const ficha = fichaDe(url);
   if (ficha) return ficha.resolver(url, referer);
   console.log(`[fc] servidor sin ficha, se prueba a mano: ${url.slice(0, 60)}`);
-  return resolver4(url, referer);
+  return resolver5(url, referer);
 }
 
 // extensions/fuegocine/index.ts
@@ -523,7 +637,7 @@ async function createFilter() {
   };
 }
 async function search(keyword, page, filter) {
-  var _a, _b, _c;
+  var _a, _b, _c, _d, _e;
   const tipo = (_a = filter == null ? void 0 : filter["tipo"]) == null ? void 0 : _a[0];
   const kw = keyword.trim();
   if (!kw) {
@@ -552,7 +666,37 @@ async function search(keyword, page, filter) {
       items.push(_entryToItem(e));
     }
   }
-  return items;
+  const exacto = (t) => _normalizar(t) === _normalizar(kw);
+  if (page === 1 && !items.some((i) => exacto(i.title))) {
+    for (let extra = 0; extra < 2; extra++, rawPage++) {
+      const startIndex = (rawPage - 1) * perPage + 1;
+      const json = await _get(
+        `${BASE}/feeds/posts/default?alt=json&max-results=${perPage}&start-index=${startIndex}&q=${encodeURIComponent(kw)}`
+      );
+      if (typeof json === "string") break;
+      const entries = (_e = (_d = json == null ? void 0 : json.feed) == null ? void 0 : _d.entry) != null ? _e : [];
+      if (entries.length === 0) break;
+      for (const e of entries) {
+        const isMovie = e.category.some((c) => c.term === "Movie");
+        const isSerie = e.category.some((c) => c.term === "Serie");
+        if (!isMovie && !isSerie) continue;
+        if (tipo === "Movie" && !isMovie) continue;
+        if (tipo === "Serie" && !isSerie) continue;
+        const item = _entryToItem(e);
+        if (exacto(item.title) && !items.some((i) => i.url === item.url)) items.push(item);
+      }
+      if (items.some((i) => exacto(i.title))) break;
+    }
+  }
+  return [...items.filter((i) => exacto(i.title)), ...items.filter((i) => !exacto(i.title))];
+}
+function _normalizar(t) {
+  let s = t.toLowerCase();
+  try {
+    s = s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  } catch (e) {
+  }
+  return s.replace(/[^a-z0-9]+/g, " ").trim();
 }
 function _isSeriesHtml(html) {
   return /<div data-post-type="serie" hidden>/.test(html);
@@ -561,6 +705,9 @@ async function detail(url) {
   var _a, _b, _c;
   const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
+  if (typeof html !== "string" || !/<div data-post-type="[a-z]+" hidden>/.test(html)) {
+    throw new Error("FuegoCine no devolvi\xF3 la ficha completa. Prob\xE1 de nuevo en un momento.");
+  }
   const isSeries = _isSeriesHtml(html);
   const metaM = /<div data-post-type="[a-z]+" hidden>\s*<img src="([^"]+)"\s*\/>\s*<p id="tmdb-synopsis">([^<]*)<\/p>/.exec(
     html
@@ -689,7 +836,8 @@ async function watch(url) {
   if (typeof html !== "string") return { streams: [] };
   const links = _parseSvLinks(html);
   const streams = [];
-  const fichas = [];
+  const ordenes = [];
+  const destinos = /* @__PURE__ */ new Set();
   for (const link of links) {
     const destino = _destinoDe(link.url);
     const ficha = destino ? fichaDe(destino) : null;
@@ -697,12 +845,19 @@ async function watch(url) {
       console.log(`[fc] servidor sin reproducci\xF3n en la app, no se ofrece: ${link.name} ${(destino || link.url).slice(0, 60)}`);
       continue;
     }
-    fichas.push(ficha.boton);
+    if (destino && destinos.has(destino)) {
+      console.log(`[fc] bot\xF3n repetido, no se ofrece dos veces: ${link.name}`);
+      continue;
+    }
+    if (destino) destinos.add(destino);
+    ordenes.push(ficha.orden);
     streams.push({ url: link.url, quality: link.name || "Servidor", nativo: true });
   }
-  const orden = streams.map((s, i) => ({ s, boton: fichas[i], i }));
-  const peso = (x) => x.boton === "FC" ? 0 : 1;
-  orden.sort((a, b) => peso(a) - peso(b) || a.i - b.i);
+  if (streams.length === 0) {
+    return { streams: [], reason: links.length > 0 ? "servidores_no_disponibles" : "sin_servidores" };
+  }
+  const orden = streams.map((s, i) => ({ s, peso: ordenes[i], i }));
+  orden.sort((a, b) => a.peso - b.peso || a.i - b.i);
   return { streams: orden.map((x) => x.s) };
 }
 
