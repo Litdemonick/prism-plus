@@ -840,6 +840,11 @@ export async function watch(url: string): Promise<PrismWatch> {
     if (jk) return { streams: [jk], pageUrl: episodeUrl };
   }
 
+  // Sin nada: la página del episodio no trae servidores. El motivo llega a
+  // la app, que lo dice como algo del sitio y no de la app.
+  if (!streams.length) {
+    return { streams, pageUrl: episodeUrl, reason: 'sin_servidores' };
+  }
   return { streams, pageUrl: episodeUrl };
 }
 

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.13.0
+// @version      1.13.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -1051,6 +1051,9 @@ async function watch(url) {
     const jk = await _reproductorJk(html, episodeUrl);
     if (jk) return { streams: [jk], pageUrl: episodeUrl };
   }
+  if (!streams.length) {
+    return { streams, pageUrl: episodeUrl, reason: "sin_servidores" };
+  }
   return { streams, pageUrl: episodeUrl };
 }
 async function _resolveEmbedDio(name, url, referer) {
@@ -1458,11 +1461,17 @@ export default class extends Extension {
     var streams = r.streams.filter(function (s) { return s && s.url; });
     var pageUrl = r.pageUrl || '';
     if (streams.length === 0) {
-      if (pageUrl) {
+      // El MOTIVO viaja a la app (sistema global de mensajes): con él dice si
+      // el problema es de la extensión (el sitio no tiene el contenido, sus
+      // servidores no responden) y no de la app. Va después de un # para que
+      // una app vieja lo siga tomando como un error igual que antes.
+      var motivo = typeof r.reason === 'string' && r.reason ? r.reason : '';
+      if (pageUrl && !motivo) {
         return { type: 'hls', url: 'page://' + pageUrl,
           headers: { 'X-Page-Url': pageUrl } };
       }
-      return { type: 'hls', url: 'error://Sin servidores disponibles', headers: {} };
+      return { type: 'hls', url: 'error://Sin servidores disponibles' +
+        (motivo ? '#motivo=' + encodeURIComponent(motivo) : ''), headers: {} };
     }
     var servers = {}, referers = {}, nativos = {}, hayNativos = false;
     var calidades = {}, hayCalidades = false;
