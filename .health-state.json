@@ -40,7 +40,7 @@
     "lastReason": null
   },
   "io.prismhub.lamovie": {
-    "consecutiveFailures": 16,
+    "consecutiveFailures": 17,
     "lastReason": "broken"
   },
   "io.prismhub.latanime": {
@@ -60,8 +60,8 @@
     "lastReason": null
   },
   "io.prismhub.pornhub": {
-    "consecutiveFailures": 1,
-    "lastReason": "broken"
+    "consecutiveFailures": 0,
+    "lastReason": null
   },
   "io.prismhub.shademanga": {
     "consecutiveFailures": 0,
