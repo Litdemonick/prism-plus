@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.10.0
+// @version      1.10.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -356,19 +356,27 @@ async function resolver5(url, referer) {
 }
 
 // extensions/fuegocine/servidores/ok.ru/index.ts
-var MARCAS = ["hlsManifestUrl\\&quot;:\\&quot;", "hlsManifestUrl&quot;:&quot;"];
-async function resolver6(url) {
-  const html = await pedir(url, "https://ok.ru/");
-  if (!html) return null;
-  for (const marca of MARCAS) {
+var COMILLAS = ["\\&quot;", "&quot;"];
+function valorDe(html, clave) {
+  for (const q of COMILLAS) {
+    const marca = `${clave}${q}:${q}`;
     const desde = html.indexOf(marca);
     if (desde === -1) continue;
     const ini = desde + marca.length;
     const fin = html.indexOf("&quot;", ini);
     if (fin === -1) continue;
     const salida = html.slice(ini, fin).replace(/\\+$/, "").split("\\\\u0026").join("&").split("\\u0026").join("&");
-    if (/^https?:\/\//.test(salida)) return { url: salida };
+    if (/^https?:\/\//.test(salida)) return salida;
   }
+  return null;
+}
+async function resolver6(url) {
+  const html = await pedir(url, "https://ok.ru/");
+  if (!html) return null;
+  const hls = valorDe(html, "hlsManifestUrl");
+  if (hls) return { url: hls };
+  const dash = valorDe(html, "ondemandDash");
+  if (dash) return { url: dash, headers: { "User-Agent": UA_NAVEGADOR } };
   return null;
 }
 
@@ -637,7 +645,7 @@ async function createFilter() {
   };
 }
 async function search(keyword, page, filter) {
-  var _a, _b, _c, _d, _e;
+  var _a, _b, _c;
   const tipo = (_a = filter == null ? void 0 : filter["tipo"]) == null ? void 0 : _a[0];
   const kw = keyword.trim();
   if (!kw) {
@@ -645,49 +653,33 @@ async function search(keyword, page, filter) {
     if (tipo === "Serie") return _fetchLabel("Serie", page);
     return latest(page);
   }
-  const perPage = 20;
-  const maxRawFetches = 6;
-  const items = [];
-  let rawPage = (page - 1) * maxRawFetches + 1;
-  for (let attempt = 0; attempt < maxRawFetches && items.length < perPage; attempt++, rawPage++) {
-    const startIndex = (rawPage - 1) * perPage + 1;
+  if (page > 1) return [];
+  const porPedido = 150;
+  const techo = 300;
+  const entradas = [];
+  for (let desde = 1; desde <= techo; desde += porPedido) {
     const json = await _get(
-      `${BASE}/feeds/posts/default?alt=json&max-results=${perPage}&start-index=${startIndex}&q=${encodeURIComponent(kw)}`
+      `${BASE}/feeds/posts/default?alt=json&max-results=${porPedido}&start-index=${desde}&q=${encodeURIComponent(kw)}`
     );
     if (typeof json === "string") break;
-    const entries = (_c = (_b = json == null ? void 0 : json.feed) == null ? void 0 : _b.entry) != null ? _c : [];
-    if (entries.length === 0) break;
-    for (const e of entries) {
-      const isMovie = e.category.some((c) => c.term === "Movie");
-      const isSerie = e.category.some((c) => c.term === "Serie");
-      if (!isMovie && !isSerie) continue;
-      if (tipo === "Movie" && !isMovie) continue;
-      if (tipo === "Serie" && !isSerie) continue;
-      items.push(_entryToItem(e));
-    }
+    const bloque = (_c = (_b = json == null ? void 0 : json.feed) == null ? void 0 : _b.entry) != null ? _c : [];
+    entradas.push(...bloque);
+    if (bloque.length < porPedido) break;
+  }
+  const items = [];
+  const vistas = /* @__PURE__ */ new Set();
+  for (const e of entradas) {
+    const isMovie = e.category.some((c) => c.term === "Movie");
+    const isSerie = e.category.some((c) => c.term === "Serie");
+    if (!isMovie && !isSerie) continue;
+    if (tipo === "Movie" && !isMovie) continue;
+    if (tipo === "Serie" && !isSerie) continue;
+    const item = _entryToItem(e);
+    if (vistas.has(item.url)) continue;
+    vistas.add(item.url);
+    items.push(item);
   }
   const exacto = (t) => _normalizar(t) === _normalizar(kw);
-  if (page === 1 && !items.some((i) => exacto(i.title))) {
-    for (let extra = 0; extra < 2; extra++, rawPage++) {
-      const startIndex = (rawPage - 1) * perPage + 1;
-      const json = await _get(
-        `${BASE}/feeds/posts/default?alt=json&max-results=${perPage}&start-index=${startIndex}&q=${encodeURIComponent(kw)}`
-      );
-      if (typeof json === "string") break;
-      const entries = (_e = (_d = json == null ? void 0 : json.feed) == null ? void 0 : _d.entry) != null ? _e : [];
-      if (entries.length === 0) break;
-      for (const e of entries) {
-        const isMovie = e.category.some((c) => c.term === "Movie");
-        const isSerie = e.category.some((c) => c.term === "Serie");
-        if (!isMovie && !isSerie) continue;
-        if (tipo === "Movie" && !isMovie) continue;
-        if (tipo === "Serie" && !isSerie) continue;
-        const item = _entryToItem(e);
-        if (exacto(item.title) && !items.some((i) => i.url === item.url)) items.push(item);
-      }
-      if (items.some((i) => exacto(i.title))) break;
-    }
-  }
   return [...items.filter((i) => exacto(i.title)), ...items.filter((i) => !exacto(i.title))];
 }
 function _normalizar(t) {

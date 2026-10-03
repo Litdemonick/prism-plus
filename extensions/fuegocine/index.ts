@@ -184,74 +184,49 @@ export async function search(
   // episodios sueltos (sin etiqueta Movie ni Serie) — no son ítems de
   // catálogo, solo actualizaciones de una serie ya listada.
   //
-  // OJO: el feed de texto de Blogger mezcla, en el mismo resultado, esos
-  // posts de episodio CON el post real de catálogo — una serie con muchos
-  // capítulos publicados puede inundar las primeras posiciones con puros
-  // posts de episodio, empujando el post Movie/Serie varias páginas crudas
-  // más abajo. Confirmado en vivo buscando "From": los primeros 20
-  // resultados del feed son puros "From 4x10", "From 4x9", etc. — cero
-  // posts Movie/Serie — así que una sola página cruda devolvía vacío aunque
-  // la serie sí está en el catálogo (el buscador de PrismHub solo pide la
-  // página 1 de cada extensión, así que ese vacío se traducía en "no
-  // aparece" para el usuario). Por eso se pagina el feed crudo ACÁ ADENTRO,
-  // buscando entradas válidas, en vez de confiar en que la página cruda
-  // pedida alcance.
-  const perPage = 20;
-  const maxRawFetches = 6;
-  const items: PrismItem[] = [];
-  let rawPage = (page - 1) * maxRawFetches + 1;
-  for (
-    let attempt = 0;
-    attempt < maxRawFetches && items.length < perPage;
-    attempt++, rawPage++
-  ) {
-    const startIndex = (rawPage - 1) * perPage + 1;
+  // ── TODO de una vez, en la página 1 (2026-10-03) ──────────────────────────
+  //
+  // Antes cada página de la app juntaba hasta 6 páginas de 20 del feed y
+  // cortaba al llegar a 20 obras: la página 2 arrancaba más adelante y lo del
+  // medio no se veía nunca, y a veces se repetía. Medido con «batman»: 128
+  // entradas, las 100 primeras casi todas posts de episodio («Batman: El
+  // Enmascarado 1x…»), y las películas (2005, 2008, 1989, 2022) recién del 101
+  // en adelante — el buscador general, que solo pide la página 1, no las veía.
+  //
+  // El feed de búsqueda es corto (lo más visto: 128 entradas; el total que
+  // informa no es confiable, dice 100), así que se trae ENTERO en bloques de
+  // 150 —un pedido casi siempre, dos como mucho: el techo de 300 está por si
+  // el sitio cambia— y la página 1 devuelve todas las obras. La página 2 en
+  // adelante vuelve vacía: no queda nada que mostrar, sin saltos ni repetidos.
+  if (page > 1) return [];
+  const porPedido = 150;
+  const techo = 300;
+  const entradas: _FeedEntry[] = [];
+  for (let desde = 1; desde <= techo; desde += porPedido) {
     const json = await _get(
-      `${BASE}/feeds/posts/default?alt=json&max-results=${perPage}&start-index=${startIndex}&q=${encodeURIComponent(kw)}`,
+      `${BASE}/feeds/posts/default?alt=json&max-results=${porPedido}&start-index=${desde}&q=${encodeURIComponent(kw)}`,
     );
     if (typeof json === 'string') break;
-    const entries: _FeedEntry[] = (json as any)?.feed?.entry ?? [];
-    if (entries.length === 0) break; // se acabó el feed de verdad
-    for (const e of entries) {
-      const isMovie = e.category.some((c) => c.term === 'Movie');
-      const isSerie = e.category.some((c) => c.term === 'Serie');
-      if (!isMovie && !isSerie) continue;
-      if (tipo === 'Movie' && !isMovie) continue;
-      if (tipo === 'Serie' && !isSerie) continue;
-      items.push(_entryToItem(e));
-    }
+    const bloque: _FeedEntry[] = (json as any)?.feed?.entry ?? [];
+    entradas.push(...bloque);
+    if (bloque.length < porPedido) break; // se acabó el feed de verdad
   }
-
-  // ── El título exacto, primero ───────────────────────────────────────────────
-  //
-  // Medido el 2026-10-02: «Batman» traía quince obras con Batman en el nombre
-  // y la película de 1989, que se llama exactamente así, recién en la página 2
-  // — y el buscador general de la app solo pide la 1. Si en lo juntado no hay
-  // ninguna con el título exacto, se miran como mucho dos páginas más del
-  // feed (solo en ese caso: una búsqueda normal no paga nada de más), y las
-  // exactas van adelante.
+  const items: PrismItem[] = [];
+  const vistas = new Set<string>();
+  for (const e of entradas) {
+    const isMovie = e.category.some((c) => c.term === 'Movie');
+    const isSerie = e.category.some((c) => c.term === 'Serie');
+    if (!isMovie && !isSerie) continue;
+    if (tipo === 'Movie' && !isMovie) continue;
+    if (tipo === 'Serie' && !isSerie) continue;
+    const item = _entryToItem(e);
+    if (vistas.has(item.url)) continue;
+    vistas.add(item.url);
+    items.push(item);
+  }
+  // El título exacto, primero: quien escribe «Batman» busca la película que se
+  // llama así antes que las que lo nombran.
   const exacto = (t: string) => _normalizar(t) === _normalizar(kw);
-  if (page === 1 && !items.some((i) => exacto(i.title))) {
-    for (let extra = 0; extra < 2; extra++, rawPage++) {
-      const startIndex = (rawPage - 1) * perPage + 1;
-      const json = await _get(
-        `${BASE}/feeds/posts/default?alt=json&max-results=${perPage}&start-index=${startIndex}&q=${encodeURIComponent(kw)}`,
-      );
-      if (typeof json === 'string') break;
-      const entries: _FeedEntry[] = (json as any)?.feed?.entry ?? [];
-      if (entries.length === 0) break;
-      for (const e of entries) {
-        const isMovie = e.category.some((c) => c.term === 'Movie');
-        const isSerie = e.category.some((c) => c.term === 'Serie');
-        if (!isMovie && !isSerie) continue;
-        if (tipo === 'Movie' && !isMovie) continue;
-        if (tipo === 'Serie' && !isSerie) continue;
-        const item = _entryToItem(e);
-        if (exacto(item.title) && !items.some((i) => i.url === item.url)) items.push(item);
-      }
-      if (items.some((i) => exacto(i.title))) break;
-    }
-  }
   return [...items.filter((i) => exacto(i.title)), ...items.filter((i) => !exacto(i.title))];
 }
 

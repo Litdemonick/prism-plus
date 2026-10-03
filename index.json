@@ -59,7 +59,7 @@
     {
       "name": "FuegoCine",
       "package": "io.prismhub.fuegocine",
-      "version": "1.10.0",
+      "version": "1.10.1",
       "author": "PrismPlus",
       "type": "bangumi",
       "contentKind": "accion-real",
@@ -70,8 +70,8 @@
       "license": "MIT",
       "latestLabel": "lo-mas-reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/fuegocine.js",
-      "sha256": "e8ad42fee5cdce7225bf44f083145e5943e9bfa2bad3539d425f2b64348c9943",
-      "signature": "aS1vBmYidhRjO5IbkqW3daNdaLMx24jn374NVkraLKACg29yW1fqOheHosQRB9RZzswRfLcf26NC8g8+Upy4AQ=="
+      "sha256": "7854998382868c98893f327252fd59a98efca77d3c9962667ee752896c75cdb5",
+      "signature": "+QSfgmhscIysUoxMYkVuS/AbnMRiCuEkBuVC6jkP8uoSoPhI74p8Z1FUD3vmV6ijQrORignAoNYZ4Hg2atOXCw=="
     },
     {
       "name": "Fútbol Libre",

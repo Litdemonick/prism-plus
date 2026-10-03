@@ -15,15 +15,25 @@
 // el mismo aparato que la va a reproducir.
 //
 // Medido el 2026-08-04: ~0,8 s hasta un `video.m3u8` en vkuser.net.
+//
+// ── Los que solo traen DASH (2026-10-03) ────────────────────────────────────
+//
+// En la medición entera, 9 de 24 OK.RU no traían `hlsManifestUrl`: se daban
+// por perdidos y eran vídeos que estaban bien. Esos traen `ondemandDash`, un
+// manifiesto DASH (hasta 1080p). Probado con la MISMA libmpv de la app: carga
+// (1920x800, 2 h 04 min, 13 pistas), avanza y salta al minuto 30 sin cortes.
+// El HLS sigue primero cuando está; el DASH es el respaldo. El archivo directo
+// por calidad que también viene (`"name":"full"`) contesta 400: no se usa.
 
-import { pedir, type ServidorResuelto } from '../comun';
+import { pedir, type ServidorResuelto, UA_NAVEGADOR } from '../comun';
 
-const MARCAS = ['hlsManifestUrl\\&quot;:\\&quot;', 'hlsManifestUrl&quot;:&quot;'];
+/** Las dos formas de escapar las comillas que se vieron en el HTML. */
+const COMILLAS = ['\\&quot;', '&quot;'];
 
-export async function resolver(url: string): Promise<ServidorResuelto | null> {
-  const html = await pedir(url, 'https://ok.ru/');
-  if (!html) return null;
-  for (const marca of MARCAS) {
+/** El valor de `"<clave>":"…"` dentro del atributo, o null. */
+function valorDe(html: string, clave: string): string | null {
+  for (const q of COMILLAS) {
+    const marca = `${clave}${q}:${q}`;
     const desde = html.indexOf(marca);
     if (desde === -1) continue;
     const ini = desde + marca.length;
@@ -35,8 +45,20 @@ export async function resolver(url: string): Promise<ServidorResuelto | null> {
       .replace(/\\+$/, '')
       .split('\\\\u0026').join('&')
       .split('\\u0026').join('&');
-    if (/^https?:\/\//.test(salida)) return { url: salida };
+    if (/^https?:\/\//.test(salida)) return salida;
   }
-  // Sin la marca: el vídeo no existe más ("Видео не найдено") o cambió otra vez.
+  return null;
+}
+
+export async function resolver(url: string): Promise<ServidorResuelto | null> {
+  const html = await pedir(url, 'https://ok.ru/');
+  if (!html) return null;
+  const hls = valorDe(html, 'hlsManifestUrl');
+  if (hls) return { url: hls };
+  // El vale del DASH va atado al navegador (`srcAg=CHROME`): se pide con el
+  // mismo User-Agent con que se resolvió.
+  const dash = valorDe(html, 'ondemandDash');
+  if (dash) return { url: dash, headers: { 'User-Agent': UA_NAVEGADOR } };
+  // Sin ninguno: el vídeo no existe más ("Видео не найдено") o cambió otra vez.
   return null;
 }
