@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.10.1
+// @version      1.10.2
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -544,8 +544,8 @@ function fichaDe(url) {
 async function resolverServidor(url, referer) {
   const ficha = fichaDe(url);
   if (ficha) return ficha.resolver(url, referer);
-  console.log(`[fc] servidor sin ficha, se prueba a mano: ${url.slice(0, 60)}`);
-  return resolver5(url, referer);
+  console.log(`[fc] servidor sin ficha, no se ofrece: ${url.slice(0, 60)}`);
+  return null;
 }
 
 // extensions/fuegocine/index.ts

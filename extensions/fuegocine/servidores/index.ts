@@ -190,6 +190,12 @@ export function fichaDe(url: string): Servidor | null {
  * Resuelve una dirección de servidor a algo que la app pueda abrir.
  *
  * Devuelve null cuando no se puede, y ahí la app prueba con otro servidor.
+ *
+ * Un servidor que no está en la tabla NO se intenta «a mano»: `watch` ya no
+ * ofrece ninguno así (solo los que se midieron y andan), así que esto solo
+ * llega con datos viejos —una descarga en cola de antes de la 1.10— y ahí
+ * probarlo con otro resolvedor era pedirle cosas sin sentido a una página que
+ * no es suya. Se descarta y queda en el registro.
  */
 export async function resolverServidor(
   url: string,
@@ -197,10 +203,6 @@ export async function resolverServidor(
 ): Promise<ServidorResuelto | null> {
   const ficha = fichaDe(url);
   if (ficha) return ficha.resolver(url, referer);
-  // Un servidor que no está en la tabla: se prueba con el mismo camino que
-  // goodstream —bajar y buscar— en vez de darlo por perdido. Si el sitio suma
-  // uno nuevo, esto lo agarra igual, y el registro deja ver que hay que
-  // agregarlo acá con su carpeta.
-  console.log(`[fc] servidor sin ficha, se prueba a mano: ${url.slice(0, 60)}`);
-  return goodstream.resolver(url, referer);
+  console.log(`[fc] servidor sin ficha, no se ofrece: ${url.slice(0, 60)}`);
+  return null;
 }
