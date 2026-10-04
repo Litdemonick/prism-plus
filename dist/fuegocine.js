@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         FuegoCine
-// @version      1.10.4
+// @version      1.10.5
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -752,7 +752,9 @@ async function watch(url) {
   }
   const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
-  if (typeof html !== "string") return { streams: [] };
+  if (typeof html !== "string" || !/<div data-post-type="[a-z]+" hidden>/.test(html)) {
+    throw new Error("FuegoCine no respondi\xF3 bien: prob\xE1 de nuevo en un rato.");
+  }
   const links = _parseSvLinks(html);
   const streams = [];
   const ordenes = [];

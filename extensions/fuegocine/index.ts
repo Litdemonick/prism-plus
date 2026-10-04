@@ -450,7 +450,18 @@ export async function watch(url: string): Promise<PrismWatch> {
 
   const fullUrl = _fullUrl(url);
   const html = await _get(fullUrl);
-  if (typeof html !== 'string') return { streams: [] };
+  // ── Que la página sea la del episodio, antes de decir «no hay» ──────────
+  //
+  // Sin esto, cualquier respuesta que no fuera la página (una verificación
+  // del sitio, un error, una respuesta cortada) no traía `_SV_LINKS` y salía
+  // «sin servidores»: la app decía «Al parecer FuegoCine no tiene este
+  // contenido» y al reabrir andaba (reportado 2026-10-03). Toda página de
+  // episodio o película lleva la marca del tipo de post (medido en 1x1, 1x2,
+  // 1x3 de una serie y en una película): sin ella es un fallo de carga, no
+  // falta de servidores.
+  if (typeof html !== 'string' || !/<div data-post-type="[a-z]+" hidden>/.test(html)) {
+    throw new Error('FuegoCine no respondió bien: probá de nuevo en un rato.');
+  }
 
   const links = _parseSvLinks(html);
   const streams: PrismStream[] = [];
