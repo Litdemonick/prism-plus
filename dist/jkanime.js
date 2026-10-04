@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.13.1
+// @version      1.13.2
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -942,6 +942,30 @@ async function _withTimeout(promise, ms, fallback) {
     if (timer) clearTimeout(timer);
   }
 }
+async function _voeBorrados(html, referer) {
+  const fuera = /* @__PURE__ */ new Set();
+  const m = /(?:var|let|const)\s+servers\s*=\s*(\[[\s\S]*?\]);/.exec(html);
+  if (!m) return fuera;
+  let lista = [];
+  try {
+    lista = JSON.parse(m[1]);
+  } catch (e) {
+    return fuera;
+  }
+  if (!Array.isArray(lista)) return fuera;
+  const voes = lista.map((x) => {
+    var _a, _b;
+    return (_b = (_a = _rawServerStream(x)) == null ? void 0 : _a.url) != null ? _b : "";
+  }).filter((u) => /voe/i.test(u));
+  await Promise.all(
+    voes.map(async (u) => {
+      const pagina = await _withTimeout(pedir(u, referer), 2500, () => null);
+      const dice404 = typeof pagina === "string" && /<title>\s*404\b/i.test(pagina);
+      if (dice404 || estaBorrado(u)) fuera.add(u);
+    })
+  );
+  return fuera;
+}
 function _rawServerStream(server) {
   var _a;
   let raw = "";
@@ -991,6 +1015,7 @@ async function watch(url) {
   if (typeof html !== "string" || html.length === 0) {
     throw new Error("JKAnime no respondi\xF3: el sitio puede estar ca\xEDdo o muy lento");
   }
+  const chequeoDeVoe = _voeBorrados(html, episodeUrl);
   const subEntries = _parseJkSubServers(html).filter(
     (e) => e.name.toLowerCase() !== "magi" && /^https?:\/\//.test(e.iframeSrc)
   );
@@ -1032,10 +1057,12 @@ async function watch(url) {
   }
   servers.sort((a, b) => (a.lang || 0) - (b.lang || 0));
   const resolved = servers.map((s) => _rawServerStream(s)).filter((s) => s !== null);
+  const voeMuertos = await chequeoDeVoe;
   const usable = resolved.filter((s) => {
-    var _a, _b;
-    const boton = ((_a = s.quality) != null ? _a : "").toLowerCase().replace(/\s+(lat|cast)$/, "").trim();
-    return fichaDe((_b = s.url) != null ? _b : "") !== null || SERVIDORES.some((f) => f.boton.toLowerCase() === boton);
+    var _a, _b, _c;
+    if (voeMuertos.has((_a = s.url) != null ? _a : "")) return false;
+    const boton = ((_b = s.quality) != null ? _b : "").toLowerCase().replace(/\s+(lat|cast)$/, "").trim();
+    return fichaDe((_c = s.url) != null ? _c : "") !== null || SERVIDORES.some((f) => f.boton.toLowerCase() === boton);
   });
   const direct = usable.filter((s) => _isDirect(s.url));
   const embeds = usable.filter((s) => !_isDirect(s.url));

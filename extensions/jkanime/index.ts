@@ -655,6 +655,44 @@ async function _withTimeout<T>(promise: Promise<T>, ms: number, fallback: () => 
 // Fallback síncrono de _resolveServer: sólo calcula la URL cruda + etiqueta,
 // sin intentar ningún resolver de red. Se usa cuando el resolver real tarda
 // más de _SERVER_TIMEOUT.
+/**
+ * Los VOE del episodio cuyo vídeo fue borrado (contestan 404/410).
+ *
+ * Medido 2026-10-04: VOE no abrió en 16 de 30 episodios, por obra entera
+ * (Skate-Leading Stars, Manaria Friends, AKB0048…): `voe.sx/e/…` contesta
+ * «404 - Not found». El sitio lo sigue listando y el usuario elegía un
+ * servidor muerto. Se pide la página de cada VOE con tope de 2,5 s: si dice
+ * que ya no existe (por su contenido, ver abajo), no se ofrece. Ante cualquier duda (no contestó a tiempo,
+ * otro error) se ofrece igual: nunca se saca un servidor que podría andar.
+ */
+async function _voeBorrados(html: string, referer: string): Promise<Set<string>> {
+  const fuera = new Set<string>();
+  const m = /(?:var|let|const)\s+servers\s*=\s*(\[[\s\S]*?\]);/.exec(html);
+  if (!m) return fuera;
+  let lista: JKServer[] = [];
+  try {
+    lista = JSON.parse(m[1]) as JKServer[];
+  } catch {
+    return fuera;
+  }
+  if (!Array.isArray(lista)) return fuera;
+  const voes = lista
+    .map((x) => _rawServerStream(x)?.url ?? '')
+    .filter((u) => /voe/i.test(u));
+  await Promise.all(
+    voes.map(async (u) => {
+      const pagina = await _withTimeout(pedir(u, referer), 2500, () => null);
+      // OJO: el puente de la app NO da error ante un 404 (devuelve la página,
+      // porque hay sitios que mandan contenido útil con ese código). Por eso
+      // se mira el CONTENIDO: VOE contesta «<title>404 - Not found</title>».
+      // `estaBorrado` queda para cuando sí llegó como error.
+      const dice404 = typeof pagina === 'string' && /<title>\s*404\b/i.test(pagina);
+      if (dice404 || estaBorrado(u)) fuera.add(u);
+    }),
+  );
+  return fuera;
+}
+
 function _rawServerStream(server: JKServer): PrismStream | null {
   let raw = '';
   if (server.remote) {
@@ -720,6 +758,10 @@ export async function watch(url: string): Promise<PrismWatch> {
   if (typeof html !== 'string' || html.length === 0) {
     throw new Error('JKAnime no respondió: el sitio puede estar caído o muy lento');
   }
+
+  // Los VOE de este episodio que ya no existen: se miran YA, en paralelo con
+  // Desu, para no sumarle espera a abrir el episodio. Ver `_voeBorrados`.
+  const chequeoDeVoe = _voeBorrados(html, episodeUrl);
 
   // Servidores SUB propios de JKAnime (Desu/Magi) — nunca viven en el array
   // `servers` de abajo, así que se resuelven aparte y siempre se intentan,
@@ -810,7 +852,10 @@ export async function watch(url: string): Promise<PrismWatch> {
   // Pasa el que es de un host conocido (`fichaDe`) O el que trae el nombre
   // de uno de los seis en el botón: así no se pierde uno válido si su sitio
   // cambia de dominio pero el botón sigue llamándose igual.
+  // Y sin los VOE cuyo vídeo fue borrado (ver `_voeBorrados`).
+  const voeMuertos = await chequeoDeVoe;
   const usable = resolved.filter((s) => {
+    if (voeMuertos.has(s.url ?? '')) return false;
     const boton = (s.quality ?? '').toLowerCase().replace(/\s+(lat|cast)$/, '').trim();
     return fichaDe(s.url ?? '') !== null || SERVIDORES.some((f) => f.boton.toLowerCase() === boton);
   });
