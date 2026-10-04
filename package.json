@@ -23,6 +23,7 @@
     "studio": "node studio/server.mjs",
     "validate": "node scripts/validate.mjs",
     "build": "npm run validate && node scripts/build.mjs && node scripts/live-test.mjs",
+    "build:una": "node scripts/build-una.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node scripts/test.mjs",
     "live-test": "node scripts/live-test.mjs",

@@ -468,10 +468,22 @@ export default class extends Extension {
 
 if (!existsSync(DIST_DIR)) mkdirSync(DIST_DIR, { recursive: true });
 
-const entries = readdirSync(EXT_DIR, { withFileTypes: true })
+// ─── Una sola: `--solo=<nombre>` ──────────────────────────────────────────────
+// Al corregir UNA extensión no hace falta compilar las 22, y así tampoco se
+// toca nada de las demás: su `dist/` queda igual y en `index.json` solo se
+// reemplaza la entrada de esta. Las marcas del health-check de las otras
+// (`unstable`) se conservan tal cual. Ver scripts/build-una.mjs.
+const SOLO = (process.argv.find(a => a.startsWith('--solo=')) || '').slice('--solo='.length) || null;
+
+const todas = readdirSync(EXT_DIR, { withFileTypes: true })
   .filter(d => d.isDirectory())
   .map(d => d.name)
   .sort();
+if (SOLO && !todas.includes(SOLO)) {
+  console.error(`No existe la extensión "${SOLO}" en extensions/`);
+  process.exit(1);
+}
+const entries = SOLO ? [SOLO] : todas;
 
 if (entries.length === 0) {
   console.error('No se encontraron extensiones en extensions/');
@@ -488,7 +500,7 @@ const vendoredNames = existsSync(VENDOR_DIR)
   : [];
 const validNames = new Set([...entries, ...vendoredNames]);
 let pruned = 0;
-for (const file of readdirSync(DIST_DIR).filter(f => f.endsWith('.js'))) {
+for (const file of SOLO ? [] : readdirSync(DIST_DIR).filter(f => f.endsWith('.js'))) {
   if (!validNames.has(file.replace(/\.js$/, ''))) {
     rmSync(join(DIST_DIR, file));
     console.log(`  🗑  ${file} — bundle huérfano eliminado`);
@@ -606,7 +618,7 @@ async function transpileVendored(src) {
 
 const nativePackages = new Set(builtManifests.map(m => m.package));
 
-if (existsSync(VENDOR_DIR)) {
+if (!SOLO && existsSync(VENDOR_DIR)) {
   const vendored = readdirSync(VENDOR_DIR).filter(f => f.endsWith('.js')).sort();
   let vok = 0;
   for (const file of vendored) {
@@ -663,7 +675,7 @@ if (existsSync(VENDOR_DIR)) {
 // "actualización requerida" si alguien ya la tenía instalada
 // (ExtensionUtils.hasExtensionUpdate) — sin necesitar un script real, porque
 // ese flujo nunca llega a pedir/ejecutar el .js.
-if (existsSync(DISABLED_DIR)) {
+if (!SOLO && existsSync(DISABLED_DIR)) {
   const disabledNames = readdirSync(DISABLED_DIR, { withFileTypes: true })
     .filter(d => d.isDirectory())
     .map(d => d.name)
@@ -691,6 +703,32 @@ if (existsSync(DISABLED_DIR)) {
 }
 
 // ─── Generar index.json ───────────────────────────────────────────────────────
+
+// Con `--solo`, se parte del index.json que ya está y se cambia SOLO la
+// entrada de esta extensión. A ella sí se le sacan las marcas del health-check:
+// es la que se acaba de arreglar, y el próximo health vuelve a medirla.
+if (SOLO) {
+  const actual = JSON.parse(readFileSync(INDEX_PATH, 'utf8'));
+  for (const nueva of builtManifests) {
+    const i = actual.extensions.findIndex(e => e.package === nueva.package);
+    if (i >= 0) {
+      const vieja = actual.extensions[i];
+      if (vieja.unstable) {
+        console.log(`  ℹ  ${nueva.package}: se le saca la marca unstable (${vieja.unstableReason ?? 'sin motivo'})`);
+      }
+      actual.extensions[i] = nueva;
+    } else {
+      actual.extensions.push(nueva);
+    }
+  }
+  writeFileSync(INDEX_PATH, JSON.stringify(actual, null, 2) + '\n', 'utf8');
+  if (errors.length) {
+    console.error(`\n⚠  ${SOLO} no compiló\n`);
+    process.exit(1);
+  }
+  console.log(`\n✅  index.json: solo se actualizó ${SOLO} (las demás quedan como estaban)\n`);
+  process.exit(0);
+}
 
 const index = {
   name: 'Prism+',
