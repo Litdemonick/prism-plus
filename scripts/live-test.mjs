@@ -13,6 +13,9 @@
 //   npm run live-test -- --only=jkanime    una sola (nombre o package)
 //   npm run live-test -- --report-only     nunca falla (exit 0), solo reporta
 //   npm run live-test -- --json=out.json   además escribe el resultado crudo
+//   npm run live-test -- --profundo        además abre un episodio de vídeo y
+//                                          baja su primer pedazo (lo usa el
+//                                          vigilante diario; solo AVISA)
 // ---------------------------------------------------------------------------
 
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'fs';
@@ -33,6 +36,7 @@ const argOf = (name) => {
 const ONLY = argOf('only');
 const JSON_OUT = argOf('json');
 const REPORT_ONLY = args.includes('--report-only');
+const PROFUNDO = args.includes('--profundo');
 
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
@@ -210,6 +214,102 @@ async function retry(fn, { attempts = 3, baseDelay = 1500, label = '' } = {}) {
 }
 
 const short = (e) => String(e?.message ?? e).split('\n')[0].slice(0, 160);
+
+// ─── El vídeo arranca de verdad (vigilante diario, --profundo) ─────────────
+//
+// Las comprobaciones de arriba llegan hasta la ficha. Lo que el usuario ve
+// romperse casi siempre está un paso más allá: el episodio abre y ningún
+// servidor entrega vídeo. Esto abre el primer episodio y baja el PRIMER
+// pedazo del vídeo (o del primer trozo de la lista HLS), como haría la app.
+//
+// Va siempre como AVISO (`leve`): un servidor puede fallar para un episodio
+// puntual sin que la extensión esté rota, y marcarla inestable le bloquearía
+// el contenido a todos. El vigilante diario cuenta los días seguidos y recién
+// ahí abre un aviso para revisarla a mano.
+const esDirecto = (url) => {
+  const u = String(url || '').toLowerCase();
+  if (u.includes('mime=video') || u.includes('/api/file/')) return true;
+  return /\.(m3u8|mp4|mkv|webm|ts)$/.test(u.split('#')[0].split('?')[0]);
+};
+
+function cabecerasLimpias(h) {
+  const out = { 'User-Agent': UA };
+  for (const [k, v] of Object.entries(h || {})) {
+    if (!k.startsWith('X-') && typeof v === 'string') out[k] = v;
+  }
+  return out;
+}
+
+/** Baja el primer pedazo de [url]. Si es una lista HLS, el de su primer trozo. */
+async function primerPedazo(url, cabeceras) {
+  const pedir = (u, rango) =>
+    fetch(u, { headers: { ...cabeceras, Range: rango }, signal: AbortSignal.timeout(20000), redirect: 'follow' });
+  const r0 = await pedir(url, 'bytes=0-262143');
+  const buf = Buffer.from(await r0.arrayBuffer());
+  const inicio = buf.slice(0, 16).toString();
+  if (!inicio.startsWith('#EXTM3U')) {
+    const tipo = r0.headers.get('content-type') || '';
+    if (buf.length < 1000 || tipo.includes('text/html')) {
+      return { ok: false, detalle: `HTTP ${r0.status} · ${tipo || 'sin tipo'} · ${buf.length} B` };
+    }
+    return { ok: true, detalle: `HTTP ${r0.status} · ${buf.length} B` };
+  }
+  // Lista HLS: si es maestra, la primera variante; después, su primer trozo.
+  let lista = buf.toString();
+  let base = url;
+  if (lista.includes('#EXT-X-STREAM-INF')) {
+    const variante = lista.split('\n').map((l) => l.trim()).find((l) => l && !l.startsWith('#'));
+    if (!variante) return { ok: false, detalle: 'lista maestra sin variantes' };
+    base = new URL(variante, url).href;
+    lista = await (await pedir(base, 'bytes=0-')).text();
+  }
+  const trozo = lista.split('\n').map((l) => l.trim()).find((l) => l && !l.startsWith('#'));
+  if (!trozo) return { ok: false, detalle: 'lista sin trozos' };
+  const r1 = await pedir(new URL(trozo, base).href, 'bytes=0-131071');
+  const b1 = Buffer.from(await r1.arrayBuffer());
+  return b1.length >= 1000
+    ? { ok: true, detalle: `HLS · HTTP ${r1.status} · ${b1.length} B` }
+    : { ok: false, detalle: `HLS · trozo de ${b1.length} B (HTTP ${r1.status})` };
+}
+
+/**
+ * Del primer episodio: el enlace primario si ya es vídeo, y si no hasta tres
+ * servidores de la lista, resolviéndolos como la app. Alcanza con UNO que
+ * entregue vídeo.
+ */
+async function probarVideo(inst, w) {
+  const fallas = [];
+  const candidatos = [];
+  if (w?.url && esDirecto(w.url)) candidatos.push({ nombre: 'primario', url: w.url, cabeceras: w.headers });
+  let servidores = {};
+  try { servidores = JSON.parse(w?.headers?.['X-Servers'] || '{}'); } catch {}
+  for (const [nombre, embed] of Object.entries(servidores).slice(0, 3)) {
+    candidatos.push({ nombre, embed });
+  }
+  if (!candidatos.length) return { ok: false, detalle: 'el episodio no trae enlace ni servidores' };
+  for (const c of candidatos) {
+    try {
+      let { url, cabeceras } = c;
+      if (!url) {
+        if (esDirecto(c.embed)) {
+          url = c.embed;
+          cabeceras = w.headers;
+        } else {
+          const r = await withTimeout(inst.watch(c.embed), 25000, `resolver ${c.nombre}`);
+          url = r?.url;
+          cabeceras = r?.headers;
+        }
+      }
+      if (!url || !/^https?:/.test(url)) { fallas.push(`${c.nombre}: sin resolver`); continue; }
+      const v = await primerPedazo(url, cabeceras);
+      if (v.ok) return { ok: true, detalle: `${c.nombre} · ${v.detalle}` };
+      fallas.push(`${c.nombre}: ${v.detalle}`);
+    } catch (e) {
+      fallas.push(`${c.nombre}: ${short(e)}`);
+    }
+  }
+  return { ok: false, detalle: fallas.join(' | ').slice(0, 300) };
+}
 
 // ─── Chequeo real de imágenes (Fase 0 del plan) ────────────────────────────
 //
@@ -575,9 +675,12 @@ async function checkExtension(inst, pkg) {
         if (w && Array.isArray(w.urls) && w.urls.length > 0) {
           const r = await descargarImagen(w.urls[0], w.headers || {});
           add('watch — primera página carga', r.ok, r.detalle);
+        } else if (PROFUNDO && w && typeof w.url === 'string') {
+          const r = await probarVideo(inst, w);
+          avisar('watch — el vídeo arranca', r.ok, r.detalle);
         }
       } catch (e) {
-        avisar('watch — primera página carga', false, short(e));
+        avisar(PROFUNDO ? 'watch — el episodio abre' : 'watch — primera página carga', false, short(e));
       }
     }
   } catch (e) {

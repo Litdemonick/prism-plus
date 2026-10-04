@@ -9,10 +9,15 @@ jiru_index.json
 *.private.pem
 
 # Reporte transitorio del live-test/health-check (se regenera en cada corrida).
-# .health-state.json SI se versiona: guarda el contador de fallos consecutivos
-# entre corridas programadas, que es lo que evita marcar una extension sana por
-# un parpadeo de red.
 .health-report.json
+
+# Los contadores de fallos seguidos (health-check cada 6 h, vigilante diario) y
+# el informe del vigilante: viven en la caché y en los adjuntos de Actions, NO
+# en el repo. Versionados, cada cambio de un contador era un commit (2026-10-04).
+.health-state.json
+.vigilante-state.json
+.vigilante-report.json
+vigilante-resumen.md
 
 # Lo temporal de trabajar: guiones de prueba, paginas descargadas para mirarlas,
 # mediciones, salidas sueltas. Todo lo de usar y tirar va aca y no en la raiz ni

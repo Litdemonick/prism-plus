@@ -1,0 +1,76 @@
+name: Vigilante diario
+
+# Una vez por día, cada extensión de punta a punta: portada, búsqueda, ficha,
+# y además abre un episodio y baja el primer pedazo del vídeo (live-test
+# --profundo). Si una falla DOS días seguidos, abre un aviso (Issue) para
+# revisarla; cuando vuelve a andar, lo cierra solo.
+#
+# No toca index.json ni el repo: eso es de health.yml. Nada se acumula:
+#  · la cuenta de días vive en la caché de Actions, no en el repo;
+#  · el informe del día va como adjunto, que se borra solo a los 7 días;
+#  · como mucho un aviso abierto por extensión.
+
+on:
+  schedule:
+    - cron: '30 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# Nunca dos a la vez: la cuenta de días es una sola.
+concurrency:
+  group: vigilante
+  cancel-in-progress: false
+
+jobs:
+  vigilar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # La cuenta de días de la corrida anterior. Cada corrida guarda la suya
+      # con su propia clave; GitHub borra solas las que no se usan en 7 días.
+      - name: Traer la cuenta de días
+        uses: actions/cache/restore@v4
+        with:
+          path: .vigilante-state.json
+          key: vigilante-state-${{ github.run_id }}
+          restore-keys: vigilante-state-
+
+      - name: Probar las extensiones de punta a punta
+        run: node scripts/live-test.mjs --profundo --report-only --json=.vigilante-report.json
+
+      - name: Contar días y abrir o cerrar avisos
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/vigilante-diario.mjs .vigilante-report.json --aplicar
+          cat vigilante-resumen.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar la cuenta de días
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .vigilante-state.json
+          key: vigilante-state-${{ github.run_id }}
+
+      - name: Informe del día (se borra solo a los 7 días)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vigilante-informe
+          path: |
+            .vigilante-report.json
+            vigilante-resumen.md
+          retention-days: 7
+          if-no-files-found: ignore
