@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         LaMovie
-// @version      1.4.0
+// @version      1.5.0
 // @author       PrismHub
 // @lang         es
 // @license      MIT
@@ -31,6 +31,10 @@ var __spreadValues = (a, b) => {
 
 // extensions/lamovie/servidores/comun.ts
 var UA_NAVEGADOR = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+var UA_DEL_REPRODUCTOR = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+var CABECERAS_DEL_REPRODUCTOR = {
+  "User-Agent": UA_DEL_REPRODUCTOR
+};
 async function pedir(url, referer, headers) {
   var _a;
   try {
@@ -130,9 +134,72 @@ async function resolver(url, referer) {
   return buscarDireccion(html, host ? { Referer: `https://${host}/` } : void 0);
 }
 
+// extensions/lamovie/servidores/voe/index.ts
+function rot13(s) {
+  return s.replace(/[a-zA-Z]/g, (c) => {
+    const base = c <= "Z" ? 65 : 97;
+    return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
+  });
+}
+function descifrar(crudo) {
+  try {
+    let r = rot13(crudo);
+    for (const p of ["@$", "^^", "#&", "~@", "%?", "*~", "!!", "`"]) r = r.split(p).join("");
+    const paso3 = b64aTexto(r);
+    let corrido = "";
+    for (let i = 0; i < paso3.length; i++) corrido += String.fromCharCode(paso3.charCodeAt(i) - 3);
+    return b64aTexto(corrido.split("").reverse().join(""));
+  } catch (e) {
+    return null;
+  }
+}
+async function resolver2(url, referer) {
+  let html = await pedir(url, referer, CABECERAS_DEL_REPRODUCTOR);
+  if (!html) return null;
+  const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html);
+  if (redir) {
+    const espejo = await pedir(redir[1], "https://voe.sx/", CABECERAS_DEL_REPRODUCTOR);
+    if (espejo) html = espejo;
+  }
+  const salida = (u) => ({
+    url: u.replace(/\\\//g, "/"),
+    headers: CABECERAS_DEL_REPRODUCTOR
+  });
+  const bloque = /<script[^>]*type=["']application\/json["'][^>]*>\s*\[\s*"([^"]+)"\s*\]\s*<\/script>/.exec(html);
+  if (bloque) {
+    const claro = descifrar(bloque[1]);
+    if (claro) {
+      const mp4 = /"direct_access_url"\s*:\s*"([^"]+\.mp4[^"]*)"/.exec(claro);
+      if (mp4) return salida(mp4[1]);
+      const src = /"source"\s*:\s*"([^"]+\.m3u8[^"]*)"/.exec(claro);
+      if (src) return salida(src[1]);
+      const m3u8 = /(https?:[^"'\s\\]+\.m3u8[^"'\s\\]*)/.exec(claro.replace(/\\\//g, "/"));
+      if (m3u8) return salida(m3u8[1]);
+    }
+  }
+  let m = /\bhls["']?\s*:\s*["']([^"']+)["']/.exec(html);
+  if (m) return salida(m[1]);
+  const enBase64 = /\batob\s*\(\s*['"]([A-Za-z0-9+/=]{20,})['"]\s*\)/.exec(html);
+  if (enBase64) {
+    try {
+      const dec = b64aTexto(enBase64[1]);
+      const hls = /['"]hls['"]\s*:\s*['"]([^'"]+)['"]/.exec(dec);
+      if (hls) return salida(hls[1]);
+    } catch (e) {
+    }
+  }
+  m = /(https?:\/\/[^"'\s<>]+\.m3u8[^"'\s<>]*)/.exec(html);
+  if (m) return salida(m[0]);
+  return null;
+}
+
 // extensions/lamovie/servidores/index.ts
 var SERVIDORES = [
-  { boton: "Vimeos", hosts: ["vimeos"], resolver }
+  { boton: "Vimeos", hosts: ["vimeos"], resolver },
+  // MP4 directo: más lento que Vimeos para arrancar (medido 2026-10-04: 11,6 s
+  // desde el principio, 14,3 s en el minuto 40) pero reproduce, y en la mitad
+  // de los títulos es el único que anda. Mismo resolvedor que JKAnime.
+  { boton: "VOE", hosts: ["voe.sx", "voe."], resolver: resolver2 }
 ];
 function servidorDe(url) {
   const u = url.toLowerCase();
@@ -143,7 +210,7 @@ function servidorDe(url) {
   }
   return null;
 }
-async function resolver2(url, referer) {
+async function resolver3(url, referer) {
   const s = servidorDe(url);
   if (!s) return null;
   try {
@@ -156,7 +223,8 @@ async function resolver2(url, referer) {
 
 // extensions/lamovie/index.ts
 var BASE = "https://lamovie.org";
-var API = "https://tmdb.allcalidad.re/v1";
+var API = `${BASE}/wp-api/v1`;
+var SUBIDAS = `${BASE}/wp-content/uploads`;
 var IMG = "https://image.tmdb.org/t/p";
 async function _get(url) {
   const raw = await sendMessage(
@@ -169,14 +237,26 @@ async function _get(url) {
   }
   return JSON.parse(t);
 }
+async function _datos(ruta) {
+  const r = await _get(`${API}${ruta}`);
+  if (r.error || r.data == null) throw new Error(r.message || "LaMovie no encontr\xF3 eso");
+  return r.data;
+}
 var KINDS = ["movie", "tvshow", "anime"];
+var POST_TYPE = { movie: "movies", tvshow: "tvshows", anime: "animes" };
+var KIND_DE_POST = { movies: "movie", tvshows: "tvshow", animes: "anime" };
 var SEGMENTO = { movie: "pelicula", tvshow: "serie", anime: "anime" };
 function _tipoDeMedio(kind) {
   if (kind === "movie") return "movie";
   if (kind === "anime") return "anime";
   return "series";
 }
-function _img(path, tam) {
+function _img(path) {
+  if (!path) return void 0;
+  if (path.indexOf("http") === 0) return path;
+  return `${SUBIDAS}${path.charAt(0) === "/" ? "" : "/"}${path}`;
+}
+function _imgTmdb(path, tam) {
   if (!path) return void 0;
   if (path.indexOf("http") === 0) return path;
   return `${IMG}/${tam}${path.charAt(0) === "/" ? "" : "/"}${path}`;
@@ -184,44 +264,99 @@ function _img(path, tam) {
 function _itemUrl(kind, id, slug) {
   return `${BASE}/${SEGMENTO[kind]}/${id}/${slug}`;
 }
-function _episodioUrl(kind, id, temporada, episodio) {
-  return `${BASE}/${SEGMENTO[kind]}/${id}/temporada/${temporada}/episodio/${episodio}`;
+function _episodioUrl(kind, slug, e) {
+  return `${BASE}/${SEGMENTO[kind]}/0/${slug}/temporada/${e.season_number}/episodio/${e.episode_number}?ep=${e._id}`;
+}
+function _titulo(t) {
+  return (t || "").replace(/\s*\(\d{4}\)\s*$/, "").replace(/&amp;/g, "&");
 }
 function _anio(i) {
-  if (i.year) return i.year;
-  const f = i.release_date || i.first_air_date;
-  if (!f) return void 0;
-  const y = parseInt(f.slice(0, 4), 10);
+  const m = /\((\d{4})\)\s*$/.exec(i.title || "");
+  if (m) return parseInt(m[1], 10);
+  const y = i.release_date ? parseInt(i.release_date.slice(0, 4), 10) : NaN;
   return Number.isFinite(y) ? y : void 0;
 }
+function _numero(x) {
+  const n = typeof x === "number" ? x : parseFloat(x || "");
+  return Number.isFinite(n) && n > 0 ? n : void 0;
+}
 function _generos(i) {
-  const g = (i.genres || []).map((t) => t.title).filter((t) => !!t);
-  return g.length ? g : void 0;
+  const nombres = (i.genres || []).map((id) => {
+    var _a;
+    return (_a = _taxonomias == null ? void 0 : _taxonomias.genres[String(id)]) == null ? void 0 : _a.name;
+  }).filter((x) => !!x);
+  return nombres.length ? nombres : void 0;
 }
 function _itemDe(i) {
-  const ultimo = i.latest_episode;
+  var _a;
+  const kind = KIND_DE_POST[i.type];
+  if (!kind || !i.slug) return null;
+  const u = i.latest_episode;
+  const rating = _numero(i.rating);
   return {
-    title: i.title,
-    url: _itemUrl(i.kind, i.tmdb_id, i.slug),
-    cover: _img(i.poster_path, "w342"),
+    title: _titulo(i.title),
+    url: _itemUrl(kind, i._id, i.slug),
+    cover: _img((_a = i.images) == null ? void 0 : _a.poster),
     description: i.overview || void 0,
     tags: _generos(i),
     year: _anio(i),
-    rating: i.vote_average ? Math.round(i.vote_average * 10) / 10 : void 0,
-    type: _tipoDeMedio(i.kind),
-    update: ultimo && i.kind !== "movie" ? `T${ultimo.season} E${ultimo.episode}` : void 0
+    rating: rating ? Math.round(rating * 10) / 10 : void 0,
+    type: _tipoDeMedio(kind),
+    update: u && u.season_number && u.episode_number && kind !== "movie" ? `T${u.season_number} E${u.episode_number}` : void 0
   };
+}
+var _taxonomias = null;
+async function _leerTaxonomias() {
+  if (_taxonomias) return _taxonomias;
+  try {
+    const raw = await sendMessage(
+      "request",
+      JSON.stringify([`${BASE}/`, { method: "get", headers: { Referer: `${BASE}/` } }])
+    );
+    let html = raw || "";
+    try {
+      const j = JSON.parse(html);
+      if (typeof j === "string") html = j;
+    } catch (e) {
+    }
+    const leer = (clave) => {
+      const m = new RegExp(`\\b${clave}:(\\{[^\\n]*\\})\\s*,?\\s*\\n`).exec(html);
+      if (!m) return {};
+      try {
+        return JSON.parse(m[1]);
+      } catch (e) {
+        return {};
+      }
+    };
+    const t = {
+      genres: leer("genres"),
+      years: leer("years"),
+      countries: leer("countries"),
+      providers: leer("providers")
+    };
+    if (Object.keys(t.genres).length === 0) throw new Error("la portada no trajo los g\xE9neros");
+    _taxonomias = t;
+    return _taxonomias;
+  } catch (e) {
+    console.log(`[lamovie] sin taxonom\xEDas: ${e}`);
+    return null;
+  }
+}
+function _idDe(tax, valor) {
+  if (!valor || !tax) return void 0;
+  if (/^\d+$/.test(valor) && tax[valor]) return parseInt(valor, 10);
+  const v = valor.toLowerCase();
+  for (const id of Object.keys(tax)) {
+    const t = tax[id];
+    if (t.slug === v || (t.name || "").toLowerCase() === v) return parseInt(id, 10);
+  }
+  return void 0;
 }
 var _TIPO_VIEJO = {
   movies: "movie",
   tvshows: "tvshow",
   animes: "anime",
   novels: "tvshow"
-};
-var _ORDEN_VIEJO = {
-  latest: "recent",
-  rated: "rating",
-  views: "popular"
 };
 function _leerFiltro(filter) {
   const v = (k) => {
@@ -232,166 +367,37 @@ function _leerFiltro(filter) {
   const tipo = v("tipo");
   const kind = tipo ? KINDS.includes(tipo) ? tipo : _TIPO_VIEJO[tipo] : void 0;
   const o = v("orden");
-  const orden = o === "recent" || o === "popular" || o === "rating" ? o : o && _ORDEN_VIEJO[o] || "recent";
-  const anio = v("anio") ? parseInt(v("anio"), 10) : void 0;
-  const genero = v("genero");
-  const pais = v("pais");
   return {
     kind,
-    orden,
-    genero: genero && !/^\d+$/.test(genero) ? genero : void 0,
-    anio: anio && Number.isFinite(anio) ? anio : void 0,
-    pais: pais && !/^\d+$/.test(pais) ? pais : void 0,
+    orden: o === "popular" || o === "views" ? "popular" : "recent",
+    genero: v("genero"),
+    anio: v("anio"),
+    pais: v("pais"),
     plataforma: v("plataforma")
   };
 }
-var _GENEROS_RESPALDO = {
-  "acci\xF3n": "Acci\xF3n",
-  "action-adventure": "Acci\xF3n y aventura",
-  "animaci\xF3n": "Animaci\xF3n",
-  "aventura": "Aventura",
-  "b\xE9lica": "B\xE9lica",
-  "ciencia-ficci\xF3n": "Ciencia ficci\xF3n",
-  "sci-fi-fantasy": "Ciencia ficci\xF3n y fantas\xEDa",
-  "comedia": "Comedia",
-  "crimen": "Crimen",
-  "documental": "Documental",
-  "drama": "Drama",
-  "familia": "Familia",
-  "fantas\xEDa": "Fantas\xEDa",
-  "historia": "Historia",
-  "kids": "Infantil",
-  "misterio": "Misterio",
-  "m\xFAsica": "M\xFAsica",
-  "pel\xEDcula-de-tv": "Pel\xEDcula de TV",
-  "reality": "Reality",
-  "romance": "Romance",
-  "soap": "Telenovela",
-  "suspense": "Suspense",
-  "terror": "Terror",
-  "war-politics": "Guerra y pol\xEDtica",
-  "western": "Western"
-};
-var _PAISES_ES = {
-  us: "Estados Unidos",
-  gb: "Reino Unido",
-  jp: "Jap\xF3n",
-  kr: "Corea del Sur",
-  mx: "M\xE9xico",
-  es: "Espa\xF1a",
-  ar: "Argentina",
-  co: "Colombia",
-  cl: "Chile",
-  pe: "Per\xFA",
-  ve: "Venezuela",
-  br: "Brasil",
-  ca: "Canad\xE1",
-  fr: "Francia",
-  de: "Alemania",
-  it: "Italia",
-  cn: "China",
-  au: "Australia",
-  in: "India",
-  ie: "Irlanda",
-  be: "B\xE9lgica",
-  hk: "Hong Kong",
-  se: "Suecia",
-  pl: "Polonia",
-  ru: "Rusia",
-  za: "Sud\xE1frica",
-  ch: "Suiza",
-  th: "Tailandia",
-  dk: "Dinamarca",
-  nl: "Pa\xEDses Bajos",
-  fi: "Finlandia",
-  tr: "Turqu\xEDa",
-  cz: "Rep\xFAblica Checa",
-  no: "Noruega",
-  nz: "Nueva Zelanda",
-  id: "Indonesia",
-  ph: "Filipinas",
-  tw: "Taiw\xE1n",
-  pt: "Portugal",
-  uy: "Uruguay",
-  ec: "Ecuador",
-  bo: "Bolivia",
-  py: "Paraguay",
-  cr: "Costa Rica",
-  do: "Rep\xFAblica Dominicana",
-  pr: "Puerto Rico",
-  cu: "Cuba",
-  gt: "Guatemala",
-  at: "Austria",
-  gr: "Grecia",
-  hu: "Hungr\xEDa",
-  il: "Israel",
-  eg: "Egipto",
-  ng: "Nigeria",
-  my: "Malasia",
-  sg: "Singapur",
-  ro: "Rumania",
-  ua: "Ucrania",
-  is: "Islandia",
-  lu: "Luxemburgo"
-};
-var _PLATAFORMAS = [
-  "netflix",
-  "disney",
-  "prime-video",
-  "apple-tv",
-  "max",
-  "hbo-max",
-  "hbo",
-  "paramount",
-  "hulu",
-  "crunchyroll",
-  "peacock",
-  "star-plus",
-  "vix",
-  "amc"
-];
-var _taxonomias = null;
-async function _leerTaxonomias() {
-  if (_taxonomias) return _taxonomias;
-  try {
-    const t = await _get(`${API}/taxonomies`);
-    _taxonomias = {
-      generos: t.genres || [],
-      anios: (t.years || []).map((y) => y.year).filter((y) => !!y),
-      paises: t.countries || [],
-      cadenas: t.networks || []
-    };
-    return _taxonomias;
-  } catch (e) {
-    console.log(`[lamovie] sin taxonom\xEDas: ${e}`);
-    return null;
-  }
+function _filtroApi(f) {
+  const t = _taxonomias;
+  const o = {};
+  const g = _idDe(t == null ? void 0 : t.genres, f.genero);
+  if (g) o.genres = [g];
+  const y = _idDe(t == null ? void 0 : t.years, f.anio);
+  if (y) o.years = [y];
+  const c = _idDe(t == null ? void 0 : t.countries, f.pais);
+  if (c) o.countries = [c];
+  const p = _idDe(t == null ? void 0 : t.providers, f.plataforma);
+  if (p) o.providers = [p];
+  return Object.keys(o).length ? `&filter=${encodeURIComponent(JSON.stringify(o))}` : "";
+}
+function _opciones(tax, todos, orden) {
+  const out = { "": todos };
+  const lista = Object.keys(tax || {}).map((id) => ({ id, t: tax[id] }));
+  lista.sort((a, b) => orden ? orden(a.t, b.t) : a.t.name.localeCompare(b.t.name));
+  for (const { id, t } of lista) out[id] = t.name;
+  return out;
 }
 async function createFilter() {
   const tax = await _leerTaxonomias();
-  const generos = { "": "Todos" };
-  if (tax && tax.generos.length) {
-    for (const g of tax.generos) generos[g.slug] = _GENEROS_RESPALDO[g.slug] || g.title;
-  } else {
-    Object.assign(generos, _GENEROS_RESPALDO);
-  }
-  const anios = { "": "Todos" };
-  const listaAnios = tax && tax.anios.length ? tax.anios.slice().sort((a, b) => b - a) : [];
-  if (listaAnios.length === 0) {
-    const hoy = (/* @__PURE__ */ new Date()).getFullYear();
-    for (let y = hoy; y >= 1960; y--) listaAnios.push(y);
-  }
-  for (const y of listaAnios) anios[String(y)] = String(y);
-  const paises = { "": "Todos" };
-  const listaPaises = tax && tax.paises.length ? tax.paises.map((p) => ({ slug: p.slug, nombre: _PAISES_ES[p.slug] || p.title })) : Object.keys(_PAISES_ES).map((slug) => ({ slug, nombre: _PAISES_ES[slug] }));
-  listaPaises.sort((a, b) => a.nombre.localeCompare(b.nombre));
-  for (const p of listaPaises) paises[p.slug] = p.nombre;
-  const plataformas = { "": "Todas" };
-  const cadenas = tax ? tax.cadenas : [];
-  for (const slug of _PLATAFORMAS) {
-    const c = cadenas.find((x) => x.slug === slug);
-    if (c || cadenas.length === 0) plataformas[slug] = c ? c.title : slug;
-  }
   return {
     tipo: {
       title: "Tipo",
@@ -402,17 +408,23 @@ async function createFilter() {
     },
     orden: {
       title: "Orden",
-      options: { recent: "Recientes", popular: "Populares", rating: "Mejor valorados" },
+      options: { recent: "Recientes", popular: "M\xE1s vistos" },
       default: "recent",
       min: 1,
       max: 1
     },
-    genero: { title: "G\xE9nero", options: generos, default: "", min: 1, max: 1 },
-    anio: { title: "A\xF1o", options: anios, default: "", min: 1, max: 1 },
-    pais: { title: "Pa\xEDs", options: paises, default: "", min: 1, max: 1 },
+    genero: { title: "G\xE9nero", options: _opciones(tax == null ? void 0 : tax.genres, "Todos"), default: "", min: 1, max: 1 },
+    anio: {
+      title: "A\xF1o",
+      options: _opciones(tax == null ? void 0 : tax.years, "Todos", (a, b) => parseInt(b.name, 10) - parseInt(a.name, 10)),
+      default: "",
+      min: 1,
+      max: 1
+    },
+    pais: { title: "Pa\xEDs", options: _opciones(tax == null ? void 0 : tax.countries, "Todos"), default: "", min: 1, max: 1 },
     plataforma: {
-      title: "Plataforma (series y animes)",
-      options: plataformas,
+      title: "Plataforma",
+      options: _opciones(tax == null ? void 0 : tax.providers, "Todas"),
       default: "",
       min: 1,
       max: 1
@@ -420,27 +432,21 @@ async function createFilter() {
   };
 }
 var POR_PAGINA = 24;
-function _consulta(kind, page, f) {
-  let q = `${API}/items?kind=${kind}&sort=${f.orden}&page=${page}&limit=${POR_PAGINA}`;
-  if (f.genero) q += `&genre=${encodeURIComponent(f.genero)}`;
-  if (f.anio) q += `&year=${f.anio}`;
-  if (f.pais) q += `&country=${encodeURIComponent(f.pais)}`;
-  if (f.plataforma && kind !== "movie") q += `&network=${encodeURIComponent(f.plataforma)}`;
-  return q;
-}
-function _sirve(i) {
-  return i.playable !== false;
-}
 async function _listar(kind, page, f) {
-  const r = await _get(_consulta(kind, page, f));
-  return (r.items || []).filter(_sirve).map(_itemDe);
+  await _leerTaxonomias();
+  const tipo = POST_TYPE[kind];
+  const orden = f.orden === "popular" ? "views" : "latest";
+  const r = await _datos(
+    `/listing/${tipo}?postType=${tipo}&page=${page}&postsPerPage=${POR_PAGINA}&orderBy=${orden}&order=desc${_filtroApi(f)}`
+  );
+  if (r.pagination && page > r.pagination.last_page) return [];
+  return (r.posts || []).map(_itemDe).filter((x) => !!x);
 }
 async function latest(page, filter) {
   const f = _leerFiltro(filter);
   if (f.kind) return _listar(f.kind, page, f);
-  const tipos = f.plataforma ? KINDS.filter((k) => k !== "movie") : KINDS;
   const porTipo = await Promise.all(
-    tipos.map(
+    KINDS.map(
       (k) => _listar(k, page, f).catch((e) => {
         console.log(`[lamovie] no se pudo listar ${k}: ${e}`);
         return [];
@@ -466,22 +472,18 @@ function _intercalar(listas) {
 async function search(keyword, page, filter) {
   const kw = keyword.trim();
   if (!kw) return latest(page, filter);
-  if (page > 1) return [];
+  await _leerTaxonomias();
   const f = _leerFiltro(filter);
-  let q = `${API}/search?q=${encodeURIComponent(kw)}&limit=100`;
-  if (f.kind) q += `&kind=${f.kind}`;
-  const r = await _get(q);
+  const tipo = f.kind ? POST_TYPE[f.kind] : "any";
+  const r = await _datos(
+    `/search?postType=${tipo}&q=${encodeURIComponent(kw)}&page=${page}&postsPerPage=${POR_PAGINA}${_filtroApi(f)}`
+  );
+  if (r.pagination && page > r.pagination.last_page) return [];
   const vistas = {};
   const items = [];
-  for (const i of r.items || []) {
-    if (!i || !_sirve(i)) continue;
-    if (f.kind && i.kind !== f.kind) continue;
-    if (f.genero && !(i.genres || []).some((g) => g.slug === f.genero)) continue;
-    if (f.anio && _anio(i) !== f.anio) continue;
-    if (f.pais && !(i.countries || []).some((c) => c.slug === f.pais)) continue;
-    if (f.plataforma && !(i.networks || []).some((c) => c.slug === f.plataforma)) continue;
-    const it = _itemDe(i);
-    if (vistas[it.url]) continue;
+  for (const i of r.posts || []) {
+    const it = i ? _itemDe(i) : null;
+    if (!it || vistas[it.url]) continue;
     vistas[it.url] = true;
     items.push(it);
   }
@@ -490,160 +492,186 @@ async function search(keyword, page, filter) {
 var _KIND_DE_SEGMENTO = {
   pelicula: "movie",
   serie: "tvshow",
-  anime: "anime"
+  anime: "anime",
+  peliculas: "movie",
+  series: "tvshow",
+  animes: "anime",
+  novelas: "tvshow"
 };
-async function _referenciaDe(url) {
-  const nueva = /\/(pelicula|serie|anime)\/(\d+)(?:\/temporada\/(\d+)\/episodio\/(\d+)|\/[^/?#]*)?/.exec(url);
-  if (nueva) {
-    return {
-      kind: _KIND_DE_SEGMENTO[nueva[1]],
-      id: parseInt(nueva[2], 10),
-      temporada: nueva[3] ? parseInt(nueva[3], 10) : void 0,
-      episodio: nueva[4] ? parseInt(nueva[4], 10) : void 0
-    };
-  }
+function _referenciaDe(url) {
+  const ep = /[?&]ep=(\d+)/.exec(url);
+  const t = /\/temporada\/(\d+)\/episodio\/(\d+)/.exec(url) || /[?&]s=(\d+)&e=(\d+)/.exec(url);
+  const actual = /\/(pelicula|serie|anime)\/\d+\/([^/?#]+)/.exec(url);
   const vieja = /\/(peliculas|series|animes|novelas)\/([^/?#]+)/.exec(url);
-  if (!vieja) throw new Error("Direcci\xF3n de LaMovie no reconocida");
-  const seg = vieja[1];
-  const slug = decodeURIComponent(vieja[2]);
-  const aceptados = seg === "peliculas" ? ["movie"] : seg === "animes" ? ["anime", "tvshow"] : ["tvshow", "anime"];
-  const r = await _get(
-    `${API}/search?q=${encodeURIComponent(slug.replace(/-/g, " "))}&limit=100`
-  );
-  const obra = (r.items || []).find((i) => i.slug === slug && aceptados.indexOf(i.kind) !== -1);
-  if (!obra) throw new Error("Este t\xEDtulo ya no est\xE1 en LaMovie");
-  const s = /[?&]s=(\d+)/.exec(url);
-  const e = /[?&]e=(\d+)/.exec(url);
+  const suelto = /\/(pelicula|serie|anime)\//.exec(url);
+  const m = actual || vieja;
+  const seg = m ? m[1] : suelto ? suelto[1] : "";
+  const kind = _KIND_DE_SEGMENTO[seg];
+  if (!kind) throw new Error("Direcci\xF3n de LaMovie no reconocida");
+  const slug = m && m[2] !== "temporada" ? decodeURIComponent(m[2]) : void 0;
   return {
-    kind: obra.kind,
-    id: obra.tmdb_id,
-    temporada: s ? parseInt(s[1], 10) : void 0,
-    episodio: e ? parseInt(e[1], 10) : void 0
+    kind,
+    slug,
+    temporada: t ? parseInt(t[1], 10) : void 0,
+    episodio: t ? parseInt(t[2], 10) : void 0,
+    postId: ep ? parseInt(ep[1], 10) : void 0
   };
 }
-function _estado(s) {
-  switch (s) {
-    case "Returning Series":
-    case "In Production":
-      return "ongoing";
-    case "Ended":
-    case "Canceled":
-      return "completed";
-    case "Planned":
-    case "Post Production":
-    case "Rumored":
-      return "upcoming";
-    default:
-      return void 0;
+async function _ficha(ref) {
+  if (!ref.slug) {
+    throw new Error("Este episodio se guard\xF3 con una versi\xF3n vieja: abrilo de nuevo desde la ficha");
+  }
+  const tipo = POST_TYPE[ref.kind];
+  try {
+    return await _datos(`/single/${tipo}?slug=${encodeURIComponent(ref.slug)}&postType=${tipo}`);
+  } catch (e) {
+    const otro = ref.kind === "anime" ? "tvshows" : ref.kind === "tvshow" ? "animes" : null;
+    if (!otro) throw new Error("Este t\xEDtulo ya no est\xE1 en LaMovie");
+    return _datos(`/single/${otro}?slug=${encodeURIComponent(ref.slug)}&postType=${otro}`);
   }
 }
-async function _temporadas(kind, id) {
-  const r = await _get(`${API}/items/${kind}/${id}/seasons`);
-  const conVideo = (r.seasons || []).filter((t) => (t.playable_count || 0) > 0).sort((a, b) => a.season === 0 ? 1 : b.season === 0 ? -1 : a.season - b.season);
-  const detalles = await Promise.all(
-    conVideo.map(
-      (t) => _get(`${API}/items/${kind}/${id}/seasons/${t.season}`).then((d) => {
-        var _a;
-        return { t, episodios: ((_a = d.season) == null ? void 0 : _a.episodes) || [] };
-      }).catch((e) => {
-        console.log(`[lamovie] temporada ${t.season} sin cargar: ${e}`);
-        return { t, episodios: [] };
+async function _episodiosDeTemporada(id, temporada) {
+  const eps = [];
+  let temporadas = [];
+  for (let page = 1; page <= 20; page++) {
+    const r = await _datos(`/single/episodes/list?_id=${id}&season=${encodeURIComponent(temporada)}&page=${page}&postsPerPage=100`);
+    if (page === 1) temporadas = (r.seasons || []).map(String);
+    eps.push(...r.posts || []);
+    if (!r.pagination || page >= r.pagination.last_page) break;
+  }
+  return { eps, temporadas };
+}
+async function _temporadas(kind, i) {
+  const primera = await _episodiosDeTemporada(i._id, "1");
+  const nombres = primera.temporadas.length ? primera.temporadas.slice() : ["1"];
+  nombres.sort((a, b) => a === "0" ? 1 : b === "0" ? -1 : parseInt(a, 10) - parseInt(b, 10));
+  const porTemporada = await Promise.all(
+    nombres.map(
+      (n) => n === "1" ? Promise.resolve({ n, eps: primera.eps }) : _episodiosDeTemporada(i._id, n).then((r) => ({ n, eps: r.eps })).catch((e) => {
+        console.log(`[lamovie] temporada ${n} sin cargar: ${e}`);
+        return { n, eps: [] };
       })
     )
   );
   const temporadas = [];
-  for (const { t, episodios } of detalles) {
-    const lista = episodios.filter((e) => e.playable !== false).sort((a, b) => a.episode - b.episode).map((e) => ({
-      title: e.title || `Episodio ${e.episode}`,
-      url: _episodioUrl(kind, id, e.season, e.episode),
-      thumbnail: _img(e.still_path, "w300"),
-      duration: e.runtime ? e.runtime * 60 : void 0,
-      airDate: e.air_date ? e.air_date.slice(0, 10) : void 0,
-      number: e.episode
-    }));
-    if (lista.length === 0) continue;
-    const y = t.air_date ? parseInt(t.air_date.slice(0, 4), 10) : NaN;
-    temporadas.push({
-      title: t.name || (t.season === 0 ? "Especiales" : `Temporada ${t.season}`),
-      episodes: lista,
-      year: Number.isFinite(y) ? y : void 0,
-      cover: _img(t.poster_path, "w342")
+  for (const { n, eps } of porTemporada) {
+    const lista = eps.slice().sort((a, b) => a.episode_number - b.episode_number).map((e) => {
+      const min = _numero(e.runtime);
+      return {
+        title: `Episodio ${e.episode_number}`,
+        url: _episodioUrl(kind, i.slug, e),
+        thumbnail: _imgTmdb(e.still_path, "w300"),
+        duration: min ? min * 60 : void 0,
+        airDate: e.date ? e.date.slice(0, 10) : void 0,
+        number: e.episode_number
+      };
     });
+    if (lista.length === 0) continue;
+    temporadas.push({ title: n === "0" ? "Especiales" : `Temporada ${n}`, episodes: lista });
   }
   return temporadas;
 }
 async function detail(url) {
-  const ref = await _referenciaDe(url);
-  const r = await _get(`${API}/items/${ref.kind}/${ref.id}`);
-  const i = r.item;
-  if (!i) throw new Error("No se pudo cargar la ficha en LaMovie");
+  var _a;
+  await _leerTaxonomias();
+  const ref = _referenciaDe(url);
+  const i = await _ficha(ref);
+  const kind = KIND_DE_POST[i.type] || ref.kind;
   const episodios = [];
   let seasons;
-  if (i.kind === "movie") {
-    if (i.playable !== false) {
-      episodios.push({
-        title: i.title,
-        url: _itemUrl(i.kind, i.tmdb_id, i.slug),
-        duration: i.runtime ? i.runtime * 60 : void 0
-      });
-    }
+  if (kind === "movie") {
+    const min = _numero(i.runtime);
+    episodios.push({
+      title: _titulo(i.title),
+      url: `${_itemUrl(kind, i._id, i.slug)}?ep=${i._id}`,
+      duration: min ? min * 60 : void 0
+    });
   } else {
-    seasons = await _temporadas(i.kind, i.tmdb_id);
+    seasons = await _temporadas(kind, i);
   }
   const extra = {};
-  if (i.original_title && i.original_title !== i.title) extra["T\xEDtulo original"] = i.original_title;
+  if (i.original_title && _titulo(i.original_title) !== _titulo(i.title)) {
+    extra["T\xEDtulo original"] = i.original_title;
+  }
   if (i.certification) extra["Clasificaci\xF3n"] = i.certification;
-  const paises = (i.countries || []).map((c) => _PAISES_ES[c.slug] || c.title).filter((x) => !!x);
+  const paises = (i.countries || []).map((id) => {
+    var _a2;
+    return (_a2 = _taxonomias == null ? void 0 : _taxonomias.countries[String(id)]) == null ? void 0 : _a2.name;
+  }).filter((x) => !!x);
   if (paises.length) extra["Pa\xEDs"] = paises.join(", ");
-  const cadenas = (i.networks || []).map((c) => c.title).filter((x) => !!x);
-  if (cadenas.length) extra["Cadena"] = cadenas.join(", ");
-  const estudios = (i.studios || []).slice(0, 3).map((c) => c.title).filter((x) => !!x);
-  if (estudios.length) extra["Estudio"] = estudios.join(", ");
+  const rating = _numero(i.rating);
   return {
-    title: i.title,
-    cover: _img(i.poster_path, "w500"),
+    title: _titulo(i.title),
+    cover: _img((_a = i.images) == null ? void 0 : _a.poster),
     description: i.overview || void 0,
     episodes: episodios,
     seasons,
     genres: _generos(i),
-    status: i.kind === "movie" ? void 0 : _estado(i.status),
     year: _anio(i),
-    rating: i.vote_average ? Math.round(i.vote_average * 10) / 10 : void 0,
+    rating: rating ? Math.round(rating * 10) / 10 : void 0,
     extra,
     type: "bangumi"
   };
 }
+async function _postIdDe(ref) {
+  if (ref.postId) return ref.postId;
+  const i = await _ficha(ref);
+  if (ref.kind === "movie" || KIND_DE_POST[i.type] === "movie") return i._id;
+  if (ref.temporada == null || ref.episodio == null) throw new Error("Falta el episodio a reproducir");
+  const { eps } = await _episodiosDeTemporada(i._id, String(ref.temporada));
+  const ep = eps.find((e) => e.episode_number === ref.episodio);
+  if (!ep) throw new Error("Este episodio ya no est\xE1 en LaMovie");
+  return ep._id;
+}
 async function _embedsDe(ref) {
-  if (ref.kind !== "movie" && (ref.temporada == null || ref.episodio == null)) {
-    throw new Error("Falta el episodio a reproducir");
-  }
-  const q = ref.kind === "movie" ? "" : `?season=${ref.temporada}&episode=${ref.episodio}`;
-  const r = await _get(`${API}/playback/${ref.kind}/${ref.id}${q}`);
-  return Array.isArray(r.embeds) ? r.embeds.filter((e) => e && typeof e.url === "string") : [];
+  const id = await _postIdDe(ref);
+  const d = await _datos(`/player?postId=${id}&demo=0`);
+  return Array.isArray(d.embeds) ? d.embeds.filter((e) => e && typeof e.url === "string") : [];
 }
 function _idioma(lang) {
-  const l = (lang || "").trim();
+  const l = (lang || "").trim().replace(/Japones/g, "Japon\xE9s").replace(/Ingles/g, "Ingl\xE9s");
   if (!l) return "";
   const sub = /^(.+?)\s*-\s*Subt[ií]tulos?\s+(.+)$/i.exec(l);
-  return sub ? `${sub[1]} (sub. ${sub[2].toLowerCase()})` : l;
+  if (sub) return `${sub[1]} (sub. ${sub[2].toLowerCase()})`;
+  return l.replace(/\s*-\s*/g, " + ");
+}
+async function _listaLlega(url, headers, plazoMs = 4e3) {
+  if (url.split("?")[0].indexOf(".m3u8") === -1) return true;
+  const pedido = sendMessage("request", JSON.stringify([url, { method: "get", headers: headers || {} }])).then((raw) => {
+    let t = raw || "";
+    try {
+      const j = JSON.parse(t);
+      if (typeof j === "string") t = j;
+    } catch (e) {
+    }
+    return t.indexOf("#EXTM3U") !== -1;
+  }).catch(() => false);
+  const plazo = new Promise((ok) => setTimeout(() => ok(true), plazoMs));
+  return Promise.race([pedido, plazo]);
 }
 async function _resolver(embed, lang) {
-  const resuelto = await resolver2(embed, `${BASE}/`);
+  var _a, _b, _c;
+  const resuelto = await resolver3(embed, `${BASE}/`);
   if (!resuelto) return null;
+  if (!await _listaLlega(resuelto.url, resuelto.headers)) {
+    console.log(`[lamovie] ${(_b = (_a = servidorDe(embed)) == null ? void 0 : _a.boton) != null ? _b : "servidor"} no entrega el v\xEDdeo (error del servidor): no se ofrece`);
+    return null;
+  }
+  const boton = ((_c = servidorDe(embed)) == null ? void 0 : _c.boton) || "Servidor";
   const idioma = _idioma(lang);
   return {
     url: resuelto.url,
     headers: resuelto.headers,
-    quality: idioma ? `Vimeos \xB7 ${idioma}` : "Vimeos",
+    quality: idioma ? `${boton} \xB7 ${idioma}` : boton,
     nativo: true
   };
 }
 async function watch(url) {
-  if (url.indexOf("vimeos.") !== -1) {
+  if (servidorDe(url)) {
     const s = await _resolver(url);
     return s ? { streams: [s] } : { streams: [], reason: "servidores_no_disponibles" };
   }
-  const ref = await _referenciaDe(url);
+  const ref = _referenciaDe(url);
   const todos = await _embedsDe(ref);
   const vistos = /* @__PURE__ */ new Set();
   const propios = todos.filter((e) => {
@@ -654,6 +682,11 @@ async function watch(url) {
   if (!propios.length) {
     return { streams: [], reason: todos.length ? "servidores_no_disponibles" : "sin_servidores" };
   }
+  const orden = (u) => {
+    const s = servidorDe(u);
+    return s ? SERVIDORES.indexOf(s) : 99;
+  };
+  propios.sort((a, b) => orden(a.url) - orden(b.url));
   const resueltos = await Promise.all(propios.map((e) => _resolver(e.url, e.lang).catch(() => null)));
   const streams = resueltos.filter((x) => !!x);
   if (!streams.length) return { streams: [], reason: "servidores_no_disponibles" };

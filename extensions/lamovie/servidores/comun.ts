@@ -41,6 +41,20 @@ export const UA_NAVEGADOR =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
+/**
+ * El User-Agent con el que la APP pide el vídeo (`_browserUA` en
+ * video_controller.dart). VOE firma la dirección para quien pidió la página:
+ * si después la pide otro navegador, contesta 403. Igual que en JKAnime.
+ */
+export const UA_DEL_REPRODUCTOR =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36';
+
+/** Para mandarlo en un pedido y devolverlo en la respuesta, sin repetirlo. */
+export const CABECERAS_DEL_REPRODUCTOR: Record<string, string> = {
+  'User-Agent': UA_DEL_REPRODUCTOR,
+};
+
 /** GET a una página de embed. Devuelve null si no se pudo. */
 export async function pedir(
   url: string,

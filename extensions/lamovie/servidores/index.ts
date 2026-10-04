@@ -21,6 +21,7 @@
 
 import { type ServidorResuelto } from './comun';
 import * as vimeos from './vimeos';
+import * as voe from './voe';
 
 export { type ServidorResuelto } from './comun';
 
@@ -34,6 +35,10 @@ export interface Servidor {
 
 export const SERVIDORES: Servidor[] = [
   { boton: 'Vimeos', hosts: ['vimeos'], resolver: vimeos.resolver },
+  // MP4 directo: más lento que Vimeos para arrancar (medido 2026-10-04: 11,6 s
+  // desde el principio, 14,3 s en el minuto 40) pero reproduce, y en la mitad
+  // de los títulos es el único que anda. Mismo resolvedor que JKAnime.
+  { boton: 'VOE', hosts: ['voe.sx', 'voe.'], resolver: voe.resolver },
 ];
 
 /** El servidor al que pertenece una dirección, si se lo reconoce. */

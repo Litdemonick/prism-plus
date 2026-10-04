@@ -175,7 +175,7 @@
     {
       "name": "LaMovie",
       "package": "io.prismhub.lamovie",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "author": "PrismHub",
       "type": "bangumi",
       "contentKind": "accion-real",
@@ -186,8 +186,8 @@
       "license": "MIT",
       "latestLabel": "recien-anadidas",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/lamovie.js",
-      "sha256": "6c7bf3303cbeda5e7869c3f814b37ebade5330b4b33963485906e89b3f5a3a7f",
-      "signature": "9MldhxFNKts3a3uYxqfVJaQIpuCFIaKZrTojmYFZeJIwWDWPs9mhDXS9P5EC/DN6JqGdJ9wjnxBT1efgfIJRAg=="
+      "sha256": "a28478de1cfb367e0957351b776791d96d5d451d706c9e3b7bd1637f84a063dc",
+      "signature": "JIaf/XTOvjywoa1xDOy1iygdT4Lu+FVbjQIMWxKOeMA+Qv1lU1wtHmYIWJd8d7Z5VC28UE36jsV2Yz+Q9nHeBw=="
     },
     {
       "name": "LatAnime",
