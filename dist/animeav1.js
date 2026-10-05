@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeAV1
-// @version      1.0.11
+// @version      1.0.12
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -10,7 +10,7 @@
 // @contentKind  anime
 // @latestLabel  recientemente-agregados
 // @webSite      https://animeav1.com
-// @description  Anime subtitulado y doblado con catálogo completo, filtros por género, estado, año y letra, y tres de sus cuatro servidores reproduciendo en la app.
+// @description  Anime subtitulado y doblado con catálogo completo, filtros por género, estado, año y letra, con cuatro servidores en la app: Voe, MP4Upload (1080p), Byse y UPNShare.
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
 var __defProps = Object.defineProperties;
@@ -215,6 +215,22 @@ function b64urlAWord(s) {
   const relleno = normal.length % 4 === 0 ? "" : "=".repeat(4 - normal.length % 4);
   return CryptoJS.enc.Base64.parse(normal + relleno);
 }
+async function estaListo(url, referer) {
+  var _a, _b;
+  const host = hostDe(url);
+  const codigo = codigoDe(url);
+  if (!host || !codigo) return true;
+  try {
+    const crudo = await pedir(`https://${host}/api/videos/${codigo}`, referer || `https://${host}/`);
+    if (!crudo) return true;
+    const meta = JSON.parse(crudo);
+    if (meta.playback) return true;
+    const estado = (_b = (_a = meta.processing) == null ? void 0 : _a.encoding) == null ? void 0 : _b.state;
+    return !(estado && estado !== "done" && estado !== "ready");
+  } catch (e) {
+    return true;
+  }
+}
 async function resolver(url, referer) {
   var _a;
   const host = hostDe(url) || "bysekoze.com";
@@ -269,36 +285,8 @@ async function resolver(url, referer) {
   }
 }
 
-// extensions/animeav1/servidores/hls/index.ts
-var CABECERAS = {
-  // La imprescindible. Sin ella, 403 en todos los pedacitos.
-  "Sec-Fetch-Site": "same-origin",
-  // El resto, leído del pedido real que hace el reproductor de la web.
-  "Sec-Fetch-Dest": "empty",
-  "Sec-Fetch-Mode": "cors",
-  Accept: "*/*",
-  "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-  Origin: "https://player.zilla-networks.com",
-  Referer: "https://player.zilla-networks.com/",
-  "sec-ch-ua": '"Chromium";v="131", "Not_A Brand";v="24"',
-  "sec-ch-ua-mobile": "?0",
-  "sec-ch-ua-platform": '"Windows"'
-};
-async function resolver2(url, _referer) {
-  var _a;
-  const hash = (_a = /\/play\/([a-f0-9]{32})/i.exec(url)) == null ? void 0 : _a[1];
-  if (!hash) {
-    console.log(`[av1] hls: la direcci\xF3n no trae hash de 32 :: ${url.slice(0, 60)}`);
-    return null;
-  }
-  return {
-    url: `https://player.zilla-networks.com/m3u8/${hash}`,
-    headers: CABECERAS
-  };
-}
-
 // extensions/animeav1/servidores/mp4upload/index.ts
-async function resolver3(url, referer) {
+async function resolver2(url, referer) {
   var _a;
   const html = await pedir(url, referer);
   if (!html) return null;
@@ -330,7 +318,7 @@ function descifrar(hex) {
     return "";
   }
 }
-var CABECERAS2 = {
+var CABECERAS = {
   Referer: `${BASE}/`,
   "User-Agent": UA_ESCRITORIO
   // Que los pedacitos los baje la app y no mpv.
@@ -362,7 +350,7 @@ var CABECERAS2 = {
   // mismo episodio anda perfecto: lo que rompía era `reconnect_streamed`,
   // que le dice a ffmpeg que la fuente no se puede recorrer.
 };
-async function resolver4(url, _referer) {
+async function resolver3(url, _referer) {
   var _a, _b, _c, _d, _e;
   const id = (_a = /#([A-Za-z0-9_-]{3,20})/.exec(url)) == null ? void 0 : _a[1];
   if (!id) {
@@ -373,7 +361,7 @@ async function resolver4(url, _referer) {
   const claroVideo = hexVideo ? descifrar(hexVideo) : "";
   const master = (_c = (_b = /"source"\s*:\s*"([^"]+)"/.exec(claroVideo)) == null ? void 0 : _b[1]) == null ? void 0 : _c.replace(/\\\//g, "/");
   if (master && master.indexOf(".m3u8") !== -1) {
-    return { url: master, headers: CABECERAS2 };
+    return { url: master, headers: CABECERAS };
   }
   console.log("[av1] upnshare: sin lista maestra, se cae al mp4 de una calidad");
   const hex = await pedir(`${BASE}/api/v1/download?id=${id}`, `${BASE}/`);
@@ -385,7 +373,7 @@ async function resolver4(url, _referer) {
     console.log("[av1] upnshare: se descifr\xF3 pero no hab\xEDa mp4 adentro");
     return null;
   }
-  return { url: mp4, headers: CABECERAS2 };
+  return { url: mp4, headers: CABECERAS };
 }
 
 // extensions/animeav1/servidores/voe/index.ts
@@ -410,7 +398,7 @@ function descifrar2(crudo) {
     return null;
   }
 }
-async function resolver5(url, referer) {
+async function resolver4(url, referer) {
   let html = await pedir(url, referer);
   if (!html) return null;
   const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html);
@@ -451,46 +439,40 @@ async function resolver5(url, referer) {
 // extensions/animeav1/servidores/index.ts
 var SERVIDORES = [
   {
-    boton: "HLS",
-    hosts: ["zilla-networks"],
-    botones: 122,
-    nativo: true,
-    resolver: resolver2
-  },
-  {
-    boton: "UPNShare",
-    hosts: ["uns.bio", "upns."],
-    botones: 123,
+    boton: "Voe",
+    hosts: ["voe.sx", "voe."],
+    botones: 34,
     nativo: true,
     resolver: resolver4
   },
   {
     boton: "MP4Upload",
     hosts: ["mp4upload"],
-    botones: 122,
+    botones: 30,
     nativo: true,
-    resolver: resolver3
+    resolver: resolver2
   },
-  // Voe y Byse aparecieron después de la medición de arriba: el 2026-09-27
-  // los traía cada episodio, y sin ficha salían como botones que no abrían
-  // nada. Copiados de LatAnime, donde ese día dieron 5 de 6 y 6 de 6 bajando
-  // vídeo de verdad. Byse cambia de dominio (bysekoze, byselapuix…): se lo
-  // reconoce por el prefijo.
-  {
-    boton: "Voe",
-    hosts: ["voe.sx", "voe."],
-    botones: 0,
-    nativo: true,
-    resolver: resolver5
-  },
+  // Byse cambia de dominio (bysekoze, byselapuix…): se lo reconoce por el
+  // prefijo.
   {
     boton: "Byse",
     hosts: ["//byse"],
-    botones: 0,
+    botones: 34,
     nativo: true,
     resolver
+  },
+  {
+    boton: "UPNShare",
+    hosts: ["uns.bio", "upns."],
+    botones: 34,
+    nativo: true,
+    resolver: resolver3
   }
 ];
+function ordenDe(url) {
+  const f = fichaDe(url);
+  return f ? SERVIDORES.indexOf(f) : SERVIDORES.length;
+}
 function fichaDe(url) {
   var _a;
   const u = url.toLowerCase();
@@ -820,6 +802,22 @@ async function watch(url) {
       });
     }
   }
+  const byseSinTerminar = {};
+  await Promise.all(
+    porIdioma.filter((e) => {
+      var _a2;
+      return ((_a2 = fichaDe(e.url)) == null ? void 0 : _a2.boton) === "Byse";
+    }).map(async (e) => {
+      const listo = await Promise.race([
+        estaListo(e.url, `${BASE2}/`),
+        new Promise((ok) => setTimeout(() => ok(true), 3e3))
+      ]);
+      if (!listo) {
+        byseSinTerminar[e.url] = true;
+        console.log(`[av1] byse todav\xEDa codifica este v\xEDdeo, no se ofrece: ${e.url.slice(0, 50)}`);
+      }
+    })
+  );
   const streams = [];
   const seen = {};
   const idiomas = ["SUB", "DUB"];
@@ -832,11 +830,8 @@ async function watch(url) {
   }
   const variosIdiomas = cuantosIdiomas > 1;
   for (const idioma of idiomas) {
-    const delIdioma = porIdioma.filter((e) => e.idioma === idioma);
-    const conFicha = delIdioma.map((e) => __spreadProps(__spreadValues({}, e), { ficha: fichaDe(e.url) })).sort((a, b) => {
-      var _a2, _b2, _c;
-      return ((_a2 = a.ficha) == null ? void 0 : _a2.nativo) === ((_b2 = b.ficha) == null ? void 0 : _b2.nativo) ? 0 : ((_c = a.ficha) == null ? void 0 : _c.nativo) ? -1 : 1;
-    });
+    const delIdioma = porIdioma.filter((e) => e.idioma === idioma && !byseSinTerminar[e.url]);
+    const conFicha = delIdioma.map((e) => __spreadProps(__spreadValues({}, e), { ficha: fichaDe(e.url) })).sort((a, b) => ordenDe(a.url) - ordenDe(b.url));
     for (const e of conFicha) {
       if (!e.url || seen[e.url]) continue;
       if (!e.ficha || !e.ficha.nativo) {

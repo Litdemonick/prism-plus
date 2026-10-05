@@ -17,21 +17,20 @@
 // El precio, asumido: cuando un servidor cambia de formato hay que arreglarlo
 // en cada extensión por separado.
 //
-// ── El catálogo, medido el 2026-08-10 ────────────────────────────────────────
+// ── Medido el 2026-10-04, por rangos ─────────────────────────────────────────
 //
-// Recorridos **100 títulos** de las cinco primeras páginas del catálogo. **Los
-// cuatro servidores son siempre los mismos** y aparecen en todos los episodios:
-// no hay servidores raros sueltos ni episodios con una lista distinta.
+// Recién subidos y por años (2015-2019, 2010-2014, 2000-2009): tres títulos por
+// rango, primer y último episodio, cada servidor resuelto y con el vídeo
+// pedido de verdad. Y con la libmpv de la app, hasta la primera imagen:
 //
-//   123  UPNShare   animeav1.uns.bio            ⚡ nativo
-//   122  HLS        player.zilla-networks.com   ⚡ nativo   ← el que trae elegido el sitio
-//   122  Mega       mega.nz                     sacado: no reproduce en la app
-//   122  MP4Upload  www.mp4upload.com           ⚡ nativo
+//   Voe        34/34   720p    5,7 s   no falló en ningún rango
+//   MP4Upload  28/30   1080p   3,1 s   2 sin contestar en anime de 2000-2009
+//   Byse       22/34   1080p   7,4 s   0/12 en lo recién subido: el vídeo sigue
+//                                      «codificando» en Byse (ver byse/estaListo)
+//   UPNShare   24/34   1080p   11 s    ~30 % de sus nodos no contestan
 //
-// **Tres de cuatro reproducen en la app**, incluido el que el sitio deja
-// seleccionado. De 99 títulos con servidores, uno solo se quedó sin lista, y no
-// era del sitio: es una película con `number:0` y se estaba pidiendo el
-// episodio 1, que no existe.
+// HLS (player.zilla-networks.com), que era el primero y el que el sitio traía
+// elegido, ya no lo publica en ningún episodio: se sacó de la tabla.
 //
 // ── Idiomas ──────────────────────────────────────────────────────────────────
 //
@@ -44,12 +43,12 @@
 
 import { type ServidorResuelto } from './comun';
 import * as byse from './byse';
-import * as hls from './hls';
 import * as mp4upload from './mp4upload';
 import * as upnshare from './upnshare';
 import * as voe from './voe';
 
 export { type ServidorResuelto, UA_ESCRITORIO } from './comun';
+export { estaListo as byseEstaListo } from './byse';
 
 export interface Servidor {
   /** El botón como lo muestra el sitio. */
@@ -64,56 +63,52 @@ export interface Servidor {
 }
 
 /**
- * En el orden en el que se ofrecen. Todos reproducen en la app: Mega se sacó
- * el 2026-09-27, porque sin el navegador interno no tiene forma de reproducir.
+ * En el orden en el que se ofrecen (ver la medición de arriba).
  *
- * La app toma el primero de la lista como el servidor inicial del episodio, así
- * que este orden decide con cuál arranca. HLS va primero porque es el que el
- * propio sitio deja seleccionado y el que más caudal dio (10 MB/s contra 0,3 de
- * UPNShare).
+ * La app abre el PRIMERO sola y no cambia de servidor por su cuenta, así que
+ * el primero tiene que ser el que no falla: Voe (34 de 34), aunque dé 720p.
+ * MP4Upload, que da 1080p y es el más rápido, queda a un toque. Byse solo sale
+ * si ya terminó de codificar el vídeo. UPNShare, lento y con nodos que no
+ * contestan, al final.
  */
 export const SERVIDORES: Servidor[] = [
   {
-    boton: 'HLS',
-    hosts: ['zilla-networks'],
-    botones: 122,
-    nativo: true,
-    resolver: hls.resolver,
-  },
-  {
-    boton: 'UPNShare',
-    hosts: ['uns.bio', 'upns.'],
-    botones: 123,
-    nativo: true,
-    resolver: upnshare.resolver,
-  },
-  {
-    boton: 'MP4Upload',
-    hosts: ['mp4upload'],
-    botones: 122,
-    nativo: true,
-    resolver: mp4upload.resolver,
-  },
-  // Voe y Byse aparecieron después de la medición de arriba: el 2026-09-27
-  // los traía cada episodio, y sin ficha salían como botones que no abrían
-  // nada. Copiados de LatAnime, donde ese día dieron 5 de 6 y 6 de 6 bajando
-  // vídeo de verdad. Byse cambia de dominio (bysekoze, byselapuix…): se lo
-  // reconoce por el prefijo.
-  {
     boton: 'Voe',
     hosts: ['voe.sx', 'voe.'],
-    botones: 0,
+    botones: 34,
     nativo: true,
     resolver: voe.resolver,
   },
   {
+    boton: 'MP4Upload',
+    hosts: ['mp4upload'],
+    botones: 30,
+    nativo: true,
+    resolver: mp4upload.resolver,
+  },
+  // Byse cambia de dominio (bysekoze, byselapuix…): se lo reconoce por el
+  // prefijo.
+  {
     boton: 'Byse',
     hosts: ['//byse'],
-    botones: 0,
+    botones: 34,
     nativo: true,
     resolver: byse.resolver,
   },
+  {
+    boton: 'UPNShare',
+    hosts: ['uns.bio', 'upns.'],
+    botones: 34,
+    nativo: true,
+    resolver: upnshare.resolver,
+  },
 ];
+
+/** El lugar de un servidor en la tabla (los que no están, al final). */
+export function ordenDe(url: string): number {
+  const f = fichaDe(url);
+  return f ? SERVIDORES.indexOf(f) : SERVIDORES.length;
+}
 
 /** La ficha del servidor al que apunta esta dirección, o null si no es ninguno. */
 export function fichaDe(url: string): Servidor | null {

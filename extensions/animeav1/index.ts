@@ -1,5 +1,5 @@
 import { decodeEntities } from '../../sdk/html';
-import { UA_ESCRITORIO, fichaDe, resolverServidor } from './servidores';
+import { UA_ESCRITORIO, byseEstaListo, fichaDe, ordenDe, resolverServidor } from './servidores';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode } from '../../sdk/types';
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
@@ -527,6 +527,25 @@ export async function watch(url: string): Promise<PrismWatch> {
     }
   }
 
+  // Byse con lo recién subido todavía está codificando y no abre: se le
+  // pregunta a la vez a todos (con tope de 3 s, y ante la duda se ofrece).
+  // Ver servidores/byse/estaListo.
+  const byseSinTerminar: Record<string, boolean> = {};
+  await Promise.all(
+    porIdioma
+      .filter((e) => fichaDe(e.url)?.boton === 'Byse')
+      .map(async (e) => {
+        const listo = await Promise.race([
+          byseEstaListo(e.url, `${BASE}/`),
+          new Promise<boolean>((ok) => setTimeout(() => ok(true), 3000)),
+        ]);
+        if (!listo) {
+          byseSinTerminar[e.url] = true;
+          console.log(`[av1] byse todavía codifica este vídeo, no se ofrece: ${e.url.slice(0, 50)}`);
+        }
+      }),
+  );
+
   const streams: PrismStream[] = [];
   const seen: Record<string, boolean> = {};
   // SUB primero y DUB después, aunque el sitio los mande al revés cuando hay
@@ -547,12 +566,13 @@ export async function watch(url: string): Promise<PrismWatch> {
   }
   const variosIdiomas = cuantosIdiomas > 1;
   for (const idioma of idiomas) {
-    // Dentro de cada idioma, el orden es el de la tabla de `servidores/`:
-    // los nativos primero y Mega al final.
-    const delIdioma = porIdioma.filter((e) => e.idioma === idioma);
+    // Dentro de cada idioma, el orden es el de la tabla de `servidores/`
+    // (Voe, MP4Upload, Byse, UPNShare), no el del sitio: la app abre el
+    // primero sola, y tiene que ser el que no falla.
+    const delIdioma = porIdioma.filter((e) => e.idioma === idioma && !byseSinTerminar[e.url]);
     const conFicha = delIdioma
       .map((e) => ({ ...e, ficha: fichaDe(e.url) }))
-      .sort((a, b) => (a.ficha?.nativo === b.ficha?.nativo ? 0 : a.ficha?.nativo ? -1 : 1));
+      .sort((a, b) => ordenDe(a.url) - ordenDe(b.url));
     for (const e of conFicha) {
       if (!e.url || seen[e.url]) continue;
       // Solo salen los servidores que reproducen en la app. La app ya no abre
