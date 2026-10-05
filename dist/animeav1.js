@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeAV1
-// @version      1.0.13
+// @version      1.0.14
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -10,7 +10,7 @@
 // @contentKind  anime
 // @latestLabel  recientemente-agregados
 // @webSite      https://animeav1.com
-// @description  Anime subtitulado y doblado con catálogo completo, filtros por género, estado, año y letra, con tres servidores en la app: Voe, Byse (1080p) y UPNShare (1080p).
+// @description  Anime subtitulado y doblado con catálogo completo, filtros por género, estado, año y letra, con tres servidores en la app: Voe, Byse (1080p) y UPNShare (720p, y 1080p cuando el servidor lo tiene).
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
 var __defProps = Object.defineProperties;
@@ -336,6 +336,41 @@ var CABECERAS = {
   // mismo episodio anda perfecto: lo que rompía era `reconnect_streamed`,
   // que le dice a ffmpeg que la fuente no se puede recorrer.
 };
+function esReal(nombre, lista) {
+  var _a, _b, _c, _d;
+  const propia = (_a = /-(f\d+)-/.exec(nombre)) == null ? void 0 : _a[1];
+  const usa = (_d = (_b = /init-(f\d+)-/.exec(lista)) == null ? void 0 : _b[1]) != null ? _d : (_c = /seg-\d+-(f\d+)-/.exec(lista)) == null ? void 0 : _c[1];
+  return !propia || !usa || propia === usa;
+}
+async function sinCalidadesFalsas(master) {
+  var _a, _b;
+  const texto = await pedir(master, `${BASE}/`);
+  if (!texto || texto.indexOf("#EXT-X-STREAM-INF") === -1) return master;
+  const sinQuery = master.split("?")[0];
+  const base = sinQuery.slice(0, sinQuery.lastIndexOf("/") + 1);
+  const lineas = texto.split("\n").map((l) => l.trim());
+  const variantes = [];
+  for (let i = 0; i < lineas.length; i++) {
+    if (lineas[i].indexOf("#EXT-X-STREAM-INF") !== 0) continue;
+    const alto = parseInt((_b = (_a = /RESOLUTION=\d+x(\d+)/.exec(lineas[i])) == null ? void 0 : _a[1]) != null ? _b : "0", 10);
+    const ref = lineas.slice(i + 1).find((l) => l && l[0] !== "#");
+    if (ref) variantes.push({ url: /^https?:/.test(ref) ? ref : base + ref, alto });
+  }
+  if (variantes.length < 2) return master;
+  const plazo = new Promise((ok) => setTimeout(() => ok(null), 4e3));
+  const revisadas = await Promise.race([
+    Promise.all(variantes.map(async (v) => {
+      const lista = await pedir(v.url, `${BASE}/`);
+      return __spreadProps(__spreadValues({}, v), { real: lista ? esReal(v.url, lista) : true });
+    })),
+    plazo
+  ]);
+  if (!revisadas || revisadas.every((v) => v.real)) return master;
+  const mejor = revisadas.filter((v) => v.real).sort((a, b) => b.alto - a.alto)[0];
+  if (!mejor) return master;
+  console.log(`[av1] upnshare: el maestro anuncia ${revisadas.filter((v) => !v.real).map((v) => `${v.alto}p`).join("/")} sin tenerlo, se abre directo en ${mejor.alto}p`);
+  return mejor.url;
+}
 async function resolver2(url, _referer) {
   var _a, _b, _c, _d, _e;
   const id = (_a = /#([A-Za-z0-9_-]{3,20})/.exec(url)) == null ? void 0 : _a[1];
@@ -347,7 +382,7 @@ async function resolver2(url, _referer) {
   const claroVideo = hexVideo ? descifrar(hexVideo) : "";
   const master = (_c = (_b = /"source"\s*:\s*"([^"]+)"/.exec(claroVideo)) == null ? void 0 : _b[1]) == null ? void 0 : _c.replace(/\\\//g, "/");
   if (master && master.indexOf(".m3u8") !== -1) {
-    return { url: master, headers: CABECERAS };
+    return { url: await sinCalidadesFalsas(master), headers: CABECERAS };
   }
   console.log("[av1] upnshare: sin lista maestra, se cae al mp4 de una calidad");
   const hex = await pedir(`${BASE}/api/v1/download?id=${id}`, `${BASE}/`);

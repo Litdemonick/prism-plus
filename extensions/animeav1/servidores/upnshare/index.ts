@@ -161,6 +161,60 @@ const CABECERAS = {
   // que le dice a ffmpeg que la fuente no se puede recorrer.
 };
 
+// ── El 1080p que no es 1080p (medido 2026-10-05) ─────────────────────────────
+//
+// El maestro anuncia siempre 720p (`index-f1`) y 1080p (`index-f2`), pero en
+// 10 de 13 episodios recientes la lista de 1080p trae adentro los pedazos del
+// 720p (`init-f1`, `seg-N-f1`). Pidiendo `init-f2` a mano llega un archivo
+// idéntico byte a byte al de f1: el 1080p no existe, solo se anuncia. Es fijo
+// por episodio, no al azar, y ningún parámetro lo cambia. Puede pasar en el
+// SUB y no en el DUB del mismo episodio.
+//
+// Reportado en vivo: «elijo 1080p y vuelve a 720p». Con el maestro entero el
+// menú ofrecía una calidad que no hay. Así que se mira cada variante y, si
+// alguna apunta a pedazos de otra, se entrega directo la mejor variante real
+// (una sola calidad, sin menú engañoso). Si todas son reales, el maestro
+// sigue como siempre. Ante cualquier duda —una lista que no llega a tiempo—
+// también queda el maestro: esto nunca puede impedir que abra.
+
+/** La variante es la que dice ser: su `index-fN` usa pedazos `-fN-`. */
+function esReal(nombre: string, lista: string): boolean {
+  const propia = /-(f\d+)-/.exec(nombre)?.[1];
+  const usa = /init-(f\d+)-/.exec(lista)?.[1] ?? /seg-\d+-(f\d+)-/.exec(lista)?.[1];
+  return !propia || !usa || propia === usa;
+}
+
+async function sinCalidadesFalsas(master: string): Promise<string> {
+  const texto = await pedir(master, `${BASE}/`);
+  if (!texto || texto.indexOf('#EXT-X-STREAM-INF') === -1) return master;
+  const sinQuery = master.split('?')[0];
+  const base = sinQuery.slice(0, sinQuery.lastIndexOf('/') + 1);
+  const lineas = texto.split('\n').map((l) => l.trim());
+  const variantes: { url: string; alto: number }[] = [];
+  for (let i = 0; i < lineas.length; i++) {
+    if (lineas[i].indexOf('#EXT-X-STREAM-INF') !== 0) continue;
+    const alto = parseInt(/RESOLUTION=\d+x(\d+)/.exec(lineas[i])?.[1] ?? '0', 10);
+    const ref = lineas.slice(i + 1).find((l) => l && l[0] !== '#');
+    if (ref) variantes.push({ url: /^https?:/.test(ref) ? ref : base + ref, alto });
+  }
+  if (variantes.length < 2) return master;
+
+  const plazo = new Promise<null>((ok) => setTimeout(() => ok(null), 4000));
+  const revisadas = await Promise.race([
+    Promise.all(variantes.map(async (v) => {
+      const lista = await pedir(v.url, `${BASE}/`);
+      return { ...v, real: lista ? esReal(v.url, lista) : true };
+    })),
+    plazo,
+  ]);
+  if (!revisadas || revisadas.every((v) => v.real)) return master;
+
+  const mejor = revisadas.filter((v) => v.real).sort((a, b) => b.alto - a.alto)[0];
+  if (!mejor) return master;
+  console.log(`[av1] upnshare: el maestro anuncia ${revisadas.filter((v) => !v.real).map((v) => `${v.alto}p`).join('/')} sin tenerlo, se abre directo en ${mejor.alto}p`);
+  return mejor.url;
+}
+
 export async function resolver(url: string, _referer: string): Promise<ServidorResuelto | null> {
   // El id viaja en el fragmento: https://animeav1.uns.bio/#eowi65
   const id = /#([A-Za-z0-9_-]{3,20})/.exec(url)?.[1];
@@ -174,7 +228,7 @@ export async function resolver(url: string, _referer: string): Promise<ServidorR
   const claroVideo = hexVideo ? descifrar(hexVideo) : '';
   const master = /"source"\s*:\s*"([^"]+)"/.exec(claroVideo)?.[1]?.replace(/\\\//g, '/');
   if (master && master.indexOf('.m3u8') !== -1) {
-    return { url: master, headers: CABECERAS };
+    return { url: await sinCalidadesFalsas(master), headers: CABECERAS };
   }
 
   // Respaldo: el mp4 de una sola calidad. Anda, pero es peor — ver arriba.
