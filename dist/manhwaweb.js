@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ManhwaWeb
-// @version      1.4.3
+// @version      1.4.4
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -27,7 +27,8 @@ function _item(m) {
   const cover = m["_imagen"] || m["img"] || "";
   const title = m["the_real_name"] || m["name_esp"] || m["name_manhwa"] || id;
   const caps = m["_numero_cap"] || m["chapter"];
-  const update = caps != null ? `Cap. ${caps}` : void 0;
+  const novela = m["_tipo"] === "novela" ? "Novela" : "";
+  const update = [novela, caps != null ? `Cap. ${caps}` : ""].filter(Boolean).join(" \xB7 ") || void 0;
   return { title, url: id, cover, update, headers: HEADERS };
 }
 var GENRES = {
@@ -245,11 +246,50 @@ async function detail(id) {
   const status = rawStatus.includes("publicando") ? "ongoing" : rawStatus.includes("finalizado") || rawStatus.includes("completo") ? "completed" : rawStatus.includes("pausa") || rawStatus.includes("hiatus") ? "hiatus" : rawStatus.includes("proximamente") || rawStatus.includes("pr\xF3ximamente") ? "upcoming" : void 0;
   return { title, cover, description, episodes, genres, status, headers: HEADERS };
 }
-async function watch(chapterId) {
+async function _paginas(chapterId) {
+  var _a;
   const d = await _get(`/chapters/see/${encodeURIComponent(chapterId)}`);
-  const chapter = d["chapter"];
-  const imgs = (chapter == null ? void 0 : chapter["img"]) || [];
-  return { urls: imgs, headers: HEADERS };
+  if (typeof d !== "object" || d === null) return null;
+  const imgs = ((_a = d["chapter"]) == null ? void 0 : _a["img"]) || [];
+  if (!imgs.length) return null;
+  if (imgs[0].indexOf("imageshack.com") !== -1) {
+    try {
+      const r = await sendMessage("request", JSON.stringify([imgs[0], { method: "get", headers: HEADERS }]));
+      if (!r || r.indexOf("404 Not Found") !== -1) return null;
+    } catch (e) {
+      return null;
+    }
+  }
+  return imgs;
+}
+async function _otrasVersiones(chapterId) {
+  const obra = chapterId.replace(/-[\d.]+(?:_\d+)?$/, "");
+  if (obra === chapterId) return [];
+  const d = await _get(`/manhwa/see/${encodeURIComponent(obra)}`);
+  if (typeof d !== "object" || d === null) return [];
+  const idDe = (l) => {
+    var _a;
+    return (_a = l.replace(/\/$/, "").split("/").pop()) != null ? _a : l;
+  };
+  for (const c of d["chapters"] || []) {
+    const versiones = c["versions"] || [];
+    const ids = [c["link"], ...versiones.map((v) => v["link"])].filter(Boolean).map(idDe);
+    if (ids.indexOf(chapterId) === -1) continue;
+    return ids.filter((id, i) => id !== chapterId && ids.indexOf(id) === i);
+  }
+  return [];
+}
+async function watch(chapterId) {
+  const paginas = await _paginas(chapterId);
+  if (paginas) return { urls: paginas, headers: HEADERS };
+  for (const otra of await _otrasVersiones(chapterId)) {
+    const deOtra = await _paginas(otra);
+    if (deOtra) {
+      console.log(`[manhwaweb] cap\xEDtulo roto, se abre otra versi\xF3n subida: ${otra}`);
+      return { urls: deOtra, headers: HEADERS };
+    }
+  }
+  throw new Error("Este cap\xEDtulo est\xE1 roto en ManhwaWeb: las im\xE1genes ya no existen en el sitio.");
 }
 
 // OJO: nunca usar url.indexOf('.mp4')/('.m3u8') suelto — algunos dominios de

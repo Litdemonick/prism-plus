@@ -15,7 +15,12 @@ function _item(m: Record<string, unknown>): PrismItem {
   const cover = (m['_imagen'] || m['img']) as string || '';
   const title = (m['the_real_name'] || m['name_esp'] || m['name_manhwa']) as string || id;
   const caps = m['_numero_cap'] || m['chapter'];
-  const update = caps != null ? `Cap. ${caps}` : undefined;
+  // «Novela» en la línea de abajo y no en el título: el sitio tiene la novela
+  // y el manhwa de una misma obra con el mismo nombre («Solo Leveling:
+  // Ragnarok» salía tres veces sin forma de distinguirlas). El título queda
+  // intacto porque la reparación de enlaces de la app compara títulos.
+  const novela = m['_tipo'] === 'novela' ? 'Novela' : '';
+  const update = [novela, caps != null ? `Cap. ${caps}` : ''].filter(Boolean).join(' · ') || undefined;
   return { title, url: id, cover, update, headers: HEADERS };
 }
 
@@ -327,9 +332,72 @@ export async function detail(id: string): Promise<PrismDetail> {
   return { title, cover, description, episodes, genres, status, headers: HEADERS };
 }
 
-export async function watch(chapterId: string): Promise<PrismMangaWatch> {
+// ── Capítulos que no se pueden leer (medido 2026-10-05) ─────────────────────
+//
+// Sobre 103 capítulos de 40 obras (populares, las más viejas y las más
+// nuevas), el 28 % no se podía leer, de dos formas:
+//
+//   · 14 %: las páginas están en imagizer.imageshack.com, que está caído
+//     entero (404 con cualquier cabecera; ni los íconos de la propia web de
+//     ManhwaWeb cargan).
+//   · 15 %: el sitio contesta el texto "errorrgaarotosi" en vez del capítulo,
+//     su marca de capítulo roto. Obras enteras, y populares
+//     («Lector omnisciente»).
+//
+// Algunos traen otra versión subida del mismo capítulo que SÍ anda (Leviatán:
+// el enlace directo está roto y el de `versions` no). Antes se mostraba el
+// lector vacío y sin aviso. Ahora se prueban las otras versiones, y si
+// ninguna anda se avisa qué pasa.
+
+/** Las páginas de un capítulo, o null si está roto o vacío. */
+async function _paginas(chapterId: string): Promise<string[] | null> {
   const d = await _get<Record<string, unknown>>(`/chapters/see/${encodeURIComponent(chapterId)}`);
-  const chapter = d['chapter'] as Record<string, unknown>;
-  const imgs = (chapter?.['img'] as string[]) || [];
-  return { urls: imgs, headers: HEADERS };
+  if (typeof d !== 'object' || d === null) return null;
+  const imgs = ((d['chapter'] as Record<string, unknown>)?.['img'] as string[]) || [];
+  if (!imgs.length) return null;
+  // Se pregunta por la primera página en vez de dar imageshack por muerto
+  // para siempre: si vuelve, vuelve a andar solo.
+  if (imgs[0].indexOf('imageshack.com') !== -1) {
+    try {
+      const r = await sendMessage('request', JSON.stringify([imgs[0], { method: 'get', headers: HEADERS }]));
+      if (!r || r.indexOf('404 Not Found') !== -1) return null;
+    } catch {
+      return null;
+    }
+  }
+  return imgs;
+}
+
+/** Las otras versiones subidas de ese mismo capítulo, sacadas de la ficha. */
+async function _otrasVersiones(chapterId: string): Promise<string[]> {
+  // El id del capítulo es «{obra}-{número}» o «{obra}-{número}_{versión}».
+  // En las obras viejas de mangas.in eso no da el id de la ficha: ahí no hay
+  // a quién preguntar y queda solo el aviso.
+  const obra = chapterId.replace(/-[\d.]+(?:_\d+)?$/, '');
+  if (obra === chapterId) return [];
+  const d = await _get<Record<string, unknown>>(`/manhwa/see/${encodeURIComponent(obra)}`);
+  if (typeof d !== 'object' || d === null) return [];
+  const idDe = (l: string) => l.replace(/\/$/, '').split('/').pop() ?? l;
+  for (const c of (d['chapters'] as Record<string, unknown>[]) || []) {
+    const versiones = (c['versions'] as Record<string, unknown>[]) || [];
+    const ids = [c['link'] as string, ...versiones.map((v) => v['link'] as string)]
+      .filter(Boolean)
+      .map(idDe);
+    if (ids.indexOf(chapterId) === -1) continue;
+    return ids.filter((id, i) => id !== chapterId && ids.indexOf(id) === i);
+  }
+  return [];
+}
+
+export async function watch(chapterId: string): Promise<PrismMangaWatch> {
+  const paginas = await _paginas(chapterId);
+  if (paginas) return { urls: paginas, headers: HEADERS };
+  for (const otra of await _otrasVersiones(chapterId)) {
+    const deOtra = await _paginas(otra);
+    if (deOtra) {
+      console.log(`[manhwaweb] capítulo roto, se abre otra versión subida: ${otra}`);
+      return { urls: deOtra, headers: HEADERS };
+    }
+  }
+  throw new Error('Este capítulo está roto en ManhwaWeb: las imágenes ya no existen en el sitio.');
 }
