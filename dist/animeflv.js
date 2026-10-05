@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeFLV
-// @version      1.0.0
+// @version      1.0.1
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -13,6 +13,8 @@
 // @description  Anime sub español y latino con los últimos episodios del día, directorio completo por género y servidores que reproducen directo en la app.
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
 var __getOwnPropSymbols = Object.getOwnPropertySymbols;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __propIsEnum = Object.prototype.propertyIsEnumerable;
@@ -28,6 +30,7 @@ var __spreadValues = (a, b) => {
     }
   return a;
 };
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
 
 // sdk/http.ts
 var DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -218,6 +221,22 @@ function b64urlAWord(s) {
   const relleno = normal.length % 4 === 0 ? "" : "=".repeat(4 - normal.length % 4);
   return CryptoJS.enc.Base64.parse(normal + relleno);
 }
+async function estaListo(url, referer) {
+  var _a, _b;
+  const host = hostDe(url);
+  const codigo = codigoDe(url);
+  if (!host || !codigo) return true;
+  try {
+    const crudo = await pedir(`https://${host}/api/videos/${codigo}`, referer || `https://${host}/`);
+    if (!crudo) return true;
+    const meta = JSON.parse(crudo);
+    if (meta.playback) return true;
+    const estado = (_b = (_a = meta.processing) == null ? void 0 : _a.encoding) == null ? void 0 : _b.state;
+    return !(estado && estado !== "done" && estado !== "ready");
+  } catch (e) {
+    return true;
+  }
+}
 async function resolver(url, referer) {
   var _a;
   const host = hostDe(url) || "bysekoze.com";
@@ -337,6 +356,41 @@ var CABECERAS = {
   // mismo episodio anda perfecto: lo que rompía era `reconnect_streamed`,
   // que le dice a ffmpeg que la fuente no se puede recorrer.
 };
+function esReal(nombre, lista) {
+  var _a, _b, _c, _d;
+  const propia = (_a = /-(f\d+)-/.exec(nombre)) == null ? void 0 : _a[1];
+  const usa = (_d = (_b = /init-(f\d+)-/.exec(lista)) == null ? void 0 : _b[1]) != null ? _d : (_c = /seg-\d+-(f\d+)-/.exec(lista)) == null ? void 0 : _c[1];
+  return !propia || !usa || propia === usa;
+}
+async function sinCalidadesFalsas(master) {
+  var _a, _b;
+  const texto = await pedir(master, `${BASE}/`);
+  if (!texto || texto.indexOf("#EXT-X-STREAM-INF") === -1) return master;
+  const sinQuery = master.split("?")[0];
+  const base = sinQuery.slice(0, sinQuery.lastIndexOf("/") + 1);
+  const lineas = texto.split("\n").map((l) => l.trim());
+  const variantes = [];
+  for (let i = 0; i < lineas.length; i++) {
+    if (lineas[i].indexOf("#EXT-X-STREAM-INF") !== 0) continue;
+    const alto = parseInt((_b = (_a = /RESOLUTION=\d+x(\d+)/.exec(lineas[i])) == null ? void 0 : _a[1]) != null ? _b : "0", 10);
+    const ref = lineas.slice(i + 1).find((l) => l && l[0] !== "#");
+    if (ref) variantes.push({ url: /^https?:/.test(ref) ? ref : base + ref, alto });
+  }
+  if (variantes.length < 2) return master;
+  const plazo = new Promise((ok) => setTimeout(() => ok(null), 4e3));
+  const revisadas = await Promise.race([
+    Promise.all(variantes.map(async (v) => {
+      const lista = await pedir(v.url, `${BASE}/`);
+      return __spreadProps(__spreadValues({}, v), { real: lista ? esReal(v.url, lista) : true });
+    })),
+    plazo
+  ]);
+  if (!revisadas || revisadas.every((v) => v.real)) return master;
+  const mejor = revisadas.filter((v) => v.real).sort((a, b) => b.alto - a.alto)[0];
+  if (!mejor) return master;
+  console.log(`[flv] upnshare: el maestro anuncia ${revisadas.filter((v) => !v.real).map((v) => `${v.alto}p`).join("/")} sin tenerlo, se abre directo en ${mejor.alto}p`);
+  return mejor.url;
+}
 async function resolver3(url, _referer) {
   var _a, _b, _c, _d, _e;
   const id = (_a = /#([A-Za-z0-9_-]{3,20})/.exec(url)) == null ? void 0 : _a[1];
@@ -348,7 +402,7 @@ async function resolver3(url, _referer) {
   const claroVideo = hexVideo ? descifrar(hexVideo) : "";
   const master = (_c = (_b = /"source"\s*:\s*"([^"]+)"/.exec(claroVideo)) == null ? void 0 : _b[1]) == null ? void 0 : _c.replace(/\\\//g, "/");
   if (master && master.indexOf(".m3u8") !== -1) {
-    return { url: master, headers: CABECERAS };
+    return { url: await sinCalidadesFalsas(master), headers: CABECERAS };
   }
   console.log("[flv] upnshare: sin lista maestra, se cae al mp4 de una calidad");
   const hex = await pedir(`${BASE}/api/v1/download?id=${id}`, `${BASE}/`);
@@ -426,19 +480,19 @@ async function resolver4(url, referer) {
 // extensions/animeflv/servidores/index.ts
 var SERVIDORES = [
   {
-    boton: "Byse",
-    hosts: ["//byse"],
-    botones: 0,
-    nativo: true,
-    resolver,
-    orden: 0
-  },
-  {
     boton: "Voe",
     hosts: ["voe.sx", "voe."],
     botones: 0,
     nativo: true,
     resolver: resolver4,
+    orden: 0
+  },
+  {
+    boton: "Byse",
+    hosts: ["//byse"],
+    botones: 0,
+    nativo: true,
+    resolver,
     orden: 1
   },
   {
@@ -466,7 +520,7 @@ function fichaDe(url) {
 async function resolverServidor(url, referer) {
   const ficha = fichaDe(url);
   if (ficha) return ficha.resolver(url, referer);
-  console.log(`[av1] servidor desconocido, sin resolver: ${url.slice(0, 60)}`);
+  console.log(`[flv] servidor desconocido, sin resolver: ${url.slice(0, 60)}`);
   return null;
 }
 
@@ -745,6 +799,22 @@ async function watch(url) {
     const def = (_b = /data-default-src="([^"]+)"/.exec(html)) == null ? void 0 : _b[1];
     if (def) botones.push({ nombre: "Servidor", url: _desdeBase64(def).trim(), idioma: "SUB" });
   }
+  const byseSinTerminar = {};
+  await Promise.all(
+    botones.filter((b) => {
+      var _a2;
+      return ((_a2 = fichaDe(b.url)) == null ? void 0 : _a2.boton) === "Byse";
+    }).map(async (b) => {
+      const listo = await Promise.race([
+        estaListo(b.url, `${BASE2}/`),
+        new Promise((ok) => setTimeout(() => ok(true), 3e3))
+      ]);
+      if (!listo) {
+        byseSinTerminar[b.url] = true;
+        console.log(`[flv] byse todav\xEDa codifica este v\xEDdeo, no se ofrece: ${b.url.slice(0, 50)}`);
+      }
+    })
+  );
   const idiomas = [...new Set(botones.map((b) => b.idioma))];
   const variosIdiomas = idiomas.length > 1;
   idiomas.sort((a, b) => a === "SUB" ? -1 : b === "SUB" ? 1 : 0);
@@ -755,7 +825,7 @@ async function watch(url) {
       const f = fichaDe(u);
       return f ? f.orden : 99;
     };
-    const delIdioma = botones.filter((b) => b.idioma === idioma).sort((a, b) => orden(a.url) - orden(b.url));
+    const delIdioma = botones.filter((b) => b.idioma === idioma && !byseSinTerminar[b.url]).sort((a, b) => orden(a.url) - orden(b.url));
     for (const b of delIdioma) {
       if (vistos[b.url]) continue;
       const ficha = fichaDe(b.url);

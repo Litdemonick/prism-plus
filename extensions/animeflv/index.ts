@@ -1,6 +1,6 @@
 import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities, stripTags } from '../../sdk/html';
-import { fichaDe, resolverServidor } from './servidores';
+import { byseEstaListo, fichaDe, resolverServidor } from './servidores';
 import type {
   PrismDetail,
   PrismEpisode,
@@ -369,6 +369,25 @@ export async function watch(url: string): Promise<PrismWatch> {
     if (def) botones.push({ nombre: 'Servidor', url: _desdeBase64(def).trim(), idioma: 'SUB' });
   }
 
+  // Byse con lo recién subido todavía está codificando y no abre (medido
+  // 2026-10-05: 9 de 12 en lo reciente). Se le pregunta a la vez a todos, con
+  // tope de 3 s, y ante la duda se ofrece. Ver servidores/byse/estaListo.
+  const byseSinTerminar: Record<string, boolean> = {};
+  await Promise.all(
+    botones
+      .filter((b) => fichaDe(b.url)?.boton === 'Byse')
+      .map(async (b) => {
+        const listo = await Promise.race([
+          byseEstaListo(b.url, `${BASE}/`),
+          new Promise<boolean>((ok) => setTimeout(() => ok(true), 3000)),
+        ]);
+        if (!listo) {
+          byseSinTerminar[b.url] = true;
+          console.log(`[flv] byse todavía codifica este vídeo, no se ofrece: ${b.url.slice(0, 50)}`);
+        }
+      }),
+  );
+
   const idiomas = [...new Set(botones.map((b) => b.idioma))];
   const variosIdiomas = idiomas.length > 1;
   // SUB primero, después el resto: la app arranca con el primero, y así el
@@ -385,7 +404,7 @@ export async function watch(url: string): Promise<PrismWatch> {
       return f ? f.orden : 99;
     };
     const delIdioma = botones
-      .filter((b) => b.idioma === idioma)
+      .filter((b) => b.idioma === idioma && !byseSinTerminar[b.url])
       .sort((a, b) => orden(a.url) - orden(b.url));
     for (const b of delIdioma) {
       if (vistos[b.url]) continue;

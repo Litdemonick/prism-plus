@@ -25,7 +25,7 @@
     {
       "name": "AnimeFLV",
       "package": "io.prismhub.animeflv",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "PrismPlus",
       "type": "bangumi",
       "contentKind": "anime",
@@ -36,8 +36,8 @@
       "license": "MIT",
       "latestLabel": "ultimos-episodios",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animeflv.js",
-      "sha256": "0db82e9157f3f9194bfd319d4f5b636bac838387f6040a2c64dfed77f748802c",
-      "signature": "9n9HAwslyEGncNfdJIEPDrLTnyB74F0HV25I6dQiOEE+ikTIbYfnytkVqGtULelRyh93GcZsH68ZtrnNNtm7Aw=="
+      "sha256": "a2808450a6d312a31f3ee2f7ba6b7caa4f3836d251d77357c52441002bb1dbdc",
+      "signature": "m91zpWqggZRVuzH5gPclnwRu4XAQVtb5hfQPDn/VdCVYCS47fGIGGAAKwORVCzB2qvzJZS9f44RBSgzKydBZDA=="
     },
     {
       "name": "Eporner",

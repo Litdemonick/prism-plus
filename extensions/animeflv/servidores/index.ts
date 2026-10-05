@@ -19,6 +19,7 @@ import * as upnshare from './upnshare';
 import * as voe from './voe';
 
 export { type ServidorResuelto, UA_ESCRITORIO } from './comun';
+export { estaListo as byseEstaListo } from './byse';
 
 export interface Servidor {
   /** El botón como lo muestra el sitio. */
@@ -45,22 +46,33 @@ export interface Servidor {
  * - Voe: resuelve en ~0,8 s y baja a ~1,6 MB/s, 5/5.
  * - UPNShare: resuelve rápido pero baja a ~23 KB/s: se corta al verlo.
  * - MP4Upload: un solo archivo, 17-373 KB/s y un tiempo de espera en 8.
+ *
+ * Remedido el 2026-10-05 (12 obras recientes + el catálogo por páginas), y el
+ * orden cambió: Voe primero.
+ * - Byse: 3/12 en lo reciente. El resto todavía codificaba en el sitio y no
+ *   abría; la app arrancaba justo en ese. Ahora se esconde mientras codifica
+ *   (ver byse/estaListo) y va segundo.
+ * - Voe: 12/12, el más parejo.
+ * - UPNShare: en 2 de cada 3 episodios recientes anuncia un 1080p que no
+ *   tiene; se abre directo en la calidad real (ver upnshare).
+ * - MP4Upload: 0,13-0,57 MB/s y 2 de 8 sin conectar. Se queda al final porque
+ *   en lo más viejo del catálogo solo están UPNShare y él.
  */
 export const SERVIDORES: Servidor[] = [
-  {
-    boton: 'Byse',
-    hosts: ['//byse'],
-    botones: 0,
-    nativo: true,
-    resolver: byse.resolver,
-    orden: 0,
-  },
   {
     boton: 'Voe',
     hosts: ['voe.sx', 'voe.'],
     botones: 0,
     nativo: true,
     resolver: voe.resolver,
+    orden: 0,
+  },
+  {
+    boton: 'Byse',
+    hosts: ['//byse'],
+    botones: 0,
+    nativo: true,
+    resolver: byse.resolver,
     orden: 1,
   },
   {
@@ -100,6 +112,6 @@ export async function resolverServidor(
   if (ficha) return ficha.resolver(url, referer);
   // Un servidor que no está en la tabla: el sitio sumó uno nuevo. Se deja
   // anotado en el registro para venir a agregarle su carpeta.
-  console.log(`[av1] servidor desconocido, sin resolver: ${url.slice(0, 60)}`);
+  console.log(`[flv] servidor desconocido, sin resolver: ${url.slice(0, 60)}`);
   return null;
 }

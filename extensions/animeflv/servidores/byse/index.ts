@@ -65,6 +65,38 @@ interface CryptoJSWordArray {
   concat(otro: CryptoJSWordArray): CryptoJSWordArray;
 }
 
+/**
+ * ¿Byse ya tiene el vídeo listo para reproducir?
+ *
+ * Medido el 2026-10-04: lo recién subido a AnimeAV1 (y lo mismo en AnimeFLV, medido 2026-10-05: 9 de 12) sale con el botón de Byse,
+ * pero su API contesta `processing: { encoding: { state: "pending" } }` —el
+ * vídeo espera turno para codificarse (puesto 4493 en la cola)— y sin
+ * `playback`. Ese botón no abre nunca, así que no se ofrece. En lo que ya tiene
+ * horas o días, 22 de 22 andan.
+ *
+ * Devuelve false SOLO cuando la API dice claramente que todavía codifica; ante
+ * cualquier duda (no contestó, contestó otra cosa) true, y se ofrece: mejor un
+ * botón de más que perder uno que anda.
+ */
+export async function estaListo(url: string, referer: string): Promise<boolean> {
+  const host = hostDe(url);
+  const codigo = codigoDe(url);
+  if (!host || !codigo) return true;
+  try {
+    const crudo = await pedir(`https://${host}/api/videos/${codigo}`, referer || `https://${host}/`);
+    if (!crudo) return true;
+    const meta = JSON.parse(crudo) as {
+      playback?: unknown;
+      processing?: { encoding?: { state?: string } };
+    };
+    if (meta.playback) return true;
+    const estado = meta.processing?.encoding?.state;
+    return !(estado && estado !== 'done' && estado !== 'ready');
+  } catch {
+    return true;
+  }
+}
+
 export async function resolver(url: string, referer: string): Promise<ServidorResuelto | null> {
   const host = hostDe(url) || 'bysekoze.com';
   const codigo = codigoDe(url);
