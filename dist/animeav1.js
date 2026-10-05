@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         AnimeAV1
-// @version      1.0.12
+// @version      1.0.13
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -10,7 +10,7 @@
 // @contentKind  anime
 // @latestLabel  recientemente-agregados
 // @webSite      https://animeav1.com
-// @description  Anime subtitulado y doblado con catálogo completo, filtros por género, estado, año y letra, con cuatro servidores en la app: Voe, MP4Upload (1080p), Byse y UPNShare.
+// @description  Anime subtitulado y doblado con catálogo completo, filtros por género, estado, año y letra, con tres servidores en la app: Voe, Byse (1080p) y UPNShare (1080p).
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
 var __defProps = Object.defineProperties;
@@ -285,20 +285,6 @@ async function resolver(url, referer) {
   }
 }
 
-// extensions/animeav1/servidores/mp4upload/index.ts
-async function resolver2(url, referer) {
-  var _a;
-  const html = await pedir(url, referer);
-  if (!html) return null;
-  const candidatos = (_a = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g)) != null ? _a : [];
-  const real = candidatos.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
-  if (!real) {
-    console.log("[av1] mp4upload: la p\xE1gina del embed no tra\xEDa ning\xFAn mp4");
-    return null;
-  }
-  return { url: real, headers: { Referer: "https://www.mp4upload.com/" } };
-}
-
 // extensions/animeav1/servidores/upnshare/index.ts
 var BASE = "https://animeav1.uns.bio";
 var CLAVE = "kiemtienmua911ca";
@@ -350,7 +336,7 @@ var CABECERAS = {
   // mismo episodio anda perfecto: lo que rompía era `reconnect_streamed`,
   // que le dice a ffmpeg que la fuente no se puede recorrer.
 };
-async function resolver3(url, _referer) {
+async function resolver2(url, _referer) {
   var _a, _b, _c, _d, _e;
   const id = (_a = /#([A-Za-z0-9_-]{3,20})/.exec(url)) == null ? void 0 : _a[1];
   if (!id) {
@@ -398,7 +384,7 @@ function descifrar2(crudo) {
     return null;
   }
 }
-async function resolver4(url, referer) {
+async function resolver3(url, referer) {
   let html = await pedir(url, referer);
   if (!html) return null;
   const redir = /window\.location(?:\.href)?\s*=\s*['"](https?:\/\/[^'"]+)['"]/.exec(html);
@@ -443,14 +429,7 @@ var SERVIDORES = [
     hosts: ["voe.sx", "voe."],
     botones: 34,
     nativo: true,
-    resolver: resolver4
-  },
-  {
-    boton: "MP4Upload",
-    hosts: ["mp4upload"],
-    botones: 30,
-    nativo: true,
-    resolver: resolver2
+    resolver: resolver3
   },
   // Byse cambia de dominio (bysekoze, byselapuix…): se lo reconoce por el
   // prefijo.
@@ -466,7 +445,7 @@ var SERVIDORES = [
     hosts: ["uns.bio", "upns."],
     botones: 34,
     nativo: true,
-    resolver: resolver3
+    resolver: resolver2
   }
 ];
 function ordenDe(url) {

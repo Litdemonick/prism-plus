@@ -8,19 +8,19 @@
     {
       "name": "AnimeAV1",
       "package": "io.prismhub.animeav1",
-      "version": "1.0.12",
+      "version": "1.0.13",
       "author": "PrismPlus",
       "type": "bangumi",
       "contentKind": "anime",
       "icon": "",
-      "description": "Anime subtitulado y doblado con catálogo completo, filtros por género, estado, año y letra, con cuatro servidores en la app: Voe, MP4Upload (1080p), Byse y UPNShare.",
+      "description": "Anime subtitulado y doblado con catálogo completo, filtros por género, estado, año y letra, con tres servidores en la app: Voe, Byse (1080p) y UPNShare (1080p).",
       "lang": "es",
       "webSite": "https://animeav1.com",
       "license": "MIT",
       "latestLabel": "recientemente-agregados",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animeav1.js",
-      "sha256": "5ffaa43a2185848deab42e06319752ca5f4cf61febeaaea8592e8b8d4af4aabc",
-      "signature": "Jp5NB4mpKqM/pOW/AQzVOy6DvATwQpaJezLHkfWcQjUaAlJrjcQnaVdgC0hG4PUZEqtpFNo2D8ZSqCHJn7FdDQ=="
+      "sha256": "193295746831888c2650c93c3c19a34192e3a8c0df8641f524e610ec515884d0",
+      "signature": "R4AuzoAAcgpaGtKeQjDrvp8vbysoIrRFx8jn1tPj7gP4AMfAyuBF8rnsqWSfQZ8EgPEUT7jWgcIuzPgFYUPLAA=="
     },
     {
       "name": "AnimeFLV",

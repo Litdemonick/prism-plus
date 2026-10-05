@@ -24,7 +24,7 @@
 // pedido de verdad. Y con la libmpv de la app, hasta la primera imagen:
 //
 //   Voe        34/34   720p    5,7 s   no falló en ningún rango
-//   MP4Upload  28/30   1080p   3,1 s   2 sin contestar en anime de 2000-2009
+//   MP4Upload  21-28/30 1080p  3,1 s   a veces ni conecta: SACADO (ver abajo)
 //   Byse       22/34   1080p   7,4 s   0/12 en lo recién subido: el vídeo sigue
 //                                      «codificando» en Byse (ver byse/estaListo)
 //   UPNShare   24/34   1080p   11 s    ~30 % de sus nodos no contestan
@@ -43,7 +43,6 @@
 
 import { type ServidorResuelto } from './comun';
 import * as byse from './byse';
-import * as mp4upload from './mp4upload';
 import * as upnshare from './upnshare';
 import * as voe from './voe';
 
@@ -67,9 +66,13 @@ export interface Servidor {
  *
  * La app abre el PRIMERO sola y no cambia de servidor por su cuenta, así que
  * el primero tiene que ser el que no falla: Voe (34 de 34), aunque dé 720p.
- * MP4Upload, que da 1080p y es el más rápido, queda a un toque. Byse solo sale
- * si ya terminó de codificar el vídeo. UPNShare, lento y con nodos que no
- * contestan, al final.
+ * Después Byse (solo si ya terminó de codificar el vídeo) y UPNShare (1080p;
+ * en la app arranca en ~5 s por el relay).
+ *
+ * MP4Upload se sacó (2026-10-04): cuando anda da 1080p en 3 s, pero a veces
+ * su servidor de vídeo (puerto 183) ni acepta la conexión — 21 a 28 de 30 en
+ * las mediciones y 0 de 2 en vivo en PC. Un botón que a veces no abre no se
+ * ofrece; Byse y UPNShare ya cubren el 1080p.
  */
 export const SERVIDORES: Servidor[] = [
   {
@@ -78,13 +81,6 @@ export const SERVIDORES: Servidor[] = [
     botones: 34,
     nativo: true,
     resolver: voe.resolver,
-  },
-  {
-    boton: 'MP4Upload',
-    hosts: ['mp4upload'],
-    botones: 30,
-    nativo: true,
-    resolver: mp4upload.resolver,
   },
   // Byse cambia de dominio (bysekoze, byselapuix…): se lo reconoce por el
   // prefijo.
