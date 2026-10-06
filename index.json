@@ -71,7 +71,9 @@
       "latestLabel": "lo-mas-reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/fuegocine.js",
       "sha256": "8ea51e802d4d7bc09bd79213b0ac4264437cc634ce38a1064e10eb86ac1fa291",
-      "signature": "/nbBfcuqoK6X2tMHVwP0DUMkCKdBKwYQk34iPrhDvtrt/uJ6V6Ww2U9HqWH+qqT0ncaR9TY9ANrIXvdslgj5Aw=="
+      "signature": "/nbBfcuqoK6X2tMHVwP0DUMkCKdBKwYQk34iPrhDvtrt/uJ6V6Ww2U9HqWH+qqT0ncaR9TY9ANrIXvdslgj5Aw==",
+      "unstable": true,
+      "unstableReason": "broken"
     },
     {
       "name": "Fútbol Libre",
