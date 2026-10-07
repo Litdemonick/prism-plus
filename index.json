@@ -20,7 +20,9 @@
       "latestLabel": "recientemente-agregados",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/animeav1.js",
       "sha256": "b9c3bffc572fcdded2dc2e36829b6f9d4003d64d2d44e4eb3aec6d6d1ba2a35f",
-      "signature": "eHfQ6819Pd5jmirdpBgCUr2rgZmfWCkfbuk6rae1WlA/Na50alM732zE348plkQj/Um1dB/Lj+Doivcqv7XaDA=="
+      "signature": "eHfQ6819Pd5jmirdpBgCUr2rgZmfWCkfbuk6rae1WlA/Na50alM732zE348plkQj/Um1dB/Lj+Doivcqv7XaDA==",
+      "unstable": true,
+      "unstableReason": "broken"
     },
     {
       "name": "AnimeFLV",
