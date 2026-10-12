@@ -40,3 +40,19 @@ export async function resolver(url: string): Promise<ServidorResuelto | null> {
   // Sin la marca: el vídeo no existe más ("Видео не найдено") o cambió otra vez.
   return null;
 }
+
+/**
+ * Si el vídeo sigue en Ok.ru: true sí, false borrado o bloqueado, null no se sabe.
+ *
+ * Medido el 2026-10-12 en tioanime: 9 de 10 episodios viejos no se podían ver.
+ * En vez del vídeo, la página trae un cartel (`vp_video_stub_txt`): «bloqueado
+ * por derechos de autor» o «el autor no existe o está bloqueado». Sin respuesta
+ * es null y el servidor se ofrece igual.
+ */
+export async function estaVivo(url: string): Promise<boolean | null> {
+  const html = await pedir(url, 'https://ok.ru/');
+  if (!html) return null;
+  if (MARCAS.some((m) => html.indexOf(m) !== -1)) return true;
+  if (html.indexOf('vp_video_stub_txt') !== -1) return false;
+  return null;
+}

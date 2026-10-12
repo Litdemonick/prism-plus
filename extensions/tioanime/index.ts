@@ -1,6 +1,6 @@
 import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities, stripTags } from '../../sdk/html';
-import { fichaDe, resolverServidor } from './servidores';
+import { SERVIDORES, type Servidor, fichaDe, resolverServidor } from './servidores';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode } from '../../sdk/types';
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
@@ -147,6 +147,7 @@ export async function search(
     'genero[]': filter?.['genero'],
     'type[]': filter?.['tipo'],
     status: filter?.['estado']?.[0],
+    year: filter?.['anio']?.[0],
     p: page > 1 ? String(page) : undefined,
   });
   const html = await _get(`${BASE}/directorio${query ? `?${query}` : ''}`);
@@ -214,11 +215,29 @@ const _STATUS_OPTIONS: Record<string, string> = {
   '3': 'Próximamente',
 };
 
+// El año del sitio va como rango `desde,hasta` y cuenta del 1 de enero de
+// `desde` al 1 de enero de `hasta`. Medido el 2026-10-12: `2025,2026` trae solo
+// lo de 2025; `2025,2025` trae 4 obras sueltas, y un año solo (`2026`) se
+// ignora y devuelve todo el catálogo. Por eso cada opción termina en el año
+// siguiente. El orden («Más reciente») el sitio lo ignora: no se ofrece.
+const _YEAR_OPTIONS: Record<string, string> = {
+  '': 'Todos',
+  '2026,2027': '2026',
+  '2025,2026': '2025',
+  '2024,2025': '2024',
+  '2020,2024': '2020 – 2023',
+  '2010,2020': '2010 – 2019',
+  '2000,2010': '2000 – 2009',
+  '1990,2000': '1990 – 1999',
+  '1950,1990': 'Antes de 1990',
+};
+
 export async function createFilter(): Promise<Record<string, unknown>> {
   return {
     genero: { title: 'Género', options: _GENRE_OPTIONS, default: '', min: 1, max: 1 },
     tipo: { title: 'Tipo', options: _TYPE_OPTIONS, default: '', min: 1, max: 1 },
     estado: { title: 'Estado', options: _STATUS_OPTIONS, default: '', min: 1, max: 1 },
+    anio: { title: 'Año', options: _YEAR_OPTIONS, default: '', min: 1, max: 1 },
   };
 }
 
@@ -293,20 +312,15 @@ export async function detail(url: string): Promise<PrismDetail> {
 }
 
 // ─── Reproducción ───────────────────────────────────────────────────────────
-
-// Antes acá había un `_NEVER_NATIVE` que sacaba mega y netu de la lista, para
-// no ofrecer servidores que el reproductor nativo no puede abrir. Se quitó, y
-// el porqué está medido:
 //
-// Este sitio sirve SOLO TRES servidores —Mega, Voe y YourUpload— en todos los
-// episodios. Ocultar uno deja dos, y de 6 episodios sueltos hubo uno donde los
-// dos que quedaban fallaron: el usuario se quedaba sin nada teniendo un Mega
-// que el navegador interno reproduce bien. Ocultar el botón no evita el fallo,
-// lo convierte en un episodio muerto.
+// Qué servidores trae el sitio, medido el 2026-10-12 sobre 36 episodios:
 //
-// Ahora Mega va en la lista marcado con el mundo (ver `servidores/mega/`), que
-// es lo mismo que ya se hace en latanime. Y netu directamente no aparece más en
-// el sitio: no estaba en ninguno de los 40 episodios revisados.
+//   - Lo reciente trae Mega, Voe y YourUpload.
+//   - Lo viejo trae además StreamSB, VidGuard, MixDrop, Okru, Maru y Netu.
+//
+// Se ofrecen solo los que reproducen en la app: Voe, YourUpload y Okru (ver la
+// tabla de `servidores/`). Mega y el resto no tienen resolvedor, y la app ya no
+// abre páginas en un navegador: serían botones que no reproducen nunca.
 
 export async function watch(url: string): Promise<PrismWatch> {
   // Fast-path: embed externo (switchServer pidiendo resolver UN servidor
@@ -329,22 +343,58 @@ export async function watch(url: string): Promise<PrismWatch> {
   const html = await _get(episodeUrl);
 
   const videosM = /var videos\s*=\s*(\[[\s\S]*?\]);/.exec(html);
-  const streams: PrismStream[] = [];
-  if (videosM) {
-    const videos = JSON.parse(videosM[1].replace(/\\\//g, '/')) as [string, string, number, number][];
-    for (const [name, embedUrl] of videos) {
-      // **Solo salen los que reproducen en la app**, según la tabla de
-      // `servidores/`. La app ya no abre páginas en un navegador: uno sin
-      // resolvedor (Mega, Netu, Amus…) sería un botón que no reproduce nunca.
-      // Se deja anotado para venir a agregarlo si el sitio lo usa seguido.
-      const ficha = fichaDe(embedUrl);
-      if (!ficha || !ficha.nativo) {
-        console.log(`[ta] servidor sin reproducción en la app, no se ofrece: ${name} ${embedUrl.slice(0, 50)}`);
-        continue;
-      }
-      streams.push({ url: embedUrl, quality: name, nativo: true });
+  if (!videosM) {
+    console.log(`[ta] el episodio no trae lista de vídeos: ${episodeUrl.slice(0, 70)}`);
+    return { streams: [], pageUrl: episodeUrl, reason: 'sin_servidores' };
+  }
+  const videos = JSON.parse(videosM[1].replace(/\\\//g, '/')) as [string, string, number, number][];
+
+  const candidatos: { url: string; ficha: Servidor }[] = [];
+  for (const [name, embedUrl] of videos) {
+    const ficha = fichaDe(embedUrl);
+    if (!ficha || !ficha.nativo) {
+      console.log(`[ta] servidor sin reproducción en la app, no se ofrece: ${name} ${embedUrl.slice(0, 50)}`);
+      continue;
     }
+    if (candidatos.some((c) => c.url === embedUrl)) continue;
+    candidatos.push({ url: embedUrl, ficha });
   }
 
+  // **Lo borrado no se ofrece.** Medido el 2026-10-12 sobre 20 episodios
+  // viejos: Voe ya no tenía 6 de 10, YourUpload 10 de 19 y Okru 9 de 10, y en
+  // 6 episodios no quedaba ninguno. Se le pregunta a la vez a todos, con tope
+  // de 3 s, y solo se esconde lo que el servidor dice que borró: sin respuesta
+  // a tiempo, ante la duda, se ofrece.
+  const borrados: Record<string, boolean> = {};
+  await Promise.all(
+    candidatos.map(async (c) => {
+      const vivo = await Promise.race([
+        c.ficha.estaVivo(c.url, `${BASE}/`).catch(() => null),
+        new Promise<null>((ok) => setTimeout(() => ok(null), 3000)),
+      ]);
+      if (vivo === false) {
+        borrados[c.url] = true;
+        console.log(`[ta] ${c.ficha.boton} ya no tiene este vídeo, no se ofrece: ${c.url.slice(0, 50)}`);
+      }
+    }),
+  );
+
+  // En el orden de la tabla (el mejor primero), no en el del sitio, que cambia
+  // de un episodio a otro: así la app arranca siempre por el mismo.
+  const orden = (f: Servidor) => SERVIDORES.indexOf(f);
+  const streams: PrismStream[] = candidatos
+    .filter((c) => !borrados[c.url])
+    .sort((a, b) => orden(a.ficha) - orden(b.ficha))
+    .map((c) => ({ url: c.url, quality: c.ficha.boton, nativo: true }));
+
+  if (!streams.length) {
+    // Con servidores en la página pero todos borrados, la app avisa que el
+    // vídeo ya no está en el sitio, en vez de un error genérico.
+    return {
+      streams: [],
+      pageUrl: episodeUrl,
+      reason: candidatos.length ? 'servidores_no_disponibles' : 'sin_servidores',
+    };
+  }
   return { streams };
 }

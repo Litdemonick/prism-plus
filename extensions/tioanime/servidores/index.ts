@@ -64,9 +64,15 @@ export interface Servidor {
   /** Si reproduce en el reproductor de la app (rayo) o en el navegador (mundo). */
   nativo: boolean;
   resolver: (url: string, referer: string) => Promise<ServidorResuelto | null>;
+  /** Si el vídeo sigue ahí: true sí, false borrado, null no se sabe. */
+  estaVivo: (url: string, referer: string) => Promise<boolean | null>;
 }
 
-/** Ordenados por peso: primero los que más aparecen en el catálogo. */
+/**
+ * En el orden en que se ofrecen: la app arranca con el primero. Voe primero
+ * (m3u8, deja cambiar de minuto), YourUpload de respaldo (mp4) y Okru último:
+ * medido el 2026-10-12, en lo viejo está bloqueado 9 de cada 10 veces.
+ */
 export const SERVIDORES: Servidor[] = [
   {
     boton: 'Voe',
@@ -74,6 +80,7 @@ export const SERVIDORES: Servidor[] = [
     botones: 80,
     nativo: true,
     resolver: voe.resolver,
+    estaVivo: voe.estaVivo,
   },
   {
     boton: 'YourUpload',
@@ -81,6 +88,7 @@ export const SERVIDORES: Servidor[] = [
     botones: 80,
     nativo: true,
     resolver: yourupload.resolver,
+    estaVivo: yourupload.estaVivo,
   },
   // Okru se suma el 2026-09-27: aparecía en los episodios sin resolvedor y
   // salía como un botón que no abría nada. Copiado de FuegoCine, donde ese
@@ -95,6 +103,7 @@ export const SERVIDORES: Servidor[] = [
     botones: 0,
     nativo: true,
     resolver: okru.resolver,
+    estaVivo: okru.estaVivo,
   },
 ];
 

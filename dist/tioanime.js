@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         TioAnime
-// @version      1.1.6
+// @version      1.1.7
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -266,6 +266,13 @@ async function resolver(url) {
   }
   return null;
 }
+async function estaVivo(url) {
+  const html = await pedir(url, "https://ok.ru/");
+  if (!html) return null;
+  if (MARCAS.some((m) => html.indexOf(m) !== -1)) return true;
+  if (html.indexOf("vp_video_stub_txt") !== -1) return false;
+  return null;
+}
 
 // extensions/tioanime/servidores/voe/index.ts
 function rot13(s) {
@@ -326,6 +333,13 @@ async function resolver2(url, referer) {
   if (m) return { url: m[0] };
   return null;
 }
+async function estaVivo2(url, referer) {
+  const html = await pedir(url, referer);
+  if (!html) return null;
+  if (/<title>\s*404\s*-\s*Not found/i.test(html)) return false;
+  if (/window\.location|application\/json/.test(html)) return true;
+  return null;
+}
 
 // extensions/tioanime/servidores/yourupload/index.ts
 async function resolver3(url, referer) {
@@ -342,6 +356,15 @@ async function resolver3(url, referer) {
   if (m) return { url: `https:${m[1]}`, headers: hdrs };
   return null;
 }
+async function estaVivo3(url, referer) {
+  const html = await pedir(url, referer);
+  if (!html) return null;
+  if (html.indexOf("novideo") !== -1) return false;
+  if (/<title>\s*Content (?:Restricted|Invalid)/i.test(html)) return false;
+  if (/<h1>\s*An Error Has Occurred/i.test(html) && !/\.mp4/.test(html)) return false;
+  if (/\.mp4/.test(html)) return true;
+  return null;
+}
 
 // extensions/tioanime/servidores/index.ts
 var SERVIDORES = [
@@ -350,14 +373,16 @@ var SERVIDORES = [
     hosts: ["voe.sx", "voe."],
     botones: 80,
     nativo: true,
-    resolver: resolver2
+    resolver: resolver2,
+    estaVivo: estaVivo2
   },
   {
     boton: "YourUpload",
     hosts: ["yourupload", "yupload"],
     botones: 80,
     nativo: true,
-    resolver: resolver3
+    resolver: resolver3,
+    estaVivo: estaVivo3
   },
   // Okru se suma el 2026-09-27: aparecía en los episodios sin resolvedor y
   // salía como un botón que no abría nada. Copiado de FuegoCine, donde ese
@@ -371,7 +396,8 @@ var SERVIDORES = [
     hosts: ["ok.ru", "okru"],
     botones: 0,
     nativo: true,
-    resolver
+    resolver,
+    estaVivo
   }
 ];
 function fichaDe(url) {
@@ -474,12 +500,13 @@ async function latest(page) {
   return _parseCatalog(html);
 }
 async function search(keyword, page, filter) {
-  var _a;
+  var _a, _b;
   const query = _buildQuery({
     q: keyword.trim() || void 0,
     "genero[]": filter == null ? void 0 : filter["genero"],
     "type[]": filter == null ? void 0 : filter["tipo"],
     status: (_a = filter == null ? void 0 : filter["estado"]) == null ? void 0 : _a[0],
+    year: (_b = filter == null ? void 0 : filter["anio"]) == null ? void 0 : _b[0],
     p: page > 1 ? String(page) : void 0
   });
   const html = await _get(`${BASE}/directorio${query ? `?${query}` : ""}`);
@@ -541,11 +568,23 @@ var _STATUS_OPTIONS = {
   "1": "En emisi\xF3n",
   "3": "Pr\xF3ximamente"
 };
+var _YEAR_OPTIONS = {
+  "": "Todos",
+  "2026,2027": "2026",
+  "2025,2026": "2025",
+  "2024,2025": "2024",
+  "2020,2024": "2020 \u2013 2023",
+  "2010,2020": "2010 \u2013 2019",
+  "2000,2010": "2000 \u2013 2009",
+  "1990,2000": "1990 \u2013 1999",
+  "1950,1990": "Antes de 1990"
+};
 async function createFilter() {
   return {
     genero: { title: "G\xE9nero", options: _GENRE_OPTIONS, default: "", min: 1, max: 1 },
     tipo: { title: "Tipo", options: _TYPE_OPTIONS, default: "", min: 1, max: 1 },
-    estado: { title: "Estado", options: _STATUS_OPTIONS, default: "", min: 1, max: 1 }
+    estado: { title: "Estado", options: _STATUS_OPTIONS, default: "", min: 1, max: 1 },
+    anio: { title: "A\xF1o", options: _YEAR_OPTIONS, default: "", min: 1, max: 1 }
   };
 }
 async function _serieDelEpisodio(url) {
@@ -601,17 +640,42 @@ async function watch(url) {
   const episodeUrl = _fullUrl(url);
   const html = await _get(episodeUrl);
   const videosM = /var videos\s*=\s*(\[[\s\S]*?\]);/.exec(html);
-  const streams = [];
-  if (videosM) {
-    const videos = JSON.parse(videosM[1].replace(/\\\//g, "/"));
-    for (const [name, embedUrl] of videos) {
-      const ficha = fichaDe(embedUrl);
-      if (!ficha || !ficha.nativo) {
-        console.log(`[ta] servidor sin reproducci\xF3n en la app, no se ofrece: ${name} ${embedUrl.slice(0, 50)}`);
-        continue;
-      }
-      streams.push({ url: embedUrl, quality: name, nativo: true });
+  if (!videosM) {
+    console.log(`[ta] el episodio no trae lista de v\xEDdeos: ${episodeUrl.slice(0, 70)}`);
+    return { streams: [], pageUrl: episodeUrl, reason: "sin_servidores" };
+  }
+  const videos = JSON.parse(videosM[1].replace(/\\\//g, "/"));
+  const candidatos = [];
+  for (const [name, embedUrl] of videos) {
+    const ficha = fichaDe(embedUrl);
+    if (!ficha || !ficha.nativo) {
+      console.log(`[ta] servidor sin reproducci\xF3n en la app, no se ofrece: ${name} ${embedUrl.slice(0, 50)}`);
+      continue;
     }
+    if (candidatos.some((c) => c.url === embedUrl)) continue;
+    candidatos.push({ url: embedUrl, ficha });
+  }
+  const borrados = {};
+  await Promise.all(
+    candidatos.map(async (c) => {
+      const vivo = await Promise.race([
+        c.ficha.estaVivo(c.url, `${BASE}/`).catch(() => null),
+        new Promise((ok) => setTimeout(() => ok(null), 3e3))
+      ]);
+      if (vivo === false) {
+        borrados[c.url] = true;
+        console.log(`[ta] ${c.ficha.boton} ya no tiene este v\xEDdeo, no se ofrece: ${c.url.slice(0, 50)}`);
+      }
+    })
+  );
+  const orden = (f) => SERVIDORES.indexOf(f);
+  const streams = candidatos.filter((c) => !borrados[c.url]).sort((a, b) => orden(a.ficha) - orden(b.ficha)).map((c) => ({ url: c.url, quality: c.ficha.boton, nativo: true }));
+  if (!streams.length) {
+    return {
+      streams: [],
+      pageUrl: episodeUrl,
+      reason: candidatos.length ? "servidores_no_disponibles" : "sin_servidores"
+    };
   }
   return { streams };
 }

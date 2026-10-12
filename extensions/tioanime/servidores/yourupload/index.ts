@@ -44,3 +44,21 @@ export async function resolver(url: string, referer: string): Promise<ServidorRe
 
   return null;
 }
+
+/**
+ * Si el vídeo sigue en YourUpload: true sí, false borrado, null no se sabe.
+ *
+ * Medido el 2026-10-12 en tioanime: 10 de 19 episodios viejos ya no estaban.
+ * Lo borrado trae `novideo.mp4` o una página de error con 404: «Content
+ * Restricted», «Content Invalid» o «An Error Has Occurred». Sin respuesta es
+ * null y el servidor se ofrece igual.
+ */
+export async function estaVivo(url: string, referer: string): Promise<boolean | null> {
+  const html = await pedir(url, referer);
+  if (!html) return null;
+  if (html.indexOf('novideo') !== -1) return false;
+  if (/<title>\s*Content (?:Restricted|Invalid)/i.test(html)) return false;
+  if (/<h1>\s*An Error Has Occurred/i.test(html) && !/\.mp4/.test(html)) return false;
+  if (/\.mp4/.test(html)) return true;
+  return null;
+}

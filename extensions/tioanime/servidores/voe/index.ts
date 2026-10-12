@@ -113,3 +113,19 @@ export async function resolver(url: string, referer: string): Promise<ServidorRe
 
   return null;
 }
+
+/**
+ * Si el vídeo sigue en Voe: true sí, false borrado, null no se sabe.
+ *
+ * Medido el 2026-10-12 en tioanime: 6 de 10 episodios viejos ya no estaban.
+ * El vídeo borrado contesta 404 con la página «404 - Not found», sin la
+ * redirección al espejo. Sin respuesta (red, bloqueo) es null: ante la duda,
+ * el servidor se ofrece igual.
+ */
+export async function estaVivo(url: string, referer: string): Promise<boolean | null> {
+  const html = await pedir(url, referer);
+  if (!html) return null;
+  if (/<title>\s*404\s*-\s*Not found/i.test(html)) return false;
+  if (/window\.location|application\/json/.test(html)) return true;
+  return null;
+}
