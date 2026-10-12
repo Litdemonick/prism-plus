@@ -590,11 +590,35 @@ async function checkExtension(inst, pkg) {
           const b = (Array.isArray(kwBase) ? kwBase : []).map((it) => it?.url ?? '').join('|');
           if (a && a !== b) {
             add(label, true, `${withKw.length} ítems (solo aplica con búsqueda)`);
+            continue;
+          }
+          // ── Antes de acusar al filtro, las OTRAS opciones (2026-10-12) ──
+          //
+          // La primera opción puede coincidir con lo que el sitio ya muestra
+          // sin filtrar: «En emisión» en AnimeAV1 y TioAnime, cuyo catálogo
+          // por defecto YA es casi todo en emisión. Eso marcó a AnimeAV1 como
+          // ROTA andando perfecto (control del 2026-10-07) y la app la bloqueó
+          // entera. Si alguna otra opción cambia los resultados, el filtro
+          // anda.
+          let otraCambia = null;
+          for (const otra of options.slice(1, 4)) {
+            try {
+              const r = await withTimeout(
+                inst.search('', 1, { [key]: [otra] }), 60000, `${label} (${otra})`);
+              const sec = (Array.isArray(r) ? r : []).map((it) => it?.url ?? '').join('|');
+              if (sec && sec !== baseline) { otraCambia = otra; break; }
+            } catch { /* se sigue con la siguiente */ }
+          }
+          if (otraCambia !== null) {
+            add(label, true, `${n} ítems (igual a sin filtrar, pero «${otraCambia}» sí filtra)`);
           } else {
-            add(
+            // Un filtro que no filtra afea la búsqueda pero NO impide ver el
+            // contenido: aviso, no «rota». Bloquear la extensión entera en la
+            // app por esto es peor que el filtro.
+            avisar(
               label,
               false,
-              `${n} ítems pero IDÉNTICOS a sin filtrar, con y sin búsqueda — el sitio ignora este filtro`,
+              `${n} ítems pero IDÉNTICOS a sin filtrar, con y sin búsqueda, en todas las opciones — el sitio ignora este filtro`,
             );
           }
           continue;
