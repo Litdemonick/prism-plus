@@ -548,13 +548,14 @@ export async function watch(url: string): Promise<PrismWatch> {
   const vid = /EP\.video\.player\.vid\s*=\s*'([^']+)'/.exec(html)?.[1];
   const hash = /EP\.video\.player\.hash\s*=\s*'([0-9a-f]{32})'/.exec(html)?.[1];
 
-  // Sin los datos del reproductor no se puede pedir nada firmado. Se cae al
-  // WebView sobre la propia página, que es el respaldo universal del cliente.
+  // Sin los datos del reproductor no se puede pedir nada firmado: la página
+  // no tiene el vídeo (borrado o cambiado). La app ya no tiene navegador
+  // interno, así que se avisa con un motivo claro en vez de pedirlo.
   if (!vid || !hash) {
     return {
       streams: [],
       pageUrl: url,
-      reason: 'js_eval_required',
+      reason: 'resolve_failed',
       headers: HEADERS,
     };
   }
@@ -574,8 +575,9 @@ export async function watch(url: string): Promise<PrismWatch> {
     const datos = JSON.parse(await _get(consulta));
     fuentes = (datos?.sources?.mp4 as Record<string, unknown>) || {};
   } catch {
-    // Respuesta inesperada (mantenimiento, bloqueo por región): el WebView de
-    // abajo sigue siendo una salida válida.
+    // Respuesta inesperada (mantenimiento, bloqueo por región): sin fuentes,
+    // y abajo se devuelve el motivo para que la app lo diga claro.
+    console.log('[ep] el sitio no devolvió las fuentes del vídeo');
   }
 
   const streams: PrismStream[] = [];
@@ -590,13 +592,18 @@ export async function watch(url: string): Promise<PrismWatch> {
       label: etiqueta.trim(),
       mimeType: 'video/mp4',
       headers: HEADERS,
+      // mp4 directo: lo abre el reproductor de la app (medido el 2026-10-13
+      // en 41 vídeos de todas las zonas: los 41 abren y dejan saltar).
+      nativo: true,
     });
   }
 
-  // De mayor a menor, para que el selector abra con la mejor arriba y el
-  // cliente tome esa por defecto. El sitio las devuelve en ese orden, pero
-  // depender del orden en que venga un JSON es pedir que se rompa solo.
-  streams.sort((a, b) => _alturaDe(b.quality) - _alturaDe(a.quality));
+  // **Cuál abre primero.** El cliente toma el primero por defecto, y antes iba
+  // la más alta: medido en 41 vídeos, en 9 era 4K (archivos de hasta 5 GB, a
+  // veces a 60 cuadros), que pesa demasiado para arrancar rápido y para muchos
+  // aparatos. Ahora va primero 1080p, después 720p; 4K y 60 cuadros quedan en
+  // la lista para elegirlos a mano. Ver `_ordenDeCalidad`.
+  streams.sort((a, b) => _ordenDeCalidad(a.quality) - _ordenDeCalidad(b.quality));
 
   return {
     streams,
@@ -605,6 +612,21 @@ export async function watch(url: string): Promise<PrismWatch> {
     // reintentar sin volver a fallar del todo.
     pageUrl: url,
     headers: HEADERS,
-    reason: streams.length === 0 ? 'js_eval_required' : undefined,
+    // Con página pero sin fuentes: el sitio no tiene el vídeo ahora.
+    reason: streams.length === 0 ? 'servidores_no_disponibles' : undefined,
   };
+}
+
+/**
+ * Menor = antes. 1080p y 720p primero (sin 60 cuadros antes que con), después
+ * las más altas (1440p, 4K) y al final las más bajas, de mayor a menor.
+ */
+function _ordenDeCalidad(etiqueta: string | undefined): number {
+  const h = _alturaDe(etiqueta);
+  const de60 = /60\s*fps/i.test(etiqueta || '') ? 0.5 : 0;
+  const preferidas = [1080, 720, 1440, 2160];
+  const i = preferidas.indexOf(h);
+  if (i >= 0) return i * 2 + de60;
+  // Las demás (480, 360, 240…) después, de mayor a menor.
+  return 100 + (5000 - h) / 100 + de60;
 }
