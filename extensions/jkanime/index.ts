@@ -749,13 +749,27 @@ export async function watch(url: string): Promise<PrismWatch> {
       ? url
       : `${BASE}/${url.replace(/\/+$/, '')}/`;
 
-  const html = await _get(episodeUrl);
-  // Sin página (el sitio no contestó a tiempo o está caído): se corta acá con
-  // un error claro en vez de seguir y reventar más abajo con "cannot read
-  // property 'matchAll' of undefined" (medido en vivo con jkanime.net
-  // tardando más de 35 s). La app detecta el fallo de red y le dice al
-  // usuario que el sitio no respondió.
-  if (typeof html !== 'string' || html.length === 0) {
+  // **Un error de un momento del sitio se reintenta solo, una vez.** Medido el
+  // 2026-10-13 (Dragon Ball Super: Beerus 1): jkanime.net contestó 502 y la
+  // página de error siguió de largo como si fuera el episodio; sin servidores,
+  // la app terminaba diciendo «Servidor no accesible». Un segundo después el
+  // mismo episodio abría bien. Toda página de episodio buena trae su
+  // reproductor (`jkplayer`, `var servers` o `video[n]`: 29 de 29 medidas); si
+  // no lo trae, se espera 1,5 s y se pide de nuevo. Cuando el sitio anda, esto
+  // no agrega ninguna espera.
+  const esEpisodio = (h: unknown): h is string =>
+    typeof h === 'string' && /jkplayer|var servers|video\[\d+\]/.test(h);
+  let html = await _get(episodeUrl);
+  if (!esEpisodio(html)) {
+    console.log(`[jk] la página del episodio llegó sin reproductor, se reintenta una vez: ${episodeUrl.slice(0, 70)}`);
+    await new Promise((ok) => setTimeout(ok, 1500));
+    html = await _get(episodeUrl);
+  }
+  // Sigue sin página de episodio (el sitio no contestó a tiempo, está caído o
+  // devolvió un error dos veces): se corta acá con un error claro, que la app
+  // muestra como «el sitio no respondió», en vez de seguir y ofrecer la página
+  // de error como si fuera un vídeo.
+  if (!esEpisodio(html)) {
     throw new Error('JKAnime no respondió: el sitio puede estar caído o muy lento');
   }
 

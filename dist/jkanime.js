@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         JKAnime
-// @version      1.13.2
+// @version      1.13.3
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -1011,8 +1011,14 @@ async function watch(url) {
     throw new Error("No se pudo abrir este servidor");
   }
   const episodeUrl = url.indexOf("http") === 0 ? url : `${BASE}/${url.replace(/\/+$/, "")}/`;
-  const html = await _get(episodeUrl);
-  if (typeof html !== "string" || html.length === 0) {
+  const esEpisodio = (h) => typeof h === "string" && /jkplayer|var servers|video\[\d+\]/.test(h);
+  let html = await _get(episodeUrl);
+  if (!esEpisodio(html)) {
+    console.log(`[jk] la p\xE1gina del episodio lleg\xF3 sin reproductor, se reintenta una vez: ${episodeUrl.slice(0, 70)}`);
+    await new Promise((ok) => setTimeout(ok, 1500));
+    html = await _get(episodeUrl);
+  }
+  if (!esEpisodio(html)) {
     throw new Error("JKAnime no respondi\xF3: el sitio puede estar ca\xEDdo o muy lento");
   }
   const chequeoDeVoe = _voeBorrados(html, episodeUrl);
