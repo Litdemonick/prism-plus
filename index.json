@@ -42,7 +42,7 @@
     {
       "name": "Eporner",
       "package": "io.prismhub.eporner",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -53,8 +53,8 @@
       "nsfw": "true",
       "latestLabel": "lo-mas-reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/eporner.js",
-      "sha256": "551ddbdd75cf6a1c7e4f922c5e2a75a9177b05340a604bb2b69622df7872ff36",
-      "signature": "u1ntwD4d6llG5WNTGcgZgWl0jV9TaJo9jvBxXZ7Og/dohLwLaEoB2xANAKiy/T7nnuIY8VQNQyPNuB6MWnkpDg=="
+      "sha256": "05112a2918dda2e1ecc66ceca19c6ff6a5da928722f494a50bea5e2353c21045",
+      "signature": "0R2eW7GMZa6voRglCedt6Z7hJJms/7K+cR44K/VUvVVWGqLNxL5DGHq72gCO3xgVLjKBJ/vm9UhwYwuHiMbVBg=="
     },
     {
       "name": "FuegoCine",
@@ -258,7 +258,7 @@
     {
       "name": "Pornhub",
       "package": "io.prismhub.pornhub",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -269,8 +269,8 @@
       "nsfw": "true",
       "latestLabel": "lo-mas-reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/pornhub.js",
-      "sha256": "1189db4214b5d46de84c6e4c16eca7c33ddac07f9a9feba849f7b798412b9fa4",
-      "signature": "aQz22qFz0YgiWQbdLG+D6sx8+m9jO3pwrAyCwkMdOlwJKIKyKP1lG0yyz3KIz+yJRXQM+fTwSZoUSxKQ7fhpDw=="
+      "sha256": "daeced0e8d855c403f41b58b5bdcea4b5b4a89267bbd7dda70f497f92cfe1fec",
+      "signature": "i1W87xLDjY1GXWykQ9IYwhKmsnUok3GxEMH2rCU7hZzERKkbUP2IEPY/zSJ7bsTkosUkwQjrKNwaxhyb3ujrCQ=="
     },
     {
       "name": "ShadeManga",

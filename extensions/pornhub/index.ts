@@ -7,8 +7,48 @@ declare function sendMessage(channel: string, data: string): Promise<string>;
 
 const BASE = 'https://es.pornhub.com';
 
+/**
+ * Las portadas salen de varios servidores, y uno (pix-cdn77.phncdn.com) solo
+ * las entrega si se dice que vienen del sitio: medido el 2026-10-13, 403 sin
+ * Referer y 200 con él. Le toca a una portada u otra al azar, en la lista y en
+ * la ficha, así que se manda siempre.
+ */
+const _CABECERAS_DE_IMAGEN = { Referer: `${BASE}/` };
+
 async function _get(url: string): Promise<string> {
-  const raw = await sendMessage(
+  let raw = await _pedir(url);
+  // ── La protección contra robots del sitio ───────────────────────────────
+  //
+  // Medido el 2026-10-13: después de muchos pedidos seguidos, el sitio deja
+  // de mandar la página y manda una cuenta en JavaScript («leastFactor») que
+  // un navegador resuelve solo y guarda como cookie `KEY`. Sin resolverla, la
+  // lista sale vacía y los vídeos «sin servidores», también para quien navega
+  // mucho en la app. Se resuelve acá y se repite el pedido una vez.
+  if (typeof raw === 'string' && _esLaProteccion(raw)) {
+    const llave = _resolverProteccion(raw);
+    if (llave) {
+      _llave = llave;
+      console.log('[ph] el sitio pidió su comprobación contra robots: resuelta, se repite el pedido');
+      // Un navegador recarga la página un momento después; repetir al
+      // instante no pasó en las pruebas, con 1,5 s de espera sí.
+      await new Promise((ok) => setTimeout(ok, 1500));
+      raw = await _pedir(url);
+      if (typeof raw === 'string' && _esLaProteccion(raw)) {
+        console.log('[ph] el sitio sigue pidiendo la comprobación: está frenando por cantidad de pedidos, se reintenta más tarde');
+      }
+    } else {
+      console.log('[ph] el sitio pidió su comprobación contra robots y no se pudo resolver');
+    }
+  }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
+async function _pedir(url: string): Promise<string> {
+  return sendMessage(
     'request',
     JSON.stringify([
       url,
@@ -21,15 +61,86 @@ async function _get(url: string): Promise<string> {
           // en español: los nombres de las categorias llegarian en otro idioma
           // que el que muestran los filtros.
           'Accept-Language': 'es-ES,es;q=0.9',
+          // La cookie de la comprobación, si ya se resolvió. La app la junta
+          // con las que tiene guardadas del sitio (no las pisa).
+          ...(_llave ? { Cookie: `KEY=${_llave}` } : {}),
         },
       },
     ]),
   );
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return raw;
+}
+
+/** El valor de la cookie `KEY` de la última comprobación resuelta. */
+let _llave: string | null = null;
+
+function _esLaProteccion(html: string): boolean {
+  return html.length < 20000 && html.indexOf('leastFactor') !== -1 && html.indexOf('KEY=') !== -1;
+}
+
+/**
+ * Resuelve la comprobación contra robots SIN ejecutar el código del sitio:
+ * se le sacan los comentarios (que están para confundir) y se hacen a mano
+ * las únicas operaciones que trae — sumas y restas a `p` según bits de `s` —,
+ * y después el mismo «menor factor» que calcula el sitio. Devuelve el valor de
+ * la cookie, o null si el formato cambió (ahí no se inventa nada).
+ */
+function _resolverProteccion(html: string): string | null {
+  const ini = html.indexOf('function go()');
+  if (ini < 0) return null;
+  const cuerpo = html.slice(ini).replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const pM = /var\s+p\s*=\s*(\d+)\s*;/.exec(cuerpo);
+  const sM = /var\s+s\s*=\s*(\d+)\s*;/.exec(cuerpo);
+  const cola = /document\.cookie\s*=\s*"KEY="\s*\+\s*n\s*\+\s*"\*"\s*\+\s*p\s*\/\s*n\s*\+\s*":"\s*\+\s*s\s*\+\s*":(\d+):1/.exec(cuerpo);
+  const finM = cuerpo.indexOf('n=leastFactor(p)');
+  if (!pM || !sM || !cola || finM < 0) return null;
+  let p = Number(pM[1]);
+  const s = Number(sM[1]);
+  const desde = cuerpo.indexOf('var n;');
+  if (desde < 0 || desde > finM) return null;
+  let codigo = cuerpo.slice(desde + 'var n;'.length, finM).replace(/\s+/g, ' ');
+  // Una operación: p+= A*B, p-= A, etc.
+  const op = /^\s*p\s*([+-])=\s*(\d+)\s*(?:\*\s*(\d+))?\s*;/;
+  const aplicar = (m: RegExpExecArray) => {
+    const v = Number(m[2]) * (m[3] ? Number(m[3]) : 1);
+    p = m[1] === '+' ? p + v : p - v;
+  };
+  for (let vueltas = 0; codigo.trim() && vueltas < 200; vueltas++) {
+    const si = /^\s*if\s*\(\s*\(\s*s\s*>>\s*(\d+)\s*\)\s*&\s*1\s*\)/.exec(codigo);
+    if (si) {
+      codigo = codigo.slice(si[0].length);
+      const a = op.exec(codigo);
+      if (!a) return null;
+      codigo = codigo.slice(a[0].length);
+      const sino = /^\s*else\b/.exec(codigo);
+      if (!sino) return null;
+      codigo = codigo.slice(sino[0].length);
+      const b = op.exec(codigo);
+      if (!b) return null;
+      codigo = codigo.slice(b[0].length);
+      aplicar((s >> Number(si[1])) & 1 ? a : b);
+      continue;
+    }
+    const suelta = op.exec(codigo);
+    if (!suelta) return null;
+    codigo = codigo.slice(suelta[0].length);
+    aplicar(suelta);
   }
+  if (!Number.isSafeInteger(p) || p <= 0) return null;
+  const n = _menorFactor(p);
+  return `${n}*${p / n}:${s}:${cola[1]}:1`;
+}
+
+/** El menor factor de `n`, con el mismo recorrido que la comprobación del sitio. */
+function _menorFactor(n: number): number {
+  if (n % 1 || n * n < 2) return 1;
+  if (n % 2 === 0) return 2;
+  if (n % 3 === 0) return 3;
+  if (n % 5 === 0) return 5;
+  const m = Math.sqrt(n);
+  for (let i = 7; i <= m; i += 30) {
+    for (const d of [0, 4, 6, 10, 12, 16, 22, 24]) if (n % (i + d) === 0) return i + d;
+  }
+  return n;
 }
 
 function _urlDeVideo(viewkey: string): string {
@@ -122,6 +233,7 @@ function _parseListado(html: string): PrismItem[] {
       title: decodeEntities(m[2].trim()),
       url: _urlDeVideo(m[1]),
       cover: m[3],
+      headers: _CABECERAS_DE_IMAGEN,
     });
   }
   return items;
@@ -337,6 +449,7 @@ export async function detail(url: string): Promise<PrismDetail> {
   return {
     title,
     cover: cover || undefined,
+    headers: _CABECERAS_DE_IMAGEN,
     description: '',
     genres: genres.slice(0, 20),
     // Un video suelto, no una serie: una sola entrada para reproducir.
@@ -363,33 +476,116 @@ export async function watch(url: string): Promise<PrismWatch> {
   // vencen a los 52 minutos y con una pagina vieja el video se corta en la
   // mitad. Ver el comentario largo en `_pagina`.
   const html = await _pagina(url, true);
+  const defs = _definiciones(html);
+  const ref = { Referer: `${BASE}/` };
 
-  const streams: PrismStream[] = [];
+  // ── 1. Las listas HLS de la página, si siguen vivas ─────────────────────
+  //
+  // Medido el 2026-10-13: en 12 de 20 vídeos las listas venían de
+  // hv-h.phncdn.com y contestaban 410 (borradas) en TODAS las calidades, así
+  // que el vídeo no abría (y cambiar el host a ev-h da la lista pero los
+  // pedacitos en 404). Se prueba la primera: si contesta con una lista, valen.
+  const hls = defs.filter((d) => d.format === 'hls' && d.videoUrl);
+  if (hls.length && (await _listaViva(hls[0].videoUrl))) {
+    const streams = _sinRepetir(
+      hls.map((d) => ({ url: d.videoUrl, quality: _calidad(d), headers: ref, nativo: true })),
+    );
+    // De mayor a menor: el cliente toma la primera como predeterminada, y en
+    // la página vienen desordenadas (medido: 1080, 240, 480, 720).
+    streams.sort((a, b) => _altura(b.quality) - _altura(a.quality));
+    return { streams, pageUrl: url };
+  }
+
+  // ── 2. Si no, los mp4 del propio sitio (`get_media`) ─────────────────────
+  //
+  // Es la otra fuente que trae la página. Contesta la lista de mp4 en
+  // ev.phncdn.com (vivo) en 240/480/720/1080p, y todos dejan saltar a
+  // cualquier minuto (206). Necesita las cookies que dejó la página: las
+  // guarda la app por extensión, y la página se acaba de pedir arriba.
+  //
+  // Esos mp4 tienen un tope de velocidad del sitio (`rate=500k`, ~500 KB/s):
+  // sobra para 720p y queda justo para 1080p. Por eso 720p va primero.
+  const gm = defs.find((d) => d.format === 'mp4' && /get_media/.test(d.videoUrl));
+  if (gm) {
+    if (hls.length) console.log(`[ph] las listas HLS no contestan (${hls[0].videoUrl.split('/')[2]}), se usan los mp4`);
+    let lista: _Definicion[] = [];
+    try {
+      const crudo = await _get(gm.videoUrl);
+      lista = (typeof crudo === 'string' ? JSON.parse(crudo) : crudo) as _Definicion[];
+    } catch (e) {
+      console.log(`[ph] get_media no devolvió una lista: ${e}`);
+    }
+    const streams = _sinRepetir(
+      (Array.isArray(lista) ? lista : [])
+        .filter((d) => d && typeof d.videoUrl === 'string' && /^https?:\/\//.test(d.videoUrl))
+        .map((d) => ({ url: d.videoUrl, quality: _calidad(d), headers: ref, nativo: true, mimeType: 'video/mp4' })),
+    );
+    const orden = (q: string | undefined) => {
+      const h = _altura(q);
+      return h === 720 ? 0 : h === 1080 ? 1 : 2 + (1080 - h) / 10000;
+    };
+    streams.sort((a, b) => orden(a.quality) - orden(b.quality));
+    if (streams.length) return { streams, pageUrl: url };
+  }
+
+  // Sin ninguna de las dos: el sitio no tiene el vídeo ahora. La app lo dice
+  // así, en vez de un error genérico (ya no hay navegador interno).
+  return { streams: [], pageUrl: url, reason: 'servidores_no_disponibles' };
+}
+
+interface _Definicion {
+  format?: string;
+  videoUrl: string;
+  quality?: string | number | unknown[];
+  height?: number;
+}
+
+/**
+ * Las fuentes de la página (`mediaDefinitions`), leídas como lista JSON
+ * contando corchetes hasta el que la cierra. Antes se sacaban con una
+ * expresión sobre pares videoUrl/quality, que dejaba afuera la fuente de mp4
+ * (su `quality` es una lista vacía).
+ */
+function _definiciones(html: string): _Definicion[] {
+  const i = html.indexOf('"mediaDefinitions":');
+  const desde = i < 0 ? -1 : html.indexOf('[', i);
+  if (desde < 0) return [];
+  let nivel = 0;
+  for (let j = desde; j < html.length; j++) {
+    const c = html[j];
+    if (c === '[') nivel++;
+    else if (c === ']' && --nivel === 0) {
+      try {
+        const lista = JSON.parse(html.slice(desde, j + 1));
+        return Array.isArray(lista) ? lista.filter((d) => d && typeof d.videoUrl === 'string') : [];
+      } catch {
+        return [];
+      }
+    }
+  }
+  return [];
+}
+
+/** Si la lista HLS contesta con una lista de verdad (no un 410 vacío). */
+async function _listaViva(direccion: string): Promise<boolean> {
+  try {
+    const cuerpo = await _get(direccion);
+    return typeof cuerpo === 'string' && cuerpo.indexOf('#EXTM3U') !== -1;
+  } catch {
+    return false;
+  }
+}
+
+/** "720p" a partir de `quality` o, si no viene, de `height`. */
+function _calidad(d: _Definicion): string {
+  const q = typeof d.quality === 'string' || typeof d.quality === 'number' ? String(d.quality) : '';
+  const n = /(\d{3,4})/.exec(q)?.[1] ?? (d.height ? String(d.height) : '');
+  return n ? `${n}p` : 'Auto';
+}
+
+function _sinRepetir(streams: PrismStream[]): PrismStream[] {
   const vistas: Record<string, boolean> = {};
-  // Se leen los pares videoUrl/quality en el orden en que aparecen, sin
-  // intentar parsear las flashvars enteras como JSON: es un objeto JS gigante
-  // con mas cosas adentro y cualquier cambio del sitio romperia el parseo.
-  for (const m of html.matchAll(/"videoUrl":"([^"]+?)"[^}]*?"quality":"?(\d+)"?/g)) {
-    const fuente = m[1].replace(/\\\//g, '/');
-    if (!fuente || vistas[fuente]) continue;
-    vistas[fuente] = true;
-    streams.push({
-      url: fuente,
-      quality: `${m[2]}p`,
-      headers: { Referer: `${BASE}/` },
-    });
-  }
-
-  if (streams.length === 0) {
-    // Sin fuentes no hay nada que reproducir: se deja la propia pagina para que
-    // el cliente la abra en el navegador interno.
-    return { streams: [], pageUrl: url };
-  }
-
-  // De mayor a menor: el cliente toma la primera como predeterminada, y en las
-  // flashvars vienen desordenadas (medido: 1080, 240, 480, 720).
-  streams.sort((a, b) => _altura(b.quality) - _altura(a.quality));
-  return { streams, pageUrl: url };
+  return streams.filter((s) => (vistas[s.url] ? false : (vistas[s.url] = true)));
 }
 
 /** "1080p" -> 1080, para poder ordenar las calidades. */

@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Pornhub
-// @version      1.0.5
+// @version      1.0.6
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -11,6 +11,23 @@
 // @webSite      https://es.pornhub.com
 // @description  Catálogo para adultos en español, con buscador, 96 categorías, cinco órdenes y reproducción directa con selector de calidad hasta 1080p (contenido +18).
 // ==/PrismHubExtension==
+var __defProp = Object.defineProperty;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
+};
+
 // sdk/http.ts
 var DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
@@ -191,29 +208,106 @@ function createCache() {
 
 // extensions/pornhub/index.ts
 var BASE = "https://es.pornhub.com";
+var _CABECERAS_DE_IMAGEN = { Referer: `${BASE}/` };
 async function _get(url) {
-  const raw = await sendMessage(
+  let raw = await _pedir(url);
+  if (typeof raw === "string" && _esLaProteccion(raw)) {
+    const llave = _resolverProteccion(raw);
+    if (llave) {
+      _llave = llave;
+      console.log("[ph] el sitio pidi\xF3 su comprobaci\xF3n contra robots: resuelta, se repite el pedido");
+      await new Promise((ok) => setTimeout(ok, 1500));
+      raw = await _pedir(url);
+      if (typeof raw === "string" && _esLaProteccion(raw)) {
+        console.log("[ph] el sitio sigue pidiendo la comprobaci\xF3n: est\xE1 frenando por cantidad de pedidos, se reintenta m\xE1s tarde");
+      }
+    } else {
+      console.log("[ph] el sitio pidi\xF3 su comprobaci\xF3n contra robots y no se pudo resolver");
+    }
+  }
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return raw;
+  }
+}
+async function _pedir(url) {
+  return sendMessage(
     "request",
     JSON.stringify([
       url,
       {
         method: "get",
-        headers: {
+        headers: __spreadValues({
           Referer: `${BASE}/`,
           "User-Agent": DESKTOP_UA,
           // Sin esto el sitio contesta en ingles aunque se pida el dominio
           // en español: los nombres de las categorias llegarian en otro idioma
           // que el que muestran los filtros.
           "Accept-Language": "es-ES,es;q=0.9"
-        }
+        }, _llave ? { Cookie: `KEY=${_llave}` } : {})
       }
     ])
   );
-  try {
-    return JSON.parse(raw);
-  } catch (e) {
-    return raw;
+}
+var _llave = null;
+function _esLaProteccion(html) {
+  return html.length < 2e4 && html.indexOf("leastFactor") !== -1 && html.indexOf("KEY=") !== -1;
+}
+function _resolverProteccion(html) {
+  const ini = html.indexOf("function go()");
+  if (ini < 0) return null;
+  const cuerpo = html.slice(ini).replace(/\/\*[\s\S]*?\*\//g, " ");
+  const pM = /var\s+p\s*=\s*(\d+)\s*;/.exec(cuerpo);
+  const sM = /var\s+s\s*=\s*(\d+)\s*;/.exec(cuerpo);
+  const cola = /document\.cookie\s*=\s*"KEY="\s*\+\s*n\s*\+\s*"\*"\s*\+\s*p\s*\/\s*n\s*\+\s*":"\s*\+\s*s\s*\+\s*":(\d+):1/.exec(cuerpo);
+  const finM = cuerpo.indexOf("n=leastFactor(p)");
+  if (!pM || !sM || !cola || finM < 0) return null;
+  let p = Number(pM[1]);
+  const s = Number(sM[1]);
+  const desde = cuerpo.indexOf("var n;");
+  if (desde < 0 || desde > finM) return null;
+  let codigo = cuerpo.slice(desde + "var n;".length, finM).replace(/\s+/g, " ");
+  const op = /^\s*p\s*([+-])=\s*(\d+)\s*(?:\*\s*(\d+))?\s*;/;
+  const aplicar = (m) => {
+    const v = Number(m[2]) * (m[3] ? Number(m[3]) : 1);
+    p = m[1] === "+" ? p + v : p - v;
+  };
+  for (let vueltas = 0; codigo.trim() && vueltas < 200; vueltas++) {
+    const si = /^\s*if\s*\(\s*\(\s*s\s*>>\s*(\d+)\s*\)\s*&\s*1\s*\)/.exec(codigo);
+    if (si) {
+      codigo = codigo.slice(si[0].length);
+      const a = op.exec(codigo);
+      if (!a) return null;
+      codigo = codigo.slice(a[0].length);
+      const sino = /^\s*else\b/.exec(codigo);
+      if (!sino) return null;
+      codigo = codigo.slice(sino[0].length);
+      const b = op.exec(codigo);
+      if (!b) return null;
+      codigo = codigo.slice(b[0].length);
+      aplicar(s >> Number(si[1]) & 1 ? a : b);
+      continue;
+    }
+    const suelta = op.exec(codigo);
+    if (!suelta) return null;
+    codigo = codigo.slice(suelta[0].length);
+    aplicar(suelta);
   }
+  if (!Number.isSafeInteger(p) || p <= 0) return null;
+  const n = _menorFactor(p);
+  return `${n}*${p / n}:${s}:${cola[1]}:1`;
+}
+function _menorFactor(n) {
+  if (n % 1 || n * n < 2) return 1;
+  if (n % 2 === 0) return 2;
+  if (n % 3 === 0) return 3;
+  if (n % 5 === 0) return 5;
+  const m = Math.sqrt(n);
+  for (let i = 7; i <= m; i += 30) {
+    for (const d of [0, 4, 6, 10, 12, 16, 22, 24]) if (n % (i + d) === 0) return i + d;
+  }
+  return n;
 }
 function _urlDeVideo(viewkey) {
   return `${BASE}/view_video.php?viewkey=${viewkey}`;
@@ -243,7 +337,8 @@ function _parseListado(html) {
     items.push({
       title: decodeEntities(m[2].trim()),
       url: _urlDeVideo(m[1]),
-      cover: m[3]
+      cover: m[3],
+      headers: _CABECERAS_DE_IMAGEN
     });
   }
   return items;
@@ -410,6 +505,7 @@ async function detail(url) {
   return {
     title,
     cover: cover || void 0,
+    headers: _CABECERAS_DE_IMAGEN,
     description: "",
     genres: genres.slice(0, 20),
     // Un video suelto, no una serie: una sola entrada para reproducir.
@@ -418,23 +514,74 @@ async function detail(url) {
 }
 async function watch(url) {
   const html = await _pagina(url, true);
-  const streams = [];
+  const defs = _definiciones(html);
+  const ref = { Referer: `${BASE}/` };
+  const hls = defs.filter((d) => d.format === "hls" && d.videoUrl);
+  if (hls.length && await _listaViva(hls[0].videoUrl)) {
+    const streams = _sinRepetir(
+      hls.map((d) => ({ url: d.videoUrl, quality: _calidad(d), headers: ref, nativo: true }))
+    );
+    streams.sort((a, b) => _altura(b.quality) - _altura(a.quality));
+    return { streams, pageUrl: url };
+  }
+  const gm = defs.find((d) => d.format === "mp4" && /get_media/.test(d.videoUrl));
+  if (gm) {
+    if (hls.length) console.log(`[ph] las listas HLS no contestan (${hls[0].videoUrl.split("/")[2]}), se usan los mp4`);
+    let lista = [];
+    try {
+      const crudo = await _get(gm.videoUrl);
+      lista = typeof crudo === "string" ? JSON.parse(crudo) : crudo;
+    } catch (e) {
+      console.log(`[ph] get_media no devolvi\xF3 una lista: ${e}`);
+    }
+    const streams = _sinRepetir(
+      (Array.isArray(lista) ? lista : []).filter((d) => d && typeof d.videoUrl === "string" && /^https?:\/\//.test(d.videoUrl)).map((d) => ({ url: d.videoUrl, quality: _calidad(d), headers: ref, nativo: true, mimeType: "video/mp4" }))
+    );
+    const orden = (q) => {
+      const h = _altura(q);
+      return h === 720 ? 0 : h === 1080 ? 1 : 2 + (1080 - h) / 1e4;
+    };
+    streams.sort((a, b) => orden(a.quality) - orden(b.quality));
+    if (streams.length) return { streams, pageUrl: url };
+  }
+  return { streams: [], pageUrl: url, reason: "servidores_no_disponibles" };
+}
+function _definiciones(html) {
+  const i = html.indexOf('"mediaDefinitions":');
+  const desde = i < 0 ? -1 : html.indexOf("[", i);
+  if (desde < 0) return [];
+  let nivel = 0;
+  for (let j = desde; j < html.length; j++) {
+    const c = html[j];
+    if (c === "[") nivel++;
+    else if (c === "]" && --nivel === 0) {
+      try {
+        const lista = JSON.parse(html.slice(desde, j + 1));
+        return Array.isArray(lista) ? lista.filter((d) => d && typeof d.videoUrl === "string") : [];
+      } catch (e) {
+        return [];
+      }
+    }
+  }
+  return [];
+}
+async function _listaViva(direccion) {
+  try {
+    const cuerpo = await _get(direccion);
+    return typeof cuerpo === "string" && cuerpo.indexOf("#EXTM3U") !== -1;
+  } catch (e) {
+    return false;
+  }
+}
+function _calidad(d) {
+  var _a, _b;
+  const q = typeof d.quality === "string" || typeof d.quality === "number" ? String(d.quality) : "";
+  const n = (_b = (_a = /(\d{3,4})/.exec(q)) == null ? void 0 : _a[1]) != null ? _b : d.height ? String(d.height) : "";
+  return n ? `${n}p` : "Auto";
+}
+function _sinRepetir(streams) {
   const vistas = {};
-  for (const m of html.matchAll(/"videoUrl":"([^"]+?)"[^}]*?"quality":"?(\d+)"?/g)) {
-    const fuente = m[1].replace(/\\\//g, "/");
-    if (!fuente || vistas[fuente]) continue;
-    vistas[fuente] = true;
-    streams.push({
-      url: fuente,
-      quality: `${m[2]}p`,
-      headers: { Referer: `${BASE}/` }
-    });
-  }
-  if (streams.length === 0) {
-    return { streams: [], pageUrl: url };
-  }
-  streams.sort((a, b) => _altura(b.quality) - _altura(a.quality));
-  return { streams, pageUrl: url };
+  return streams.filter((s) => vistas[s.url] ? false : vistas[s.url] = true);
 }
 function _altura(etiqueta) {
   const m = /(\d{3,4})/.exec(etiqueta || "");
