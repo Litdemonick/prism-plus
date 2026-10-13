@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Eporner
-// @version      1.0.4
+// @version      1.0.5
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -432,7 +432,7 @@ async function watch(url) {
 function _ordenDeCalidad(etiqueta) {
   const h = _alturaDe(etiqueta);
   const de60 = /60\s*fps/i.test(etiqueta || "") ? 0.5 : 0;
-  const preferidas = [1080, 720, 1440, 2160];
+  const preferidas = [720, 1080, 1440, 2160];
   const i = preferidas.indexOf(h);
   if (i >= 0) return i * 2 + de60;
   return 100 + (5e3 - h) / 100 + de60;

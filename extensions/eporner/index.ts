@@ -601,8 +601,10 @@ export async function watch(url: string): Promise<PrismWatch> {
   // **Cuál abre primero.** El cliente toma el primero por defecto, y antes iba
   // la más alta: medido en 41 vídeos, en 9 era 4K (archivos de hasta 5 GB, a
   // veces a 60 cuadros), que pesa demasiado para arrancar rápido y para muchos
-  // aparatos. Ahora va primero 1080p, después 720p; 4K y 60 cuadros quedan en
-  // la lista para elegirlos a mano. Ver `_ordenDeCalidad`.
+  // aparatos. Ahora va primero 720p (la calidad por defecto de la app; medido
+  // el 2026-10-13 en un teléfono, 1080p tardaba en juntar colchón), después
+  // 1080p; 4K y 60 cuadros quedan en la lista para elegirlos a mano. Ver
+  // `_ordenDeCalidad`.
   streams.sort((a, b) => _ordenDeCalidad(a.quality) - _ordenDeCalidad(b.quality));
 
   return {
@@ -618,13 +620,13 @@ export async function watch(url: string): Promise<PrismWatch> {
 }
 
 /**
- * Menor = antes. 1080p y 720p primero (sin 60 cuadros antes que con), después
+ * Menor = antes. 720p y 1080p primero (sin 60 cuadros antes que con), después
  * las más altas (1440p, 4K) y al final las más bajas, de mayor a menor.
  */
 function _ordenDeCalidad(etiqueta: string | undefined): number {
   const h = _alturaDe(etiqueta);
   const de60 = /60\s*fps/i.test(etiqueta || '') ? 0.5 : 0;
-  const preferidas = [1080, 720, 1440, 2160];
+  const preferidas = [720, 1080, 1440, 2160];
   const i = preferidas.indexOf(h);
   if (i >= 0) return i * 2 + de60;
   // Las demás (480, 360, 240…) después, de mayor a menor.

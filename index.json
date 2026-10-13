@@ -42,7 +42,7 @@
     {
       "name": "Eporner",
       "package": "io.prismhub.eporner",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -53,8 +53,8 @@
       "nsfw": "true",
       "latestLabel": "lo-mas-reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/eporner.js",
-      "sha256": "05112a2918dda2e1ecc66ceca19c6ff6a5da928722f494a50bea5e2353c21045",
-      "signature": "0R2eW7GMZa6voRglCedt6Z7hJJms/7K+cR44K/VUvVVWGqLNxL5DGHq72gCO3xgVLjKBJ/vm9UhwYwuHiMbVBg=="
+      "sha256": "ccb2fedd5c8818ab1eedd8ff28b39b77afa3326e623c379837d7dfb631c070f2",
+      "signature": "lQkok3ep5oI4LLSfu2ryprWSpuPyxqV/UKr5UjG2QxQ96z6MP8a84YTJDGhKf5c5N0xlnM6nQSEAsW5lekXEBg=="
     },
     {
       "name": "FuegoCine",
