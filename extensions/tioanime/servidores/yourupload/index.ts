@@ -52,6 +52,12 @@ export async function resolver(url: string, referer: string): Promise<ServidorRe
  * Lo borrado trae `novideo.mp4` o una página de error con 404: «Content
  * Restricted», «Content Invalid» o «An Error Has Occurred». Sin respuesta es
  * null y el servidor se ofrece igual.
+ *
+ * **La página puede estar bien y el vídeo no.** Medido el 2026-10-13: en 3
+ * episodios la página traía su mp4 en vidcache, pero el vídeo no contestó en
+ * 60 s (los buenos, en ~1 s). Por eso, si la página está bien, se pide el
+ * primer byte del vídeo: si llega, está vivo. Si no llega, esto no contesta y
+ * quien llama decide con su tope (ver `watch` en el index de la extensión).
  */
 export async function estaVivo(url: string, referer: string): Promise<boolean | null> {
   const html = await pedir(url, referer);
@@ -59,6 +65,9 @@ export async function estaVivo(url: string, referer: string): Promise<boolean | 
   if (html.indexOf('novideo') !== -1) return false;
   if (/<title>\s*Content (?:Restricted|Invalid)/i.test(html)) return false;
   if (/<h1>\s*An Error Has Occurred/i.test(html) && !/\.mp4/.test(html)) return false;
-  if (/\.mp4/.test(html)) return true;
-  return null;
+  const mp4 = /(?:file|src|source)\s*:\s*["']([^"']+\.mp4[^"']*)["']/i.exec(html)?.[1];
+  if (!mp4) return /\.mp4/.test(html) ? true : null;
+  const direccion = mp4.replace(/\\\//g, '/').replace(/^\/\//, 'https://');
+  const byte = await pedir(direccion, 'https://www.yourupload.com/', { Range: 'bytes=0-0' });
+  return byte !== null ? true : null;
 }

@@ -18,7 +18,15 @@
 
 import { pedir, type ServidorResuelto } from '../comun';
 
-const MARCAS = ['hlsManifestUrl\\&quot;:\\&quot;', 'hlsManifestUrl&quot;:&quot;'];
+// `ondemandHls` va después, como respaldo: medido el 2026-10-12 en tioanime,
+// 3 vídeos que andaban traían solo esa (sin `hlsManifestUrl`), y sin leerla el
+// servidor se ofrecía y no abría nunca.
+const MARCAS = [
+  'hlsManifestUrl\\&quot;:\\&quot;',
+  'hlsManifestUrl&quot;:&quot;',
+  'ondemandHls\\&quot;:\\&quot;',
+  'ondemandHls&quot;:&quot;',
+];
 
 export async function resolver(url: string): Promise<ServidorResuelto | null> {
   const html = await pedir(url, 'https://ok.ru/');

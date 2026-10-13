@@ -349,7 +349,8 @@ export async function watch(url: string): Promise<PrismWatch> {
   }
   const videos = JSON.parse(videosM[1].replace(/\\\//g, '/')) as [string, string, number, number][];
 
-  const candidatos: { url: string; ficha: Servidor }[] = [];
+  type Candidato = { url: string; ficha: Servidor };
+  const candidatos: Candidato[] = [];
   for (const [name, embedUrl] of videos) {
     const ficha = fichaDe(embedUrl);
     if (!ficha || !ficha.nativo) {
@@ -363,21 +364,36 @@ export async function watch(url: string): Promise<PrismWatch> {
   // **Lo borrado no se ofrece.** Medido el 2026-10-12 sobre 20 episodios
   // viejos: Voe ya no tenía 6 de 10, YourUpload 10 de 19 y Okru 9 de 10, y en
   // 6 episodios no quedaba ninguno. Se le pregunta a la vez a todos, con tope
-  // de 3 s, y solo se esconde lo que el servidor dice que borró: sin respuesta
-  // a tiempo, ante la duda, se ofrece.
+  // de 3 s, y se esconde lo que el servidor dice que borró.
+  //
+  // **El que no contesta a tiempo** se esconde solo si otro servidor del mismo
+  // episodio ya contestó que anda. Medido el 2026-10-13: hay vídeos de
+  // YourUpload que no contestan nunca (60 s), y ofrecerlos era dar un botón
+  // muerto. Pero con internet lento uno bueno también puede tardar: si nadie
+  // confirmó andar, ante la duda se ofrece, para no dejar el episodio vacío.
   const borrados: Record<string, boolean> = {};
+  const tarde: Candidato[] = [];
+  let algunoVivo = false;
   await Promise.all(
     candidatos.map(async (c) => {
       const vivo = await Promise.race([
         c.ficha.estaVivo(c.url, `${BASE}/`).catch(() => null),
-        new Promise<null>((ok) => setTimeout(() => ok(null), 3000)),
+        new Promise<'tarde'>((ok) => setTimeout(() => ok('tarde'), 3000)),
       ]);
+      if (vivo === true) algunoVivo = true;
+      if (vivo === 'tarde') tarde.push(c);
       if (vivo === false) {
         borrados[c.url] = true;
         console.log(`[ta] ${c.ficha.boton} ya no tiene este vídeo, no se ofrece: ${c.url.slice(0, 50)}`);
       }
     }),
   );
+  if (algunoVivo) {
+    for (const c of tarde) {
+      borrados[c.url] = true;
+      console.log(`[ta] ${c.ficha.boton} no contestó en 3 s y hay otro que anda, no se ofrece: ${c.url.slice(0, 50)}`);
+    }
+  }
 
   // En el orden de la tabla (el mejor primero), no en el del sitio, que cambia
   // de un episodio a otro: así la app arranca siempre por el mismo.

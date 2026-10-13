@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         TioAnime
-// @version      1.1.7
+// @version      1.1.8
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -251,7 +251,12 @@ ${desempaquetarTodo(html)}`.replace(/\\\//g, "/");
 }
 
 // extensions/tioanime/servidores/ok.ru/index.ts
-var MARCAS = ["hlsManifestUrl\\&quot;:\\&quot;", "hlsManifestUrl&quot;:&quot;"];
+var MARCAS = [
+  "hlsManifestUrl\\&quot;:\\&quot;",
+  "hlsManifestUrl&quot;:&quot;",
+  "ondemandHls\\&quot;:\\&quot;",
+  "ondemandHls&quot;:&quot;"
+];
 async function resolver(url) {
   const html = await pedir(url, "https://ok.ru/");
   if (!html) return null;
@@ -357,13 +362,17 @@ async function resolver3(url, referer) {
   return null;
 }
 async function estaVivo3(url, referer) {
+  var _a;
   const html = await pedir(url, referer);
   if (!html) return null;
   if (html.indexOf("novideo") !== -1) return false;
   if (/<title>\s*Content (?:Restricted|Invalid)/i.test(html)) return false;
   if (/<h1>\s*An Error Has Occurred/i.test(html) && !/\.mp4/.test(html)) return false;
-  if (/\.mp4/.test(html)) return true;
-  return null;
+  const mp4 = (_a = /(?:file|src|source)\s*:\s*["']([^"']+\.mp4[^"']*)["']/i.exec(html)) == null ? void 0 : _a[1];
+  if (!mp4) return /\.mp4/.test(html) ? true : null;
+  const direccion = mp4.replace(/\\\//g, "/").replace(/^\/\//, "https://");
+  const byte = await pedir(direccion, "https://www.yourupload.com/", { Range: "bytes=0-0" });
+  return byte !== null ? true : null;
 }
 
 // extensions/tioanime/servidores/index.ts
@@ -656,18 +665,28 @@ async function watch(url) {
     candidatos.push({ url: embedUrl, ficha });
   }
   const borrados = {};
+  const tarde = [];
+  let algunoVivo = false;
   await Promise.all(
     candidatos.map(async (c) => {
       const vivo = await Promise.race([
         c.ficha.estaVivo(c.url, `${BASE}/`).catch(() => null),
-        new Promise((ok) => setTimeout(() => ok(null), 3e3))
+        new Promise((ok) => setTimeout(() => ok("tarde"), 3e3))
       ]);
+      if (vivo === true) algunoVivo = true;
+      if (vivo === "tarde") tarde.push(c);
       if (vivo === false) {
         borrados[c.url] = true;
         console.log(`[ta] ${c.ficha.boton} ya no tiene este v\xEDdeo, no se ofrece: ${c.url.slice(0, 50)}`);
       }
     })
   );
+  if (algunoVivo) {
+    for (const c of tarde) {
+      borrados[c.url] = true;
+      console.log(`[ta] ${c.ficha.boton} no contest\xF3 en 3 s y hay otro que anda, no se ofrece: ${c.url.slice(0, 50)}`);
+    }
+  }
   const orden = (f) => SERVIDORES.indexOf(f);
   const streams = candidatos.filter((c) => !borrados[c.url]).sort((a, b) => orden(a.ficha) - orden(b.ficha)).map((c) => ({ url: c.url, quality: c.ficha.boton, nativo: true }));
   if (!streams.length) {
