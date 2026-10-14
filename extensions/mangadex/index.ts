@@ -41,11 +41,33 @@ async function _get<T = unknown>(
     }
   }
   const url = `${API}${ruta}${partes.length ? `?${partes.join('&')}` : ''}`;
-  const crudo = await sendMessage(
-    'request',
-    JSON.stringify([url, { method: 'get', headers: { Accept: 'application/json' } }]),
-  );
-  return JSON.parse(crudo) as T;
+  const pedir = async (): Promise<T> => {
+    const crudo = await sendMessage(
+      'request',
+      JSON.stringify([url, { method: 'get', headers: { Accept: 'application/json' } }]),
+    );
+    const r = JSON.parse(crudo) as T & {
+      result?: string;
+      errors?: { status?: number }[];
+    };
+    // Solo lo que es de un momento (429, 5xx). Un 404 —capítulo borrado— no se
+    // reintenta: sigue de largo y la app avisa que no tiene páginas.
+    const estado = r?.result === 'error' ? Number(r.errors?.[0]?.status ?? 0) : 0;
+    if (estado === 429 || estado >= 500) throw new Error('MangaDex no respondió');
+    return r;
+  };
+  // ── Un reintento, y uno solo ─────────────────────────────────────────────
+  //
+  // Medido en el banco (2026-10-13): 1 de 123 capítulos falló con un corte de
+  // red de un momento. Se espera un segundo —el tope de la API es por
+  // segundo— y se intenta otra vez; si vuelve a fallar, el error sube tal
+  // cual. Cuando anda, no agrega ninguna demora.
+  try {
+    return await pedir();
+  } catch {
+    await new Promise((r) => setTimeout(r, 1000));
+    return pedir();
+  }
 }
 
 // ─── Contenido para adultos ─────────────────────────────────────────────────
@@ -442,47 +464,93 @@ export async function detail(url: string): Promise<PrismDetail> {
   if (original && _TIPOS[original]) extra['Tipo'] = _TIPOS[original];
   if (a.publicationDemographic) extra['Demografía'] = String(a.publicationDemographic);
 
+  const episodios = await _capitulos(id);
+  // ── Sin nada que leer: decirlo ──────────────────────────────────────────
+  //
+  // Hay obras cuyos capítulos están TODOS en la web del editor, no en
+  // MangaDex (medido: 8 de cada 120 populares). La API no deja sacarlas del
+  // catálogo —su filtro de «capítulos disponibles» las cuenta igual—, así que
+  // la ficha lo explica en vez de quedar vacía sin motivo.
+  const descripcion = _descripcion(a);
+  const sinCapitulos = m && !episodios.length
+    ? 'MangaDex no aloja los capítulos de esta obra: están en la web del editor.'
+    : undefined;
+
   return {
     title: m ? _titulo(a) : 'Sin título',
     cover: m ? _portada(m) : undefined,
-    description: _descripcion(a),
+    description: sinCapitulos
+      ? (descripcion ? `${sinCapitulos}\n\n${descripcion}` : sinCapitulos)
+      : descripcion,
     genres: generos.length ? generos : undefined,
     status: _ESTADO_PRISM[a.status as string],
     year: typeof a.year === 'number' ? a.year : undefined,
     extra: Object.keys(extra).length ? extra : undefined,
-    episodes: await _capitulos(id),
+    episodes: episodios,
     adult: _esAdulto(a.contentRating),
   };
 }
 
-/** Cuántas tandas de capítulos se piden como máximo. 100 por tanda. */
-const _TANDAS = 5;
+// ── De a 500, hasta 5.000 entradas ──────────────────────────────────────
+//
+// Antes se pedía de a 100 y se frenaba a las 5 tandas: con varios grupos
+// subiendo el mismo capítulo, 500 entradas no alcanzan ni para la mitad de una
+// obra larga. Medido (2026-10-13): Berserk mostraba 191 de 403 capítulos,
+// Yāo Shén Jì 337 de 710, Martial Peak 397 de 3.227. 500 es el tope de la
+// API: Berserk pasa de 10 pedidos a 2 y tarda lo mismo (1,3 s).
+const _POR_TANDA = 500;
+const _TOPE_DE_ENTRADAS = 5000;
+
+type Capitulo = { id: string; attributes: Record<string, any> };
 
 async function _capitulos(id: string): Promise<PrismEpisode[]> {
-  // ── Primero en español; si no hay, en el idioma que haya ────────────────
+  // ── Primero en español; si no hay, UN solo idioma ───────────────────────
   //
-  // «Últimas actualizaciones» trae todos los idiomas, como el sitio. Pero la
-  // ficha pedía capítulos SOLO en español, así que al tocar una tarjeta
-  // vietnamita o indonesia la ficha salía vacía: medido, seis de cada diez.
-  //
-  // Se intenta primero en español, que es lo que quiere la mayoría acá. Si esa
-  // obra no está traducida, se piden todos en vez de dejar la ficha muerta:
-  // más vale poder leerla en otro idioma que no poder abrirla.
-  const enEspanol = await _tandaDeCapitulos(id, _idiomas());
-  if (enEspanol.length) return enEspanol;
-  return _tandaDeCapitulos(id, undefined);
+  // «Últimas actualizaciones» trae todos los idiomas, como el sitio, así que
+  // hay fichas sin nada en español. Antes se pedían todos los idiomas juntos y
+  // quedaban mezclados capítulo a capítulo (medido: One Piece en portugués,
+  // catalán y árabe intercalados; Jujutsu Kaisen en azerí y kazajo). Ahora se
+  // elige uno: el que tenga más capítulos, salvo que el inglés —el más leído
+  // después del español— tenga al menos la mitad. Sin esa condición One Piece
+  // salía en inglés con 1 solo capítulo habiendo idiomas con más de 250.
+  const enEspanol = await _entradas(id, _idiomas());
+  if (enEspanol.length) return _lista(enEspanol, false);
+
+  const todas = await _entradas(id, undefined);
+  const porIdioma = new Map<string, Capitulo[]>();
+  for (const c of todas) {
+    const idioma = String(c.attributes?.translatedLanguage ?? '');
+    if (!porIdioma.has(idioma)) porIdioma.set(idioma, []);
+    porIdioma.get(idioma)!.push(c);
+  }
+  // Se cuentan capítulos DISTINTOS, no entradas: diez grupos subiendo el
+  // capítulo 1 no hacen una traducción más completa.
+  const distintos = (l: Capitulo[]) =>
+    new Set(l.map((c) => c.attributes?.chapter ?? c.id)).size;
+  let elegido: Capitulo[] | undefined;
+  let mejor = 0;
+  for (const lista of porIdioma.values()) {
+    const n = distintos(lista);
+    if (n > mejor) {
+      mejor = n;
+      elegido = lista;
+    }
+  }
+  const ingles = porIdioma.get('en');
+  if (ingles && distintos(ingles) * 2 >= mejor) elegido = ingles;
+  return _lista(elegido ?? [], true);
 }
 
-async function _tandaDeCapitulos(
+/** Las entradas del feed con páginas, en orden de capítulo. */
+async function _entradas(
   id: string,
   idiomas: string[] | undefined,
-): Promise<PrismEpisode[]> {
-  const salida: PrismEpisode[] = [];
-  const vistos = new Set<string>();
-  for (let i = 0; i < _TANDAS; i++) {
-    const r = await _get<{ data?: Obra[]; total?: number }>(`/manga/${id}/feed`, {
-      limit: '100',
-      offset: String(i * 100),
+): Promise<Capitulo[]> {
+  const salida: Capitulo[] = [];
+  for (let offset = 0; offset < _TOPE_DE_ENTRADAS; offset += _POR_TANDA) {
+    const r = await _get<{ data?: Capitulo[] }>(`/manga/${id}/feed`, {
+      limit: String(_POR_TANDA),
+      offset: String(offset),
       'translatedLanguage[]': idiomas,
       'order[chapter]': 'asc',
       'order[volume]': 'asc',
@@ -491,33 +559,53 @@ async function _tandaDeCapitulos(
       'contentRating[]': _TODO,
     });
     const tanda = r.data ?? [];
-    for (const c of tanda) {
-      const at = c.attributes ?? {};
-      // Sin páginas no hay nada que abrir. Pasa con capítulos recién creados
-      // que todavía no tienen las imágenes subidas.
-      if (!at.pages) continue;
-      // El mismo capítulo lo pueden haber subido varios grupos. Se queda el
-      // primero: si no, la lista muestra «Capítulo 12» cuatro veces seguidas.
-      const clave = `${at.volume ?? ''}-${at.chapter ?? c.id}`;
-      if (vistos.has(clave)) continue;
-      vistos.add(clave);
-      const numero = at.chapter ? `Capítulo ${at.chapter}` : 'Oneshot';
-      let nombre = at.title ? `${numero}: ${at.title}` : numero;
-      // Cuando la lista NO es la de español, se dice en qué idioma está. Abrir
-      // un capítulo y encontrarse otro idioma sin aviso es peor que saberlo
-      // antes de tocar.
-      if (!idiomas && at.translatedLanguage) {
-        nombre = `${nombre} [${String(at.translatedLanguage).toUpperCase()}]`;
-      }
-      salida.push({
-        title: nombre,
-        url: c.id,
-        number: at.chapter ? Number(at.chapter) : undefined,
-        airDate:
-          typeof at.publishAt === 'string' ? at.publishAt.slice(0, 10) : undefined,
-      });
+    // Sin páginas no hay nada que abrir. Pasa con capítulos recién creados
+    // que todavía no tienen las imágenes subidas.
+    for (const c of tanda) if (c.attributes?.pages) salida.push(c);
+    if (tanda.length < _POR_TANDA) break;
+  }
+  return salida;
+}
+
+function _lista(entradas: Capitulo[], conIdioma: boolean): PrismEpisode[] {
+  const salida: PrismEpisode[] = [];
+  const vistos = new Set<string>();
+  let sinTitulo = 0;
+  for (const c of entradas) {
+    const at = c.attributes ?? {};
+    // ── Sin repetidos ──────────────────────────────────────────────────────
+    //
+    // El mismo capítulo lo pueden haber subido varios grupos; se queda el
+    // primero. La clave es el NÚMERO solo, sin el volumen: un grupo sube el
+    // capítulo 1 sin volumen y otro como «volumen 1», y con el volumen en la
+    // clave salían los dos (medido en Berserk, caps. 91 y 99). Un oneshot no
+    // tiene número: se reconoce por su título, así el mismo oneshot de dos
+    // grupos sale una vez y dos oneshots distintos salen los dos.
+    const clave = at.chapter
+      ? `c${Number(at.chapter)}`
+      : `o${String(at.title ?? '').trim().toLowerCase() || c.id}`;
+    if (vistos.has(clave)) continue;
+    vistos.add(clave);
+    // Dos oneshots sin título son obras distintas (medido: dos grupos, 9 y 12
+    // páginas): se numeran para que no parezcan el mismo repetido.
+    const oneshots = at.chapter || at.title ? 0 : ++sinTitulo;
+    const numero = at.chapter
+      ? `Capítulo ${at.chapter}`
+      : oneshots > 1 ? `Oneshot ${oneshots}` : 'Oneshot';
+    let nombre = at.title ? `${numero}: ${at.title}` : numero;
+    // Cuando la lista NO es la de español, se dice en qué idioma está. Abrir
+    // un capítulo y encontrarse otro idioma sin aviso es peor que saberlo
+    // antes de tocar.
+    if (conIdioma && at.translatedLanguage) {
+      nombre = `${nombre} [${String(at.translatedLanguage).toUpperCase()}]`;
     }
-    if (tanda.length < 100) break;
+    salida.push({
+      title: nombre,
+      url: c.id,
+      number: at.chapter ? Number(at.chapter) : undefined,
+      airDate:
+        typeof at.publishAt === 'string' ? at.publishAt.slice(0, 10) : undefined,
+    });
   }
   return salida;
 }

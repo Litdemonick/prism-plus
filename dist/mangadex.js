@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         MangaDex
-// @version      1.0.5
+// @version      1.0.6
 // @author       PrismPlus
 // @lang         multi
 // @license      MIT
@@ -28,11 +28,23 @@ async function _get(ruta, params = {}) {
     }
   }
   const url = `${API}${ruta}${partes.length ? `?${partes.join("&")}` : ""}`;
-  const crudo = await sendMessage(
-    "request",
-    JSON.stringify([url, { method: "get", headers: { Accept: "application/json" } }])
-  );
-  return JSON.parse(crudo);
+  const pedir = async () => {
+    var _a, _b, _c;
+    const crudo = await sendMessage(
+      "request",
+      JSON.stringify([url, { method: "get", headers: { Accept: "application/json" } }])
+    );
+    const r = JSON.parse(crudo);
+    const estado = (r == null ? void 0 : r.result) === "error" ? Number((_c = (_b = (_a = r.errors) == null ? void 0 : _a[0]) == null ? void 0 : _b.status) != null ? _c : 0) : 0;
+    if (estado === 429 || estado >= 500) throw new Error("MangaDex no respondi\xF3");
+    return r;
+  };
+  try {
+    return await pedir();
+  } catch (e) {
+    await new Promise((r) => setTimeout(r, 1e3));
+    return pedir();
+  }
 }
 var _APTO = ["safe", "suggestive"];
 var _TODO = ["safe", "suggestive", "erotica", "pornographic"];
@@ -296,32 +308,60 @@ async function detail(url) {
   const original = a.originalLanguage;
   if (original && _TIPOS[original]) extra["Tipo"] = _TIPOS[original];
   if (a.publicationDemographic) extra["Demograf\xEDa"] = String(a.publicationDemographic);
+  const episodios = await _capitulos(id);
+  const descripcion = _descripcion(a);
+  const sinCapitulos = m && !episodios.length ? "MangaDex no aloja los cap\xEDtulos de esta obra: est\xE1n en la web del editor." : void 0;
   return {
     title: m ? _titulo(a) : "Sin t\xEDtulo",
     cover: m ? _portada(m) : void 0,
-    description: _descripcion(a),
+    description: sinCapitulos ? descripcion ? `${sinCapitulos}
+
+${descripcion}` : sinCapitulos : descripcion,
     genres: generos.length ? generos : void 0,
     status: _ESTADO_PRISM[a.status],
     year: typeof a.year === "number" ? a.year : void 0,
     extra: Object.keys(extra).length ? extra : void 0,
-    episodes: await _capitulos(id),
+    episodes: episodios,
     adult: _esAdulto(a.contentRating)
   };
 }
-var _TANDAS = 5;
+var _POR_TANDA = 500;
+var _TOPE_DE_ENTRADAS = 5e3;
 async function _capitulos(id) {
-  const enEspanol = await _tandaDeCapitulos(id, _idiomas());
-  if (enEspanol.length) return enEspanol;
-  return _tandaDeCapitulos(id, void 0);
+  var _a, _b;
+  const enEspanol = await _entradas(id, _idiomas());
+  if (enEspanol.length) return _lista(enEspanol, false);
+  const todas = await _entradas(id, void 0);
+  const porIdioma = /* @__PURE__ */ new Map();
+  for (const c of todas) {
+    const idioma = String((_b = (_a = c.attributes) == null ? void 0 : _a.translatedLanguage) != null ? _b : "");
+    if (!porIdioma.has(idioma)) porIdioma.set(idioma, []);
+    porIdioma.get(idioma).push(c);
+  }
+  const distintos = (l) => new Set(l.map((c) => {
+    var _a2, _b2;
+    return (_b2 = (_a2 = c.attributes) == null ? void 0 : _a2.chapter) != null ? _b2 : c.id;
+  })).size;
+  let elegido;
+  let mejor = 0;
+  for (const lista of porIdioma.values()) {
+    const n = distintos(lista);
+    if (n > mejor) {
+      mejor = n;
+      elegido = lista;
+    }
+  }
+  const ingles = porIdioma.get("en");
+  if (ingles && distintos(ingles) * 2 >= mejor) elegido = ingles;
+  return _lista(elegido != null ? elegido : [], true);
 }
-async function _tandaDeCapitulos(id, idiomas) {
-  var _a, _b, _c, _d;
+async function _entradas(id, idiomas) {
+  var _a, _b;
   const salida = [];
-  const vistos = /* @__PURE__ */ new Set();
-  for (let i = 0; i < _TANDAS; i++) {
+  for (let offset = 0; offset < _TOPE_DE_ENTRADAS; offset += _POR_TANDA) {
     const r = await _get(`/manga/${id}/feed`, {
-      limit: "100",
-      offset: String(i * 100),
+      limit: String(_POR_TANDA),
+      offset: String(offset),
       "translatedLanguage[]": idiomas,
       "order[chapter]": "asc",
       "order[volume]": "asc",
@@ -330,25 +370,33 @@ async function _tandaDeCapitulos(id, idiomas) {
       "contentRating[]": _TODO
     });
     const tanda = (_a = r.data) != null ? _a : [];
-    for (const c of tanda) {
-      const at = (_b = c.attributes) != null ? _b : {};
-      if (!at.pages) continue;
-      const clave = `${(_c = at.volume) != null ? _c : ""}-${(_d = at.chapter) != null ? _d : c.id}`;
-      if (vistos.has(clave)) continue;
-      vistos.add(clave);
-      const numero = at.chapter ? `Cap\xEDtulo ${at.chapter}` : "Oneshot";
-      let nombre = at.title ? `${numero}: ${at.title}` : numero;
-      if (!idiomas && at.translatedLanguage) {
-        nombre = `${nombre} [${String(at.translatedLanguage).toUpperCase()}]`;
-      }
-      salida.push({
-        title: nombre,
-        url: c.id,
-        number: at.chapter ? Number(at.chapter) : void 0,
-        airDate: typeof at.publishAt === "string" ? at.publishAt.slice(0, 10) : void 0
-      });
+    for (const c of tanda) if ((_b = c.attributes) == null ? void 0 : _b.pages) salida.push(c);
+    if (tanda.length < _POR_TANDA) break;
+  }
+  return salida;
+}
+function _lista(entradas, conIdioma) {
+  var _a, _b;
+  const salida = [];
+  const vistos = /* @__PURE__ */ new Set();
+  let sinTitulo = 0;
+  for (const c of entradas) {
+    const at = (_a = c.attributes) != null ? _a : {};
+    const clave = at.chapter ? `c${Number(at.chapter)}` : `o${String((_b = at.title) != null ? _b : "").trim().toLowerCase() || c.id}`;
+    if (vistos.has(clave)) continue;
+    vistos.add(clave);
+    const oneshots = at.chapter || at.title ? 0 : ++sinTitulo;
+    const numero = at.chapter ? `Cap\xEDtulo ${at.chapter}` : oneshots > 1 ? `Oneshot ${oneshots}` : "Oneshot";
+    let nombre = at.title ? `${numero}: ${at.title}` : numero;
+    if (conIdioma && at.translatedLanguage) {
+      nombre = `${nombre} [${String(at.translatedLanguage).toUpperCase()}]`;
     }
-    if (tanda.length < 100) break;
+    salida.push({
+      title: nombre,
+      url: c.id,
+      number: at.chapter ? Number(at.chapter) : void 0,
+      airDate: typeof at.publishAt === "string" ? at.publishAt.slice(0, 10) : void 0
+    });
   }
   return salida;
 }
