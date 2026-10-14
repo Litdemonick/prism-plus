@@ -2,7 +2,12 @@ import type { PrismItem, PrismDetail, PrismMangaWatch } from '../../sdk/types';
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
 
-const API = 'https://manhwawebbackend-production.up.railway.app';
+// El servidor de datos del sitio. Se mudó el 2026-10 a su propio dominio: la
+// dirección vieja (manhwawebbackend-production.up.railway.app) contesta 404
+// «Application not found» y la extensión quedaba sin nada. La nueva sale del
+// código de la propia web (`te="https://api.manhwaweb.com"`) y responde con el
+// mismo formato (medido: /manhwa/nuevos y /manhwa/library iguales).
+const API = 'https://api.manhwaweb.com';
 const HEADERS = { 'Referer': 'https://manhwaweb.com' };
 
 async function _get<T = unknown>(path: string): Promise<T> {

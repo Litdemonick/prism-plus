@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ManhwaWeb
-// @version      1.4.4
+// @version      1.4.5
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -12,7 +12,7 @@
 // @description  ¿Te gusta el manhwa? Acá hay manga, manhwa y manhua en español para leer sin parar (incluye contenido +18).
 // ==/PrismHubExtension==
 // extensions/manhwaweb/index.ts
-var API = "https://manhwawebbackend-production.up.railway.app";
+var API = "https://api.manhwaweb.com";
 var HEADERS = { "Referer": "https://manhwaweb.com" };
 async function _get(path) {
   const raw = await sendMessage("request", JSON.stringify([`${API}${path}`, { method: "get", headers: {} }]));
