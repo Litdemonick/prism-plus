@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         MangaDex
-// @version      1.0.6
+// @version      1.0.7
 // @author       PrismPlus
 // @lang         multi
 // @license      MIT
@@ -153,7 +153,7 @@ async function latest(page) {
   }).filter((x) => x !== null);
 }
 async function search(keyword, page, filter) {
-  var _a, _b, _c, _d, _e, _f;
+  var _a, _b, _c, _d, _e, _f, _g, _h;
   const texto = keyword.trim();
   const orden = ((_a = filter == null ? void 0 : filter["orden"]) == null ? void 0 : _a[0]) || "followedCount";
   const r = await _get("/manga", {
@@ -168,11 +168,19 @@ async function search(keyword, page, filter) {
     "status[]": (_c = filter == null ? void 0 : filter["estado"]) == null ? void 0 : _c.filter(Boolean),
     "publicationDemographic[]": (_d = filter == null ? void 0 : filter["demografia"]) == null ? void 0 : _d.filter(Boolean),
     "originalLanguage[]": (_e = filter == null ? void 0 : filter["tipo"]) == null ? void 0 : _e.filter(Boolean),
-    // Que exista traducido al idioma que se pide: sin esto la búsqueda
+    // Que exista traducido al idioma que se pide: sin esto el catálogo
     // devuelve obras que después no tienen ni un capítulo que leer.
-    "availableTranslatedLanguage[]": _idiomas(filter)
+    //
+    // ── Salvo buscando un NOMBRE ─────────────────────────────────────────
+    //
+    // Quien escribe el nombre sabe qué quiere, y lo tiene que encontrar.
+    // Medido (2026-10-14): 4 de 7 obras del propio «lo último» no aparecían
+    // buscándolas por su nombre exacto, por no tener capítulos en español.
+    // La ficha ya muestra entonces el idioma más completo, avisado. Solo se
+    // acota si el usuario eligió OTRO idioma a propósito.
+    "availableTranslatedLanguage[]": texto && ((_g = (_f = filter == null ? void 0 : filter["idioma"]) == null ? void 0 : _f[0]) != null ? _g : "es") === "es" ? void 0 : _idiomas(filter)
   });
-  return ((_f = r.data) != null ? _f : []).map((m) => _item(m));
+  return ((_h = r.data) != null ? _h : []).map((m) => _item(m));
 }
 var _GENEROS = {
   "": "Todos",

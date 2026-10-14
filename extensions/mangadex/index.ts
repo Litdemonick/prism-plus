@@ -286,9 +286,20 @@ export async function search(
     'status[]': filter?.['estado']?.filter(Boolean),
     'publicationDemographic[]': filter?.['demografia']?.filter(Boolean),
     'originalLanguage[]': filter?.['tipo']?.filter(Boolean),
-    // Que exista traducido al idioma que se pide: sin esto la búsqueda
+    // Que exista traducido al idioma que se pide: sin esto el catálogo
     // devuelve obras que después no tienen ni un capítulo que leer.
-    'availableTranslatedLanguage[]': _idiomas(filter),
+    //
+    // ── Salvo buscando un NOMBRE ─────────────────────────────────────────
+    //
+    // Quien escribe el nombre sabe qué quiere, y lo tiene que encontrar.
+    // Medido (2026-10-14): 4 de 7 obras del propio «lo último» no aparecían
+    // buscándolas por su nombre exacto, por no tener capítulos en español.
+    // La ficha ya muestra entonces el idioma más completo, avisado. Solo se
+    // acota si el usuario eligió OTRO idioma a propósito.
+    'availableTranslatedLanguage[]':
+      texto && (filter?.['idioma']?.[0] ?? 'es') === 'es'
+        ? undefined
+        : _idiomas(filter),
   });
   return (r.data ?? []).map((m) => _item(m));
 }
