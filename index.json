@@ -173,23 +173,6 @@
       "signature": "JIaf/XTOvjywoa1xDOy1iygdT4Lu+FVbjQIMWxKOeMA+Qv1lU1wtHmYIWJd8d7Z5VC28UE36jsV2Yz+Q9nHeBw=="
     },
     {
-      "name": "LatAnime",
-      "package": "io.prismhub.latanime",
-      "version": "1.1.6",
-      "author": "PrismPlus",
-      "type": "bangumi",
-      "contentKind": "anime",
-      "icon": "",
-      "description": "Anime doblado al latino y castellano, con filtros por año, género, letra y categoría, y varios servidores por episodio.",
-      "lang": "es",
-      "webSite": "https://latanime.org",
-      "license": "MIT",
-      "latestLabel": "anadidos-recientemente",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/latanime.js",
-      "sha256": "e07e176c7b3dd8f230524ef3cf44b90895dd32fd756789f34a8ee574f3a1c044",
-      "signature": "G785J0FtuFQwKSZElWkWC97yks1jWRg4JbOHuKpIdgqQ916EZ8nBsZ2J8kOw4IXlZu0MT9a2XNiee97+4Y5GCQ=="
-    },
-    {
       "name": "MangaDex",
       "package": "io.prismhub.mangadex",
       "version": "1.0.5",
