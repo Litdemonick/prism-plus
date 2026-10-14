@@ -322,23 +322,6 @@
       "signature": "lmPWCR1Ccqi4qSfMl2Rhtx0W5gPbpyPR3/OHm+EuMTS6JI7wbO5ejZAIwm3Q7dhs3CpgF8yHd1m72FOlOGBeBA=="
     },
     {
-      "name": "VeoHentai",
-      "package": "io.prismhub.veohentai",
-      "version": "1.0.3",
-      "author": "PrismPlus",
-      "type": "bangumi",
-      "icon": "",
-      "description": "Hentai en español agrupado por serie, con catálogo completo y filtros por género y estudio (contenido +18).",
-      "lang": "es",
-      "webSite": "https://veohentai.com",
-      "license": "MIT",
-      "nsfw": "true",
-      "latestLabel": "lo-mas-reciente",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/veohentai.js",
-      "sha256": "76bc2e2a616472f9d4515159bc8f47133b2cd6898225cf93c0179eb4769a74e0",
-      "signature": "jDvDIz2XnYf9No1GgKUp7EbyQf3OmBG+/gRbkP4sy2kq8D7WxpBJHYAQGd/hywwyMAwVEGzXp/k/0dXNqYaDAw=="
-    },
-    {
       "name": "XVideos",
       "package": "io.prismhub.xvideos",
       "version": "1.1.5",
