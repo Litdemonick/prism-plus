@@ -586,13 +586,30 @@ export async function detail(slug: string): Promise<PrismDetail> {
     while ((m = reCap.exec(fragmento)) !== null) {
       const id = m[1];
       if (vistos.has(id)) continue;
-      const texto = _stripTags(fragmento.slice(m.index, m.index + 500));
+      // ── Qué se lee de cada capítulo (medido 2026-10-28) ─────────────────
+      //
+      // Antes: 500 caracteres desde el `href`. Dos fallas con eso:
+      // - En los capítulos con miniatura, la dirección de la imagen ocupa
+      //   esos 500 y el texto «Capítulo 238» queda afuera: salía un nombre
+      //   inventado por posición («Capítulo 2») y al final de la lista. En
+      //   «En Esta Vida Seré La Matriarca», 97 de 241 mal nombrados.
+      // - El texto arrancaba con el resto de la etiqueta (`href="…" class=…>`),
+      //   así que el filtro de los botones «Primer/Último Capítulo» nunca
+      //   coincidía y esos botones se colaban como capítulos repetidos.
+      // Ahora se lee desde donde CIERRA la etiqueta del enlace hasta el
+      // siguiente capítulo, y el número sale también del `alt` de la miniatura.
+      const desde = fragmento.indexOf('>', m.index) + 1;
+      const siguiente = fragmento.indexOf('href="/capitulo/', m.index + 10);
+      const hasta = siguiente === -1 ? desde + 1500 : Math.min(siguiente, desde + 1500);
+      const crudo = fragmento.slice(desde, hasta);
+      const texto = _stripTags(crudo);
       // "Primer Capítulo" y "Último Capítulo" son los botones de atajo de la
       // ficha, no entradas de la lista: apuntan a capítulos que ya están más
       // abajo y colarlos duplicaría el primero y el último.
       if (/^(primer|último|ultimo)\s+cap/i.test(texto)) continue;
       vistos.add(id);
-      const num = /cap[íi]tulo\s*([\d.]+)/i.exec(texto);
+      const alt = /alt="(cap[íi]tulo\s*[\d.]+[^"]*)"/i.exec(crudo)?.[1];
+      const num = /cap[íi]tulo\s*([\d.]+)/i.exec(texto) ?? (alt ? /cap[íi]tulo\s*([\d.]+)/i.exec(alt) : null);
       // La ventana trae de yapa los "me gusta", las vistas y la fecha. Se
       // corta en el encabezado del capitulo para que el titulo no salga con
       // esa cola.
@@ -617,13 +634,21 @@ export async function detail(slug: string): Promise<PrismDetail> {
     const n = Number(mp[1]);
     if (n > ultimaPagina) ultimaPagina = n;
   }
-  for (let pagina = 2; pagina <= ultimaPagina; pagina++) {
-    const completoPagina = await _html(`${url}?pagina=${pagina}`);
-    const iniP = completoPagina.indexOf('<main');
-    const finP = completoPagina.lastIndexOf('</main>');
-    const htmlPagina =
-      iniP !== -1 && finP > iniP ? completoPagina.slice(iniP, finP) : completoPagina;
-    _agregarCapitulos(htmlPagina);
+  // De a cuatro a la vez: una por una, una obra de ~240 capítulos (10 páginas)
+  // tardaba hasta 6,6 s en abrir la ficha (medido 2026-10-28). Se procesan en
+  // el orden de las páginas, igual que antes.
+  const _TANDA = 4;
+  for (let desdePag = 2; desdePag <= ultimaPagina; desdePag += _TANDA) {
+    const paginas: number[] = [];
+    for (let p = desdePag; p < desdePag + _TANDA && p <= ultimaPagina; p++) paginas.push(p);
+    const tanda = await Promise.all(paginas.map((p) => _html(`${url}?pagina=${p}`)));
+    for (const completoPagina of tanda) {
+      const iniP = completoPagina.indexOf('<main');
+      const finP = completoPagina.lastIndexOf('</main>');
+      const htmlPagina =
+        iniP !== -1 && finP > iniP ? completoPagina.slice(iniP, finP) : completoPagina;
+      _agregarCapitulos(htmlPagina);
+    }
   }
   // Orden de lectura: del 1 en adelante. Antes se invertía a ciegas la lista de
   // la página, y como esa lista no siempre viene en el mismo sentido el

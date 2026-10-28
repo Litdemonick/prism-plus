@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Ikigai Mangas
-// @version      1.1.8
+// @version      1.1.9
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -313,15 +313,21 @@ async function detail(slug) {
   const vistos = /* @__PURE__ */ new Set();
   const reCap = /href="\/capitulo\/(\d+)\/"/g;
   const _agregarCapitulos = (fragmento) => {
+    var _a, _b;
     let m;
     reCap.lastIndex = 0;
     while ((m = reCap.exec(fragmento)) !== null) {
       const id = m[1];
       if (vistos.has(id)) continue;
-      const texto = _stripTags(fragmento.slice(m.index, m.index + 500));
+      const desde = fragmento.indexOf(">", m.index) + 1;
+      const siguiente = fragmento.indexOf('href="/capitulo/', m.index + 10);
+      const hasta = siguiente === -1 ? desde + 1500 : Math.min(siguiente, desde + 1500);
+      const crudo = fragmento.slice(desde, hasta);
+      const texto = _stripTags(crudo);
       if (/^(primer|último|ultimo)\s+cap/i.test(texto)) continue;
       vistos.add(id);
-      const num = /cap[íi]tulo\s*([\d.]+)/i.exec(texto);
+      const alt = (_a = /alt="(cap[íi]tulo\s*[\d.]+[^"]*)"/i.exec(crudo)) == null ? void 0 : _a[1];
+      const num = (_b = /cap[íi]tulo\s*([\d.]+)/i.exec(texto)) != null ? _b : alt ? /cap[íi]tulo\s*([\d.]+)/i.exec(alt) : null;
       const enc = /(cap[íi]tulo\s*[\d.]+(?:\s*:\s*[^<]{1,60})?)/i.exec(texto);
       episodes.push({
         title: enc ? enc[1].trim() : `Cap\xEDtulo ${num ? num[1] : episodes.length + 1}`,
@@ -338,12 +344,17 @@ async function detail(slug) {
     const n = Number(mp[1]);
     if (n > ultimaPagina) ultimaPagina = n;
   }
-  for (let pagina = 2; pagina <= ultimaPagina; pagina++) {
-    const completoPagina = await _html(`${url}?pagina=${pagina}`);
-    const iniP = completoPagina.indexOf("<main");
-    const finP = completoPagina.lastIndexOf("</main>");
-    const htmlPagina = iniP !== -1 && finP > iniP ? completoPagina.slice(iniP, finP) : completoPagina;
-    _agregarCapitulos(htmlPagina);
+  const _TANDA = 4;
+  for (let desdePag = 2; desdePag <= ultimaPagina; desdePag += _TANDA) {
+    const paginas = [];
+    for (let p = desdePag; p < desdePag + _TANDA && p <= ultimaPagina; p++) paginas.push(p);
+    const tanda = await Promise.all(paginas.map((p) => _html(`${url}?pagina=${p}`)));
+    for (const completoPagina of tanda) {
+      const iniP = completoPagina.indexOf("<main");
+      const finP = completoPagina.lastIndexOf("</main>");
+      const htmlPagina = iniP !== -1 && finP > iniP ? completoPagina.slice(iniP, finP) : completoPagina;
+      _agregarCapitulos(htmlPagina);
+    }
   }
   episodes.sort((a, b) => {
     if (a.number == null && b.number == null) return 0;
