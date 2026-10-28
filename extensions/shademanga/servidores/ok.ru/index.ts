@@ -1,0 +1,67 @@
+// ─── OK.RU · ok.ru ───────────────────────────────────────────────────────────
+//
+// Copiado de tioanime el 2026-10-27, tal cual (allá se lo midió bajando vídeo).
+// En shademanga aparecía sin resolvedor: 0 de 7 botones abrían.
+//
+// El m3u8 viene en el propio HTML, dentro de un atributo que a su vez lleva
+// JSON. Por eso se busca con índices y no con una expresión: la marca es
+// literal y el final también.
+//
+// **El escapado cambió, y hay que aceptar los dos.** Hasta agosto venía
+// DOBLE: las comillas como `\&quot;` y los `&` como `\\u0026`. El 2026-09-27 ya
+// venía simple: `&quot;` y `&`. Buscando solo la forma vieja no se
+// encontraba nada y el servidor no reproducía, con vídeos que estaban bien.
+//
+// La dirección lleva la IP de quien la pidió (`srcIp`): sirve porque la pide
+// el mismo aparato que la va a reproducir.
+//
+// Medido el 2026-08-04: ~0,8 s hasta un `video.m3u8` en vkuser.net.
+
+import { pedir, type ServidorResuelto } from '../comun';
+
+// `ondemandHls` va después, como respaldo: medido el 2026-10-12 en tioanime,
+// 3 vídeos que andaban traían solo esa (sin `hlsManifestUrl`), y sin leerla el
+// servidor se ofrecía y no abría nunca.
+const MARCAS = [
+  'hlsManifestUrl\\&quot;:\\&quot;',
+  'hlsManifestUrl&quot;:&quot;',
+  'ondemandHls\\&quot;:\\&quot;',
+  'ondemandHls&quot;:&quot;',
+];
+
+export async function resolver(url: string): Promise<ServidorResuelto | null> {
+  const html = await pedir(url, 'https://ok.ru/');
+  if (!html) return null;
+  for (const marca of MARCAS) {
+    const desde = html.indexOf(marca);
+    if (desde === -1) continue;
+    const ini = desde + marca.length;
+    // Termina en la comilla escapada, con o sin barra delante.
+    const fin = html.indexOf('&quot;', ini);
+    if (fin === -1) continue;
+    const salida = html
+      .slice(ini, fin)
+      .replace(/\\+$/, '')
+      .split('\\\\u0026').join('&')
+      .split('\\u0026').join('&');
+    if (/^https?:\/\//.test(salida)) return { url: salida };
+  }
+  // Sin la marca: el vídeo no existe más ("Видео не найдено") o cambió otra vez.
+  return null;
+}
+
+/**
+ * Si el vídeo sigue en Ok.ru: true sí, false borrado o bloqueado, null no se sabe.
+ *
+ * Medido el 2026-10-12 en tioanime: 9 de 10 episodios viejos no se podían ver.
+ * En vez del vídeo, la página trae un cartel (`vp_video_stub_txt`): «bloqueado
+ * por derechos de autor» o «el autor no existe o está bloqueado». Sin respuesta
+ * es null y el servidor se ofrece igual.
+ */
+export async function estaVivo(url: string): Promise<boolean | null> {
+  const html = await pedir(url, 'https://ok.ru/');
+  if (!html) return null;
+  if (MARCAS.some((m) => html.indexOf(m) !== -1)) return true;
+  if (html.indexOf('vp_video_stub_txt') !== -1) return false;
+  return null;
+}

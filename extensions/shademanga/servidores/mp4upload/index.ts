@@ -18,11 +18,38 @@
 
 import { pedir, type ServidorResuelto } from '../comun';
 
+/** La dirección del vídeo dentro de la página del embed, o null. */
+function direccionEn(html: string): string | null {
+  const candidatos = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g) ?? [];
+  return candidatos.find((u) => !/\.(?:css|js|jpg|png)/.test(u)) ?? null;
+}
+
 export async function resolver(url: string, referer: string): Promise<ServidorResuelto | null> {
   const html = await pedir(url, referer);
   if (!html) return null;
-  const candidatos = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g) ?? [];
-  const real = candidatos.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
+  const real = direccionEn(html);
   if (!real) return null;
   return { url: real, headers: { Referer: 'https://www.mp4upload.com/' } };
+}
+
+/**
+ * Si el vídeo sigue ahí: true sí, false borrado, null no se sabe.
+ *
+ * Medido el 2026-10-27, dos formas de «borrado»:
+ * - La página del embed es «File was deleted» y nada más (16 bytes): el
+ *   archivo se borró. Pasaba en todos los episodios probados de Naruto
+ *   Shippuden.
+ * - La página trae una dirección, pero esa dirección devuelve otra página en
+ *   vez del vídeo (206 text/html): se pide el primer byte para saberlo.
+ */
+export async function estaVivo(url: string, referer: string): Promise<boolean | null> {
+  const html = await pedir(url, referer);
+  if (html === null) return null;
+  // «File was deleted», y nada más.
+  if (html.length < 100 && /deleted/i.test(html)) return false;
+  const direccion = direccionEn(html);
+  if (!direccion) return null;
+  const byte = await pedir(direccion, 'https://www.mp4upload.com/', { Range: 'bytes=0-0' });
+  if (byte === null) return null;
+  return !/<html|<!doctype/i.test(byte.slice(0, 200));
 }

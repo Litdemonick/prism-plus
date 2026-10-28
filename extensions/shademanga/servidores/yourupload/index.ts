@@ -61,3 +61,22 @@ export async function resolver(url: string, referer: string): Promise<ServidorRe
 
   return null;
 }
+
+/**
+ * Si el vídeo sigue en YourUpload: true sí, false borrado, null no se sabe.
+ * Copiado de tioanime el 2026-10-27 (allá medido: 10 de 19 episodios viejos ya
+ * no estaban; y hay vídeos cuya página está bien pero el mp4 no contesta
+ * nunca, por eso se pide su primer byte).
+ */
+export async function estaVivo(url: string, referer: string): Promise<boolean | null> {
+  const html = await pedir(url, referer);
+  if (!html) return null;
+  if (html.indexOf('novideo') !== -1) return false;
+  if (/<title>\s*Content (?:Restricted|Invalid)/i.test(html)) return false;
+  if (/<h1>\s*An Error Has Occurred/i.test(html) && !/\.mp4/.test(html)) return false;
+  const mp4 = /(?:file|src|source)\s*:\s*["']([^"']+\.mp4[^"']*)["']/i.exec(html)?.[1];
+  if (!mp4) return /\.mp4/.test(html) ? true : null;
+  const direccion = mp4.replace(/\\\//g, '/').replace(/^\/\//, 'https://');
+  const byte = await pedir(direccion, 'https://www.yourupload.com/', { Range: 'bytes=0-0' });
+  return byte !== null ? true : null;
+}

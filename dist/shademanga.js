@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ShadeManga
-// @version      1.4.5
+// @version      1.4.6
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -147,21 +147,63 @@ async function resolver5(url, referer) {
 }
 
 // extensions/shademanga/servidores/mp4upload/index.ts
+function direccionEn(html) {
+  var _a, _b;
+  const candidatos = (_a = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g)) != null ? _a : [];
+  return (_b = candidatos.find((u) => !/\.(?:css|js|jpg|png)/.test(u))) != null ? _b : null;
+}
 async function resolver6(url, referer) {
-  var _a;
   const html = await pedir(url, referer);
   if (!html) return null;
-  const candidatos = (_a = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g)) != null ? _a : [];
-  const real = candidatos.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
+  const real = direccionEn(html);
   if (!real) return null;
   return { url: real, headers: { Referer: "https://www.mp4upload.com/" } };
+}
+async function estaVivo(url, referer) {
+  const html = await pedir(url, referer);
+  if (html === null) return null;
+  if (html.length < 100 && /deleted/i.test(html)) return false;
+  const direccion = direccionEn(html);
+  if (!direccion) return null;
+  const byte = await pedir(direccion, "https://www.mp4upload.com/", { Range: "bytes=0-0" });
+  if (byte === null) return null;
+  return !/<html|<!doctype/i.test(byte.slice(0, 200));
+}
+
+// extensions/shademanga/servidores/ok.ru/index.ts
+var MARCAS = [
+  "hlsManifestUrl\\&quot;:\\&quot;",
+  "hlsManifestUrl&quot;:&quot;",
+  "ondemandHls\\&quot;:\\&quot;",
+  "ondemandHls&quot;:&quot;"
+];
+async function resolver7(url) {
+  const html = await pedir(url, "https://ok.ru/");
+  if (!html) return null;
+  for (const marca of MARCAS) {
+    const desde = html.indexOf(marca);
+    if (desde === -1) continue;
+    const ini = desde + marca.length;
+    const fin = html.indexOf("&quot;", ini);
+    if (fin === -1) continue;
+    const salida = html.slice(ini, fin).replace(/\\+$/, "").split("\\\\u0026").join("&").split("\\u0026").join("&");
+    if (/^https?:\/\//.test(salida)) return { url: salida };
+  }
+  return null;
+}
+async function estaVivo2(url) {
+  const html = await pedir(url, "https://ok.ru/");
+  if (!html) return null;
+  if (MARCAS.some((m) => html.indexOf(m) !== -1)) return true;
+  if (html.indexOf("vp_video_stub_txt") !== -1) return false;
+  return null;
 }
 
 // extensions/shademanga/servidores/yourupload/index.ts
 function esRelleno(u) {
   return u.indexOf("novideo") !== -1;
 }
-async function resolver7(url, referer) {
+async function resolver8(url, referer) {
   var _a, _b;
   const html = await pedir(url, referer);
   if (!html) return null;
@@ -177,6 +219,19 @@ async function resolver7(url, referer) {
   if (realRel) return { url: `https:${realRel}`, headers: hdrs };
   return null;
 }
+async function estaVivo3(url, referer) {
+  var _a;
+  const html = await pedir(url, referer);
+  if (!html) return null;
+  if (html.indexOf("novideo") !== -1) return false;
+  if (/<title>\s*Content (?:Restricted|Invalid)/i.test(html)) return false;
+  if (/<h1>\s*An Error Has Occurred/i.test(html) && !/\.mp4/.test(html)) return false;
+  const mp4 = (_a = /(?:file|src|source)\s*:\s*["']([^"']+\.mp4[^"']*)["']/i.exec(html)) == null ? void 0 : _a[1];
+  if (!mp4) return /\.mp4/.test(html) ? true : null;
+  const direccion = mp4.replace(/\\\//g, "/").replace(/^\/\//, "https://");
+  const byte = await pedir(direccion, "https://www.yourupload.com/", { Range: "bytes=0-0" });
+  return byte !== null ? true : null;
+}
 
 // extensions/shademanga/servidores/index.ts
 var SERVIDORES = [
@@ -185,7 +240,8 @@ var SERVIDORES = [
     hosts: ["mp4upload"],
     botones: 96,
     nativo: true,
-    resolver: resolver6
+    resolver: resolver6,
+    estaVivo
   },
   {
     boton: "HD",
@@ -199,7 +255,8 @@ var SERVIDORES = [
     hosts: ["yourupload", "yupload"],
     botones: 31,
     nativo: true,
-    resolver: resolver7
+    resolver: resolver8,
+    estaVivo: estaVivo3
   },
   {
     boton: "filemoon",
@@ -230,6 +287,17 @@ var SERVIDORES = [
     botones: 19,
     nativo: false,
     resolver: resolver2
+  },
+  // Okru se suma el 2026-10-27: aparecía en los episodios sin resolvedor y
+  // ninguno de sus 7 botones abría. Copiado de tioanime. Va último: en lo
+  // viejo está bloqueado casi siempre (medido allá).
+  {
+    boton: "Okru",
+    hosts: ["ok.ru", "okru"],
+    botones: 0,
+    nativo: true,
+    resolver: resolver7,
+    estaVivo: estaVivo2
   }
 ];
 function fichaDe(url) {
@@ -306,10 +374,11 @@ async function _latestManga(page) {
   const items = (_a = json.items) != null ? _a : [];
   return items.filter((m) => !m.esMayorDeEdad).map(_mangaItemToPrismItem);
 }
+var _NOVEDADES_POR_PAGINA = 100;
 async function _mangaNovedades(page, includeAdult) {
   var _a;
   const json = await _get(
-    `${BASE}/api/series-locales/capitulos/recientes?page=${page}&pageSize=20`
+    `${BASE}/api/series-locales/capitulos/recientes?page=${page}&pageSize=${_NOVEDADES_POR_PAGINA}`
   );
   const items = (_a = json == null ? void 0 : json.items) != null ? _a : [];
   const seen = /* @__PURE__ */ new Set();
@@ -551,17 +620,50 @@ async function _watchEpisode(token, numero) {
   var _a;
   const json = await _get(`${BASE}/api/anime/${token}/${numero}`);
   const embeds = (_a = json == null ? void 0 : json.embeds) != null ? _a : [];
-  const streams = embeds.map((e) => {
-    var _a2;
+  const candidatos = [];
+  for (const e of embeds) {
+    if (!(e == null ? void 0 : e.embedUrl)) continue;
+    const ficha = fichaDe(e.embedUrl);
+    if (!ficha || !ficha.nativo) {
+      console.log(`[sm] servidor sin reproducci\xF3n en la app, no se ofrece: ${e.servidor} ${e.embedUrl.slice(0, 50)}`);
+      continue;
+    }
+    if (candidatos.some((c) => c.url === e.embedUrl)) continue;
+    const etiqueta = e.idioma ? `${e.servidor} (${e.idioma})` : e.servidor;
+    candidatos.push({ url: e.embedUrl, etiqueta, ficha });
+  }
+  const borrados = {};
+  const tarde = [];
+  let algunoVivo = false;
+  await Promise.all(
+    candidatos.map(async (c) => {
+      if (!c.ficha.estaVivo) return;
+      const vivo = await Promise.race([
+        c.ficha.estaVivo(c.url, `${BASE}/`).catch(() => null),
+        new Promise((ok) => setTimeout(() => ok("tarde"), 3e3))
+      ]);
+      if (vivo === true) algunoVivo = true;
+      if (vivo === "tarde") tarde.push(c);
+      if (vivo === false) {
+        borrados[c.url] = true;
+        console.log(`[sm] ${c.ficha.boton} ya no tiene este v\xEDdeo, no se ofrece: ${c.url.slice(0, 50)}`);
+      }
+    })
+  );
+  if (algunoVivo) {
+    for (const c of tarde) {
+      borrados[c.url] = true;
+      console.log(`[sm] ${c.ficha.boton} no contest\xF3 en 3 s y hay otro que anda, no se ofrece: ${c.url.slice(0, 50)}`);
+    }
+  }
+  const orden = (f) => SERVIDORES.indexOf(f);
+  const streams = candidatos.filter((c) => !borrados[c.url]).sort((a, b) => orden(a.ficha) - orden(b.ficha)).map((c) => ({ url: c.url, quality: c.etiqueta, nativo: true }));
+  if (!streams.length) {
     return {
-      url: e.embedUrl,
-      quality: e.idioma ? `${e.servidor} (${e.idioma})` : e.servidor,
-      // El rayo/mundo sale de la tabla de `servidores/`, que es donde está lo que
-      // se midió de cada uno. El nombre solo no alcanza: acá el mismo servidor se
-      // rotula "Mp4upload (SUB)", "Mp4upload (DUB)" o "mp4upload" según la ficha.
-      nativo: (_a2 = fichaDe(e.embedUrl)) == null ? void 0 : _a2.nativo
+      streams: [],
+      reason: candidatos.length ? "servidores_no_disponibles" : "sin_servidores"
     };
-  });
+  }
   return { streams };
 }
 function _interleave(a, b) {

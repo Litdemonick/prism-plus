@@ -55,6 +55,7 @@ import * as filemoon from './filemoon';
 import * as hd from './hd';
 import * as mixdrop from './mixdrop';
 import * as mp4upload from './mp4upload';
+import * as okru from './ok.ru';
 import * as yourupload from './yourupload';
 
 export { type ServidorResuelto } from './comun';
@@ -69,6 +70,11 @@ export interface Servidor {
   /** Si reproduce en el reproductor de la app (rayo) o en el navegador (mundo). */
   nativo: boolean;
   resolver: (url: string, referer: string) => Promise<ServidorResuelto | null>;
+  /**
+   * Si el vídeo sigue ahí: true sí, false borrado, null no se sabe. Solo lo
+   * tienen los que reproducen en la app (los únicos que se ofrecen).
+   */
+  estaVivo?: (url: string, referer: string) => Promise<boolean | null>;
 }
 
 /** Ordenados por peso: primero los que más aparecen en el catálogo. */
@@ -79,6 +85,7 @@ export const SERVIDORES: Servidor[] = [
     botones: 96,
     nativo: true,
     resolver: mp4upload.resolver,
+    estaVivo: mp4upload.estaVivo,
   },
   {
     boton: 'HD',
@@ -93,6 +100,7 @@ export const SERVIDORES: Servidor[] = [
     botones: 31,
     nativo: true,
     resolver: yourupload.resolver,
+    estaVivo: yourupload.estaVivo,
   },
   {
     boton: 'filemoon',
@@ -123,6 +131,17 @@ export const SERVIDORES: Servidor[] = [
     botones: 19,
     nativo: false,
     resolver: filelions.resolver,
+  },
+  // Okru se suma el 2026-10-27: aparecía en los episodios sin resolvedor y
+  // ninguno de sus 7 botones abría. Copiado de tioanime. Va último: en lo
+  // viejo está bloqueado casi siempre (medido allá).
+  {
+    boton: 'Okru',
+    hosts: ['ok.ru', 'okru'],
+    botones: 0,
+    nativo: true,
+    resolver: okru.resolver,
+    estaVivo: okru.estaVivo,
   },
 ];
 

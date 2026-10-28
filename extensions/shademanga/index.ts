@@ -1,4 +1,4 @@
-import { fichaDe, resolverServidor } from './servidores';
+import { fichaDe, resolverServidor, SERVIDORES, type Servidor } from './servidores';
 import type {
   PrismDetail,
   PrismItem,
@@ -127,9 +127,16 @@ interface _RecentChapterApi {
   serie: _MangaListItem;
 }
 
+// Medido (2026-10-27): el sitio guarda solo sus últimos ~96 capítulos, y
+// varios son de la misma obra. De a 20 por página quedaban unas 9 obras en la
+// primera y 0 desde la sexta; una obra podía repetirse entre páginas. De a 100
+// salen las ~41 obras distintas de una vez (y si algún día guarda más, la
+// página 2 sigue con las que vienen).
+const _NOVEDADES_POR_PAGINA = 100;
+
 async function _mangaNovedades(page: number, includeAdult: boolean): Promise<PrismItem[]> {
   const json = await _get(
-    `${BASE}/api/series-locales/capitulos/recientes?page=${page}&pageSize=20`,
+    `${BASE}/api/series-locales/capitulos/recientes?page=${page}&pageSize=${_NOVEDADES_POR_PAGINA}`,
   );
   const items: _RecentChapterApi[] = json?.items ?? [];
   const seen = new Set<number>();
@@ -506,17 +513,79 @@ interface _AnimeEmbed {
   idioma?: string | null;
 }
 
+// ── Qué servidores se ofrecen (medido el 2026-10-27, 16 obras, 47 episodios) ──
+//
+// Antes se ofrecía todo lo que traía el sitio. De eso: Okru 0 de 7 (no tenía
+// resolvedor), Maru (mail.ru) 0 de 4 (los vídeos dan 404), filelions 0 de 7 (solo
+// navegador, que la app ya no tiene), YourUpload 14 de 22 y Mp4upload 48 de 53
+// (los que fallan devuelven una página en vez del vídeo). Ahora, igual que en
+// tioanime:
+//
+// - Solo lo que reproduce la app (tabla de `servidores/`, `nativo`). Lo que
+//   no tiene ficha o no es nativo no se ofrece.
+// - Sin repetidos: la misma dirección dos veces es un solo botón. SUB y DUB son
+//   archivos distintos y quedan los dos.
+// - Lo borrado no se ofrece: se le pregunta a todos a la vez, con tope de 3 s.
+//   El que no contesta a tiempo se esconde solo si otro ya contestó que anda;
+//   si nadie confirmó, ante la duda se ofrece (internet lento).
+// - En el orden de la tabla, el mejor primero: la app arranca siempre igual.
 async function _watchEpisode(token: string, numero: string): Promise<PrismWatch> {
   const json = await _get(`${BASE}/api/anime/${token}/${numero}`);
   const embeds: _AnimeEmbed[] = json?.embeds ?? [];
-  const streams: PrismStream[] = embeds.map((e) => ({
-    url: e.embedUrl,
-    quality: e.idioma ? `${e.servidor} (${e.idioma})` : e.servidor,
-    // El rayo/mundo sale de la tabla de `servidores/`, que es donde está lo que
-    // se midió de cada uno. El nombre solo no alcanza: acá el mismo servidor se
-    // rotula "Mp4upload (SUB)", "Mp4upload (DUB)" o "mp4upload" según la ficha.
-    nativo: fichaDe(e.embedUrl)?.nativo,
-  }));
+
+  type Candidato = { url: string; etiqueta: string; ficha: Servidor };
+  const candidatos: Candidato[] = [];
+  for (const e of embeds) {
+    if (!e?.embedUrl) continue;
+    const ficha = fichaDe(e.embedUrl);
+    if (!ficha || !ficha.nativo) {
+      console.log(`[sm] servidor sin reproducción en la app, no se ofrece: ${e.servidor} ${e.embedUrl.slice(0, 50)}`);
+      continue;
+    }
+    if (candidatos.some((c) => c.url === e.embedUrl)) continue;
+    // El nombre del sitio y no el de la tabla: el mismo servidor viene como
+    // "Mp4upload (SUB)" y "Mp4upload (DUB)", y esa diferencia importa.
+    const etiqueta = e.idioma ? `${e.servidor} (${e.idioma})` : e.servidor;
+    candidatos.push({ url: e.embedUrl, etiqueta, ficha });
+  }
+
+  const borrados: Record<string, boolean> = {};
+  const tarde: Candidato[] = [];
+  let algunoVivo = false;
+  await Promise.all(
+    candidatos.map(async (c) => {
+      if (!c.ficha.estaVivo) return;
+      const vivo = await Promise.race([
+        c.ficha.estaVivo(c.url, `${BASE}/`).catch(() => null),
+        new Promise<'tarde'>((ok) => setTimeout(() => ok('tarde'), 3000)),
+      ]);
+      if (vivo === true) algunoVivo = true;
+      if (vivo === 'tarde') tarde.push(c);
+      if (vivo === false) {
+        borrados[c.url] = true;
+        console.log(`[sm] ${c.ficha.boton} ya no tiene este vídeo, no se ofrece: ${c.url.slice(0, 50)}`);
+      }
+    }),
+  );
+  if (algunoVivo) {
+    for (const c of tarde) {
+      borrados[c.url] = true;
+      console.log(`[sm] ${c.ficha.boton} no contestó en 3 s y hay otro que anda, no se ofrece: ${c.url.slice(0, 50)}`);
+    }
+  }
+
+  const orden = (f: Servidor) => SERVIDORES.indexOf(f);
+  const streams: PrismStream[] = candidatos
+    .filter((c) => !borrados[c.url])
+    .sort((a, b) => orden(a.ficha) - orden(b.ficha))
+    .map((c) => ({ url: c.url, quality: c.etiqueta, nativo: true }));
+
+  if (!streams.length) {
+    return {
+      streams: [],
+      reason: candidatos.length ? 'servidores_no_disponibles' : 'sin_servidores',
+    };
+  }
   return { streams };
 }
 
