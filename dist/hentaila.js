@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         HentaiLA
-// @version      1.0.8
+// @version      1.0.9
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -247,14 +247,23 @@ ${desempaquetarTodo(html)}`.replace(/\\\//g, "/");
 }
 
 // extensions/hentaila/servidores/mp4upload/index.ts
+function direccionEn(html) {
+  var _a, _b;
+  const candidatos = (_a = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g)) != null ? _a : [];
+  return (_b = candidatos.find((u) => !/\.(?:css|js|jpg|png)/.test(u))) != null ? _b : null;
+}
 async function resolver(url, referer) {
-  var _a;
   const html = await pedir(url, referer);
   if (!html) return null;
-  const candidatos = (_a = html.match(/https?:[^"'\s]+\.mp4[^"'\s]*/g)) != null ? _a : [];
-  const real = candidatos.find((u) => !/\.(?:css|js|jpg|png)/.test(u));
+  const real = direccionEn(html);
   if (!real) return null;
   return { url: real, headers: { Referer: "https://www.mp4upload.com/" } };
+}
+async function estaVivo(url, referer) {
+  const html = await pedir(url, referer);
+  if (html === null) return null;
+  if (html.length < 100 && /deleted/i.test(html)) return false;
+  return direccionEn(html) ? true : null;
 }
 
 // extensions/hentaila/servidores/netu/index.ts
@@ -276,7 +285,23 @@ async function resolver4(url, referer) {
 }
 
 // extensions/hentaila/servidores/vip/index.ts
-async function resolver5(_url, _referer) {
+function _lista(url) {
+  var _a;
+  const hash = (_a = /\/play\/([a-f0-9]{32})/i.exec(url)) == null ? void 0 : _a[1];
+  const host = hostDe(url);
+  return hash && host ? `https://${host}/m3u8/${hash}` : null;
+}
+async function resolver5(url) {
+  const lista = _lista(url);
+  return lista ? { url: lista } : null;
+}
+async function estaVivo2(url) {
+  const lista = _lista(url);
+  if (!lista) return null;
+  const texto = await pedir(lista, url);
+  if (texto === null) return null;
+  if (texto.indexOf("#EXTM3U") !== -1) return true;
+  if (/not found/i.test(texto)) return false;
   return null;
 }
 
@@ -339,6 +364,13 @@ async function resolver6(url, referer) {
   if (m) return { url: m[0] };
   return null;
 }
+async function estaVivo3(url, referer) {
+  const html = await pedir(url, referer);
+  if (!html) return null;
+  if (/<title>\s*404\s*-\s*Not found/i.test(html)) return false;
+  if (/window\.location|application\/json/.test(html)) return true;
+  return null;
+}
 
 // extensions/hentaila/servidores/yourupload/index.ts
 async function resolver7(url, referer) {
@@ -347,12 +379,26 @@ async function resolver7(url, referer) {
   const hdrs = { Referer: "https://www.yourupload.com/" };
   const norm = (u) => u.replace(/\\\//g, "/").replace(/^\/\//, "https://");
   let m = /(?:file|src|source)\s*:\s*["']([^"']+\.(?:mp4|m3u8)[^"']*)["']/i.exec(html);
+  if (m && m[1].indexOf("novideo") !== -1) return null;
   if (m) return { url: norm(m[1]), headers: hdrs };
   m = /(https?:\/\/[^"'\s<>]+\.mp4[^"'\s<>]*)/.exec(html);
   if (m) return { url: m[1], headers: hdrs };
   m = /(\/\/[^"'\s<>]+\.mp4[^"'\s<>]*)/.exec(html);
   if (m) return { url: `https:${m[1]}`, headers: hdrs };
   return null;
+}
+async function estaVivo4(url, referer) {
+  var _a;
+  const html = await pedir(url, referer);
+  if (!html) return null;
+  if (html.indexOf("novideo") !== -1) return false;
+  if (/<title>\s*Content (?:Restricted|Invalid)/i.test(html)) return false;
+  if (/<h1>\s*An Error Has Occurred/i.test(html) && !/\.mp4/.test(html)) return false;
+  const mp4 = (_a = /(?:file|src|source)\s*:\s*["']([^"']+\.mp4[^"']*)["']/i.exec(html)) == null ? void 0 : _a[1];
+  if (!mp4) return /\.mp4/.test(html) ? true : null;
+  const direccion = mp4.replace(/\\\//g, "/").replace(/^\/\//, "https://");
+  const byte = await pedir(direccion, "https://www.yourupload.com/", { Range: "bytes=0-0" });
+  return byte !== null ? true : null;
 }
 
 // extensions/hentaila/servidores/index.ts
@@ -362,21 +408,35 @@ var SERVIDORES = [
     hosts: ["yourupload", "yupload"],
     botones: 200,
     nativo: true,
-    resolver: resolver7
-  },
-  {
-    boton: "VIP",
-    hosts: ["hvidserv"],
-    botones: 200,
-    nativo: false,
-    resolver: resolver5
+    resolver: resolver7,
+    estaVivo: estaVivo4
   },
   {
     boton: "Voe",
     hosts: ["voe.sx", "voe."],
     botones: 200,
     nativo: true,
-    resolver: resolver6
+    resolver: resolver6,
+    estaVivo: estaVivo3
+  },
+  {
+    boton: "MP4Upload",
+    hosts: ["mp4upload"],
+    botones: 196,
+    nativo: true,
+    resolver,
+    estaVivo
+  },
+  {
+    boton: "VIP",
+    // Solo la dirección nueva: en la vieja (`hvidserv`) los pedazos daban 403.
+    // Cuarto hasta que se confirme en la app: sus pedazos se llaman `.html`
+    // (ver su carpeta) y el banco no puede comprobarlo.
+    hosts: ["dotanborito"],
+    botones: 200,
+    nativo: true,
+    resolver: resolver5,
+    estaVivo: estaVivo2
   },
   {
     boton: "VidHide",
@@ -384,13 +444,6 @@ var SERVIDORES = [
     botones: 199,
     nativo: true,
     resolver: resolver4
-  },
-  {
-    boton: "MP4Upload",
-    hosts: ["mp4upload"],
-    botones: 196,
-    nativo: true,
-    resolver
   },
   {
     boton: "Netu",
@@ -672,7 +725,7 @@ function _isBlocked(url) {
   return false;
 }
 async function watch(url) {
-  var _a, _b, _c;
+  var _a;
   if (url.indexOf("http") === 0 && url.indexOf("hentaila.com") === -1) {
     try {
       const res = _isBlocked(url) ? null : await resolverServidor(url, `${BASE}/`);
@@ -695,29 +748,66 @@ async function watch(url) {
     const downloadsAt = rest.indexOf("downloads:");
     embedsBlock = downloadsAt > 0 ? rest.slice(0, downloadsAt) : rest.slice(0, 4e3);
   }
-  const streams = [];
-  const seen = {};
+  const candidatos = [];
+  const _sumar = (server, embedUrl) => {
+    if (!embedUrl || _isBlocked(embedUrl)) return;
+    if (candidatos.some((c) => c.url === embedUrl)) return;
+    const ficha = fichaDe(embedUrl);
+    if (!ficha || !ficha.nativo) {
+      console.log(`[ht] servidor sin reproducci\xF3n en la app, no se ofrece: ${server} ${embedUrl.slice(0, 50)}`);
+      return;
+    }
+    candidatos.push({ url: embedUrl, etiqueta: server, ficha });
+  };
   for (const m of embedsBlock.matchAll(
     /server:"((?:[^"\\]|\\.)*)",url:"((?:[^"\\]|\\.)*)"/g
   )) {
-    const server = _unescapeJs(m[1]);
-    const embedUrl = _unescapeJs(m[2]);
-    if (!embedUrl || _isBlocked(embedUrl) || seen[embedUrl]) continue;
-    seen[embedUrl] = true;
-    streams.push({ url: embedUrl, quality: server, nativo: (_a = fichaDe(embedUrl)) == null ? void 0 : _a.nativo });
+    _sumar(_unescapeJs(m[1]), _unescapeJs(m[2]));
   }
-  if (streams.length === 0) {
-    const iframe = (_b = /<iframe[^>]+src="([^"]+)"/i.exec(html)) == null ? void 0 : _b[1];
-    if (iframe && !_isBlocked(iframe)) {
-      streams.push({ url: iframe, quality: "Servidor", nativo: (_c = fichaDe(iframe)) == null ? void 0 : _c.nativo });
-    }
+  if (!candidatos.length) {
+    const iframe = (_a = /<iframe[^>]+src="([^"]+)"/i.exec(html)) == null ? void 0 : _a[1];
+    if (iframe) _sumar("Servidor", iframe);
   }
-  const esPreferido = (nombre) => nombre.toLowerCase().replace(/[^a-z]/g, "").indexOf("yourupload") !== -1;
-  streams.sort((a, b) => {
-    const pa = esPreferido(a.quality || "") ? 0 : 1;
-    const pb = esPreferido(b.quality || "") ? 0 : 1;
-    return pa - pb;
-  });
+  const borrados = {};
+  const tarde = [];
+  let algunoVivo = false;
+  let avisarVivo = () => {
+  };
+  const unoVivo = new Promise((ok) => avisarVivo = ok);
+  const corte = Promise.race([
+    new Promise((ok) => setTimeout(() => ok("tarde"), 3e3)),
+    unoVivo.then(() => new Promise((ok) => setTimeout(() => ok("pronto"), 800)))
+  ]);
+  await Promise.all(
+    candidatos.map(async (c) => {
+      if (!c.ficha.estaVivo) return;
+      const vivo = await Promise.race([
+        c.ficha.estaVivo(c.url, `${BASE}/`).then((v) => {
+          if (v === true) avisarVivo();
+          return v;
+        }).catch(() => null),
+        corte
+      ]);
+      if (vivo === true) algunoVivo = true;
+      if (vivo === "tarde") tarde.push(c);
+      if (vivo === false) {
+        borrados[c.url] = true;
+        console.log(`[ht] ${c.ficha.boton} ya no tiene este v\xEDdeo, no se ofrece: ${c.url.slice(0, 50)}`);
+      }
+    })
+  );
+  if (algunoVivo) {
+    for (const c of tarde) borrados[c.url] = true;
+  }
+  const orden = (f) => SERVIDORES.indexOf(f);
+  const streams = candidatos.filter((c) => !borrados[c.url]).sort((a, b) => orden(a.ficha) - orden(b.ficha)).map((c) => ({ url: c.url, quality: c.etiqueta, nativo: true }));
+  if (!streams.length) {
+    return {
+      streams: [],
+      pageUrl: episodeUrl,
+      reason: candidatos.length ? "servidores_no_disponibles" : "sin_servidores"
+    };
+  }
   return { streams, pageUrl: episodeUrl };
 }
 

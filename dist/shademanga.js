@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ShadeManga
-// @version      1.4.7
+// @version      1.4.8
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -679,7 +679,7 @@ async function _watchEpisode(token, numero) {
   const unoVivo = new Promise((ok) => avisarVivo = ok);
   const corte = Promise.race([
     new Promise((ok) => setTimeout(() => ok("tarde"), 3e3)),
-    unoVivo.then(() => new Promise((ok) => setTimeout(() => ok("tarde"), 800)))
+    unoVivo.then(() => new Promise((ok) => setTimeout(() => ok("pronto"), 800)))
   ]);
   await Promise.all(
     candidatos.map(async (c) => {

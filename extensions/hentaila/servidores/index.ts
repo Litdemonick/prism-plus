@@ -65,9 +65,17 @@ export interface Servidor {
   /** Si reproduce en el reproductor de la app (rayo) o en el navegador (mundo). */
   nativo: boolean;
   resolver: (url: string, referer: string) => Promise<ServidorResuelto | null>;
+  /** Si el vídeo sigue ahí: true sí, false borrado, null no se sabe. */
+  estaVivo?: (url: string, referer: string) => Promise<boolean | null>;
 }
 
-/** Ordenados por peso: primero los que más aparecen en el catálogo. */
+/**
+ * En el orden en que se ofrecen (la app arranca con el primero). Medido el
+ * 2026-10-28 sobre 20 obras de todas las épocas (46 episodios): YourUpload
+ * 42/46 en 1,9 s; Voe 18/20; MP4Upload 18/19; VidHide 3/20 (tokens que
+ * vencen). VIP vuelve como nativo (ver su carpeta). Netu y StreamWish solo
+ * andaban en el navegador, que la app ya no tiene: no se ofrecen.
+ */
 export const SERVIDORES: Servidor[] = [
   {
     boton: 'YourUpload',
@@ -75,13 +83,7 @@ export const SERVIDORES: Servidor[] = [
     botones: 200,
     nativo: true,
     resolver: yourupload.resolver,
-  },
-  {
-    boton: 'VIP',
-    hosts: ['hvidserv'],
-    botones: 200,
-    nativo: false,
-    resolver: vip.resolver,
+    estaVivo: yourupload.estaVivo,
   },
   {
     boton: 'Voe',
@@ -89,13 +91,7 @@ export const SERVIDORES: Servidor[] = [
     botones: 200,
     nativo: true,
     resolver: voe.resolver,
-  },
-  {
-    boton: 'VidHide',
-    hosts: ['ryderjet', 'vidhide', 'vhide'],
-    botones: 199,
-    nativo: true,
-    resolver: vidhide.resolver,
+    estaVivo: voe.estaVivo,
   },
   {
     boton: 'MP4Upload',
@@ -103,6 +99,25 @@ export const SERVIDORES: Servidor[] = [
     botones: 196,
     nativo: true,
     resolver: mp4upload.resolver,
+    estaVivo: mp4upload.estaVivo,
+  },
+  {
+    boton: 'VIP',
+    // Solo la dirección nueva: en la vieja (`hvidserv`) los pedazos daban 403.
+    // Cuarto hasta que se confirme en la app: sus pedazos se llaman `.html`
+    // (ver su carpeta) y el banco no puede comprobarlo.
+    hosts: ['dotanborito'],
+    botones: 200,
+    nativo: true,
+    resolver: vip.resolver,
+    estaVivo: vip.estaVivo,
+  },
+  {
+    boton: 'VidHide',
+    hosts: ['ryderjet', 'vidhide', 'vhide'],
+    botones: 199,
+    nativo: true,
+    resolver: vidhide.resolver,
   },
   {
     boton: 'Netu',

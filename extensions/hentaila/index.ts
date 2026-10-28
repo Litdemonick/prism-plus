@@ -1,6 +1,6 @@
 import { DESKTOP_UA } from '../../sdk/http';
 import { decodeEntities } from '../../sdk/html';
-import { fichaDe, resolverServidor } from './servidores';
+import { fichaDe, resolverServidor, SERVIDORES, type Servidor } from './servidores';
 import type { PrismDetail, PrismItem, PrismWatch, PrismStream, PrismEpisode } from '../../sdk/types';
 
 declare function sendMessage(channel: string, data: string): Promise<string>;
@@ -396,49 +396,89 @@ export async function watch(url: string): Promise<PrismWatch> {
     embedsBlock = downloadsAt > 0 ? rest.slice(0, downloadsAt) : rest.slice(0, 4000);
   }
 
-  const streams: PrismStream[] = [];
-  const seen: Record<string, boolean> = {};
+  // ── Qué se ofrece (medido 2026-10-28, 20 obras de todas las épocas) ──────
+  //
+  // Antes iba todo lo que traía el sitio, con YourUpload adelante. De eso, VIP
+  // 0/20 (se había mudado de dirección), Netu 0/17 y StreamWish 0/7 (solo
+  // andaban en el navegador, que la app ya no tiene). Ahora, igual que en
+  // tioanime y shademanga:
+  // - Solo lo que reproduce la app (tabla de `servidores/`, `nativo`).
+  // - Sin repetidos: la misma dirección dos veces es un solo botón.
+  // - Lo borrado no se ofrece: se pregunta a todos a la vez, con tope de 3 s;
+  //   apenas uno anda, a los demás se les da 0,8 s más. El que no contesta se
+  //   esconde solo si otro ya anda; si nadie confirmó, se ofrece igual.
+  // - En el orden de la tabla, el mejor primero (YourUpload).
+  type Candidato = { url: string; etiqueta: string; ficha: Servidor };
+  const candidatos: Candidato[] = [];
+  const _sumar = (server: string, embedUrl: string) => {
+    if (!embedUrl || _isBlocked(embedUrl)) return;
+    if (candidatos.some((c) => c.url === embedUrl)) return;
+    const ficha = fichaDe(embedUrl);
+    if (!ficha || !ficha.nativo) {
+      console.log(`[ht] servidor sin reproducción en la app, no se ofrece: ${server} ${embedUrl.slice(0, 50)}`);
+      return;
+    }
+    candidatos.push({ url: embedUrl, etiqueta: server, ficha });
+  };
   for (const m of embedsBlock.matchAll(
     /server:"((?:[^"\\]|\\.)*)",url:"((?:[^"\\]|\\.)*)"/g,
   )) {
-    const server = _unescapeJs(m[1]);
-    const embedUrl = _unescapeJs(m[2]);
-    if (!embedUrl || _isBlocked(embedUrl) || seen[embedUrl]) continue;
-    seen[embedUrl] = true;
-    // El rayo/mundo sale de la tabla de `servidores/`, que es donde está lo
-    // que se midió de cada uno. Sin esto la app lo adivinaba por el nombre y
-    // le erraba a dos: YourUpload salía con el mundo aunque reproduce nativo,
-    // y StreamWish con el rayo aunque termina en el navegador.
-    streams.push({ url: embedUrl, quality: server, nativo: fichaDe(embedUrl)?.nativo });
+    _sumar(_unescapeJs(m[1]), _unescapeJs(m[2]));
   }
-
   // Último recurso: el iframe que ya viene renderizado en la página.
-  if (streams.length === 0) {
+  if (!candidatos.length) {
     const iframe = /<iframe[^>]+src="([^"]+)"/i.exec(html)?.[1];
-    if (iframe && !_isBlocked(iframe)) {
-      streams.push({ url: iframe, quality: 'Servidor', nativo: fichaDe(iframe)?.nativo });
-    }
+    if (iframe) _sumar('Servidor', iframe);
   }
 
-  // YourUpload primero: es el que arranca por defecto.
-  //
-  // El cliente toma el PRIMER servidor de la lista como el inicial, y hasta
-  // ahora ese era simplemente el que el sitio listara antes, que cambia de un
-  // episodio a otro. YourUpload es el que resuelve a un mp4 directo de forma
-  // mas confiable en esta extension, asi que abrir con ese evita empezar por
-  // uno que va a caer al WebView.
-  //
-  // Es un reordenamiento, no un filtro: los demas servidores siguen todos ahi
-  // y en su orden original. Si el episodio no tiene YourUpload, no cambia nada.
-  const esPreferido = (nombre: string) =>
-    nombre.toLowerCase().replace(/[^a-z]/g, '').indexOf('yourupload') !== -1;
-  streams.sort((a, b) => {
-    const pa = esPreferido(a.quality || '') ? 0 : 1;
-    const pb = esPreferido(b.quality || '') ? 0 : 1;
-    return pa - pb;
-  });
+  const borrados: Record<string, boolean> = {};
+  const tarde: Candidato[] = [];
+  let algunoVivo = false;
+  let avisarVivo: () => void = () => {};
+  const unoVivo = new Promise<void>((ok) => (avisarVivo = ok));
+  // Dos cortes distintos: el tope entero (3 s) y el de «ya hay uno que anda»
+  // (0,8 s más). Solo el primero puede esconder: lo que no llegó a contestar
+  // por el corte corto NO está borrado, solo tarda — medido 2026-10-28,
+  // YourUpload (que pide la página y el primer byte) quedaba afuera en 33 de
+  // 46 episodios porque otro contestaba antes.
+  const corte = Promise.race([
+    new Promise<'tarde'>((ok) => setTimeout(() => ok('tarde'), 3000)),
+    unoVivo.then(() => new Promise<'pronto'>((ok) => setTimeout(() => ok('pronto'), 800))),
+  ]);
+  await Promise.all(
+    candidatos.map(async (c) => {
+      if (!c.ficha.estaVivo) return;
+      const vivo = await Promise.race([
+        c.ficha.estaVivo(c.url, `${BASE}/`).then((v) => {
+          if (v === true) avisarVivo();
+          return v;
+        }).catch(() => null),
+        corte,
+      ]);
+      if (vivo === true) algunoVivo = true;
+      if (vivo === 'tarde') tarde.push(c);
+      if (vivo === false) {
+        borrados[c.url] = true;
+        console.log(`[ht] ${c.ficha.boton} ya no tiene este vídeo, no se ofrece: ${c.url.slice(0, 50)}`);
+      }
+    }),
+  );
+  if (algunoVivo) {
+    for (const c of tarde) borrados[c.url] = true;
+  }
 
-  // pageUrl siempre: si ningún resolver nativo saca el stream, el cliente cae
-  // al WebView sobre la página real del episodio.
+  const orden = (f: Servidor) => SERVIDORES.indexOf(f);
+  const streams: PrismStream[] = candidatos
+    .filter((c) => !borrados[c.url])
+    .sort((a, b) => orden(a.ficha) - orden(b.ficha))
+    .map((c) => ({ url: c.url, quality: c.etiqueta, nativo: true }));
+
+  if (!streams.length) {
+    return {
+      streams: [],
+      pageUrl: episodeUrl,
+      reason: candidatos.length ? 'servidores_no_disponibles' : 'sin_servidores',
+    };
+  }
   return { streams, pageUrl: episodeUrl };
 }

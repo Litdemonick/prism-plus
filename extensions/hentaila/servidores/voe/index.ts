@@ -110,3 +110,15 @@ export async function resolver(url: string, referer: string): Promise<ServidorRe
 
   return null;
 }
+
+/**
+ * Si el vídeo sigue en Voe: true sí, false borrado, null no se sabe. Copiado
+ * de tioanime el 2026-10-28 (allá medido: lo borrado trae «404 - Not found»).
+ */
+export async function estaVivo(url: string, referer: string): Promise<boolean | null> {
+  const html = await pedir(url, referer);
+  if (!html) return null;
+  if (/<title>\s*404\s*-\s*Not found/i.test(html)) return false;
+  if (/window\.location|application\/json/.test(html)) return true;
+  return null;
+}

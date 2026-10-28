@@ -74,7 +74,7 @@
     {
       "name": "HentaiLA",
       "package": "io.prismhub.hentaila",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -85,8 +85,8 @@
       "nsfw": "true",
       "latestLabel": "ultimos-episodios",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/hentaila.js",
-      "sha256": "0935ed0c9353401c6a568205b41c63f6b75ba868a168e9800f973dea4da8aada",
-      "signature": "3Gzz4yCx/7/2BniwNjmA9IG/N7ZIBQJ+6mbdMXV8yxhqS2gZ5EH9IjyVY9V20w6q+AYugDzGQUhMvrx43/EtCQ=="
+      "sha256": "6d2b6044e7ec5f76c4bce06d172c8c864a5b736bbc51285a5620d0e2a5a01307",
+      "signature": "8k5qwX+CkvCCQA61Fd23S9axRUHa1ijFXTCUTROib4ZyhIcvWV6wrcGAikvYnwuzOuY2V8nOr883C0PuCxPWAg=="
     },
     {
       "name": "HQPorner",
@@ -224,7 +224,7 @@
     {
       "name": "ShadeManga",
       "package": "io.prismhub.shademanga",
-      "version": "1.4.7",
+      "version": "1.4.8",
       "author": "PrismPlus",
       "type": "mixed",
       "contentKind": "anime",
@@ -236,8 +236,8 @@
       "nsfw": "false",
       "latestLabel": "novedades",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/shademanga.js",
-      "sha256": "97876efc2fd0ad84726f28adc6e4dda2d94e8ea9bfdc9b1d2ec8f2408a1dee54",
-      "signature": "3lD5FhDAWNqGAxuBYhm6X2rTO9YbjgNc8EfU+1CoIoXOhcDve9gf6XbqLTnV4/4jWYjB5zs1MvzbU9Yx6GfGCQ=="
+      "sha256": "73cb780e7786f595ac31def1861fedf95be25c1adc7512e03adac53ee4944dcf",
+      "signature": "5gYAffGVEazDVieHx3r62VI3GW8n7wdW8y6NoUSADoD0wEbvm3+aB2RlX/y9frRB/Ne9FOSxb2pKRjE+ppX3Dw=="
     },
     {
       "name": "TioAnime",

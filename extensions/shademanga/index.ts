@@ -558,9 +558,14 @@ async function _watchEpisode(token: string, numero: string): Promise<PrismWatch>
   // Se cumple apenas alguno confirma que anda: desde ahí, 0,8 s más y listo.
   let avisarVivo: () => void = () => {};
   const unoVivo = new Promise<void>((ok) => (avisarVivo = ok));
+  // Dos cortes distintos: el tope entero (3 s) y el de «ya hay uno que anda»
+  // (0,8 s más). Solo el primero puede esconder: lo que no llegó a contestar
+  // por el corte corto NO está borrado, solo tarda — medido 2026-10-28,
+  // YourUpload (que pide la página y el primer byte) quedaba afuera en 33 de
+  // 46 episodios porque otro contestaba antes.
   const corte = Promise.race([
     new Promise<'tarde'>((ok) => setTimeout(() => ok('tarde'), 3000)),
-    unoVivo.then(() => new Promise<'tarde'>((ok) => setTimeout(() => ok('tarde'), 800))),
+    unoVivo.then(() => new Promise<'pronto'>((ok) => setTimeout(() => ok('pronto'), 800))),
   ]);
   await Promise.all(
     candidatos.map(async (c) => {
