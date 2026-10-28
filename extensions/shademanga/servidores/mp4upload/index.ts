@@ -35,21 +35,17 @@ export async function resolver(url: string, referer: string): Promise<ServidorRe
 /**
  * Si el vídeo sigue ahí: true sí, false borrado, null no se sabe.
  *
- * Medido el 2026-10-27, dos formas de «borrado»:
- * - La página del embed es «File was deleted» y nada más (16 bytes): el
- *   archivo se borró. Pasaba en todos los episodios probados de Naruto
- *   Shippuden.
- * - La página trae una dirección, pero esa dirección devuelve otra página en
- *   vez del vídeo (206 text/html): se pide el primer byte para saberlo.
+ * Medido el 2026-10-27: lo borrado es la página «File was deleted» y nada más
+ * (16 bytes); pasaba en todos los episodios probados de Naruto Shippuden.
+ *
+ * NO se pide el primer byte del vídeo: su servidor (`a3.mp4upload.com:183`) a
+ * veces no conecta, y esa espera se sumaba a CADA episodio (la lista tardaba
+ * 3,2 s siempre). Si el vídeo no abre, la app pasa sola al siguiente.
  */
 export async function estaVivo(url: string, referer: string): Promise<boolean | null> {
   const html = await pedir(url, referer);
   if (html === null) return null;
   // «File was deleted», y nada más.
   if (html.length < 100 && /deleted/i.test(html)) return false;
-  const direccion = direccionEn(html);
-  if (!direccion) return null;
-  const byte = await pedir(direccion, 'https://www.mp4upload.com/', { Range: 'bytes=0-0' });
-  if (byte === null) return null;
-  return !/<html|<!doctype/i.test(byte.slice(0, 200));
+  return direccionEn(html) ? true : null;
 }

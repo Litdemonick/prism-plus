@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         ShadeManga
-// @version      1.4.6
+// @version      1.4.7
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -163,11 +163,40 @@ async function estaVivo(url, referer) {
   const html = await pedir(url, referer);
   if (html === null) return null;
   if (html.length < 100 && /deleted/i.test(html)) return false;
-  const direccion = direccionEn(html);
-  if (!direccion) return null;
-  const byte = await pedir(direccion, "https://www.mp4upload.com/", { Range: "bytes=0-0" });
-  if (byte === null) return null;
-  return !/<html|<!doctype/i.test(byte.slice(0, 200));
+  return direccionEn(html) ? true : null;
+}
+
+// extensions/shademanga/servidores/mail.ru/index.ts
+function _id(url) {
+  var _a, _b;
+  return (_b = (_a = /\/embed\/(\d+)/.exec(url)) == null ? void 0 : _a[1]) != null ? _b : null;
+}
+async function _meta(url) {
+  const id = _id(url);
+  if (!id) return null;
+  const texto = await pedir(`https://my.mail.ru/+/video/meta/${id}`, url);
+  if (!texto) return null;
+  try {
+    return JSON.parse(texto);
+  } catch (e) {
+    return null;
+  }
+}
+async function resolver7(url) {
+  var _a, _b;
+  const meta = await _meta(url);
+  const videos = ((_a = meta == null ? void 0 : meta.videos) != null ? _a : []).filter((v) => v.url);
+  if (!videos.length) return null;
+  const elegido = (_b = videos.find((v) => v.key === "720p")) != null ? _b : videos[0];
+  const dir = elegido.url.startsWith("//") ? `https:${elegido.url}` : elegido.url;
+  return { url: dir };
+}
+async function estaVivo2(url) {
+  var _a;
+  const meta = await _meta(url);
+  if (!meta) return null;
+  if (meta.error === "video_not_found") return false;
+  return ((_a = meta.videos) != null ? _a : []).some((v) => v.url) ? true : null;
 }
 
 // extensions/shademanga/servidores/ok.ru/index.ts
@@ -177,7 +206,7 @@ var MARCAS = [
   "ondemandHls\\&quot;:\\&quot;",
   "ondemandHls&quot;:&quot;"
 ];
-async function resolver7(url) {
+async function resolver8(url) {
   const html = await pedir(url, "https://ok.ru/");
   if (!html) return null;
   for (const marca of MARCAS) {
@@ -191,7 +220,7 @@ async function resolver7(url) {
   }
   return null;
 }
-async function estaVivo2(url) {
+async function estaVivo3(url) {
   const html = await pedir(url, "https://ok.ru/");
   if (!html) return null;
   if (MARCAS.some((m) => html.indexOf(m) !== -1)) return true;
@@ -203,7 +232,7 @@ async function estaVivo2(url) {
 function esRelleno(u) {
   return u.indexOf("novideo") !== -1;
 }
-async function resolver8(url, referer) {
+async function resolver9(url, referer) {
   var _a, _b;
   const html = await pedir(url, referer);
   if (!html) return null;
@@ -219,7 +248,7 @@ async function resolver8(url, referer) {
   if (realRel) return { url: `https:${realRel}`, headers: hdrs };
   return null;
 }
-async function estaVivo3(url, referer) {
+async function estaVivo4(url, referer) {
   var _a;
   const html = await pedir(url, referer);
   if (!html) return null;
@@ -236,6 +265,14 @@ async function estaVivo3(url, referer) {
 // extensions/shademanga/servidores/index.ts
 var SERVIDORES = [
   {
+    boton: "YourUpload",
+    hosts: ["yourupload", "yupload"],
+    botones: 31,
+    nativo: true,
+    resolver: resolver9,
+    estaVivo: estaVivo4
+  },
+  {
     boton: "Mp4upload",
     hosts: ["mp4upload"],
     botones: 96,
@@ -249,14 +286,6 @@ var SERVIDORES = [
     botones: 46,
     nativo: false,
     resolver: resolver4
-  },
-  {
-    boton: "YourUpload",
-    hosts: ["yourupload", "yupload"],
-    botones: 31,
-    nativo: true,
-    resolver: resolver8,
-    estaVivo: estaVivo3
   },
   {
     boton: "filemoon",
@@ -288,6 +317,16 @@ var SERVIDORES = [
     nativo: false,
     resolver: resolver2
   },
+  // Maru (my.mail.ru) se suma el 2026-10-27: se creía muerto (los borrados dan
+  // 404), pero los que están se reproducen directo en 720p. Ver su carpeta.
+  {
+    boton: "Maru",
+    hosts: ["mail.ru"],
+    botones: 7,
+    nativo: true,
+    resolver: resolver7,
+    estaVivo: estaVivo2
+  },
   // Okru se suma el 2026-10-27: aparecía en los episodios sin resolvedor y
   // ninguno de sus 7 botones abría. Copiado de tioanime. Va último: en lo
   // viejo está bloqueado casi siempre (medido allá).
@@ -296,8 +335,8 @@ var SERVIDORES = [
     hosts: ["ok.ru", "okru"],
     botones: 0,
     nativo: true,
-    resolver: resolver7,
-    estaVivo: estaVivo2
+    resolver: resolver8,
+    estaVivo: estaVivo3
   }
 ];
 function fichaDe(url) {
@@ -635,12 +674,22 @@ async function _watchEpisode(token, numero) {
   const borrados = {};
   const tarde = [];
   let algunoVivo = false;
+  let avisarVivo = () => {
+  };
+  const unoVivo = new Promise((ok) => avisarVivo = ok);
+  const corte = Promise.race([
+    new Promise((ok) => setTimeout(() => ok("tarde"), 3e3)),
+    unoVivo.then(() => new Promise((ok) => setTimeout(() => ok("tarde"), 800)))
+  ]);
   await Promise.all(
     candidatos.map(async (c) => {
       if (!c.ficha.estaVivo) return;
       const vivo = await Promise.race([
-        c.ficha.estaVivo(c.url, `${BASE}/`).catch(() => null),
-        new Promise((ok) => setTimeout(() => ok("tarde"), 3e3))
+        c.ficha.estaVivo(c.url, `${BASE}/`).then((v) => {
+          if (v === true) avisarVivo();
+          return v;
+        }).catch(() => null),
+        corte
       ]);
       if (vivo === true) algunoVivo = true;
       if (vivo === "tarde") tarde.push(c);

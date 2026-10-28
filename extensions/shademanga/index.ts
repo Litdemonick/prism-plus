@@ -528,6 +528,9 @@ interface _AnimeEmbed {
 // - Lo borrado no se ofrece: se le pregunta a todos a la vez, con tope de 3 s.
 //   El que no contesta a tiempo se esconde solo si otro ya contestó que anda;
 //   si nadie confirmó, ante la duda se ofrece (internet lento).
+// - Apenas uno contesta que anda, a los demás se les da 0,8 s más y no los 3
+//   enteros: un servidor que no conecta hacía esperar el tope en cada
+//   episodio (medido: la lista tardaba 3,2 s siempre).
 // - En el orden de la tabla, el mejor primero: la app arranca siempre igual.
 async function _watchEpisode(token: string, numero: string): Promise<PrismWatch> {
   const json = await _get(`${BASE}/api/anime/${token}/${numero}`);
@@ -552,12 +555,22 @@ async function _watchEpisode(token: string, numero: string): Promise<PrismWatch>
   const borrados: Record<string, boolean> = {};
   const tarde: Candidato[] = [];
   let algunoVivo = false;
+  // Se cumple apenas alguno confirma que anda: desde ahí, 0,8 s más y listo.
+  let avisarVivo: () => void = () => {};
+  const unoVivo = new Promise<void>((ok) => (avisarVivo = ok));
+  const corte = Promise.race([
+    new Promise<'tarde'>((ok) => setTimeout(() => ok('tarde'), 3000)),
+    unoVivo.then(() => new Promise<'tarde'>((ok) => setTimeout(() => ok('tarde'), 800))),
+  ]);
   await Promise.all(
     candidatos.map(async (c) => {
       if (!c.ficha.estaVivo) return;
       const vivo = await Promise.race([
-        c.ficha.estaVivo(c.url, `${BASE}/`).catch(() => null),
-        new Promise<'tarde'>((ok) => setTimeout(() => ok('tarde'), 3000)),
+        c.ficha.estaVivo(c.url, `${BASE}/`).then((v) => {
+          if (v === true) avisarVivo();
+          return v;
+        }).catch(() => null),
+        corte,
       ]);
       if (vivo === true) algunoVivo = true;
       if (vivo === 'tarde') tarde.push(c);

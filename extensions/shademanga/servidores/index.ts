@@ -55,6 +55,7 @@ import * as filemoon from './filemoon';
 import * as hd from './hd';
 import * as mixdrop from './mixdrop';
 import * as mp4upload from './mp4upload';
+import * as maru from './mail.ru';
 import * as okru from './ok.ru';
 import * as yourupload from './yourupload';
 
@@ -77,8 +78,24 @@ export interface Servidor {
   estaVivo?: (url: string, referer: string) => Promise<boolean | null>;
 }
 
-/** Ordenados por peso: primero los que más aparecen en el catálogo. */
+/**
+ * En el orden en que se ofrecen: la app arranca con el primero.
+ *
+ * YourUpload primero, medido el 2026-10-27 sobre los mismos episodios, tres
+ * veces cada uno: entrega entre 0,6 y 10 MB/s y llega al vídeo en ~3 s.
+ * Mp4upload entrega 0,4–0,9 MB/s siempre (alcanza para ver sin cortes, pero
+ * arranca lento: «demora en cargar pero carga», reportado) y su servidor a
+ * veces no conecta. Queda segundo, de respaldo. Después Maru y Okru.
+ */
 export const SERVIDORES: Servidor[] = [
+  {
+    boton: 'YourUpload',
+    hosts: ['yourupload', 'yupload'],
+    botones: 31,
+    nativo: true,
+    resolver: yourupload.resolver,
+    estaVivo: yourupload.estaVivo,
+  },
   {
     boton: 'Mp4upload',
     hosts: ['mp4upload'],
@@ -93,14 +110,6 @@ export const SERVIDORES: Servidor[] = [
     botones: 46,
     nativo: false,
     resolver: hd.resolver,
-  },
-  {
-    boton: 'YourUpload',
-    hosts: ['yourupload', 'yupload'],
-    botones: 31,
-    nativo: true,
-    resolver: yourupload.resolver,
-    estaVivo: yourupload.estaVivo,
   },
   {
     boton: 'filemoon',
@@ -131,6 +140,16 @@ export const SERVIDORES: Servidor[] = [
     botones: 19,
     nativo: false,
     resolver: filelions.resolver,
+  },
+  // Maru (my.mail.ru) se suma el 2026-10-27: se creía muerto (los borrados dan
+  // 404), pero los que están se reproducen directo en 720p. Ver su carpeta.
+  {
+    boton: 'Maru',
+    hosts: ['mail.ru'],
+    botones: 7,
+    nativo: true,
+    resolver: maru.resolver,
+    estaVivo: maru.estaVivo,
   },
   // Okru se suma el 2026-10-27: aparecía en los episodios sin resolvedor y
   // ninguno de sus 7 botones abría. Copiado de tioanime. Va último: en lo
