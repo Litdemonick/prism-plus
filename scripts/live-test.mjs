@@ -56,7 +56,6 @@ let defaultUA = UA;
 const KEYWORDS = {
   'io.prismhub.jkanime': 'one piece',
   'io.prismhub.tioanime': 'one piece',
-  'io.prismhub.fuegocine': 'batman',
   'io.prismhub.manhwaweb': 'solo leveling',
   'io.prismhub.olympus': 'solo leveling',
   'io.prismhub.shademanga': 'one piece',

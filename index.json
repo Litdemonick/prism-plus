@@ -57,23 +57,6 @@
       "signature": "lQkok3ep5oI4LLSfu2ryprWSpuPyxqV/UKr5UjG2QxQ96z6MP8a84YTJDGhKf5c5N0xlnM6nQSEAsW5lekXEBg=="
     },
     {
-      "name": "FuegoCine",
-      "package": "io.prismhub.fuegocine",
-      "version": "1.10.5",
-      "author": "PrismPlus",
-      "type": "bangumi",
-      "contentKind": "accion-real",
-      "icon": "",
-      "description": "Pelis y series al toque, en español, con servidores directos listos para reproducir sin vueltas.",
-      "lang": "es",
-      "webSite": "https://www.fuegocine.com",
-      "license": "MIT",
-      "latestLabel": "lo-mas-reciente",
-      "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/fuegocine.js",
-      "sha256": "8ea51e802d4d7bc09bd79213b0ac4264437cc634ce38a1064e10eb86ac1fa291",
-      "signature": "/nbBfcuqoK6X2tMHVwP0DUMkCKdBKwYQk34iPrhDvtrt/uJ6V6Ww2U9HqWH+qqT0ncaR9TY9ANrIXvdslgj5Aw=="
-    },
-    {
       "name": "Fútbol Libre",
       "package": "io.prismhub.futbollibre",
       "version": "1.0.3",

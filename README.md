@@ -684,7 +684,6 @@ npm run build   # validate + typecheck + esbuild + test
 |-----------|--------|--------|------|--------|
 | **TioAnime** | ES | tioanime.com | Anime | ✅ probada |
 | **JKAnime** | ES | jkanime.net | Anime | ✅ probada |
-| **FuegoCine** | ES | fuegocine.com | Anime/Pelis | ✅ probada |
 | **LaMovie** | ES | lamovie.org | Anime/Pelis | ✅ probada |
 | **ManhwaWeb** | ES | manhwaweb.com | Manhwa | ✅ probada |
 | **Olympus** | ES | olympusxyz.com | Manga | ✅ probada |
