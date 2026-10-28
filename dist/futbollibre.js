@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Fútbol Libre
-// @version      1.0.3
+// @version      1.0.4
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -83,7 +83,13 @@ async function schedule() {
     const liga = (_d = (_c = a.country) == null ? void 0 : _c.data) == null ? void 0 : _d.attributes;
     const imagenLiga = _imagen((_g = (_f = (_e = liga == null ? void 0 : liga.image) == null ? void 0 : _e.data) == null ? void 0 : _f.attributes) == null ? void 0 : _g.url);
     eventos.push({
-      id: String(d.attributes.diary_description.length + startsAt.length) + "-" + _b64(startsAt + a.diary_description).slice(0, 24),
+      // El número propio del sitio. Antes se armaba con la hora y el título en
+      // base64 cortado a 24 caracteres, que alcanzan SOLO para la hora: dos
+      // partidos a la misma hora con títulos del mismo largo chocaban (medido
+      // 2026-10-28: «Argentina vs Ghana» y «Brasil vs Polonia», 13:00), y la
+      // app abría o refrescaba las señales del otro. Lo de antes queda de
+      // respaldo si algún día el sitio no lo manda.
+      id: d.id != null ? String(d.id) : String(d.attributes.diary_description.length + startsAt.length) + "-" + _b64(startsAt + a.diary_description).slice(0, 24),
       title: a.diary_description.replace(/\n+/g, " ").trim(),
       league: liga == null ? void 0 : liga.name,
       leagueImage: imagenLiga,

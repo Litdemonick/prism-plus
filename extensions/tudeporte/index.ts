@@ -117,7 +117,12 @@ export async function schedule(): Promise<PrismLiveEvent[]> {
     const startsAt = `${e.date}T${e.time}:00-05:00`;
     const categoria = e.category.trim();
     eventos.push({
-      id: _b64(`${categoria}|${e.title}|${e.date}|${e.time}`).slice(0, 32),
+      // La clave ENTERA. Cortada a 32 caracteres alcanzaba solo para la
+      // categoría y el principio del título: dos partidos a la misma hora del
+      // mismo torneo chocaban (medido 2026-10-28: «DFB Pokal: Borussia
+      // Dortmund…» y «DFB Pokal: Borussia M'gladbach…»), y la app abría o
+      // refrescaba las señales del otro.
+      id: _b64(`${categoria}|${e.title}|${e.date}|${e.time}`),
       title: e.title.trim(),
       league: categoria || undefined,
       startsAt,

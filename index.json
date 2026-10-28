@@ -59,7 +59,7 @@
     {
       "name": "Fútbol Libre",
       "package": "io.prismhub.futbollibre",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "author": "PrismPlus",
       "type": "live",
       "icon": "",
@@ -68,8 +68,8 @@
       "webSite": "https://futbollibrefullhd.org",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/futbollibre.js",
-      "sha256": "e9e894caf83bb272f5e1e6b7d85391ee3c621775bf975f09e07589ae8ba07bb7",
-      "signature": "TDLPrRvEaYYuqVfWfcYNdvETSLFEvDk9vSJaR2W8wzr2YRFVX8rcWbh6LmSZ1UIQmcZMZopaBl/e5twwoCgvBA=="
+      "sha256": "ea88d875be95bb22f39ac172d59ca1ab2b2af3ab1a42b96812277df9faa17e20",
+      "signature": "0UZjyrTTkEtVGHczb592HDdt6mbKJXZKEHLSH3G8qzUa99uWeUHr0lUuqhSmYWq1CSl89k0jgNZJvAJb7thNCw=="
     },
     {
       "name": "HentaiLA",
@@ -259,7 +259,7 @@
     {
       "name": "TuDeporte",
       "package": "io.prismhub.tudeporte",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "PrismPlus",
       "type": "live",
       "icon": "",
@@ -268,8 +268,8 @@
       "webSite": "https://tudeporte.lat",
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tudeporte.js",
-      "sha256": "4ea216951e5b9436f55c7278028e3b53b89739ac4f5ec6cd67c43debfd4fcdca",
-      "signature": "spxhE4ljwEFT2CJ5wNTcB/9olmL7IwBYBKq+YZRt6GMKv+vAMjvP1TuP4VqGjcsLcuGQmO53743WRm/8Ca4VAg=="
+      "sha256": "d1d2de6fa5ab9fba9083e7e7a28598307dcae20f2a58911087cdc4d270d73d0e",
+      "signature": "8kF/DO0lxjTvRhkGQ9WrlQ4UKVEzMMdtULoqCJBF/1ey5q/tOH5zoRAtdErFg57uCR66aV1p11nTeldrvKqZAg=="
     },
     {
       "name": "TuMangaOnline",

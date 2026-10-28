@@ -97,6 +97,8 @@ let _cacheAgenda: { hasta: number; eventos: PrismLiveEvent[] } | null = null;
 const _AGENDA_TTL_MS = 90_000;
 
 interface _Diary {
+  /** El número propio del partido en el sitio: único (medido, 62 de 62). */
+  id?: number;
   attributes: {
     diary_description: string;
     diary_hour: string;
@@ -150,8 +152,17 @@ export async function schedule(): Promise<PrismLiveEvent[]> {
     const imagenLiga = _imagen(liga?.image?.data?.attributes?.url);
 
     eventos.push({
-      id: String(d.attributes.diary_description.length + startsAt.length) +
-        '-' + _b64(startsAt + a.diary_description).slice(0, 24),
+      // El número propio del sitio. Antes se armaba con la hora y el título en
+      // base64 cortado a 24 caracteres, que alcanzan SOLO para la hora: dos
+      // partidos a la misma hora con títulos del mismo largo chocaban (medido
+      // 2026-10-28: «Argentina vs Ghana» y «Brasil vs Polonia», 13:00), y la
+      // app abría o refrescaba las señales del otro. Lo de antes queda de
+      // respaldo si algún día el sitio no lo manda.
+      id:
+        d.id != null
+          ? String(d.id)
+          : String(d.attributes.diary_description.length + startsAt.length) +
+            '-' + _b64(startsAt + a.diary_description).slice(0, 24),
       title: a.diary_description.replace(/\n+/g, ' ').trim(),
       league: liga?.name,
       leagueImage: imagenLiga,
