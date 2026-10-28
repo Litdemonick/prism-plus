@@ -118,6 +118,7 @@ export const SERVIDORES: Servidor[] = [
     botones: 199,
     nativo: true,
     resolver: vidhide.resolver,
+    estaVivo: vidhide.estaVivo,
   },
   {
     boton: 'Netu',

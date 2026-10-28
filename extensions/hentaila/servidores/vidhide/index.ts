@@ -31,3 +31,48 @@ export async function resolver(url: string, referer: string): Promise<ServidorRe
   const host = hostDe(url);
   return buscarDireccion(html, host ? { Referer: `https://${host}/` } : undefined);
 }
+
+/**
+ * Una dirección de la lista, completa. Sin `new URL`: el motor de JS de la app
+ * no lo tiene (ya rompió una extensión en vivo).
+ */
+function _resolver(rel: string, base: string): string {
+  if (/^https?:\/\//i.test(rel)) return rel;
+  const origen = /^(https?:\/\/[^/]+)/i.exec(base)?.[1] ?? '';
+  if (rel.startsWith('/')) return origen + rel;
+  const sinConsulta = base.split('?')[0];
+  return sinConsulta.slice(0, sinConsulta.lastIndexOf('/') + 1) + rel;
+}
+
+/**
+ * Si el vídeo sigue en VidHide: true sí, false no, null no se sabe.
+ *
+ * Medido el 2026-10-28 (37 obras): cuando el vídeo ya no está, VidHide NO da
+ * error — entrega una lista de reproducción de mentira, de unos 7 pedazos, que
+ * contestan 403. Los vídeos de verdad traen 160 o más y contestan bien. Se
+ * baja la lista (y la variante, si es una maestra) y se pide UN byte del primer
+ * pedazo: 403 es «no está».
+ */
+export async function estaVivo(url: string, referer: string): Promise<boolean | null> {
+  const r = await resolver(url, referer);
+  if (!r) return null;
+  const cab = r.headers;
+  let lista = await pedir(r.url, referer, cab);
+  if (!lista || lista.indexOf('#EXTM3U') === -1) return null;
+  let base = r.url;
+  const primera = (texto: string) =>
+    texto.split('\n').map((l) => l.trim()).find((l) => l && l[0] !== '#') ?? null;
+  if (lista.indexOf('#EXT-X-STREAM-INF') !== -1) {
+    const variante = primera(lista);
+    if (!variante) return null;
+    base = _resolver(variante, base);
+    lista = await pedir(base, referer, cab);
+    if (!lista) return null;
+  }
+  const pedazo = primera(lista);
+  if (!pedazo) return null;
+  const byte = await pedir(_resolver(pedazo, base), referer, { ...cab, Range: 'bytes=0-0' });
+  if (byte === null) return null;
+  // El rechazo es una página de error chica; un pedazo real devuelve 1 byte.
+  return byte.length <= 4;
+}

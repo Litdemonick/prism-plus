@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         HentaiLA
-// @version      1.0.9
+// @version      1.0.10
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -12,6 +12,8 @@
 // @description  Hentai en español con catálogo completo, filtros por género y varios servidores por episodio (contenido +18).
 // ==/PrismHubExtension==
 var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
 var __getOwnPropSymbols = Object.getOwnPropertySymbols;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __propIsEnum = Object.prototype.propertyIsEnumerable;
@@ -27,6 +29,7 @@ var __spreadValues = (a, b) => {
     }
   return a;
 };
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
 
 // sdk/http.ts
 var DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -283,6 +286,38 @@ async function resolver4(url, referer) {
   const host = hostDe(url);
   return buscarDireccion(html, host ? { Referer: `https://${host}/` } : void 0);
 }
+function _resolver(rel, base) {
+  var _a, _b;
+  if (/^https?:\/\//i.test(rel)) return rel;
+  const origen = (_b = (_a = /^(https?:\/\/[^/]+)/i.exec(base)) == null ? void 0 : _a[1]) != null ? _b : "";
+  if (rel.startsWith("/")) return origen + rel;
+  const sinConsulta = base.split("?")[0];
+  return sinConsulta.slice(0, sinConsulta.lastIndexOf("/") + 1) + rel;
+}
+async function estaVivo2(url, referer) {
+  const r = await resolver4(url, referer);
+  if (!r) return null;
+  const cab = r.headers;
+  let lista = await pedir(r.url, referer, cab);
+  if (!lista || lista.indexOf("#EXTM3U") === -1) return null;
+  let base = r.url;
+  const primera = (texto) => {
+    var _a;
+    return (_a = texto.split("\n").map((l) => l.trim()).find((l) => l && l[0] !== "#")) != null ? _a : null;
+  };
+  if (lista.indexOf("#EXT-X-STREAM-INF") !== -1) {
+    const variante = primera(lista);
+    if (!variante) return null;
+    base = _resolver(variante, base);
+    lista = await pedir(base, referer, cab);
+    if (!lista) return null;
+  }
+  const pedazo = primera(lista);
+  if (!pedazo) return null;
+  const byte = await pedir(_resolver(pedazo, base), referer, __spreadProps(__spreadValues({}, cab), { Range: "bytes=0-0" }));
+  if (byte === null) return null;
+  return byte.length <= 4;
+}
 
 // extensions/hentaila/servidores/vip/index.ts
 function _lista(url) {
@@ -295,7 +330,7 @@ async function resolver5(url) {
   const lista = _lista(url);
   return lista ? { url: lista } : null;
 }
-async function estaVivo2(url) {
+async function estaVivo3(url) {
   const lista = _lista(url);
   if (!lista) return null;
   const texto = await pedir(lista, url);
@@ -364,7 +399,7 @@ async function resolver6(url, referer) {
   if (m) return { url: m[0] };
   return null;
 }
-async function estaVivo3(url, referer) {
+async function estaVivo4(url, referer) {
   const html = await pedir(url, referer);
   if (!html) return null;
   if (/<title>\s*404\s*-\s*Not found/i.test(html)) return false;
@@ -387,7 +422,7 @@ async function resolver7(url, referer) {
   if (m) return { url: `https:${m[1]}`, headers: hdrs };
   return null;
 }
-async function estaVivo4(url, referer) {
+async function estaVivo5(url, referer) {
   var _a;
   const html = await pedir(url, referer);
   if (!html) return null;
@@ -409,7 +444,7 @@ var SERVIDORES = [
     botones: 200,
     nativo: true,
     resolver: resolver7,
-    estaVivo: estaVivo4
+    estaVivo: estaVivo5
   },
   {
     boton: "Voe",
@@ -417,7 +452,7 @@ var SERVIDORES = [
     botones: 200,
     nativo: true,
     resolver: resolver6,
-    estaVivo: estaVivo3
+    estaVivo: estaVivo4
   },
   {
     boton: "MP4Upload",
@@ -436,14 +471,15 @@ var SERVIDORES = [
     botones: 200,
     nativo: true,
     resolver: resolver5,
-    estaVivo: estaVivo2
+    estaVivo: estaVivo3
   },
   {
     boton: "VidHide",
     hosts: ["ryderjet", "vidhide", "vhide"],
     botones: 199,
     nativo: true,
-    resolver: resolver4
+    resolver: resolver4,
+    estaVivo: estaVivo2
   },
   {
     boton: "Netu",
