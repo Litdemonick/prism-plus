@@ -158,7 +158,7 @@
     {
       "name": "MangaDex",
       "package": "io.prismhub.mangadex",
-      "version": "1.0.7",
+      "version": "1.0.8",
       "author": "PrismPlus",
       "type": "manga",
       "icon": "",
@@ -168,8 +168,8 @@
       "license": "MIT",
       "latestLabel": "ultimas-actualizaciones",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/mangadex.js",
-      "sha256": "1634237435204ce50f2341f675917e3d1ec5262ea0f5bb0a84d18a764f793d6e",
-      "signature": "V+LynnziFRN5KDj/pG3m2UP7bypcAP1QGBDEqbHgZuYfKqecPcB8k9RmlDAHLQ0ku28B4k8uOWUlTbIBFvrkBw=="
+      "sha256": "5e2e08b0f05c11765d88d73944820a7fdc3c7ff0259337424c57a6536c6bfcc4",
+      "signature": "806BdDvpbOi15oPQ7PDKPKBZi1CGmmB/pILFdIDA5CSTJniqI9BQlqF7x9XSDQKbgWi6gRCIvpIGJTFrMBHeCg=="
     },
     {
       "name": "ManhwaWeb",

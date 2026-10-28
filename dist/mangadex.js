@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         MangaDex
-// @version      1.0.7
+// @version      1.0.8
 // @author       PrismPlus
 // @lang         multi
 // @license      MIT
@@ -408,14 +408,62 @@ function _lista(entradas, conIdioma) {
   }
   return salida;
 }
+var _PRINCIPAL = "https://uploads.mangadex.org";
+async function _anda(direccion) {
+  try {
+    const b = await sendMessage(
+      "request",
+      JSON.stringify([direccion, { method: "get", headers: { Range: "bytes=0-0" } }])
+    );
+    return b.length > 0 && b.length <= 4;
+  } catch (e) {
+    return false;
+  }
+}
+function _avisarFalla(direccion) {
+  if (direccion.indexOf("mangadex.org") !== -1) return;
+  sendMessage(
+    "request",
+    JSON.stringify([
+      "https://api.mangadex.network/report",
+      {
+        method: "post",
+        headers: { "Content-Type": "application/json" },
+        data: { url: direccion, success: false, bytes: 0, duration: 0, cached: false }
+      }
+    ])
+  ).catch(() => {
+  });
+}
+async function _servidorAnda(base, hash, paginas) {
+  const muestra = [.../* @__PURE__ */ new Set([paginas[0], paginas[paginas.length >> 1], paginas[paginas.length - 1]])];
+  const direcciones = muestra.map((p) => `${base}/data/${hash}/${p}`);
+  const resultados = await Promise.all(direcciones.map(_anda));
+  resultados.forEach((ok, i) => {
+    if (!ok) _avisarFalla(direcciones[i]);
+  });
+  return resultados.every((ok) => ok);
+}
 async function watch(url) {
   var _a, _b, _c;
-  const r = await _get(`/at-home/server/${url.trim()}`);
-  const base = r.baseUrl;
+  const id = url.trim();
+  let r = await _get(`/at-home/server/${id}`);
   const hash = (_a = r.chapter) == null ? void 0 : _a.hash;
   const paginas = (_c = (_b = r.chapter) == null ? void 0 : _b.data) != null ? _c : [];
-  if (!base || !hash || !paginas.length) {
+  if (!r.baseUrl || !hash || !paginas.length) {
     return { urls: [] };
+  }
+  let base = r.baseUrl;
+  if (!await _servidorAnda(base, hash, paginas)) {
+    console.log(`[md] el servidor ${base} no da las p\xE1ginas, se pide otro`);
+    r = await _get(`/at-home/server/${id}`).catch(() => ({}));
+    const otro = r.baseUrl;
+    if (otro && otro !== base && await _servidorAnda(otro, hash, paginas)) {
+      base = otro;
+    } else {
+      console.log("[md] tampoco el siguiente: se usa el servidor principal");
+      base = _PRINCIPAL;
+    }
   }
   return { urls: paginas.map((p) => `${base}/data/${hash}/${p}`) };
 }

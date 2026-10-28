@@ -634,18 +634,93 @@ function _lista(entradas: Capitulo[], conIdioma: boolean): PrismEpisode[] {
  * Medido: las imágenes bajan con 200 y sin ninguna cabecera especial — ni
  * Referer hace falta.
  */
+//
+// ── El servidor que toca puede estar enfermo (medido 2026-10-28) ──────────────
+//
+// `/at-home/server` reparte entre nodos de voluntarios (MangaDex@Home,
+// `*.mangadex.network`). Uno de ellos negaba con 404 la mayoría de las páginas
+// de One Piece: 10 de 23, 0 de 16 y 12 de 13 en tres capítulos. Las mismas
+// páginas en el servidor principal (`uploads.mangadex.org`) bajaban con 200.
+// Rato después, el mismo nodo ya las daba: anda a ratos.
+//
+// Lo que manda la documentación oficial ante una imagen que falla: pedir de
+// nuevo `/at-home/server` (puede tocar otro nodo) y avisar la falla a
+// `api.mangadex.network/report` para que sepan que ese nodo anda mal. La app
+// no puede volver a preguntar imagen por imagen, así que se hace acá, al abrir:
+// se prueban tres páginas (primera, del medio y última) pidiendo un solo byte;
+// si alguna falla, se avisa y se pide otro servidor; si ese también falla, se
+// usa el principal, que es un servidor válido de la misma API.
+
+type _AtHome = {
+  baseUrl?: string;
+  chapter?: { hash?: string; data?: string[]; dataSaver?: string[] };
+};
+
+const _PRINCIPAL = 'https://uploads.mangadex.org';
+
+/** Un byte de la imagen: una imagen buena devuelve eso; una que falta, texto
+ *  de error o nada. */
+async function _anda(direccion: string): Promise<boolean> {
+  try {
+    const b = await sendMessage(
+      'request',
+      JSON.stringify([direccion, { method: 'get', headers: { Range: 'bytes=0-0' } }]),
+    );
+    return b.length > 0 && b.length <= 4;
+  } catch {
+    return false;
+  }
+}
+
+/** Aviso a MangaDex de una imagen que no bajó (lo pide su documentación). Sin
+ *  esperar ni quejarse si falla: no puede frenar la lectura. */
+function _avisarFalla(direccion: string): void {
+  if (direccion.indexOf('mangadex.org') !== -1) return; // el principal no se avisa
+  sendMessage(
+    'request',
+    JSON.stringify([
+      'https://api.mangadex.network/report',
+      {
+        method: 'post',
+        headers: { 'Content-Type': 'application/json' },
+        data: { url: direccion, success: false, bytes: 0, duration: 0, cached: false },
+      },
+    ]),
+  ).catch(() => {});
+}
+
+/** Si las tres páginas de muestra bajan desde [base]. Avisa las que no. */
+async function _servidorAnda(base: string, hash: string, paginas: string[]): Promise<boolean> {
+  const muestra = [...new Set([paginas[0], paginas[paginas.length >> 1], paginas[paginas.length - 1]])];
+  const direcciones = muestra.map((p) => `${base}/data/${hash}/${p}`);
+  const resultados = await Promise.all(direcciones.map(_anda));
+  resultados.forEach((ok, i) => {
+    if (!ok) _avisarFalla(direcciones[i]);
+  });
+  return resultados.every((ok) => ok);
+}
+
 export async function watch(url: string): Promise<PrismMangaWatch> {
-  const r = await _get<{
-    baseUrl?: string;
-    chapter?: { hash?: string; data?: string[]; dataSaver?: string[] };
-  }>(`/at-home/server/${url.trim()}`);
-  const base = r.baseUrl;
+  const id = url.trim();
+  let r = await _get<_AtHome>(`/at-home/server/${id}`);
   const hash = r.chapter?.hash;
   const paginas = r.chapter?.data ?? [];
-  if (!base || !hash || !paginas.length) {
+  if (!r.baseUrl || !hash || !paginas.length) {
     // Devolver una lista vacía es mejor que inventar direcciones: la app
     // avisa que el capítulo no tiene páginas en vez de mostrar huecos rotos.
     return { urls: [] };
+  }
+  let base = r.baseUrl;
+  if (!(await _servidorAnda(base, hash, paginas))) {
+    console.log(`[md] el servidor ${base} no da las páginas, se pide otro`);
+    r = await _get<_AtHome>(`/at-home/server/${id}`).catch(() => ({}) as _AtHome);
+    const otro = r.baseUrl;
+    if (otro && otro !== base && (await _servidorAnda(otro, hash, paginas))) {
+      base = otro;
+    } else {
+      console.log('[md] tampoco el siguiente: se usa el servidor principal');
+      base = _PRINCIPAL;
+    }
   }
   return { urls: paginas.map((p) => `${base}/data/${hash}/${p}`) };
 }
