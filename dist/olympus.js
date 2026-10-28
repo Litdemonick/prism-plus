@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         Olympus
-// @version      1.2.14
+// @version      1.2.15
 // @author       PrismPlus
 // @lang         es
 // @license      MIT
@@ -13,7 +13,6 @@
 // ==/PrismHubExtension==
 // extensions/olympus/index.ts
 var BASE = "https://olympusxyz.com";
-var BACKEND = "https://panel.olympusxyz.com";
 var _TILDES = {
   \u00E1: "a",
   \u00E9: "e",
@@ -57,11 +56,17 @@ async function latest(page) {
   });
 }
 var _listCache = null;
-async function _fullList() {
-  if (_listCache) return _listCache;
+var _listCacheEn = 0;
+var _VIDA_DE_LA_LISTA = 30 * 60 * 1e3;
+async function _fullList(renovar = false) {
+  if (_listCache && !renovar && Date.now() - _listCacheEn < _VIDA_DE_LA_LISTA) return _listCache;
   const d = await _get(`${BASE}/api/series/list`);
-  _listCache = d.data || [];
-  return _listCache;
+  const lista = Array.isArray(d == null ? void 0 : d.data) ? d.data : [];
+  if (lista.length) {
+    _listCache = lista;
+    _listCacheEn = Date.now();
+  }
+  return _listCache != null ? _listCache : lista;
 }
 async function search(keyword, page, filter) {
   var _a, _b, _c, _d, _e, _f;
@@ -138,13 +143,18 @@ async function top(filter, page) {
 }
 async function _allChapters(slug) {
   var _a, _b;
-  const url = (page) => `${BACKEND}/api/series/${encodeURIComponent(slug)}/chapters?page=${page}&direction=asc&type=comic`;
+  const url = (page) => `${BASE}/api/series/${encodeURIComponent(slug)}/chapters?page=${page}&direction=asc&type=comic`;
   const first = await _get(url(1));
   const all = [...Array.isArray(first.data) ? first.data : []];
   const lastPage = (_b = (_a = first.meta) == null ? void 0 : _a.last_page) != null ? _b : 1;
-  for (let page = 2; page <= lastPage; page++) {
-    const d = await _get(url(page));
-    all.push(...Array.isArray(d.data) ? d.data : []);
+  const _TANDA = 4;
+  for (let desde = 2; desde <= lastPage; desde += _TANDA) {
+    const paginas = [];
+    for (let p = desde; p < desde + _TANDA && p <= lastPage; p++) paginas.push(p);
+    const tanda = await Promise.all(
+      paginas.map((p) => _get(url(p)))
+    );
+    for (const d of tanda) all.push(...Array.isArray(d == null ? void 0 : d.data) ? d.data : []);
   }
   return all;
 }
@@ -152,11 +162,12 @@ function _slugBase(slug) {
   return slug.replace(/-\d{8}-\d{6,}$/, "");
 }
 async function _resolveCurrentSlug(oldSlug) {
+  var _a;
   try {
-    const list = await _get(`${BASE}/api/series/list`);
     const base = _slugBase(oldSlug);
-    const hit = ((list == null ? void 0 : list.data) || []).find((s) => s && _slugBase(s.slug) === base);
-    return hit && hit.slug !== oldSlug ? hit.slug : null;
+    const buscar = (lista) => lista.find((s) => s && _slugBase(s.slug) === base && s.slug !== oldSlug);
+    const hit = (_a = buscar(await _fullList())) != null ? _a : buscar(await _fullList(true));
+    return hit ? hit.slug : null;
   } catch (e) {
     return null;
   }
@@ -189,7 +200,8 @@ async function detail(slug) {
   const statusName = (((_a = s["status"]) == null ? void 0 : _a.name) || "").toLowerCase();
   const status = statusName.includes("activo") ? "ongoing" : statusName.includes("final") ? "completed" : statusName.includes("pausa") || statusName.includes("hiatus") ? "hiatus" : void 0;
   const chapters = await _allChapters(slug);
-  const episodes = chapters.filter((c) => c && c.name != null && c.id != null).map((c) => ({
+  const vistos = /* @__PURE__ */ new Set();
+  const episodes = chapters.filter((c) => c && c.name != null && c.id != null).filter((c) => !vistos.has(String(c.name)) && !!vistos.add(String(c.name))).map((c) => ({
     // El endpoint de lectura necesita slug + id del capítulo — viajan
     // juntos en la url ya que watch() solo recibe este string.
     title: `Cap\xEDtulo ${c.name}`,
@@ -198,13 +210,40 @@ async function detail(slug) {
   }));
   return { title, cover, description, episodes, genres, status };
 }
+var _numeros = /* @__PURE__ */ new Map();
+var _TOPE_DE_OBRAS = 20;
+async function _numeroDelCapitulo(slug, id) {
+  var _a;
+  let deLaObra = _numeros.get(slug);
+  if (!deLaObra || !deLaObra.has(id)) {
+    const todos = await _allChapters(slug);
+    deLaObra = new Map(todos.map((c) => [String(c.id), String(c.name)]));
+    _numeros.delete(slug);
+    _numeros.set(slug, deLaObra);
+    while (_numeros.size > _TOPE_DE_OBRAS) {
+      _numeros.delete(_numeros.keys().next().value);
+    }
+  }
+  return (_a = deLaObra.get(id)) != null ? _a : null;
+}
 async function watch(chapterId) {
   var _a;
   const sep = chapterId.indexOf("::");
-  const slug = sep === -1 ? "" : chapterId.slice(0, sep);
+  let slug = sep === -1 ? "" : chapterId.slice(0, sep);
   const id = sep === -1 ? chapterId : chapterId.slice(sep + 2);
+  let numero = await _numeroDelCapitulo(slug, id);
+  if (numero === null) {
+    const actual = await _resolveCurrentSlug(slug);
+    if (actual) {
+      slug = actual;
+      numero = await _numeroDelCapitulo(slug, id);
+    }
+  }
+  if (numero === null) {
+    throw new Error("Olympus ya no tiene este cap\xEDtulo");
+  }
   const d = await _get(
-    `${BASE}/api/capitulo/${encodeURIComponent(slug)}/${encodeURIComponent(id)}?type=comic`
+    `${BASE}/api/capitulo/${encodeURIComponent(slug)}/${encodeURIComponent(numero)}?type=comic`
   );
   return { urls: ((_a = d.chapter) == null ? void 0 : _a.pages) || [] };
 }

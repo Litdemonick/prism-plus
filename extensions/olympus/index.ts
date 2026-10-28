@@ -5,8 +5,9 @@ import type { PrismItem, PrismDetail, PrismMangaWatch } from '../../sdk/types';
 declare function sendMessage(channel: string, data: string): Promise<string>;
 
 const BASE = 'https://olympusxyz.com';
-// El listado de capítulos vive en el backend directo (no en el proxy del front).
-const BACKEND = 'https://panel.olympusxyz.com';
+// El listado de capítulos vivía en un backend aparte (panel.olympusxyz.com).
+// Ese servidor desapareció (2026-10-27: ni resuelve el nombre) y el sitio
+// principal ahora sirve la misma ruta. Todo va por BASE.
 
 // La búsqueda por texto compara por substring exacto (`.includes`), y el
 // título real lleva tildes ("Me Case con la Dragona que Maté") mientras que
@@ -79,12 +80,24 @@ export async function latest(page: number): Promise<PrismItem[]> {
 // hace fuzzy-search client-side sobre /api/series/list (~850 series completas).
 // Replicamos eso: sin keyword usamos el listado paginado con filtros, con
 // keyword pedimos la lista completa una vez (cacheada) y filtramos localmente.
+//
+// Medido (2026-10-27): esa lista tarda entre 6 y 20 s en llegar (179 KB, el
+// sitio la arma en cada pedido: Cloudflare no la guarda). Por eso se guarda
+// acá, pero con vencimiento: antes quedaba para siempre (las obras nuevas no
+// aparecían en la búsqueda hasta reabrir la app) y también se guardaba vacía
+// si el pedido fallaba, dejando la búsqueda muerta toda la sesión.
 let _listCache: OlympusListItem[] | null = null;
-async function _fullList(): Promise<OlympusListItem[]> {
-  if (_listCache) return _listCache;
+let _listCacheEn = 0;
+const _VIDA_DE_LA_LISTA = 30 * 60 * 1000;
+async function _fullList(renovar = false): Promise<OlympusListItem[]> {
+  if (_listCache && !renovar && Date.now() - _listCacheEn < _VIDA_DE_LA_LISTA) return _listCache;
   const d = await _get<{ data: OlympusListItem[] }>(`${BASE}/api/series/list`);
-  _listCache = d.data || [];
-  return _listCache;
+  const lista = Array.isArray(d?.data) ? d.data : [];
+  if (lista.length) {
+    _listCache = lista;
+    _listCacheEn = Date.now();
+  }
+  return _listCache ?? lista;
 }
 
 export async function search(
@@ -214,7 +227,7 @@ export async function top(
 
 async function _allChapters(slug: string): Promise<OlympusChapterRef[]> {
   const url = (page: number) =>
-    `${BACKEND}/api/series/${encodeURIComponent(slug)}/chapters?page=${page}&direction=asc&type=comic`;
+    `${BASE}/api/series/${encodeURIComponent(slug)}/chapters?page=${page}&direction=asc&type=comic`;
   const first = await _get<{ data: OlympusChapterRef[]; meta?: { last_page?: number } }>(url(1));
   // Array.isArray y no solo `|| []`: un 404 de esta ruta también puede traer
   // un `data` que no es la lista (ver el porqué largo en `_esSerieValida`,
@@ -224,9 +237,17 @@ async function _allChapters(slug: string): Promise<OlympusChapterRef[]> {
   // ya manejado acá.
   const all = [...(Array.isArray(first.data) ? first.data : [])];
   const lastPage = first.meta?.last_page ?? 1;
-  for (let page = 2; page <= lastPage; page++) {
-    const d = await _get<{ data: OlympusChapterRef[] }>(url(page));
-    all.push(...(Array.isArray(d.data) ? d.data : []));
+  // De a varias páginas a la vez: una por una, una obra de 200 capítulos
+  // tardaba hasta 29 s en abrir la ficha (medido, 2026-10-27). El orden se
+  // conserva porque cada tanda se agrega en el orden en que se pidió.
+  const _TANDA = 4;
+  for (let desde = 2; desde <= lastPage; desde += _TANDA) {
+    const paginas: number[] = [];
+    for (let p = desde; p < desde + _TANDA && p <= lastPage; p++) paginas.push(p);
+    const tanda = await Promise.all(
+      paginas.map(p => _get<{ data: OlympusChapterRef[] }>(url(p))),
+    );
+    for (const d of tanda) all.push(...(Array.isArray(d?.data) ? d.data : []));
   }
   return all;
 }
@@ -245,10 +266,13 @@ function _slugBase(slug: string): string {
 // viejo. Devuelve null si no aparece (obra borrada del sitio).
 async function _resolveCurrentSlug(oldSlug: string): Promise<string | null> {
   try {
-    const list = await _get<{ data: OlympusListItem[] }>(`${BASE}/api/series/list`);
     const base = _slugBase(oldSlug);
-    const hit = (list?.data || []).find(s => s && _slugBase(s.slug) === base);
-    return hit && hit.slug !== oldSlug ? hit.slug : null;
+    const buscar = (lista: OlympusListItem[]) =>
+      lista.find(s => s && _slugBase(s.slug) === base && s.slug !== oldSlug);
+    // Primero la lista ya guardada; si ahí no está, puede ser que el cambio
+    // de nombre sea posterior a guardarla, así que se pide de nuevo.
+    const hit = buscar(await _fullList()) ?? buscar(await _fullList(true));
+    return hit ? hit.slug : null;
   } catch {
     return null;
   }
@@ -337,8 +361,14 @@ export async function detail(slug: string): Promise<PrismDetail> {
   // Mismo criterio que con los géneros: un capítulo roto (null, o sin
   // name/id) no debe tumbar el detalle entero — se descarta y el resto
   // sigue funcionando.
+  // El sitio a veces tiene el mismo capítulo subido dos veces (mismo
+  // número, otro id, segundos de diferencia: medido en «El Antiguo Soberano
+  // Marcial», 58 y 84). Como la lectura va por número, los dos abren lo
+  // mismo: se deja solo el primero.
+  const vistos = new Set<string>();
   const episodes = chapters
     .filter(c => c && c.name != null && c.id != null)
+    .filter(c => !vistos.has(String(c.name)) && !!vistos.add(String(c.name)))
     .map(c => ({
       // El endpoint de lectura necesita slug + id del capítulo — viajan
       // juntos en la url ya que watch() solo recibe este string.
@@ -350,12 +380,54 @@ export async function detail(slug: string): Promise<PrismDetail> {
   return { title, cover, description, episodes, genres, status };
 }
 
+// ── Las páginas se piden por el NÚMERO del capítulo, no por su id ────────
+//
+// Medido (2026-10-27): `/api/capitulo/<obra>/<id>` contesta «Chapter not
+// found» para TODOS los capítulos; el sitio ahora pide
+// `/api/capitulo/<obra>/<número>` (el número de la ruta, «199», «0»).
+//
+// El capítulo se sigue guardando como «obra::id» A PROPÓSITO: es lo que ya
+// tienen el historial y las descargas de cada usuario, y cambiarlo haría que
+// los capítulos ya bajados dejaran de reconocerse. Así que al leer se busca
+// el número de ese id en la lista de capítulos de la obra (que el sitio da
+// con id y número), guardada en memoria para no pedirla en cada capítulo.
+const _numeros = new Map<string, Map<string, string>>();
+const _TOPE_DE_OBRAS = 20;
+
+async function _numeroDelCapitulo(slug: string, id: string): Promise<string | null> {
+  let deLaObra = _numeros.get(slug);
+  if (!deLaObra || !deLaObra.has(id)) {
+    const todos = await _allChapters(slug);
+    deLaObra = new Map(todos.map(c => [String(c.id), String(c.name)]));
+    _numeros.delete(slug);
+    _numeros.set(slug, deLaObra);
+    // Que no crezca: se van las obras leídas hace más tiempo.
+    while (_numeros.size > _TOPE_DE_OBRAS) {
+      _numeros.delete(_numeros.keys().next().value as string);
+    }
+  }
+  return deLaObra.get(id) ?? null;
+}
+
 export async function watch(chapterId: string): Promise<PrismMangaWatch> {
   const sep = chapterId.indexOf('::');
-  const slug = sep === -1 ? '' : chapterId.slice(0, sep);
+  let slug = sep === -1 ? '' : chapterId.slice(0, sep);
   const id = sep === -1 ? chapterId : chapterId.slice(sep + 2);
+  let numero = await _numeroDelCapitulo(slug, id);
+  // La obra pudo cambiar de dirección (Olympus le renueva la marca de tiempo
+  // al slug): se busca la vigente, y el id del capítulo sigue siendo el mismo.
+  if (numero === null) {
+    const actual = await _resolveCurrentSlug(slug);
+    if (actual) {
+      slug = actual;
+      numero = await _numeroDelCapitulo(slug, id);
+    }
+  }
+  if (numero === null) {
+    throw new Error('Olympus ya no tiene este capítulo');
+  }
   const d = await _get<{ chapter?: { pages?: string[] } }>(
-    `${BASE}/api/capitulo/${encodeURIComponent(slug)}/${encodeURIComponent(id)}?type=comic`,
+    `${BASE}/api/capitulo/${encodeURIComponent(slug)}/${encodeURIComponent(numero)}?type=comic`,
   );
   return { urls: d.chapter?.pages || [] };
 }

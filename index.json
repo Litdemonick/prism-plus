@@ -208,7 +208,7 @@
     {
       "name": "Olympus",
       "package": "io.prismhub.olympus",
-      "version": "1.2.14",
+      "version": "1.2.15",
       "author": "PrismPlus",
       "type": "manga",
       "icon": "",
@@ -218,10 +218,8 @@
       "license": "MIT",
       "latestLabel": "nuevos-lanzamientos",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/olympus.js",
-      "sha256": "cdd1d7695f810492caaebf2691b232448515a71417c495caf0823e1e51ac1831",
-      "signature": "VvnTIr4fgpgV5KEkrHF1+4UlTCgRtN8Re9ZbNwZ4YkodJHdwvPSxFPNzzOdEDqteTDjBbCO0lRikfVpEx/cXDg==",
-      "unstable": true,
-      "unstableReason": "site-down"
+      "sha256": "dc8234fdb2ba815b2decf4afeec9f39d15aca35434497e4305120bd0030a101c",
+      "signature": "LIoZWdyBZjXJ7dPIwCAw02P/IPHxSQ2SH27Um1maNmgnYc77/4BKwFXpVKkLGMZ45xJoqqJb/FPBhbmusCTIAg=="
     },
     {
       "name": "Pornhub",
