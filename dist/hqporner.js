@@ -1,6 +1,6 @@
 // ==PrismHubExtension==
 // @name         HQPorner
-// @version      1.0.5
+// @version      1.0.6
 // @author       PrismPlus
 // @lang         en
 // @license      MIT
@@ -408,8 +408,16 @@ async function watch(url) {
     });
   }
   if (streams.length === 0) return { streams: [], pageUrl: url };
-  streams.sort((a, b) => _altura(b.quality) - _altura(a.quality));
+  streams.sort((a, b) => _ordenDeCalidad(a.quality) - _ordenDeCalidad(b.quality));
   return { streams, pageUrl: url };
+}
+function _ordenDeCalidad(etiqueta) {
+  const h = _altura(etiqueta);
+  const de60 = /p60|60\s*fps/i.test(etiqueta || "") ? 0.5 : 0;
+  const preferidas = [720, 1080, 1440, 2160];
+  const i = preferidas.indexOf(h);
+  if (i >= 0) return i * 2 + de60;
+  return 100 + (5e3 - h) / 100 + de60;
 }
 function _altura(etiqueta) {
   const m = /(\d{3,4})/.exec(etiqueta || "");

@@ -91,7 +91,7 @@
     {
       "name": "HQPorner",
       "package": "io.prismhub.hqporner",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": "PrismPlus",
       "type": "bangumi",
       "icon": "",
@@ -102,8 +102,8 @@
       "nsfw": "true",
       "latestLabel": "lo-mas-reciente",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/hqporner.js",
-      "sha256": "9c4744aa165bb6d31920679a2b9f06d784b54073204092c41aa7b9017932b194",
-      "signature": "u9AbXtTh9FI/4pXACGQ0DiSyQSEhnp4FkZ8v9ND04fdHwzng5zd7XabhskTjCwyKOHlPgQQauKXAX+jLkN3xCw=="
+      "sha256": "f28fc213c94817245b7a5a7dfb9a16e49943f36e868a9c9309ad1955407ba537",
+      "signature": "srL4+br+BN5oMpA9hkL6mJ2x42hS9np0vHopJ6WYiTeXMTKj1zxO4ds4tRsS+LoohEMy/nzUYP7O2mLvKUnLCg=="
     },
     {
       "name": "Ikigai Mangas",

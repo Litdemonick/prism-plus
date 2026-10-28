@@ -335,10 +335,27 @@ export async function watch(url: string): Promise<PrismWatch> {
 
   if (streams.length === 0) return { streams: [], pageUrl: url };
 
-  // De mayor a menor: el cliente toma la primera como predeterminada y en el
-  // HTML vienen al reves (360 primero).
-  streams.sort((a, b) => _altura(b.quality) - _altura(a.quality));
+  // **Cuál abre primero** (el cliente toma la primera): 720p, igual que en
+  // eporner. Antes iba la más alta, 1080p en casi todos (medido 2026-10-28: 19
+  // de 22 vídeos), que tarda más en juntar colchón en un teléfono. Después
+  // 1080p y las de 60 cuadros; al final las más bajas. La app las muestra
+  // igual de mayor a menor en la lista.
+  streams.sort((a, b) => _ordenDeCalidad(a.quality) - _ordenDeCalidad(b.quality));
   return { streams, pageUrl: url };
+}
+
+/**
+ * Menor = antes. Copiado de eporner (2026-10-28): 720p y 1080p primero (sin 60
+ * cuadros antes que con), después las más altas y al final las más bajas, de
+ * mayor a menor. Acá los 60 cuadros vienen como «720p60».
+ */
+function _ordenDeCalidad(etiqueta: string | undefined): number {
+  const h = _altura(etiqueta);
+  const de60 = /p60|60\s*fps/i.test(etiqueta || '') ? 0.5 : 0;
+  const preferidas = [720, 1080, 1440, 2160];
+  const i = preferidas.indexOf(h);
+  if (i >= 0) return i * 2 + de60;
+  return 100 + (5000 - h) / 100 + de60;
 }
 
 /** "1080p60" -> 1080, para poder ordenar las calidades. */
