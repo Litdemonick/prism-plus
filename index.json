@@ -269,9 +269,7 @@
       "license": "MIT",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/tudeporte.js",
       "sha256": "d1d2de6fa5ab9fba9083e7e7a28598307dcae20f2a58911087cdc4d270d73d0e",
-      "signature": "8kF/DO0lxjTvRhkGQ9WrlQ4UKVEzMMdtULoqCJBF/1ey5q/tOH5zoRAtdErFg57uCR66aV1p11nTeldrvKqZAg==",
-      "unstable": true,
-      "unstableReason": "broken"
+      "signature": "8kF/DO0lxjTvRhkGQ9WrlQ4UKVEzMMdtULoqCJBF/1ey5q/tOH5zoRAtdErFg57uCR66aV1p11nTeldrvKqZAg=="
     },
     {
       "name": "TuMangaOnline",
