@@ -169,9 +169,7 @@
       "latestLabel": "ultimas-actualizaciones",
       "script": "https://raw.githubusercontent.com/Litdemonick/prism-plus/main/dist/mangadex.js",
       "sha256": "5e2e08b0f05c11765d88d73944820a7fdc3c7ff0259337424c57a6536c6bfcc4",
-      "signature": "806BdDvpbOi15oPQ7PDKPKBZi1CGmmB/pILFdIDA5CSTJniqI9BQlqF7x9XSDQKbgWi6gRCIvpIGJTFrMBHeCg==",
-      "unstable": true,
-      "unstableReason": "site-down"
+      "signature": "806BdDvpbOi15oPQ7PDKPKBZi1CGmmB/pILFdIDA5CSTJniqI9BQlqF7x9XSDQKbgWi6gRCIvpIGJTFrMBHeCg=="
     },
     {
       "name": "ManhwaWeb",
